@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lango Whiteboard — Host</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@600;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app" class="lango-host">
+    <nav class="flow-steps" id="flow-steps" aria-label="Progress">
+      <span class="step" data-step="login">1 Login</span>
+      <span class="step" data-step="class">2 Class</span>
+      <span class="step" data-step="course">3 Course</span>
+      <span class="step" data-step="section">4 Section</span>
+      <span class="step" data-step="journey">5 Exercise</span>
+      <span class="step" data-step="waiting">6 Waiting room</span>
+      <span class="step" data-step="quiz">7 Quiz</span>
+    </nav>
+
+    <section id="screen-login" class="screen active login-screen">
+      <div class="login-scene" aria-hidden="false">
+        <img class="login-bg" src="/assets/login/bg.jpg" alt="" />
+
+        <img class="login-decor login-decor--star-1" src="/assets/login/star-1.png" alt="" />
+        <img class="login-decor login-decor--star-2" src="/assets/login/star-2.png" alt="" />
+        <img class="login-decor login-decor--gift" src="/assets/login/gift.png" alt="" />
+        <img class="login-decor login-decor--diamond" src="/assets/login/diamond.png" alt="" />
+        <img class="login-decor login-decor--sparkle-1" src="/assets/login/sparkle.png" alt="" />
+        <img class="login-decor login-decor--sparkle-2" src="/assets/login/sparkle.png" alt="" />
+        <img class="login-decor login-decor--sparkle-3" src="/assets/login/sparkle.png" alt="" />
+        <img class="login-decor login-decor--cloud-star" src="/assets/login/cloud-star.png" alt="" />
+        <img class="login-decor login-decor--big-star" src="/assets/login/big-star.png" alt="" />
+
+        <div class="login-panel">
+          <div class="login-logo">
+            <img src="/assets/login/logo.png" alt="Lango" width="220" height="164" />
+          </div>
+          <div class="login-form-wrap">
+            <h1 class="login-title">Lango School Login</h1>
+            <div class="login-form">
+              <label class="login-field">
+                <input
+                  type="text"
+                  id="login-username"
+                  placeholder="Your name or email"
+                  autocomplete="username"
+                />
+              </label>
+              <label class="login-field">
+                <input
+                  type="password"
+                  id="login-password"
+                  placeholder="Password"
+                  autocomplete="current-password"
+                />
+              </label>
+              <button class="login-btn" id="btn-login" type="button">Login</button>
+              <p class="login-error" id="login-error" role="alert"></p>
+            </div>
+          </div>
+        </div>
+
+        <img class="login-wizard" src="/assets/login/wizard.png" alt="" />
+        <img class="login-rainbow" src="/assets/login/rainbow.png" alt="" />
+      </div>
+    </section>
+
+    <section id="screen-class" class="screen class-screen">
+      <div class="class-scene">
+        <img class="class-bg" src="/assets/class/bg.jpg" alt="" />
+
+        <div class="class-container">
+          <header class="class-header">
+            <h1 class="class-page-title">
+              Select <span class="class-title-mark">english</span> level &amp; Class
+            </h1>
+          </header>
+
+          <p class="class-teacher-label" id="teacher-label-wrap" hidden>
+            Logged in as <strong id="teacher-label"></strong>
+          </p>
+
+          <div id="class-sections" class="class-sections"></div>
+
+          <p class="class-status" id="class-status">Loading classes…</p>
+          <p class="class-error" id="class-error" role="alert"></p>
+        </div>
+
+        <button type="button" class="class-back-btn class-login-btn" id="btn-back-login">
+          <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span>Login</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="screen-course" class="screen course-screen">
+      <div class="course-scene">
+        <img class="course-bg" src="/assets/course/courseBG.png" alt="" />
+
+        <img class="course-decor course-decor--star" src="/assets/login/star-1.png" alt="" />
+        <img class="course-decor course-decor--sparkle-1" src="/assets/login/sparkle.png" alt="" />
+        <img class="course-decor course-decor--sparkle-2" src="/assets/login/sparkle.png" alt="" />
+
+        <div class="course-page">
+          <div class="course-panel">
+            <div class="course-panel-header">
+              <div class="course-quest-track" aria-hidden="true">
+                <span class="course-quest-dot done"></span>
+                <span class="course-quest-line done"></span>
+                <span class="course-quest-dot active"></span>
+              </div>
+              <p class="course-step">Step 2 of 2 · Pick your quest</p>
+              <h1 class="course-page-title">Choose Your Adventure!</h1>
+              <p class="course-class-label" id="course-class-label-wrap">
+                Class: <strong id="class-label"></strong>
+              </p>
+              <p class="course-count-badge" id="course-count-badge" hidden></p>
+            </div>
+
+            <div class="course-grid-scroll">
+              <div id="course-sections" class="course-grid"></div>
+            </div>
+
+            <p class="course-status" id="course-status">Loading courses…</p>
+            <p class="course-error" id="course-error" role="alert"></p>
+          </div>
+        </div>
+
+        <footer class="course-toolbar">
+          <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-class">
+            <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+            <span>Class</span>
+          </button>
+          <div class="course-toolbar-actions">
+            <button type="button" class="course-toolbar-logout" id="btn-logout-course">Log out</button>
+          </div>
+        </footer>
+      </div>
+    </section>
+
+    <section id="screen-section" class="screen section-screen">
+      <div class="section-scene">
+        <img class="section-bg" src="/assets/class/bg.jpg" alt="" />
+
+        <div class="course-page">
+          <div class="course-panel">
+            <div class="course-panel-header">
+              <div class="course-quest-track" aria-hidden="true">
+                <span class="course-quest-dot done"></span>
+                <span class="course-quest-line done"></span>
+                <span class="course-quest-dot done"></span>
+                <span class="course-quest-line done"></span>
+                <span class="course-quest-dot active"></span>
+              </div>
+              <p class="course-step">Step 3 · Pick your section</p>
+              <h1 class="course-page-title">Continue Your Journey!</h1>
+              <p class="course-class-label" id="section-course-label-wrap">
+                Course: <strong id="section-course-label"></strong>
+              </p>
+              <p class="course-count-badge" id="section-count-badge" hidden></p>
+            </div>
+
+            <div class="course-grid-scroll">
+              <div id="section-grid" class="course-grid"></div>
+            </div>
+
+            <p class="course-status" id="section-status">Loading sections…</p>
+            <p class="course-error" id="section-error" role="alert"></p>
+          </div>
+        </div>
+
+        <div id="section-exercise-overlay" class="section-exercise-overlay" hidden>
+          <div class="section-exercise-backdrop" id="section-exercise-backdrop" aria-hidden="true"></div>
+          <aside id="section-exercise-panel" class="section-exercise-panel" aria-label="Quizzes">
+            <div class="exercise-panel section-exercise-panel-card">
+              <div class="exercise-panel-inner">
+                <header class="exercise-panel-header">
+                  <h2 class="exercise-page-title">Quizzes</h2>
+                </header>
+
+                <div class="exercise-list-scroll">
+                  <div id="exercise-list" class="exercise-list exercise-list--section" role="listbox" aria-label="Section exercises"></div>
+                </div>
+
+                <footer class="exercise-panel-footer">
+                  <p class="exercise-status" id="journey-status">Loading exercises…</p>
+                  <p class="exercise-error" id="journey-error" role="alert"></p>
+                  <div class="exercise-panel-actions">
+                    <button class="exercise-cancel-btn" id="btn-cancel-exercises" type="button">
+                      Cancel
+                    </button>
+                    <button class="exercise-start-btn" id="btn-start-session" type="button" disabled>
+                      Continue
+                    </button>
+                  </div>
+                </footer>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <footer class="course-toolbar">
+          <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-course-from-section">
+            <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+            <span>Course</span>
+          </button>
+          <div class="course-toolbar-actions">
+            <button type="button" class="course-toolbar-logout" id="btn-logout-section">Log out</button>
+          </div>
+        </footer>
+
+        <span id="course-label" hidden></span>
+        <span id="section-label" hidden></span>
+      </div>
+    </section>
+
+    <section id="screen-waiting" class="screen waiting-screen">
+      <div class="waiting-scene">
+        <img class="waiting-bg" src="/assets/course/courseBG.png" alt="" />
+
+        <img class="waiting-float waiting-float--gift-1" src="/assets/login/gift.png" alt="" />
+        <img class="waiting-float waiting-float--gift-2" src="/assets/login/gift.png" alt="" />
+        <img class="waiting-float waiting-float--star-1" src="/assets/login/star-1.png" alt="" />
+        <img class="waiting-float waiting-float--star-2" src="/assets/login/star-2.png" alt="" />
+        <img class="waiting-float waiting-float--cloud" src="/assets/waiting/cloud.png" alt="" />
+
+        <h1 class="waiting-page-title">Waiting Room</h1>
+
+        <div class="waiting-timer" aria-live="polite">
+          <div class="waiting-timer-ring">
+            <svg class="waiting-timer-watch" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
+              <circle cx="24" cy="26" r="16" fill="#feca57" stroke="#d97706" stroke-width="2"/>
+              <rect x="20" y="8" width="8" height="6" rx="2" fill="#d97706"/>
+              <circle cx="24" cy="26" r="2" fill="#7c2d12"/>
+              <line x1="24" y1="26" x2="24" y2="18" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
+              <line x1="24" y1="26" x2="30" y2="30" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <p class="waiting-timer-label">Start In</p>
+            <p class="waiting-timer-value" id="waiting-timer-value">05 : 00</p>
+          </div>
+        </div>
+
+        <div class="waiting-students-panel">
+          <header class="waiting-students-header">
+            <div class="waiting-students-heading">
+              <h2 class="waiting-students-title">Connected Students</h2>
+              <p class="waiting-students-subtitle">Waiting For The Class To Assemble...</p>
+              <p class="waiting-room-code-line">
+                Room <button type="button" class="waiting-room-code-btn" id="btn-copy-room-id" title="Copy room code">
+                  <strong id="waiting-room-id"></strong>
+                </button>
+              </p>
+            </div>
+            <div class="waiting-students-count" aria-label="Students connected">
+              <span class="waiting-students-count-current" id="waiting-connected-count">0</span>
+              <span class="waiting-students-count-sep">/</span>
+              <span class="waiting-students-count-total" id="waiting-total-target">0</span>
+            </div>
+          </header>
+
+          <ul id="waiting-participants" class="waiting-students-grid"></ul>
+          <p class="waiting-participant-status" id="waiting-participant-status" hidden></p>
+          <p class="waiting-error" id="waiting-error"></p>
+        </div>
+
+        <img class="waiting-wizard" src="/assets/login/wizard.png" alt="" />
+
+        <footer class="waiting-footer">
+          <button type="button" class="waiting-dashboard-btn" id="btn-back-journey">
+            <img class="waiting-dashboard-icon" src="/assets/class/arrow-left.svg" alt="" width="20" height="20" />
+            <span>Dashboard</span>
+          </button>
+          <button type="button" class="waiting-start-session-btn" id="btn-start-class">
+            <img class="waiting-start-icon" src="/assets/waiting/play.png" alt="" width="19" height="20" />
+            <span>Start Session</span>
+          </button>
+        </footer>
+
+        <button type="button" class="waiting-secondary-btn" id="btn-start-another" hidden>Start another session</button>
+        <button type="button" id="btn-logout-waiting" hidden>Log out</button>
+      </div>
+    </section>
+
+    <section id="screen-host-quiz-question" class="screen">
+      <div class="progress-bar"><div id="host-quiz-progress"></div></div>
+      <p class="q-meta" id="host-quiz-q-meta"></p>
+      <div class="question-image-wrap" id="host-quiz-question-image-wrap" hidden>
+        <img class="question-image" id="host-quiz-question-image" alt="" />
+      </div>
+      <h2 class="question-text" id="host-quiz-question-text"></h2>
+      <div class="options-grid host-options" id="host-quiz-options"></div>
+      <p class="answered-count" id="host-quiz-answered-count"></p>
+      <div class="screen-toolbar">
+        <button type="button" class="back-btn" id="btn-back-waiting-quiz">← Waiting room</button>
+        <button type="button" class="btn secondary small" id="btn-logout-quiz">Log out</button>
+      </div>
+    </section>
+
+    <section id="screen-host-quiz-results" class="screen">
+      <h2>Results</h2>
+      <div class="question-image-wrap" id="host-quiz-results-image-wrap" hidden>
+        <img class="question-image" id="host-quiz-results-image" alt="" />
+      </div>
+      <h3 class="question-text host-quiz-results-question" id="host-quiz-results-question-text"></h3>
+      <div class="options-grid results-grid" id="host-quiz-results-bars"></div>
+      <div class="leaderboard">
+        <h3>Leaderboard</h3>
+        <ol id="host-quiz-leaderboard"></ol>
+      </div>
+      <button class="btn primary" id="btn-host-quiz-next">Next question</button>
+      <div class="screen-toolbar">
+        <button type="button" class="back-btn" id="btn-back-waiting-results">← Waiting room</button>
+        <button type="button" class="btn secondary small" id="btn-logout-results">Log out</button>
+      </div>
+    </section>
+
+    <section id="screen-host-quiz-finished" class="screen">
+      <h2>Final standings</h2>
+      <ol id="host-quiz-final-leaderboard" class="final-board"></ol>
+      <button class="btn primary large" id="btn-host-quiz-next-exercise" type="button" hidden>Next exercise</button>
+      <button class="btn primary" id="btn-host-quiz-done">Back to waiting room</button>
+      <button class="btn secondary" id="btn-start-another-quiz">Start another session</button>
+      <div class="screen-toolbar">
+        <button type="button" class="back-btn" id="btn-back-waiting-finished">← Waiting room</button>
+        <button type="button" class="btn secondary small" id="btn-logout-finished">Log out</button>
+      </div>
+    </section>
+
+    <section id="screen-host-video" class="screen">
+      <h2 id="host-video-title"></h2>
+      <p class="hint" id="host-video-subtitle"></p>
+      <video id="host-video-player" class="exercise-video" controls playsinline></video>
+      <button class="btn primary large" id="btn-host-video-next-exercise" type="button" hidden>Next exercise</button>
+      <button class="btn secondary" id="btn-host-video-done">Back to waiting room</button>
+      <button class="btn secondary" id="btn-start-another-video">Start another session</button>
+      <div class="screen-toolbar">
+        <button type="button" class="back-btn" id="btn-back-waiting-video">← Waiting room</button>
+        <button type="button" class="btn secondary small" id="btn-logout-video">Log out</button>
+      </div>
+    </section>
+
+    <section id="screen-host-buzzin" class="screen">
+      <h2 id="host-buzzin-title"></h2>
+      <p class="hint" id="host-buzzin-buddy"></p>
+      <h3 class="section-heading">Discussion questions</h3>
+      <ol id="host-buzzin-questions" class="buzzin-questions"></ol>
+      <button class="btn primary large" id="btn-host-buzzin-next-exercise" type="button" hidden>Next exercise</button>
+      <button class="btn secondary" id="btn-host-buzzin-done">Back to waiting room</button>
+      <button class="btn secondary" id="btn-start-another-buzzin">Start another session</button>
+      <div class="screen-toolbar">
+        <button type="button" class="back-btn" id="btn-back-waiting-buzzin">← Waiting room</button>
+        <button type="button" class="btn secondary small" id="btn-logout-buzzin">Log out</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/common.js"></script>
+  <script src="/exercise-utils.js"></script>
+  <script src="/host-room-quiz.js"></script>
+  <script src="/host-session.js"></script>
+  <script src="/host.js"></script>
+</body>
+</html>

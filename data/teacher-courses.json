@@ -1,0 +1,107 @@
+{
+  "courses": [
+    {
+      "id": -1,
+      "teacherId": 835,
+      "name": "test",
+      "description": "",
+      "banner": "/uploads/courses/course--1-1781507073450.png",
+      "langCode": "en",
+      "sections": [
+        {
+          "id": 1,
+          "title": "Exercises",
+          "banner": "/uploads/sections/section--1-1-1781507168003.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question2?",
+                  "options": [
+                    {
+                      "text": "Option A2",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B2",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Section 2",
+          "banner": "/uploads/sections/section--1-2-1781511945980.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 3,
+              "title": "Quiz2",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/question-835-1781575837002.jpg"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-06-15T02:57:28.201Z",
+      "updatedAt": "2026-06-16T02:10:37.773Z",
+      "classIds": [
+        2913
+      ]
+    }
+  ]
+}

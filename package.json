@@ -1,0 +1,15 @@
+{
+  "name": "kahoot-clone",
+  "version": "1.0.0",
+  "description": "Kahoot-style multiplayer quiz game with Socket.IO",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^2.1.1",
+    "socket.io": "^4.8.3"
+  }
+}

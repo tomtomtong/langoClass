@@ -1,0 +1,321 @@
+const ROOM_STORAGE_KEY = "lango_join_participant";
+
+const urlParams = new URLSearchParams(window.location.search);
+const urlRoom = (urlParams.get("room") || urlParams.get("roomId") || "").trim();
+const urlPin = urlParams.get("pin");
+const urlNickname = (
+  urlParams.get("nickname") ||
+  urlParams.get("username") ||
+  urlParams.get("name") ||
+  urlParams.get("displayName") ||
+  ""
+).trim();
+
+function loadStoredParticipant() {
+  try {
+    return JSON.parse(localStorage.getItem(ROOM_STORAGE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredParticipant(data) {
+  localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(data));
+}
+
+function clearStoredParticipant() {
+  localStorage.removeItem(ROOM_STORAGE_KEY);
+}
+
+let roomSessionSocket = null;
+
+function getRoomSessionSocket() {
+  if (!roomSessionSocket) {
+    roomSessionSocket = io({ transports: ["websocket", "polling"] });
+
+    roomSessionSocket.on("session_started", ({ exercise }) => {
+      if (!roomParticipant) return;
+      $("#room-waiting-status").textContent = "Class is starting — get ready!";
+      startRoomExercise(
+        roomParticipant.roomId,
+        roomParticipant.displayName,
+        roomParticipant.userId,
+        exercise
+      );
+    });
+
+    roomSessionSocket.on("session_ended", ({ reason }) => {
+      alert(reason || "Class session ended.");
+      location.href = `/join.html?room=${encodeURIComponent(roomParticipant?.roomId || "")}`;
+    });
+  }
+  return roomSessionSocket;
+}
+
+function stopRoomStatusPoll() {
+  /* Session status is pushed over Socket.IO — no polling. */
+}
+
+function startRoomStatusPoll() {
+  /* Session status is pushed over Socket.IO — no polling. */
+}
+
+function initRoomJoin() {
+  $("#join-panel-quiz").hidden = true;
+  $("#join-panel-room").hidden = false;
+
+  const stored = loadStoredParticipant();
+  if (stored?.roomId && (urlRoom === stored.roomId || !urlRoom)) {
+    roomParticipant = stored;
+  }
+
+  if (urlRoom) $("#join-room-id").value = urlRoom;
+  if (urlNickname) $("#join-room-name").value = urlNickname.slice(0, 40);
+
+  $("#btn-join-room").addEventListener("click", doJoinRoom);
+  $("#btn-leave-room").addEventListener("click", () => {
+    stopRoomStatusPoll();
+    stopRoomQuizJoinRetry();
+    if (roomSessionSocket) roomSessionSocket.disconnect();
+    roomSessionSocket = null;
+    clearStoredParticipant();
+    location.href = "/join.html?room=";
+  });
+
+  $("#join-room-name").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doJoinRoom();
+  });
+
+  if (urlRoom && urlNickname) {
+    void doJoinRoom();
+  }
+}
+
+function doJoinRoom() {
+  const roomId = $("#join-room-id").value.trim();
+  const displayName = $("#join-room-name").value.trim();
+  $("#join-room-error").textContent = "";
+
+  if (!roomId) {
+    $("#join-room-error").textContent = "Enter the 6-digit room code from your teacher.";
+    return;
+  }
+  if (!displayName) {
+    $("#join-room-error").textContent = "Enter your name.";
+    return;
+  }
+
+  const stored = loadStoredParticipant();
+  const btn = $("#btn-join-room");
+  btn.disabled = true;
+
+  const socket = getRoomSessionSocket();
+
+  const attemptJoin = () => {
+    socket.emit(
+      "join_session",
+      {
+        roomId,
+        displayName,
+        userId: stored?.roomId === roomId ? stored.userId : undefined,
+      },
+      (data) => {
+        btn.disabled = false;
+
+        if (!data?.ok) {
+          $("#join-room-error").textContent = data?.error || "Failed to join room.";
+          return;
+        }
+
+        const participant = {
+          roomId: data.roomId,
+          userId: data.userId,
+          displayName: data.displayName,
+        };
+        saveStoredParticipant(participant);
+        roomParticipant = participant;
+
+        $("#room-player-name").textContent = data.displayName;
+        $("#room-id-display").textContent = data.roomId;
+        $("#room-waiting-status").textContent =
+          data.sessionStatus === "start"
+            ? "Class is starting…"
+            : "Waiting for the teacher to start…";
+        showScreen("room-waiting");
+
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set("room", data.roomId);
+        nextUrl.searchParams.delete("roomId");
+        history.replaceState(null, "", nextUrl);
+      }
+    );
+  };
+
+  if (socket.connected) attemptJoin();
+  else {
+    socket.once("connect", attemptJoin);
+    socket.once("connect_error", () => {
+      btn.disabled = false;
+      $("#join-room-error").textContent = "Could not connect to class server.";
+    });
+  }
+}
+
+function initQuizJoin() {
+  const socket = io({ transports: ["websocket", "polling"] });
+  let myPlayerId = null;
+  let currentQuestion = null;
+
+  const statusEl = $("#connection-status");
+  const joinBtn = $("#btn-join-game");
+
+  function setConnectionStatus(text, type) {
+    statusEl.textContent = text;
+    statusEl.className = `connection-status${type ? ` ${type}` : ""}`;
+  }
+
+  function updateJoinButton() {
+    joinBtn.disabled = !socket.connected;
+  }
+
+  socket.on("connect", () => {
+    setConnectionStatus("Connected — enter PIN and join", "ok");
+    updateJoinButton();
+  });
+
+  socket.on("disconnect", () => {
+    setConnectionStatus("Disconnected — reconnecting…", "err");
+    updateJoinButton();
+  });
+
+  socket.on("connect_error", () => {
+    setConnectionStatus("Cannot reach server — check the join link from the host", "err");
+    updateJoinButton();
+  });
+
+  function doJoin() {
+    const pin = normalizePin($("#join-pin").value);
+    const nickname = $("#join-nickname").value.trim();
+    $("#join-error").textContent = "";
+    $("#join-pin").value = pin;
+
+    if (pin.length !== 6) {
+      $("#join-error").textContent = "Enter the 6-digit game PIN.";
+      return;
+    }
+
+    if (!nickname) {
+      $("#join-error").textContent = "Enter a nickname.";
+      return;
+    }
+
+    joinBtn.disabled = true;
+
+    socket.emit("join_game", { pin, nickname }, (res) => {
+      joinBtn.disabled = !socket.connected;
+
+      if (!res?.ok) {
+        let msg = res?.error || "Failed to join";
+        if (res?.hint) msg += ` ${res.hint}`;
+        $("#join-error").textContent = msg;
+        return;
+      }
+
+      myPlayerId = res.playerId;
+      $("#player-name-display").textContent = nickname;
+      $("#player-quiz-title").textContent = res.quizTitle;
+      showScreen("player-lobby");
+    });
+  }
+
+  joinBtn.addEventListener("click", () => {
+    if (!socket.connected) {
+      $("#join-error").textContent =
+        "Still connecting to the server. Wait a moment and try again.";
+      return;
+    }
+    doJoin();
+  });
+
+  socket.on("game_starting", () => {
+    $("#lobby-status").textContent = "Get ready…";
+  });
+
+  socket.on("question_start", (data) => {
+    currentQuestion = data;
+    clearTimer();
+    showScreen("player-question");
+    $("#player-q-meta").textContent = `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
+    setQuestionImage($("#player-question-image"), $("#player-question-image-wrap"), data.image);
+    $("#player-question-text").textContent = data.text;
+    $("#answer-feedback").textContent = "";
+
+    renderOptions($("#player-options"), data.options, {
+      clickable: true,
+      onClick: (index, btn) => {
+        $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
+        btn.classList.add("selected");
+        socket.emit("submit_answer", { answerIndex: index });
+        $("#answer-feedback").textContent = "Answer locked in!";
+        clearTimer();
+      },
+    });
+
+    startTimer(
+      data.timeLimit,
+      (remaining) => {
+        $("#timer-text").textContent = remaining;
+        $("#timer-ring").classList.toggle("urgent", remaining <= 5);
+      },
+      () => {
+        $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
+        $("#answer-feedback").textContent = "Time's up!";
+      }
+    );
+  });
+
+  socket.on("answer_received", () => {
+    $("#answer-feedback").textContent = "Waiting for others…";
+  });
+
+  socket.on("question_results", ({ results, leaderboard }) => {
+    clearTimer();
+    showScreen("player-results");
+    const mine = results.find((r) => r.playerId === myPlayerId);
+    const msg = $("#player-result-msg");
+    if (mine?.correct) {
+      msg.textContent = `Correct! +${mine.points} points`;
+      msg.className = "result-msg correct";
+    } else if (mine?.answerIndex != null) {
+      msg.textContent = "Wrong answer";
+      msg.className = "result-msg wrong";
+    } else {
+      msg.textContent = "No answer submitted";
+      msg.className = "result-msg wrong";
+    }
+    renderLeaderboard($("#player-leaderboard"), leaderboard, myPlayerId);
+  });
+
+  socket.on("game_finished", ({ leaderboard }) => {
+    clearTimer();
+    showScreen("player-finished");
+    renderLeaderboard($("#player-final-leaderboard"), leaderboard, myPlayerId);
+  });
+
+  socket.on("game_ended", ({ reason }) => {
+    clearTimer();
+    alert(reason || "Game ended");
+    location.href = "/join.html";
+  });
+
+  if (urlPin) $("#join-pin").value = normalizePin(urlPin);
+  if (urlNickname) $("#join-nickname").value = urlNickname.slice(0, 20);
+
+  updateJoinButton();
+}
+
+if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
+  initRoomJoin();
+} else {
+  initQuizJoin();
+}
