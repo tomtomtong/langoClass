@@ -138,6 +138,42 @@ const games = new Map();
 /** @type {Map<string, { pin: string, role: 'host' | 'player' | 'session_player', playerId?: string }>} */
 const socketMeta = new Map();
 
+const BUZZIN_WINNER_COUNT = 3;
+
+/** @type {Map<string, { roundId: number, status: 'open' | 'full', buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }> }>} */
+const buzzInRounds = new Map();
+
+function createBuzzInRound(pin) {
+  const round = {
+    roundId: Date.now(),
+    status: "open",
+    buzzes: [],
+  };
+  buzzInRounds.set(pin, round);
+  return round;
+}
+
+function buzzInPublicPayload(round) {
+  return {
+    roundId: round.roundId,
+    status: round.status,
+    winners: round.buzzes.slice(0, BUZZIN_WINNER_COUNT),
+    buzzes: round.buzzes,
+    totalBuzzes: round.buzzes.length,
+    winnerCount: BUZZIN_WINNER_COUNT,
+  };
+}
+
+function broadcastBuzzInUpdate(pin) {
+  const round = buzzInRounds.get(pin);
+  if (!round) return;
+  io.to(pin).emit("buzzin_update", buzzInPublicPayload(round));
+}
+
+function clearBuzzInRound(pin) {
+  buzzInRounds.delete(pin);
+}
+
 function normalizePin(pin) {
   return String(pin || "").replace(/\D/g, "").slice(0, 6);
 }
@@ -565,6 +601,7 @@ function endSession(roomId, reason) {
   if (!session) return;
 
   session.status = "ended";
+  clearBuzzInRound(roomId);
   io.to(roomId).emit("session_ended", { reason: reason || "Session ended" });
   sessionStore.deleteSession(roomId);
 }
@@ -1063,6 +1100,86 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("start_buzzin_round", ({ roomId }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can start a buzz-in round." });
+      return;
+    }
+
+    const session = sessionStore.getSession(pin);
+    if (!session) {
+      callback?.({ ok: false, error: "Room not found." });
+      return;
+    }
+
+    const round = createBuzzInRound(pin);
+    const payload = buzzInPublicPayload(round);
+    io.to(pin).emit("buzzin_round_started", payload);
+    callback?.({ ok: true, ...payload });
+  });
+
+  socket.on("buzz_in", (_data, callback) => {
+    const meta = socketMeta.get(socket.id);
+    if (!meta || meta.role !== "session_player" || !meta.playerId || !meta.pin) {
+      callback?.({ ok: false, error: "Join the class waiting room first." });
+      return;
+    }
+
+    const round = buzzInRounds.get(meta.pin);
+    if (!round || round.status !== "open") {
+      callback?.({ ok: false, error: "Buzz in is closed." });
+      return;
+    }
+
+    if (round.buzzes.some((b) => b.playerId === meta.playerId)) {
+      callback?.({ ok: false, error: "You already buzzed in." });
+      return;
+    }
+
+    const session = sessionStore.getSession(meta.pin);
+    const participant = session?.participants.get(meta.playerId);
+    const displayName = participant?.displayName || "Student";
+    const rank = round.buzzes.length + 1;
+
+    round.buzzes.push({
+      playerId: meta.playerId,
+      displayName,
+      rank,
+      at: Date.now(),
+    });
+
+    if (round.buzzes.length >= BUZZIN_WINNER_COUNT) {
+      round.status = "full";
+    }
+
+    broadcastBuzzInUpdate(meta.pin);
+    callback?.({
+      ok: true,
+      rank,
+      selected: rank <= BUZZIN_WINNER_COUNT,
+      roundId: round.roundId,
+    });
+  });
+
+  socket.on("get_buzzin_state", ({ roomId }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!pin) {
+      callback?.({ ok: false, error: "Invalid room." });
+      return;
+    }
+
+    const round = buzzInRounds.get(pin);
+    if (!round) {
+      callback?.({ ok: true, active: false });
+      return;
+    }
+
+    callback?.({ ok: true, active: true, ...buzzInPublicPayload(round) });
+  });
+
   socket.on("start_next_exercise", ({ roomId, exercise }, callback) => {
     const meta = socketMeta.get(socket.id);
     const pin = normalizeRoomId(roomId) || meta?.pin;
@@ -1086,6 +1203,8 @@ io.on("connection", (socket) => {
       callback?.({ ok: false, error: "Could not update exercise." });
       return;
     }
+
+    clearBuzzInRound(pin);
 
     if (session.status !== "start") {
       sessionStore.startSession(session);

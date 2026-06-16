@@ -4,6 +4,148 @@ let roomQuizPlayerId = null;
 let roomQuizCurrentQuestion = null;
 let roomQuizJoinTimer = null;
 let roomQuizFastMode = false;
+let roomBuzzinSocketReady = false;
+let roomBuzzinRoundId = null;
+
+function updateStudentBuzzinUi(payload) {
+  const btn = $("#btn-room-buzz-in");
+  const status = $("#room-buzzin-status");
+  const result = $("#room-buzzin-result");
+  if (!btn || !status) return;
+
+  const playerId = roomParticipant?.userId;
+  const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
+  const winnersFull = payload.status === "full";
+
+  if (myBuzz) {
+    btn.disabled = true;
+    result.hidden = false;
+    if (myBuzz.rank <= (payload.winnerCount || 3)) {
+      result.textContent =
+        myBuzz.rank === 1
+          ? "You're first — selected to talk!"
+          : `You're #${myBuzz.rank} — selected to talk!`;
+      result.className = "buzzin-result buzzin-result--selected";
+    } else {
+      result.textContent = `You buzzed in #${myBuzz.rank}. The fastest 3 were already selected.`;
+      result.className = "buzzin-result buzzin-result--late";
+    }
+    status.textContent = winnersFull
+      ? "Buzz in closed — fastest 3 selected."
+      : `You're in at #${myBuzz.rank}. Waiting for others…`;
+    return;
+  }
+
+  if (winnersFull) {
+    btn.disabled = true;
+    status.textContent = "Buzz in closed — fastest 3 selected.";
+    result.hidden = true;
+    return;
+  }
+
+  btn.disabled = false;
+  status.textContent = "Tap BUZZ IN when you want to answer the topic!";
+  result.hidden = true;
+}
+
+function resetStudentBuzzinUi() {
+  roomBuzzinRoundId = null;
+  const btn = $("#btn-room-buzz-in");
+  const status = $("#room-buzzin-status");
+  const result = $("#room-buzzin-result");
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = "Get ready to buzz in…";
+  if (result) {
+    result.hidden = true;
+    result.textContent = "";
+  }
+}
+
+function ensureRoomBuzzinSocket() {
+  const socket = getRoomSessionSocket();
+  if (roomBuzzinSocketReady) return socket;
+
+  roomBuzzinSocketReady = true;
+
+  socket.on("buzzin_round_started", (payload) => {
+    roomBuzzinRoundId = payload.roundId;
+    resetStudentBuzzinUi();
+    updateStudentBuzzinUi(payload);
+  });
+
+  socket.on("buzzin_update", (payload) => {
+    if (payload.roundId != null && roomBuzzinRoundId == null) {
+      roomBuzzinRoundId = payload.roundId;
+    }
+    updateStudentBuzzinUi(payload);
+  });
+
+  $("#btn-room-buzz-in")?.addEventListener("click", () => {
+    const btn = $("#btn-room-buzz-in");
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+
+    socket.emit("buzz_in", {}, (res) => {
+      if (!res?.ok) {
+        btn.disabled = false;
+        const status = $("#room-buzzin-status");
+        if (status) status.textContent = res?.error || "Could not buzz in.";
+        return;
+      }
+
+      const result = $("#room-buzzin-result");
+      const status = $("#room-buzzin-status");
+      if (result) {
+        result.hidden = false;
+        if (res.selected) {
+          result.textContent =
+            res.rank === 1
+              ? "You're first — selected to talk!"
+              : `You're #${res.rank} — selected to talk!`;
+          result.className = "buzzin-result buzzin-result--selected";
+        } else {
+          result.textContent = `You buzzed in #${res.rank}. The fastest 3 were already selected.`;
+          result.className = "buzzin-result buzzin-result--late";
+        }
+      }
+      if (status) {
+        status.textContent = res.selected
+          ? `You're in at #${res.rank}!`
+          : "Buzz in closed for top 3.";
+      }
+    });
+  });
+
+  return socket;
+}
+
+function syncStudentBuzzinState(roomId) {
+  const socket = ensureRoomBuzzinSocket();
+  if (!roomId) return;
+
+  const applyState = (payload) => {
+    if (!payload?.active) {
+      resetStudentBuzzinUi();
+      return;
+    }
+    roomBuzzinRoundId = payload.roundId;
+    updateStudentBuzzinUi(payload);
+  };
+
+  const requestState = () => {
+    socket.emit("get_buzzin_state", { roomId }, (res) => {
+      if (res?.ok) applyState(res);
+    });
+  };
+
+  if (socket.connected) requestState();
+  else socket.once("connect", requestState);
+}
+
+function startStudentBuzzinRound(roomId) {
+  ensureRoomBuzzinSocket();
+  syncStudentBuzzinState(roomId);
+}
 
 function stopRoomQuizJoinRetry() {
   if (roomQuizJoinTimer) {
@@ -146,12 +288,11 @@ function showStudentBuzzinExercise(exercisePayload) {
   if (!buzzin) return;
 
   $("#room-buzzin-title").textContent = buzzin.title;
-  const buddy = buzzin.buddy;
-  $("#room-buzzin-buddy").textContent = buddy?.description || buddy?.importNumber || "";
-  $("#room-buzzin-questions").innerHTML = buzzin.questions
-    .map((q) => `<li>${escapeHtml(q)}</li>`)
-    .join("");
+  $("#room-buzzin-buddy").textContent = buddyDisplayText(buzzin.buddy);
+  $("#room-buzzin-questions").innerHTML = renderBuzzinQuestionList(buzzin.questions);
+  resetStudentBuzzinUi();
   showScreen("room-buzzin");
+  startStudentBuzzinRound(roomParticipant?.roomId);
 }
 
 function startRoomExercise(roomId, displayName, userId, exercisePayload) {

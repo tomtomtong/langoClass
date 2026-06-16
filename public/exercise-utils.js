@@ -55,15 +55,89 @@ function videoUrlFromExercise(exercise) {
   return item?.videoUrl || item?.video_url || null;
 }
 
+function normalizeBuzzinQuestionText(value) {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "object") {
+    return String(value.text || value.question || value.title || "").trim();
+  }
+  return String(value).trim();
+}
+
+function normalizeBuzzinBuddy(buddy) {
+  if (buddy == null || buddy === "") return null;
+  if (typeof buddy === "string") return buddy.trim() || null;
+  if (typeof buddy === "object") {
+    return (
+      String(buddy.description || buddy.importNumber || buddy.name || "").trim() || null
+    );
+  }
+  return null;
+}
+
+function buddyDisplayText(buddy) {
+  if (!buddy) return "";
+  if (typeof buddy === "string") return buddy;
+  return buddy.description || buddy.importNumber || buddy.name || "";
+}
+
+function collectBuzzinQuestions(exercise) {
+  const items = Array.isArray(exercise?.items) ? exercise.items : [];
+  const first = items[0] || {};
+
+  const fromFirstItem = (first.questions || [])
+    .map(normalizeBuzzinQuestionText)
+    .filter(Boolean);
+  if (fromFirstItem.length) return fromFirstItem;
+
+  const fromExtraItems = items
+    .slice(1)
+    .map((item) => normalizeBuzzinQuestionText(item?.question || item?.text || item?.title))
+    .filter(Boolean);
+  if (fromExtraItems.length) return fromExtraItems;
+
+  const topLevel = (exercise?.questions || [])
+    .map(normalizeBuzzinQuestionText)
+    .filter(Boolean);
+  if (topLevel.length) return topLevel;
+
+  return [];
+}
+
 function buzzinFromExercise(exercise) {
   if (!exercise || !isBuzzinExercise(exercise)) return null;
-  const item = exercise?.items?.[0];
-  if (!item) return null;
+
+  const items = Array.isArray(exercise.items) ? exercise.items : [];
+  const first = items[0] || {};
+  const questions = collectBuzzinQuestions(exercise);
+  const title = String(first.title || exercise.title || "").trim();
+
+  if (!title && !questions.length && !items.length) return null;
+
   return {
-    title: item.title || exercise.title || "",
-    buddy: item.buddy || null,
-    questions: item.questions || [],
+    title: title || exercise.title || "Discussion",
+    buddy: first.buddy ?? null,
+    questions,
   };
+}
+
+function renderBuzzinQuestionList(questions) {
+  if (!questions.length) {
+    return `<li class="hint">No discussion questions yet.</li>`;
+  }
+  return questions.map((q) => `<li>${escapeHtml(q)}</li>`).join("");
+}
+
+function renderBuzzinWinnersList(listEl, winners, emptyText) {
+  if (!listEl) return;
+  listEl.innerHTML = winners.length
+    ? winners
+        .map(
+          (w, i) =>
+            `<li><span class="buzzin-rank">${i + 1}</span><span>${escapeHtml(w.displayName)}</span></li>`
+        )
+        .join("")
+    : `<li class="hint">${escapeHtml(emptyText || "Waiting for students to buzz in…")}</li>`;
 }
 
 function exerciseMetaLabel(exercise) {

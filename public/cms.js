@@ -918,7 +918,9 @@ function renderVideoBody(container, exercise) {
 }
 
 function renderBuzzinBody(container, exercise) {
-  const item = exercise.items?.[0] || { title: "", buddy: "", questions: [""] };
+  const item = exercise.items?.[0] || {};
+  const buddyText = buddyDisplayText(item.buddy);
+  const savedQuestions = collectBuzzinQuestions(exercise);
   container.innerHTML = `
     <label class="field">
       <span>Discussion title</span>
@@ -926,13 +928,16 @@ function renderBuzzinBody(container, exercise) {
     </label>
     <label class="field">
       <span>Buddy name (optional)</span>
-      <input type="text" class="cms-buzzin-buddy" value="${escapeHtml(item.buddy || "")}" />
+      <input type="text" class="cms-buzzin-buddy" value="${escapeHtml(buddyText)}" />
+    </label>
+    <label class="field">
+      <span>Discussion questions</span>
     </label>
     <div class="cms-buzzin-questions"></div>
     <button type="button" class="btn secondary small cms-add-buzzin-q">+ Add question</button>`;
 
   const qContainer = container.querySelector(".cms-buzzin-questions");
-  let questions = [...(item.questions || [""])];
+  let questions = savedQuestions.length ? [...savedQuestions] : [""];
 
   function renderQuestions() {
     qContainer.innerHTML = questions

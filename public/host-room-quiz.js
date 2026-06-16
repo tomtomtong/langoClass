@@ -2,6 +2,66 @@
 let roomQuizSocket = null;
 let roomQuizCurrentQuestion = null;
 let roomQuizFastMode = false;
+let hostBuzzinSocketReady = false;
+let hostBuzzinRoomId = null;
+
+function updateHostBuzzinUi(payload) {
+  renderBuzzinWinnersList(
+    $("#host-buzzin-winners"),
+    payload.winners || [],
+    "Waiting for students to buzz in…"
+  );
+  const countEl = $("#host-buzzin-buzz-count");
+  if (countEl) {
+    const total = payload.totalBuzzes || 0;
+    countEl.textContent = total
+      ? `${total} student${total === 1 ? "" : "s"} buzzed in`
+      : "Students tap BUZZ IN on their devices.";
+  }
+}
+
+function ensureHostBuzzinSocket() {
+  if (hostBuzzinSocketReady) return;
+  hostBuzzinSocketReady = true;
+
+  const socket = getHostSessionSocket();
+
+  socket.on("buzzin_round_started", (payload) => {
+    updateHostBuzzinUi(payload);
+  });
+
+  socket.on("buzzin_update", (payload) => {
+    updateHostBuzzinUi(payload);
+  });
+}
+
+function startHostBuzzinRound(roomId) {
+  if (!roomId) return Promise.resolve();
+  hostBuzzinRoomId = roomId;
+  ensureHostBuzzinSocket();
+
+  renderBuzzinWinnersList($("#host-buzzin-winners"), [], "Waiting for students to buzz in…");
+  const countEl = $("#host-buzzin-buzz-count");
+  if (countEl) countEl.textContent = "Students tap BUZZ IN on their devices.";
+
+  const socket = getHostSessionSocket();
+
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      socket.emit("start_buzzin_round", { roomId }, (res) => {
+        if (!res?.ok) {
+          reject(new Error(res?.error || "Could not start buzz-in round."));
+          return;
+        }
+        updateHostBuzzinUi(res);
+        resolve();
+      });
+    };
+
+    if (socket.connected) run();
+    else socket.once("connect", run);
+  });
+}
 
 function getRoomQuizSocket() {
   if (!roomQuizSocket) {
@@ -96,18 +156,16 @@ function showHostVideoExercise(exercise) {
   showScreen("host-video");
 }
 
-function showHostBuzzinExercise(exercise) {
+function showHostBuzzinExercise(exercise, roomId) {
   const buzzin = buzzinFromExercise(exercise);
   if (!buzzin) throw new Error("No Buzz In content in this exercise.");
 
   $("#host-buzzin-title").textContent = buzzin.title;
-  const buddy = buzzin.buddy;
-  $("#host-buzzin-buddy").textContent = buddy?.description || buddy?.importNumber || "";
-  $("#host-buzzin-questions").innerHTML = buzzin.questions
-    .map((q) => `<li>${escapeHtml(q)}</li>`)
-    .join("");
+  $("#host-buzzin-buddy").textContent = buddyDisplayText(buzzin.buddy);
+  $("#host-buzzin-questions").innerHTML = renderBuzzinQuestionList(buzzin.questions);
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
   showScreen("host-buzzin");
+  return startHostBuzzinRound(roomId);
 }
 
 function startHostExercise(roomId, exercise) {
@@ -119,8 +177,7 @@ function startHostExercise(roomId, exercise) {
     return Promise.resolve();
   }
   if (isBuzzinExercise(exercise)) {
-    showHostBuzzinExercise(exercise);
-    return Promise.resolve();
+    return showHostBuzzinExercise(exercise, roomId);
   }
   return Promise.reject(new Error(`Unsupported exercise type: ${exercise?.type || "unknown"}`));
 }
@@ -174,6 +231,14 @@ function startHostRoomQuiz(roomId, exercise) {
 function initHostRoomQuizUi() {
   $("#btn-host-quiz-next")?.addEventListener("click", () => {
     getRoomQuizSocket().emit("next_question");
+  });
+
+  $("#btn-host-buzzin-reset")?.addEventListener("click", () => {
+    const roomId = hostBuzzinRoomId || state?.activeRoomId;
+    if (!roomId) return;
+    void startHostBuzzinRound(roomId).catch((err) => {
+      $("#waiting-error").textContent = err.message;
+    });
   });
 }
 
