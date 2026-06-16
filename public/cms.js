@@ -590,6 +590,23 @@ function defaultExercise(type) {
       items: [{ title: "Discussion topic", buddy: "", questions: ["Question 1?"] }],
     };
   }
+  if (type === "fastmcquiz") {
+    return {
+      type: "fastmcquiz",
+      title: "Fast quiz",
+      subTitle: "Fast MC Quiz",
+      items: [
+        {
+          title: "Sample question?",
+          options: [
+            { text: "Option A", isCorrect: true },
+            { text: "Option B", isCorrect: false },
+          ],
+          timeLimit: 15,
+        },
+      ],
+    };
+  }
   return {
     type: "mcquiz",
     title: "Quiz",
@@ -712,7 +729,8 @@ function updateQuestionImagePreview(block, url) {
 }
 
 function renderMcQuizBody(container, exercise) {
-  const items = exercise.items?.length ? exercise.items : defaultExercise("mcquiz").items;
+  const type = exercise.type || "mcquiz";
+  const items = exercise.items?.length ? exercise.items : defaultExercise(type).items;
   container.innerHTML = `<div class="cms-questions-list"></div>
     <button type="button" class="btn secondary small cms-add-question">+ Add question</button>`;
 
@@ -961,6 +979,7 @@ function renderExerciseBody(card, exercise) {
 
   if (type === "video") renderVideoBody(body, exercise);
   else if (type === "buzzin") renderBuzzinBody(body, exercise);
+  else if (type === "fastmcquiz" || type === "mcquiz") renderMcQuizBody(body, exercise);
   else renderMcQuizBody(body, exercise);
 }
 

@@ -3,6 +3,7 @@ let roomQuizSocket = null;
 let roomQuizPlayerId = null;
 let roomQuizCurrentQuestion = null;
 let roomQuizJoinTimer = null;
+let roomQuizFastMode = false;
 
 function stopRoomQuizJoinRetry() {
   if (roomQuizJoinTimer) {
@@ -12,7 +13,8 @@ function stopRoomQuizJoinRetry() {
 }
 
 function setupRoomPlayerQuiz(socket) {
-  socket.on("game_starting", () => {
+  socket.on("game_starting", ({ fastMode } = {}) => {
+    roomQuizFastMode = !!fastMode;
     $("#room-waiting-status").textContent = "Get ready…";
   });
 
@@ -24,7 +26,7 @@ function setupRoomPlayerQuiz(socket) {
     showScreen("player-question");
     $("#player-q-meta").textContent =
       `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
-    setQuestionImage($("#player-question-image"), $("#player-question-image-wrap"), data.image);
+    setQuestionImage($("#player-question-image"), $("#player-question-image-wrap"), null);
     $("#player-question-text").textContent = data.text;
     $("#answer-feedback").textContent = "";
 
@@ -53,10 +55,21 @@ function setupRoomPlayerQuiz(socket) {
   });
 
   socket.on("answer_received", () => {
-    $("#answer-feedback").textContent = "Waiting for others…";
+    $("#answer-feedback").textContent = roomQuizFastMode
+      ? "Answer saved — next question coming…"
+      : "Waiting for others…";
+  });
+
+  socket.on("question_between", ({ isLast } = {}) => {
+    if (!roomQuizFastMode) return;
+    clearTimer();
+    $("#answer-feedback").textContent = isLast
+      ? "Calculating your score…"
+      : "Next question coming…";
   });
 
   socket.on("question_results", ({ results, leaderboard }) => {
+    if (roomQuizFastMode) return;
     clearTimer();
     showScreen("player-results");
     const mine = results.find((r) => r.playerId === roomQuizPlayerId);
@@ -75,6 +88,7 @@ function setupRoomPlayerQuiz(socket) {
   });
 
   socket.on("game_finished", ({ leaderboard }) => {
+    roomQuizFastMode = false;
     clearTimer();
     showScreen("player-finished");
     renderLeaderboard($("#player-final-leaderboard"), leaderboard, roomQuizPlayerId);
@@ -119,16 +133,8 @@ function showStudentVideoExercise(exercisePayload) {
   stopRoomStatusPoll();
   stopRoomQuizJoinRetry();
 
-  const exercise = exerciseFromSessionRecord(exercisePayload);
-  const url = videoUrlFromExercise(exercise);
-  if (!url) return;
-
-  $("#room-video-title").textContent = exercise.title || "Video";
-  $("#room-video-subtitle").textContent = exercise.subTitle || "";
-  const video = $("#room-video-player");
-  video.src = url;
-  video.load();
-  showScreen("room-video");
+  $("#room-waiting-status").textContent = "Watch the lesson on the teacher's screen.";
+  showScreen("room-waiting");
 }
 
 function showStudentBuzzinExercise(exercisePayload) {
@@ -151,7 +157,7 @@ function showStudentBuzzinExercise(exercisePayload) {
 function startRoomExercise(roomId, displayName, userId, exercisePayload) {
   const exercise = exerciseFromSessionRecord(exercisePayload);
   if (!exercise) return;
-  if (isMcQuizExercise(exercise)) {
+  if (isLiveMcQuizExercise(exercise)) {
     connectRoomQuiz(roomId, displayName, userId);
     return;
   }

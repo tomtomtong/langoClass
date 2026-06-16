@@ -165,6 +165,7 @@ function initQuizJoin() {
   const socket = io({ transports: ["websocket", "polling"] });
   let myPlayerId = null;
   let currentQuestion = null;
+  let quizFastMode = false;
 
   const statusEl = $("#connection-status");
   const joinBtn = $("#btn-join-game");
@@ -237,7 +238,8 @@ function initQuizJoin() {
     doJoin();
   });
 
-  socket.on("game_starting", () => {
+  socket.on("game_starting", ({ fastMode } = {}) => {
+    quizFastMode = !!fastMode;
     $("#lobby-status").textContent = "Get ready…";
   });
 
@@ -246,7 +248,7 @@ function initQuizJoin() {
     clearTimer();
     showScreen("player-question");
     $("#player-q-meta").textContent = `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
-    setQuestionImage($("#player-question-image"), $("#player-question-image-wrap"), data.image);
+    setQuestionImage($("#player-question-image"), $("#player-question-image-wrap"), null);
     $("#player-question-text").textContent = data.text;
     $("#answer-feedback").textContent = "";
 
@@ -275,10 +277,21 @@ function initQuizJoin() {
   });
 
   socket.on("answer_received", () => {
-    $("#answer-feedback").textContent = "Waiting for others…";
+    $("#answer-feedback").textContent = quizFastMode
+      ? "Answer saved — next question coming…"
+      : "Waiting for others…";
+  });
+
+  socket.on("question_between", ({ isLast } = {}) => {
+    if (!quizFastMode) return;
+    clearTimer();
+    $("#answer-feedback").textContent = isLast
+      ? "Calculating your score…"
+      : "Next question coming…";
   });
 
   socket.on("question_results", ({ results, leaderboard }) => {
+    if (quizFastMode) return;
     clearTimer();
     showScreen("player-results");
     const mine = results.find((r) => r.playerId === myPlayerId);
@@ -297,6 +310,7 @@ function initQuizJoin() {
   });
 
   socket.on("game_finished", ({ leaderboard }) => {
+    quizFastMode = false;
     clearTimer();
     showScreen("player-finished");
     renderLeaderboard($("#player-final-leaderboard"), leaderboard, myPlayerId);

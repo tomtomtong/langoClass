@@ -8,6 +8,14 @@ function isMcQuizExercise(exercise) {
   return normalizeExerciseType(exercise?.type) === "mcquiz";
 }
 
+function isFastMcQuizExercise(exercise) {
+  return normalizeExerciseType(exercise?.type) === "fastmcquiz";
+}
+
+function isLiveMcQuizExercise(exercise) {
+  return isMcQuizExercise(exercise) || isFastMcQuizExercise(exercise);
+}
+
 function isVideoExercise(exercise) {
   return normalizeExerciseType(exercise?.type) === "video";
 }
@@ -17,7 +25,7 @@ function isBuzzinExercise(exercise) {
 }
 
 function mcQuizPayloadFromExercise(exercise) {
-  if (!exercise || !isMcQuizExercise(exercise)) return null;
+  if (!exercise || !isLiveMcQuizExercise(exercise)) return null;
 
   const questions = (exercise.items || [])
     .map((item) => {
@@ -37,6 +45,7 @@ function mcQuizPayloadFromExercise(exercise) {
   return {
     title: exercise.title || exercise.subTitle || "Class quiz",
     questions,
+    fastMode: isFastMcQuizExercise(exercise),
   };
 }
 
@@ -63,6 +72,74 @@ function exerciseMetaLabel(exercise) {
   else if (exercise?.type) parts.push(exercise.type);
   if (exercise?.order != null) parts.push(`#${exercise.order}`);
   return parts.join(" · ");
+}
+
+const mediaBlobCache = new Map();
+
+function resolvedMediaUrl(url) {
+  const u = String(url || "").trim();
+  if (!u) return u;
+  return mediaBlobCache.get(u) || u;
+}
+
+function collectExerciseMediaUrls(exercises) {
+  const urls = new Set();
+  if (!Array.isArray(exercises)) return [];
+
+  for (const exercise of exercises) {
+    if (isVideoExercise(exercise)) {
+      const video = videoUrlFromExercise(exercise);
+      if (video) urls.add(String(video).trim());
+    }
+    if (isLiveMcQuizExercise(exercise)) {
+      for (const item of exercise.items || []) {
+        const image = String(item.image || item.imageUrl || "").trim();
+        if (image) urls.add(image);
+      }
+    }
+  }
+
+  return [...urls];
+}
+
+async function preloadMediaUrl(url) {
+  const u = String(url || "").trim();
+  if (!u || mediaBlobCache.has(u)) return;
+
+  try {
+    const res = await fetch(u);
+    if (!res.ok) throw new Error("fetch failed");
+    const blob = await res.blob();
+    mediaBlobCache.set(u, URL.createObjectURL(blob));
+  } catch {
+    const path = u.split("?")[0].toLowerCase();
+    const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\b|$)/.test(path);
+    if (isVideo) {
+      await new Promise((resolve) => {
+        const video = document.createElement("video");
+        video.preload = "auto";
+        video.oncanplaythrough = video.onerror = () => resolve();
+        video.src = u;
+        video.load();
+      });
+    } else {
+      await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = img.onerror = () => resolve();
+        img.src = u;
+      });
+    }
+  }
+}
+
+async function preloadExerciseMedia(exercises, { onProgress } = {}) {
+  const urls = collectExerciseMediaUrls(exercises);
+  let done = 0;
+  for (const url of urls) {
+    await preloadMediaUrl(url);
+    done += 1;
+    onProgress?.(done, urls.length);
+  }
 }
 
 /** Normalize exercise from CMS or legacy session payload. */

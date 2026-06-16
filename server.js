@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const { normalizeClassListResponse } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
+const scoreStore = require("./lib/score-store");
 const sessionStore = require("./lib/session-store");
 
 const app = express();
@@ -193,7 +194,52 @@ function normalizeClientQuiz(quiz) {
   return {
     title: String(quiz?.title || "Class quiz").slice(0, 100),
     questions,
+    fastMode: !!quiz?.fastMode,
   };
+}
+
+function attachSessionContext(game) {
+  const session = sessionStore.getSession(game.pin);
+  if (!session) return;
+
+  game.sessionContext = {
+    teacherId: session.teacherId,
+    classId: session.classId,
+    courseId: session.courseId,
+    exerciseId: session.exercise?.id,
+    exerciseTitle: session.exercise?.title || session.exercise?.subTitle || "",
+    exerciseType: session.exercise?.type || "mcquiz",
+  };
+}
+
+function persistExerciseScores(game) {
+  const ctx = game.sessionContext;
+  if (!ctx?.teacherId || !ctx?.classId || !ctx?.exerciseId) return null;
+
+  const session = sessionStore.getSession(game.pin);
+  const participantById = session
+    ? new Map([...session.participants.values()].map((p) => [p.userId, p]))
+    : null;
+
+  const scores = [...game.players.values()].map((player) => {
+    const participant = participantById?.get(player.id);
+    return {
+      studentUserId: player.id,
+      displayName: participant?.displayName || player.name,
+      score: player.score,
+    };
+  });
+
+  return scoreStore.saveExerciseScores({
+    teacherId: ctx.teacherId,
+    classId: ctx.classId,
+    courseId: ctx.courseId,
+    exerciseId: ctx.exerciseId,
+    exerciseTitle: ctx.exerciseTitle,
+    exerciseType: ctx.exerciseType,
+    roomId: game.pin,
+    scores,
+  });
 }
 
 function createRoomGame(hostSocketId, roomId, quizPayload) {
@@ -217,8 +263,12 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
     answers: new Map(),
     questionTimer: null,
     isRoomGame: true,
+    sessionContext: null,
+    scoresSaved: false,
+    fastMode: !!normalized.fastMode,
   };
 
+  attachSessionContext(game);
   games.set(pin, game);
   return game;
 }
@@ -253,6 +303,7 @@ function createGame(hostSocketId, quizPayload) {
     questionStartedAt: null,
     answers: new Map(),
     questionTimer: null,
+    fastMode: !!normalized.fastMode,
   };
 
   games.set(pin, game);
@@ -335,6 +386,17 @@ function endQuestion(game) {
     }
   }
 
+  if (game.fastMode) {
+    const isLast = game.currentQuestionIndex + 1 >= game.quiz.questions.length;
+    io.to(game.pin).emit("question_between", {
+      questionIndex: game.currentQuestionIndex,
+      totalQuestions: game.quiz.questions.length,
+      isLast,
+    });
+    setTimeout(() => startQuestion(game), 1500);
+    return;
+  }
+
   io.to(game.pin).emit("question_results", {
     questionIndex: game.currentQuestionIndex,
     correctIndex: question.correctIndex,
@@ -349,6 +411,15 @@ function startQuestion(game) {
 
   if (nextIndex >= game.quiz.questions.length) {
     game.status = "finished";
+    if (!game.scoresSaved) {
+      const result = persistExerciseScores(game);
+      game.scoresSaved = true;
+      if (result?.saved > 0) {
+        console.log(
+          `[scores] Saved ${result.saved} score(s) for class ${game.sessionContext?.classId} exercise ${game.sessionContext?.exerciseId} (room ${game.pin})`
+        );
+      }
+    }
     io.to(game.pin).emit("game_finished", {
       leaderboard: getLeaderboard(game),
     });
@@ -834,6 +905,32 @@ app.post("/api/session/start", async (req, res) => {
   });
 });
 
+app.get("/api/scores", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const classId = Number(req.query.classId);
+  if (!Number.isFinite(classId)) {
+    return res.status(400).json({ message: "classId query parameter is required." });
+  }
+
+  const courseId = req.query.courseId != null ? Number(req.query.courseId) : undefined;
+  const exerciseId = req.query.exerciseId != null ? Number(req.query.exerciseId) : undefined;
+  const roomId = req.query.roomId ? String(req.query.roomId).trim() : undefined;
+
+  return res.json({
+    classId,
+    teacherId: auth.teacherId,
+    semesterTotals: scoreStore.listSemesterTotalsForClass(auth.teacherId, classId),
+    students: scoreStore.listStudentsForClass(auth.teacherId, classId),
+    scores: scoreStore.listScoresForClass(auth.teacherId, classId, {
+      courseId: Number.isFinite(courseId) ? courseId : undefined,
+      exerciseId: Number.isFinite(exerciseId) ? exerciseId : undefined,
+      roomId,
+    }),
+  });
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (_req, res) => {
@@ -1081,9 +1178,12 @@ io.on("connection", (socket) => {
     if (!game || game.status !== "lobby") return;
     if (!game.isRoomGame && game.players.size === 0) return;
 
+    attachSessionContext(game);
+
     game.status = "starting";
     io.to(game.pin).emit("game_starting", {
       totalQuestions: game.quiz.questions.length,
+      fastMode: !!game.fastMode,
     });
 
     setTimeout(() => startQuestion(game), 2000);
@@ -1133,14 +1233,34 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const name = String(nickname || "").trim().slice(0, 40);
+    const session = sessionStore.getSession(pin);
+    let name = String(nickname || "").trim().slice(0, 40);
+    let playerId = String(userId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+
+    if (session) {
+      if (!playerId) {
+        callback?.({ ok: false, error: "Rejoin the class waiting room first." });
+        return;
+      }
+
+      const participant = session.participants.get(playerId);
+      if (!participant) {
+        callback?.({
+          ok: false,
+          error: "Join the class waiting room before the quiz starts.",
+        });
+        return;
+      }
+
+      name = participant.displayName || name;
+    } else if (!playerId) {
+      playerId = socket.id;
+    }
+
     if (!name) {
       callback?.({ ok: false, error: "Enter your name." });
       return;
     }
-
-    let playerId = String(userId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
-    if (!playerId) playerId = socket.id;
 
     const existing = game.players.get(playerId);
     if (existing && existing.name.toLowerCase() !== name.toLowerCase()) {

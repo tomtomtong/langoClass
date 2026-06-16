@@ -1,6 +1,7 @@
 /** Socket.IO live exercises for Lango host — content from CMS course detail. */
 let roomQuizSocket = null;
 let roomQuizCurrentQuestion = null;
+let roomQuizFastMode = false;
 
 function getRoomQuizSocket() {
   if (!roomQuizSocket) {
@@ -17,7 +18,11 @@ function renderHostQuizQuestion(data, { preparing = false } = {}) {
   $("#host-quiz-q-meta").textContent = preparing
     ? "Get ready…"
     : `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
-  setQuestionImage($("#host-quiz-question-image"), $("#host-quiz-question-image-wrap"), data.image);
+  setQuestionImage(
+    $("#host-quiz-question-image"),
+    $("#host-quiz-question-image-wrap"),
+    resolvedMediaUrl(data.image)
+  );
   $("#host-quiz-question-text").textContent = data.text || "";
   renderOptions($("#host-quiz-options"), data.options || [], { clickable: false });
   $("#host-quiz-answered-count").textContent = preparing
@@ -26,18 +31,31 @@ function renderHostQuizQuestion(data, { preparing = false } = {}) {
 }
 
 function setupHostRoomQuizSocket(socket) {
+  socket.on("game_starting", ({ fastMode } = {}) => {
+    roomQuizFastMode = !!fastMode;
+  });
+
   socket.on("question_start", (data) => {
     roomQuizCurrentQuestion = data;
     renderHostQuizQuestion(data);
   });
 
+  socket.on("question_between", ({ isLast } = {}) => {
+    if (!roomQuizFastMode) return;
+    showScreen("host-quiz-question");
+    $("#host-quiz-answered-count").textContent = isLast
+      ? "Calculating final results…"
+      : "Next question coming…";
+  });
+
   socket.on("question_results", ({ correctIndex, answerCounts, leaderboard }) => {
+    if (roomQuizFastMode) return;
     showScreen("host-quiz-results");
     const q = roomQuizCurrentQuestion;
     setQuestionImage(
       $("#host-quiz-results-image"),
       $("#host-quiz-results-image-wrap"),
-      q?.image
+      resolvedMediaUrl(q?.image)
     );
     $("#host-quiz-results-question-text").textContent = q?.text || "";
     const total = answerCounts.reduce((a, b) => a + b, 0) || 1;
@@ -54,6 +72,7 @@ function setupHostRoomQuizSocket(socket) {
   });
 
   socket.on("game_finished", ({ leaderboard }) => {
+    roomQuizFastMode = false;
     showScreen("host-quiz-finished");
     renderLeaderboard($("#host-quiz-final-leaderboard"), leaderboard);
     if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
@@ -65,7 +84,7 @@ function setupHostRoomQuizSocket(socket) {
 }
 
 function showHostVideoExercise(exercise) {
-  const url = videoUrlFromExercise(exercise);
+  const url = resolvedMediaUrl(videoUrlFromExercise(exercise));
   if (!url) throw new Error("No video URL in this exercise.");
 
   $("#host-video-title").textContent = exercise.title || "Video";
@@ -92,7 +111,7 @@ function showHostBuzzinExercise(exercise) {
 }
 
 function startHostExercise(roomId, exercise) {
-  if (isMcQuizExercise(exercise)) {
+  if (isLiveMcQuizExercise(exercise)) {
     return startHostRoomQuiz(roomId, exercise);
   }
   if (isVideoExercise(exercise)) {
@@ -112,6 +131,7 @@ function startHostRoomQuiz(roomId, exercise) {
     return Promise.reject(new Error("No quiz questions in this exercise."));
   }
 
+  roomQuizFastMode = !!quiz.fastMode;
   const socket = getRoomQuizSocket();
 
   return new Promise((resolve, reject) => {
@@ -132,7 +152,7 @@ function startHostRoomQuiz(roomId, exercise) {
             totalQuestions: quiz.questions.length,
             text: firstQuestion.text,
             options: firstQuestion.options,
-            image: firstQuestion.image || null,
+            image: resolvedMediaUrl(firstQuestion.image) || null,
           };
           renderHostQuizQuestion(roomQuizCurrentQuestion, { preparing: true });
           resolve();

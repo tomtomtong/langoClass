@@ -70,8 +70,8 @@
         <span id="timer-text">15</span>
       </div>
       <p class="q-meta" id="player-q-meta"></p>
-      <div class="question-image-wrap" id="player-question-image-wrap" hidden>
-        <img class="question-image" id="player-question-image" alt="" />
+      <div class="question-image-wrap" id="player-question-image-wrap" hidden aria-hidden="true">
+        <img class="question-image" id="player-question-image" alt="" hidden />
       </div>
       <h2 class="question-text" id="player-question-text"></h2>
       <div class="options-grid player-options" id="player-options"></div>
@@ -92,10 +92,10 @@
       <button class="btn secondary" onclick="location.href='/join.html'">Play Again</button>
     </section>
 
-    <section id="screen-room-video" class="screen">
+    <section id="screen-room-video" class="screen" hidden aria-hidden="true">
       <h2 id="room-video-title"></h2>
       <p class="hint" id="room-video-subtitle"></p>
-      <video id="room-video-player" class="exercise-video" controls playsinline></video>
+      <video id="room-video-player" class="exercise-video" controls playsinline hidden></video>
     </section>
 
     <section id="screen-room-buzzin" class="screen">

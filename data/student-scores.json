@@ -1,0 +1,59 @@
+{
+  "students": {
+    "835:1:web_abc": {
+      "teacherId": 835,
+      "classId": 1,
+      "studentUserId": "web_abc",
+      "displayName": "Alice",
+      "totalScore": 2000,
+      "exerciseCount": 2,
+      "firstScoreAt": "2026-06-16T02:46:51.723Z",
+      "lastScoreAt": "2026-06-16T02:46:51.723Z",
+      "updatedAt": "2026-06-16T02:46:51.723Z"
+    }
+  },
+  "records": [
+    {
+      "recordKey": "835:1:123456:1:web_abc",
+      "teacherId": 835,
+      "classId": 1,
+      "courseId": -1,
+      "exerciseId": 1,
+      "exerciseTitle": "Quiz",
+      "exerciseType": "mcquiz",
+      "roomId": "123456",
+      "studentUserId": "web_abc",
+      "displayName": "Alice",
+      "score": 1200,
+      "savedAt": "2026-06-16T02:44:29.197Z"
+    },
+    {
+      "recordKey": "835:1:111111:1:web_abc",
+      "teacherId": 835,
+      "classId": 1,
+      "courseId": -1,
+      "exerciseId": 1,
+      "exerciseTitle": "Quiz",
+      "exerciseType": "mcquiz",
+      "roomId": "111111",
+      "studentUserId": "web_abc",
+      "displayName": "Alice",
+      "score": 1200,
+      "savedAt": "2026-06-16T02:46:51.722Z"
+    },
+    {
+      "recordKey": "835:1:222222:2:web_abc",
+      "teacherId": 835,
+      "classId": 1,
+      "courseId": -1,
+      "exerciseId": 2,
+      "exerciseTitle": "Quiz",
+      "exerciseType": "mcquiz",
+      "roomId": "222222",
+      "studentUserId": "web_abc",
+      "displayName": "Alice",
+      "score": 800,
+      "savedAt": "2026-06-16T02:46:51.723Z"
+    }
+  ]
+}

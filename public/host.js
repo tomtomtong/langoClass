@@ -516,6 +516,7 @@ function exerciseSubtitle(exercise) {
   if (subtitle) return subtitle;
   if (isVideoExercise(exercise)) return "Watch the lesson video.";
   if (isBuzzinExercise(exercise)) return "Answer fast to score points.";
+  if (isFastMcQuizExercise(exercise)) return "Answer quickly — results at the end.";
   if (isMcQuizExercise(exercise)) {
     const questionCount = (exercise.items || []).length;
     return questionCount >= 5 ? "Answer as many as you can!" : "Choose the correct answer.";
@@ -528,7 +529,7 @@ function exercisePointsValue(exercise) {
   const itemCount = Math.max(1, (exercise?.items || []).length);
   if (type === "video") return 200;
   if (type === "buzzin") return 300;
-  if (type === "mcquiz") return itemCount >= 5 ? 500 : 300;
+  if (type === "mcquiz" || type === "fastmcquiz") return itemCount >= 5 ? 500 : 300;
   return 100 * itemCount;
 }
 
@@ -880,8 +881,21 @@ async function showSectionExercises() {
       state.selectedExercise = exercises[0];
     }
 
+    if (exercises.length) {
+      const mediaUrls = collectExerciseMediaUrls(exercises);
+      if (mediaUrls.length) {
+        $("#journey-status").textContent = `Downloading media (0/${mediaUrls.length})…`;
+        await preloadExerciseMedia(exercises, {
+          onProgress: (done, total) => {
+            $("#journey-status").textContent = `Downloading media (${done}/${total})…`;
+          },
+        });
+      }
+    }
+
     $("#journey-status").textContent = exercises.length ? "" : "No exercises in this section.";
     renderExercises();
+    $("#btn-start-session").disabled = !state.selectedExercise;
   } catch (err) {
     $("#journey-status").textContent = "";
     $("#journey-error").textContent = err.message;
@@ -1275,7 +1289,7 @@ async function handleStartClass() {
     stopWaitingPoll();
     const exerciseType = normalizeExerciseType(state.selectedExercise?.type);
     $("#waiting-participant-status").textContent =
-      exerciseType === "mcquiz"
+      exerciseType === "mcquiz" || exerciseType === "fastmcquiz"
         ? "Class started — quiz loading…"
         : "Class started — loading exercise…";
     btn.textContent = "Class started";
