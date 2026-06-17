@@ -2526,7 +2526,6 @@ body.cms-light .field input,
 body.cms-light .field select,
 body.cms-light .field textarea,
 body.cms-light .cms-section-title,
-body.cms-light .cms-section-banner-url,
 body.cms-light .cms-exercise-title,
 body.cms-light .cms-exercise-order,
 body.cms-light .cms-exercise-section-select,
@@ -2632,6 +2631,19 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.config-section-spaced {
+  margin-top: 1.5rem;
+}
+
+.config-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+}
+
+.config-inworld-test-preview {
+  margin-top: 1rem;
 }
 
 .cms-host-link {
@@ -3120,17 +3132,6 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   background: var(--bg);
 }
 
-.cms-section-banner-url {
-  flex: 1;
-  min-width: 200px;
-  font-family: inherit;
-  border: 2px solid var(--accent2);
-  border-radius: 10px;
-  padding: 0.55rem 0.75rem;
-  background: var(--bg);
-  color: var(--text);
-}
-
 .cms-section-banner-status {
   width: 100%;
   margin: 0;
@@ -3332,17 +3333,6 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   object-fit: cover;
   border: 2px solid var(--accent2);
   background: var(--surface);
-}
-
-.cms-q-image-url {
-  width: 100%;
-  padding: 0.45rem 0.65rem;
-  border-radius: 10px;
-  border: 2px solid var(--accent2);
-  background: var(--surface);
-  color: var(--text);
-  font-family: inherit;
-  font-weight: 600;
 }
 
 .cms-add-option {

@@ -21,10 +21,24 @@ const LANGO_API_BASE = "https://dev.api.lango.ai/v1";
 const ENV_PUBLIC_BASE_URL = (
   process.env.PUBLIC_BASE_URL || "https://test.n9n.uk"
 ).replace(/\/$/, "");
+const ENV_INWORLD_API_KEY = String(process.env.INWORLD_API_KEY || "").trim();
+const INWORLD_API_BASE = "https://api.inworld.ai";
 
 function getPublicBaseUrl() {
   const saved = settingsStore.readSettings().publicBaseUrl;
   return saved || ENV_PUBLIC_BASE_URL;
+}
+
+function getInworldApiKey() {
+  const saved = settingsStore.readSettings().inworldApiKey;
+  return saved || ENV_INWORLD_API_KEY;
+}
+
+function maskApiKey(key) {
+  const trimmed = String(key || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.length <= 8) return "••••••••";
+  return `••••${trimmed.slice(-4)}`;
 }
 
 function normalizePublicBaseUrl(url) {
@@ -667,44 +681,111 @@ function buildNotificationData(extra = {}) {
   };
 }
 
-app.get("/api/config", (_req, res) => {
+function buildConfigResponse() {
   const settings = settingsStore.readSettings();
-  return res.json({
+  const effectiveInworldKey = getInworldApiKey();
+  return {
     publicBaseUrl: settings.publicBaseUrl || "",
     envDefault: ENV_PUBLIC_BASE_URL,
     effectivePublicBaseUrl: getPublicBaseUrl(),
+    inworldApiKeySaved: !!settings.inworldApiKey,
+    inworldEnvDefaultConfigured: !!ENV_INWORLD_API_KEY,
+    inworldApiKeyConfigured: !!effectiveInworldKey,
+    inworldApiKeyMasked: maskApiKey(effectiveInworldKey),
     notificationPreview: buildNotificationData({
       session_id: "123456",
       class_name: "Example class",
       teacher_name: "Example teacher",
     }),
+  };
+}
+
+async function testInworldApiKey(apiKey) {
+  const key = String(apiKey || "").trim();
+  if (!key) {
+    throw new Error("No Inworld API key to test. Enter a key or set INWORLD_API_KEY.");
+  }
+
+  const started = Date.now();
+  const res = await fetch(`${INWORLD_API_BASE}/tts/v1/voices?filter=language=en`, {
+    headers: { Authorization: `Basic ${key}` },
   });
+
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text || res.statusText };
+  }
+
+  if (!res.ok) {
+    const message =
+      data?.message || data?.error?.message || `Inworld API returned ${res.status}.`;
+    throw new Error(message);
+  }
+
+  const voices = Array.isArray(data?.voices) ? data.voices : [];
+  return {
+    ok: true,
+    latencyMs: Date.now() - started,
+    voiceCount: voices.length,
+    sampleVoices: voices.slice(0, 5).map((voice) => ({
+      voiceId: voice.voiceId,
+      displayName: voice.displayName,
+    })),
+  };
+}
+
+app.get("/api/config", (_req, res) => {
+  return res.json(buildConfigResponse());
 });
 
 app.put("/api/config", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  const { publicBaseUrl } = req.body || {};
+  const { publicBaseUrl, inworldApiKey } = req.body || {};
+  const updates = {};
+
+  if (publicBaseUrl !== undefined) {
+    try {
+      updates.publicBaseUrl =
+        publicBaseUrl == null || publicBaseUrl === ""
+          ? ""
+          : normalizePublicBaseUrl(publicBaseUrl);
+    } catch (err) {
+      return res.status(400).json({ message: err.message || "Invalid URL." });
+    }
+  }
+
+  if (inworldApiKey !== undefined) {
+    updates.inworldApiKey = String(inworldApiKey || "").trim();
+  }
+
+  if (!Object.keys(updates).length) {
+    return res.status(400).json({ message: "No settings to update." });
+  }
+
+  settingsStore.writeSettings(updates);
+  return res.json({ ok: true, ...buildConfigResponse() });
+});
+
+app.post("/api/config/test-inworld", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const bodyKey = req.body?.inworldApiKey;
+  const keyToTest =
+    bodyKey != null && String(bodyKey).trim()
+      ? String(bodyKey).trim()
+      : getInworldApiKey();
+
   try {
-    const normalized =
-      publicBaseUrl == null || publicBaseUrl === ""
-        ? ""
-        : normalizePublicBaseUrl(publicBaseUrl);
-    const settings = settingsStore.writeSettings({ publicBaseUrl: normalized });
-    return res.json({
-      ok: true,
-      publicBaseUrl: settings.publicBaseUrl || "",
-      envDefault: ENV_PUBLIC_BASE_URL,
-      effectivePublicBaseUrl: getPublicBaseUrl(),
-      notificationPreview: buildNotificationData({
-        session_id: "123456",
-        class_name: "Example class",
-        teacher_name: "Example teacher",
-      }),
-    });
+    const result = await testInworldApiKey(keyToTest);
+    return res.json(result);
   } catch (err) {
-    return res.status(400).json({ message: err.message || "Invalid URL." });
+    return res.status(400).json({ message: err.message || "Inworld API test failed." });
   }
 });
 

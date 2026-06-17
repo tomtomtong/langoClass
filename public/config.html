@@ -79,6 +79,48 @@
         <p class="status-msg" id="config-status"></p>
         <p class="error" id="config-error"></p>
       </div>
+
+      <div class="cms-panel config-panel config-section-spaced">
+        <h2>Inworld API</h2>
+        <p class="hint">
+          Paste the <strong>Basic (Base64)</strong> credential from
+          <a href="https://platform.inworld.ai/api-keys" target="_blank" rel="noopener">Inworld Portal</a>.
+          The key is stored on this server and used for voice/TTS requests.
+        </p>
+
+        <label class="field">
+          <span>Inworld API key</span>
+          <input
+            type="password"
+            id="config-inworld-key"
+            placeholder="Paste key here"
+            autocomplete="off"
+          />
+          <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Status:</strong> <span id="config-inworld-status-label">—</span></p>
+          <p><strong>Active key:</strong> <span id="config-inworld-masked">—</span></p>
+          <p class="hint" id="config-inworld-env-hint" hidden>
+            Using <code>INWORLD_API_KEY</code> environment variable (no saved key).
+          </p>
+        </div>
+
+        <div class="config-actions">
+          <button type="button" class="btn primary" id="btn-config-save-inworld">Save key</button>
+          <button type="button" class="btn secondary" id="btn-config-test-inworld">Test API</button>
+          <button type="button" class="btn secondary" id="btn-config-clear-inworld">Clear saved key</button>
+        </div>
+
+        <div class="config-preview config-inworld-test-preview" id="config-inworld-test-wrap" hidden>
+          <span class="field-label">Test result</span>
+          <pre id="config-inworld-test-result" class="config-preview-json"></pre>
+        </div>
+
+        <p class="status-msg" id="config-inworld-save-status"></p>
+        <p class="error" id="config-inworld-error"></p>
+      </div>
     </section>
   </div>
 

@@ -107,6 +107,75 @@ function renderConfig(data) {
     null,
     2
   );
+
+  const inworldConfigured = !!data.inworldApiKeyConfigured;
+  const inworldSaved = !!data.inworldApiKeySaved;
+  $("#config-inworld-status-label").textContent = inworldConfigured
+    ? "Configured"
+    : "Not configured";
+  $("#config-inworld-masked").textContent = inworldConfigured
+    ? data.inworldApiKeyMasked || "—"
+    : "—";
+  $("#config-inworld-env-hint").hidden =
+    !data.inworldEnvDefaultConfigured || inworldSaved;
+
+  if (inworldSaved) {
+    $("#config-inworld-key").placeholder = "Key saved — paste to replace";
+  } else {
+    $("#config-inworld-key").placeholder = "Paste key here";
+  }
+}
+
+function clearInworldTestResult() {
+  $("#config-inworld-test-wrap").hidden = true;
+  $("#config-inworld-test-result").textContent = "";
+}
+
+async function saveInworldKey(inworldApiKey) {
+  $("#config-inworld-error").textContent = "";
+  $("#config-inworld-save-status").textContent = "";
+  clearInworldTestResult();
+
+  const btn = $("#btn-config-save-inworld");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { inworldApiKey },
+    });
+    renderConfig(data);
+    $("#config-inworld-key").value = "";
+    $("#config-inworld-save-status").textContent = inworldApiKey
+      ? "Inworld key saved."
+      : "Saved key cleared. Using environment default if set.";
+  } catch (err) {
+    $("#config-inworld-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function testInworldKey() {
+  $("#config-inworld-error").textContent = "";
+  $("#config-inworld-save-status").textContent = "";
+  clearInworldTestResult();
+
+  const inputKey = $("#config-inworld-key").value.trim();
+  const btn = $("#btn-config-test-inworld");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config/test-inworld", {
+      method: "POST",
+      body: inputKey ? { inworldApiKey: inputKey } : {},
+    });
+    $("#config-inworld-test-wrap").hidden = false;
+    $("#config-inworld-test-result").textContent = JSON.stringify(data, null, 2);
+    $("#config-inworld-save-status").textContent = `API test succeeded (${data.latencyMs} ms).`;
+  } catch (err) {
+    $("#config-inworld-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function loadConfig() {
@@ -197,6 +266,14 @@ async function init() {
   $("#btn-config-use-current").addEventListener("click", () => {
     $("#config-public-base-url").value = window.location.origin;
     saveConfig(window.location.origin);
+  });
+  $("#btn-config-save-inworld").addEventListener("click", () => {
+    saveInworldKey($("#config-inworld-key").value.trim());
+  });
+  $("#btn-config-test-inworld").addEventListener("click", testInworldKey);
+  $("#btn-config-clear-inworld").addEventListener("click", () => {
+    $("#config-inworld-key").value = "";
+    saveInworldKey("");
   });
 
   if (state.token && state.user) {

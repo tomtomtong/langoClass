@@ -384,7 +384,7 @@ function syncSectionsMetadataFromDom() {
       ...section,
       id: idRaw != null ? Number(idRaw) : section.id,
       title: sectionCard.querySelector(".cms-section-title")?.value.trim() || section.title || "Untitled",
-      banner: sectionCard.querySelector(".cms-section-banner-url")?.value.trim() || "",
+      banner: sectionCard.querySelector(".cms-section-banner-value")?.value.trim() || "",
       order: Number(sectionCard.querySelector(".cms-section-order")?.value) || section.order || 1,
       exercises: section.exercises || [],
     });
@@ -742,7 +742,7 @@ function renderMcQuizBody(container, exercise) {
 
     items[qIdx].title = block.querySelector(".cms-q-text")?.value.trim() || "";
     items[qIdx].timeLimit = Number(block.querySelector(".cms-q-time")?.value) || 15;
-    items[qIdx].image = block.querySelector(".cms-q-image-url")?.value.trim() || "";
+    items[qIdx].image = block.querySelector(".cms-q-image-value")?.value.trim() || "";
 
     const options = [];
     block.querySelectorAll(".cms-option-row").forEach((row) => {
@@ -772,7 +772,7 @@ function renderMcQuizBody(container, exercise) {
               <input type="file" class="cms-q-image-file" data-q="${qIdx}" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
               Upload image
             </label>
-            <input type="url" class="cms-q-image-url" data-q="${qIdx}" value="${escapeHtml(item.image || "")}" placeholder="Or paste image URL…" />
+            <input type="hidden" class="cms-q-image-value" data-q="${qIdx}" value="${escapeHtml(item.image || "")}" />
             <span class="hint cms-q-image-status" data-q="${qIdx}"></span>
           </div>
           <div class="cms-options-list" data-q="${qIdx}">
@@ -827,21 +827,12 @@ function renderMcQuizBody(container, exercise) {
       });
     });
 
-    list.querySelectorAll(".cms-q-image-url").forEach((input) => {
-      input.addEventListener("input", () => {
-        const qIdx = Number(input.dataset.q);
-        const block = list.querySelector(`.cms-question-block[data-q="${qIdx}"]`);
-        updateQuestionImagePreview(block, input.value);
-        if (items[qIdx]) items[qIdx].image = input.value.trim();
-      });
-    });
-
     list.querySelectorAll(".cms-q-image-remove").forEach((btn) => {
       btn.addEventListener("click", () => {
         const qIdx = Number(btn.dataset.q);
         const block = list.querySelector(`.cms-question-block[data-q="${qIdx}"]`);
-        const urlInput = block?.querySelector(".cms-q-image-url");
-        if (urlInput) urlInput.value = "";
+        const valueInput = block?.querySelector(".cms-q-image-value");
+        if (valueInput) valueInput.value = "";
         updateQuestionImagePreview(block, "");
         if (items[qIdx]) items[qIdx].image = "";
       });
@@ -856,13 +847,13 @@ function renderMcQuizBody(container, exercise) {
         const qIdx = Number(input.dataset.q);
         const block = list.querySelector(`.cms-question-block[data-q="${qIdx}"]`);
         const statusEl = block?.querySelector(".cms-q-image-status");
-        const urlInput = block?.querySelector(".cms-q-image-url");
+        const valueInput = block?.querySelector(".cms-q-image-value");
 
         if (statusEl) statusEl.textContent = "Uploading…";
         try {
           const data = await uploadQuestionImageFile(file);
           const url = data?.url || "";
-          if (urlInput) urlInput.value = url;
+          if (valueInput) valueInput.value = url;
           updateQuestionImagePreview(block, url);
           if (items[qIdx]) items[qIdx].image = url;
           if (statusEl) statusEl.textContent = "Image uploaded.";
@@ -892,7 +883,7 @@ function renderMcQuizBody(container, exercise) {
     items.map((item, qIdx) => {
       const block = list.querySelector(`.cms-question-block[data-q="${qIdx}"]`);
       const title = block?.querySelector(".cms-q-text")?.value.trim() || "";
-      const image = block?.querySelector(".cms-q-image-url")?.value.trim() || "";
+      const image = block?.querySelector(".cms-q-image-value")?.value.trim() || "";
       const timeLimit = Number(block?.querySelector(".cms-q-time")?.value) || 15;
       const options = [];
       block?.querySelectorAll(".cms-option-row").forEach((row) => {
@@ -1027,7 +1018,7 @@ function renderSectionEditors() {
 
     sectionCard.querySelector(".cms-section-title").value = section.title || "";
     sectionCard.querySelector(".cms-section-order").value = String(section.order ?? sectionIndex + 1);
-    sectionCard.querySelector(".cms-section-banner-url").value = section.banner || "";
+    sectionCard.querySelector(".cms-section-banner-value").value = section.banner || "";
     updateSectionBannerPreview(sectionCard, section.banner || "");
 
     sectionCard.querySelector(".cms-section-banner-file").addEventListener("change", async (e) => {
@@ -1047,7 +1038,7 @@ function renderSectionEditors() {
         statusEl.textContent = "Uploading…";
         const data = await uploadSectionBannerFile(sectionId, file);
         const url = data.url || "";
-        sectionCard.querySelector(".cms-section-banner-url").value = url;
+        sectionCard.querySelector(".cms-section-banner-value").value = url;
         updateSectionBannerPreview(sectionCard, url);
         if (state.sections[sectionIndex]) {
           state.sections[sectionIndex].banner = url;
@@ -1062,19 +1053,11 @@ function renderSectionEditors() {
     });
 
     sectionCard.querySelector(".cms-remove-section-banner").addEventListener("click", () => {
-      sectionCard.querySelector(".cms-section-banner-url").value = "";
+      sectionCard.querySelector(".cms-section-banner-value").value = "";
       updateSectionBannerPreview(sectionCard, "");
       sectionCard.querySelector(".cms-section-banner-status").textContent = "";
       if (state.sections[sectionIndex]) {
         state.sections[sectionIndex].banner = "";
-      }
-    });
-
-    sectionCard.querySelector(".cms-section-banner-url").addEventListener("input", (e) => {
-      const url = e.target.value.trim();
-      updateSectionBannerPreview(sectionCard, url);
-      if (state.sections[sectionIndex]) {
-        state.sections[sectionIndex].banner = url;
       }
     });
 
@@ -1290,7 +1273,6 @@ $("#btn-save-details").addEventListener("click", saveDetails);
 $("#btn-delete-course").addEventListener("click", deleteCourse);
 $("#course-banner-file").addEventListener("change", handleBannerFileChange);
 $("#btn-remove-banner").addEventListener("click", handleRemoveBanner);
-$("#course-banner").addEventListener("input", () => updateBannerPreview($("#course-banner").value.trim()));
 $("#btn-add-section").addEventListener("click", addSection);
 $("#btn-add-exercise").addEventListener("click", addExercise);
 $("#btn-back-sections").addEventListener("click", () => closeSectionExercises());

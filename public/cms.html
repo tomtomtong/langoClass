@@ -78,8 +78,8 @@
             <input type="file" id="course-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
             Upload image
           </label>
-          <p class="hint cms-thumbnail-hint">JPEG, PNG, WebP, or GIF · max 2 MB. Or paste an image URL below.</p>
-          <input type="url" id="course-banner" placeholder="https://..." />
+          <p class="hint cms-thumbnail-hint">JPEG, PNG, WebP, or GIF · max 2 MB</p>
+          <input type="hidden" id="course-banner" />
           <p class="status-msg" id="cms-banner-status"></p>
         </div>
         <div class="field">
@@ -152,7 +152,7 @@
           <input type="file" class="cms-section-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
           Upload thumbnail
         </label>
-        <input type="url" class="cms-section-banner-url" placeholder="Or paste image URL…" />
+        <input type="hidden" class="cms-section-banner-value" />
         <p class="status-msg cms-section-banner-status"></p>
       </div>
       <footer class="cms-section-footer">
