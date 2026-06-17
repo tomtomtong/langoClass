@@ -138,7 +138,11 @@ function handleLogout() {
   state.sections = [];
   savePrefs();
   updateAuthUi();
-  if (state.loginUsername) $("#cms-login-username").value = state.loginUsername;
+  applyTeacherLoginDefaults(
+    $("#cms-login-username"),
+    $("#cms-login-password"),
+    state.loginUsername
+  );
   showCmsScreen("login");
 }
 
@@ -573,6 +577,9 @@ async function deleteCourse() {
   }
 }
 
+const DEMO_VIDEO_URL =
+  "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4";
+
 function defaultExercise(type) {
   if (type === "video") {
     return {
@@ -622,6 +629,131 @@ function defaultExercise(type) {
       },
     ],
   };
+}
+
+function demoExercise(type) {
+  if (type === "video") {
+    return {
+      type: "video",
+      title: "Demo: In the Sea",
+      subTitle: "Video",
+      items: [{ videoUrl: DEMO_VIDEO_URL }],
+    };
+  }
+  if (type === "buzzin") {
+    return {
+      type: "buzzin",
+      title: "Demo: Ocean Animals",
+      subTitle: "Buzz In",
+      items: [
+        {
+          title: "Ocean Animals",
+          buddy: "Think about animals that live in the sea.",
+          questions: [
+            "Name an animal that lives in the ocean.",
+            "What is your favorite sea creature?",
+            "Why do fish have gills?",
+          ],
+        },
+      ],
+    };
+  }
+  if (type === "fastmcquiz") {
+    return {
+      type: "fastmcquiz",
+      title: "Demo: Fast Quiz",
+      subTitle: "Fast MC Quiz",
+      items: [
+        {
+          title: "What do bees make?",
+          options: [
+            { text: "Honey", isCorrect: true },
+            { text: "Milk", isCorrect: false },
+            { text: "Bread", isCorrect: false },
+          ],
+          timeLimit: 10,
+        },
+        {
+          title: "Which planet is closest to the Sun?",
+          options: [
+            { text: "Mercury", isCorrect: true },
+            { text: "Earth", isCorrect: false },
+            { text: "Mars", isCorrect: false },
+          ],
+          timeLimit: 10,
+        },
+        {
+          title: "How many legs does a spider have?",
+          options: [
+            { text: "6", isCorrect: false },
+            { text: "8", isCorrect: true },
+            { text: "10", isCorrect: false },
+          ],
+          timeLimit: 10,
+        },
+        {
+          title: "What gas do plants absorb?",
+          options: [
+            { text: "Carbon dioxide", isCorrect: true },
+            { text: "Helium", isCorrect: false },
+            { text: "Neon", isCorrect: false },
+          ],
+          timeLimit: 10,
+        },
+        {
+          title: "Which season comes after winter?",
+          options: [
+            { text: "Spring", isCorrect: true },
+            { text: "Autumn", isCorrect: false },
+            { text: "Summer", isCorrect: false },
+          ],
+          timeLimit: 10,
+        },
+      ],
+    };
+  }
+  return {
+    type: "mcquiz",
+    title: "Demo: English Basics",
+    subTitle: "MC Quiz",
+    items: [
+      {
+        title: "What color is the sky on a clear day?",
+        options: [
+          { text: "Blue", isCorrect: true },
+          { text: "Green", isCorrect: false },
+          { text: "Red", isCorrect: false },
+        ],
+        timeLimit: 15,
+      },
+      {
+        title: "How many days are in a week?",
+        options: [
+          { text: "5", isCorrect: false },
+          { text: "7", isCorrect: true },
+          { text: "10", isCorrect: false },
+        ],
+        timeLimit: 15,
+      },
+      {
+        title: "Which word is a noun?",
+        options: [
+          { text: "Run", isCorrect: false },
+          { text: "Happy", isCorrect: false },
+          { text: "Book", isCorrect: true },
+        ],
+        timeLimit: 15,
+      },
+    ],
+  };
+}
+
+function parseNewExerciseSelection(value) {
+  const raw = value || "mcquiz";
+  if (raw.startsWith("demo:")) {
+    return { type: raw.slice(5), demo: true };
+  }
+  return { type: raw, demo: false };
 }
 
 function defaultSection(title) {
@@ -1251,12 +1383,12 @@ function addExercise() {
   if (sectionIndex == null) return;
 
   syncExercisesFromDom();
-  const type = $("#cms-new-exercise-type")?.value || "mcquiz";
+  const { type, demo } = parseNewExerciseSelection($("#cms-new-exercise-type")?.value);
   const section = state.sections[sectionIndex];
   if (!section) return;
 
   if (!section.exercises) section.exercises = [];
-  const exercise = defaultExercise(type);
+  const exercise = demo ? demoExercise(type) : defaultExercise(type);
   exercise.order = section.exercises.length + 1;
   section.exercises.push(exercise);
   renderExerciseEditors();
@@ -1285,7 +1417,11 @@ document.querySelectorAll(".cms-tab").forEach((tab) => {
 
 loadPrefs();
 updateAuthUi();
-if (state.loginUsername) $("#cms-login-username").value = state.loginUsername;
+applyTeacherLoginDefaults(
+  $("#cms-login-username"),
+  $("#cms-login-password"),
+  state.loginUsername
+);
 
 if (state.token && state.user) {
   enterCourseList();

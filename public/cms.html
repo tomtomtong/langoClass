@@ -112,13 +112,21 @@
           <button type="button" class="back-btn" id="btn-back-sections">← Back to sections</button>
           <h2 class="cms-subview-title" id="cms-exercises-section-title">Section exercises</h2>
           <div class="cms-exercise-toolbar">
-            <span class="hint">Add and order exercises for this section.</span>
+            <span class="hint">Add blank templates or ready-to-use demos, then save when done.</span>
             <div class="cms-exercise-add">
               <select id="cms-new-exercise-type">
-                <option value="mcquiz">MC Quiz</option>
-                <option value="fastmcquiz">Fast MC Quiz</option>
-                <option value="video">Video</option>
-                <option value="buzzin">Buzz In</option>
+                <optgroup label="Blank template">
+                  <option value="mcquiz">MC Quiz</option>
+                  <option value="fastmcquiz">Fast MC Quiz</option>
+                  <option value="video">Video</option>
+                  <option value="buzzin">Buzz In</option>
+                </optgroup>
+                <optgroup label="Demo (ready to use)">
+                  <option value="demo:mcquiz">Demo MC Quiz</option>
+                  <option value="demo:fastmcquiz">Demo Fast MC Quiz</option>
+                  <option value="demo:video">Demo Video</option>
+                  <option value="demo:buzzin">Demo Buzz In</option>
+                </optgroup>
               </select>
               <button type="button" class="btn secondary small" id="btn-add-exercise">+ Add exercise</button>
             </div>

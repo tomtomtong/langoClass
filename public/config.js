@@ -124,11 +124,38 @@ function renderConfig(data) {
   } else {
     $("#config-inworld-key").placeholder = "Paste key here";
   }
+
+  $("#config-inworld-llm-model").value = data.inworldLlmModelSaved || "";
+  $("#config-inworld-llm-effective").textContent = data.effectiveInworldLlmModel || "—";
+  $("#config-inworld-llm-env-default").textContent = data.inworldLlmModelEnvDefault || "—";
 }
 
 function clearInworldTestResult() {
   $("#config-inworld-test-wrap").hidden = true;
   $("#config-inworld-test-result").textContent = "";
+}
+
+async function saveInworldLlmModel(inworldLlmModel) {
+  $("#config-inworld-error").textContent = "";
+  $("#config-inworld-save-status").textContent = "";
+  clearInworldTestResult();
+
+  const btn = $("#btn-config-save-inworld-model");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { inworldLlmModel },
+    });
+    renderConfig(data);
+    $("#config-inworld-save-status").textContent = inworldLlmModel
+      ? `LLM model saved: ${data.effectiveInworldLlmModel}`
+      : "Saved model cleared. Using environment default.";
+  } catch (err) {
+    $("#config-inworld-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function saveInworldKey(inworldApiKey) {
@@ -161,16 +188,23 @@ async function testInworldKey() {
   clearInworldTestResult();
 
   const inputKey = $("#config-inworld-key").value.trim();
+  const inputModel = $("#config-inworld-llm-model").value.trim();
   const btn = $("#btn-config-test-inworld");
   btn.disabled = true;
   try {
+    const body = {};
+    if (inputKey) body.inworldApiKey = inputKey;
+    if (inputModel) body.inworldLlmModel = inputModel;
     const data = await api("/api/config/test-inworld", {
       method: "POST",
-      body: inputKey ? { inworldApiKey: inputKey } : {},
+      body,
     });
     $("#config-inworld-test-wrap").hidden = false;
     $("#config-inworld-test-result").textContent = JSON.stringify(data, null, 2);
-    $("#config-inworld-save-status").textContent = `API test succeeded (${data.latencyMs} ms).`;
+    const ttsMs = data.tts?.latencyMs ?? "—";
+    const llmMs = data.llm?.latencyMs ?? "—";
+    $("#config-inworld-save-status").textContent =
+      `API test succeeded (TTS ${ttsMs} ms, LLM ${llmMs} ms).`;
   } catch (err) {
     $("#config-inworld-error").textContent = err.message;
   } finally {
@@ -223,7 +257,11 @@ function handleLogout() {
   savePrefs();
   updateAuthUi();
   showConfigScreen("login");
-  $("#config-login-password").value = "";
+  applyTeacherLoginDefaults(
+    $("#config-login-username"),
+    $("#config-login-password"),
+    state.loginUsername
+  );
 }
 
 async function saveConfig(publicBaseUrl) {
@@ -250,9 +288,11 @@ async function init() {
   loadPrefs();
   updateAuthUi();
 
-  if (state.loginUsername) {
-    $("#config-login-username").value = state.loginUsername;
-  }
+  applyTeacherLoginDefaults(
+    $("#config-login-username"),
+    $("#config-login-password"),
+    state.loginUsername
+  );
 
   $("#btn-config-login").addEventListener("click", handleLogin);
   $("#btn-config-logout").addEventListener("click", handleLogout);
@@ -270,10 +310,17 @@ async function init() {
   $("#btn-config-save-inworld").addEventListener("click", () => {
     saveInworldKey($("#config-inworld-key").value.trim());
   });
+  $("#btn-config-save-inworld-model").addEventListener("click", () => {
+    saveInworldLlmModel($("#config-inworld-llm-model").value.trim());
+  });
   $("#btn-config-test-inworld").addEventListener("click", testInworldKey);
   $("#btn-config-clear-inworld").addEventListener("click", () => {
     $("#config-inworld-key").value = "";
     saveInworldKey("");
+  });
+  $("#btn-config-reset-inworld-model").addEventListener("click", () => {
+    $("#config-inworld-llm-model").value = "";
+    saveInworldLlmModel("");
   });
 
   if (state.token && state.user) {

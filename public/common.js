@@ -1,5 +1,17 @@
 const OPTION_LABELS = ["▲", "◆", "●", "■", "★", "⬡"];
 
+const DEFAULT_TEACHER_LOGIN_USERNAME = "lango-developer-alex";
+const DEFAULT_TEACHER_LOGIN_PASSWORD = "lango123";
+
+function applyTeacherLoginDefaults(usernameInput, passwordInput, savedUsername) {
+  if (usernameInput) {
+    usernameInput.value = savedUsername || DEFAULT_TEACHER_LOGIN_USERNAME;
+  }
+  if (passwordInput) {
+    passwordInput.value = DEFAULT_TEACHER_LOGIN_PASSWORD;
+  }
+}
+
 function setQuestionImage(imgEl, wrapperEl, url) {
   const imageUrl = (url || "").trim();
   if (wrapperEl) wrapperEl.hidden = !imageUrl;

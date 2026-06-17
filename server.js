@@ -22,6 +22,7 @@ const ENV_PUBLIC_BASE_URL = (
   process.env.PUBLIC_BASE_URL || "https://test.n9n.uk"
 ).replace(/\/$/, "");
 const ENV_INWORLD_API_KEY = String(process.env.INWORLD_API_KEY || "").trim();
+const ENV_INWORLD_LLM_MODEL = String(process.env.INWORLD_LLM_MODEL || "auto").trim();
 const INWORLD_API_BASE = "https://api.inworld.ai";
 
 function getPublicBaseUrl() {
@@ -32,6 +33,11 @@ function getPublicBaseUrl() {
 function getInworldApiKey() {
   const saved = settingsStore.readSettings().inworldApiKey;
   return saved || ENV_INWORLD_API_KEY;
+}
+
+function getInworldLlmModel() {
+  const saved = settingsStore.readSettings().inworldLlmModel;
+  return saved || ENV_INWORLD_LLM_MODEL || "auto";
 }
 
 function maskApiKey(key) {
@@ -684,6 +690,7 @@ function buildNotificationData(extra = {}) {
 function buildConfigResponse() {
   const settings = settingsStore.readSettings();
   const effectiveInworldKey = getInworldApiKey();
+  const effectiveInworldLlmModel = getInworldLlmModel();
   return {
     publicBaseUrl: settings.publicBaseUrl || "",
     envDefault: ENV_PUBLIC_BASE_URL,
@@ -692,6 +699,9 @@ function buildConfigResponse() {
     inworldEnvDefaultConfigured: !!ENV_INWORLD_API_KEY,
     inworldApiKeyConfigured: !!effectiveInworldKey,
     inworldApiKeyMasked: maskApiKey(effectiveInworldKey),
+    inworldLlmModelSaved: settings.inworldLlmModel || "",
+    inworldLlmModelEnvDefault: ENV_INWORLD_LLM_MODEL,
+    effectiveInworldLlmModel,
     notificationPreview: buildNotificationData({
       session_id: "123456",
       class_name: "Example class",
@@ -700,29 +710,28 @@ function buildConfigResponse() {
   };
 }
 
-async function testInworldApiKey(apiKey) {
-  const key = String(apiKey || "").trim();
-  if (!key) {
-    throw new Error("No Inworld API key to test. Enter a key or set INWORLD_API_KEY.");
+async function parseInworldResponse(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return { message: text || res.statusText };
   }
+}
 
+function inworldErrorMessage(data, status) {
+  return data?.message || data?.error?.message || `Inworld API returned ${status}.`;
+}
+
+async function testInworldTts(apiKey) {
   const started = Date.now();
   const res = await fetch(`${INWORLD_API_BASE}/tts/v1/voices?filter=language=en`, {
-    headers: { Authorization: `Basic ${key}` },
+    headers: { Authorization: `Basic ${apiKey}` },
   });
-
-  const text = await res.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = { message: text || res.statusText };
-  }
+  const data = await parseInworldResponse(res);
 
   if (!res.ok) {
-    const message =
-      data?.message || data?.error?.message || `Inworld API returned ${res.status}.`;
-    throw new Error(message);
+    throw new Error(`TTS: ${inworldErrorMessage(data, res.status)}`);
   }
 
   const voices = Array.isArray(data?.voices) ? data.voices : [];
@@ -737,6 +746,57 @@ async function testInworldApiKey(apiKey) {
   };
 }
 
+async function testInworldLlm(apiKey, model) {
+  const llmModel = String(model || "auto").trim() || "auto";
+  const started = Date.now();
+  const res = await fetch(`${INWORLD_API_BASE}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: llmModel,
+      messages: [{ role: "user", content: "Reply with exactly: OK" }],
+      max_tokens: 16,
+    }),
+  });
+  const data = await parseInworldResponse(res);
+
+  if (!res.ok) {
+    throw new Error(`LLM (${llmModel}): ${inworldErrorMessage(data, res.status)}`);
+  }
+
+  const reply = data?.choices?.[0]?.message?.content?.trim?.() || "";
+  return {
+    ok: true,
+    model: llmModel,
+    latencyMs: Date.now() - started,
+    reply: reply.slice(0, 200),
+    usage: data?.usage || null,
+  };
+}
+
+async function testInworldApiKey(apiKey, llmModel) {
+  const key = String(apiKey || "").trim();
+  if (!key) {
+    throw new Error("No Inworld API key to test. Enter a key or set INWORLD_API_KEY.");
+  }
+
+  const started = Date.now();
+  const [tts, llm] = await Promise.all([
+    testInworldTts(key),
+    testInworldLlm(key, llmModel),
+  ]);
+
+  return {
+    ok: true,
+    latencyMs: Date.now() - started,
+    tts,
+    llm,
+  };
+}
+
 app.get("/api/config", (_req, res) => {
   return res.json(buildConfigResponse());
 });
@@ -745,7 +805,7 @@ app.put("/api/config", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  const { publicBaseUrl, inworldApiKey } = req.body || {};
+  const { publicBaseUrl, inworldApiKey, inworldLlmModel } = req.body || {};
   const updates = {};
 
   if (publicBaseUrl !== undefined) {
@@ -763,6 +823,10 @@ app.put("/api/config", async (req, res) => {
     updates.inworldApiKey = String(inworldApiKey || "").trim();
   }
 
+  if (inworldLlmModel !== undefined) {
+    updates.inworldLlmModel = String(inworldLlmModel || "").trim();
+  }
+
   if (!Object.keys(updates).length) {
     return res.status(400).json({ message: "No settings to update." });
   }
@@ -776,13 +840,18 @@ app.post("/api/config/test-inworld", async (req, res) => {
   if (!auth) return;
 
   const bodyKey = req.body?.inworldApiKey;
+  const bodyModel = req.body?.inworldLlmModel;
   const keyToTest =
     bodyKey != null && String(bodyKey).trim()
       ? String(bodyKey).trim()
       : getInworldApiKey();
+  const modelToTest =
+    bodyModel != null && String(bodyModel).trim()
+      ? String(bodyModel).trim()
+      : getInworldLlmModel();
 
   try {
-    const result = await testInworldApiKey(keyToTest);
+    const result = await testInworldApiKey(keyToTest, modelToTest);
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ message: err.message || "Inworld API test failed." });

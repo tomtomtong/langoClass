@@ -85,7 +85,7 @@
         <p class="hint">
           Paste the <strong>Basic (Base64)</strong> credential from
           <a href="https://platform.inworld.ai/api-keys" target="_blank" rel="noopener">Inworld Portal</a>.
-          The key is stored on this server and used for voice/TTS requests.
+          The key is stored on this server and used for voice/TTS and LLM requests.
         </p>
 
         <label class="field">
@@ -107,10 +107,40 @@
           </p>
         </div>
 
+        <label class="field">
+          <span>LLM model</span>
+          <input
+            type="text"
+            id="config-inworld-llm-model"
+            list="config-inworld-llm-models"
+            placeholder="auto"
+            autocomplete="off"
+          />
+          <datalist id="config-inworld-llm-models">
+            <option value="auto"></option>
+            <option value="openai/gpt-5.5"></option>
+            <option value="anthropic/claude-sonnet-4-6"></option>
+            <option value="google-ai-studio/gemini-3.5-flash"></option>
+            <option value="deepseek/deepseek-v4-flash"></option>
+            <option value="mistral/mistral-large-2512"></option>
+          </datalist>
+          <p class="hint">
+            Used for Inworld chat completions (<code>provider/model</code> or <code>auto</code>).
+            Leave empty when saving to use the environment default.
+          </p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Active model:</strong> <span id="config-inworld-llm-effective">—</span></p>
+          <p><strong>Environment default:</strong> <span id="config-inworld-llm-env-default">—</span></p>
+        </div>
+
         <div class="config-actions">
           <button type="button" class="btn primary" id="btn-config-save-inworld">Save key</button>
+          <button type="button" class="btn primary" id="btn-config-save-inworld-model">Save model</button>
           <button type="button" class="btn secondary" id="btn-config-test-inworld">Test API</button>
           <button type="button" class="btn secondary" id="btn-config-clear-inworld">Clear saved key</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-inworld-model">Reset model to env default</button>
         </div>
 
         <div class="config-preview config-inworld-test-preview" id="config-inworld-test-wrap" hidden>

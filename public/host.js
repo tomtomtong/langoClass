@@ -61,9 +61,7 @@ function savePrefs() {
 }
 
 function applyLoginUsernameToForm() {
-  if (state.loginUsername) {
-    $("#login-username").value = state.loginUsername;
-  }
+  applyTeacherLoginDefaults($("#login-username"), $("#login-password"), state.loginUsername);
 }
 
 function clearAuth() {
