@@ -319,6 +319,7 @@ function emitCurrentQuestion(socket, game) {
     text: question.text,
     options: question.options,
     timeLimit: question.timeLimit || 15,
+    points: game.fastMode ? 500 : 300,
     image: question.image || null,
   });
 }
@@ -476,6 +477,7 @@ function startQuestion(game) {
     text: question.text,
     options: question.options,
     timeLimit: question.timeLimit || 15,
+    points: game.fastMode ? 500 : 300,
     image: question.image || null,
   });
 

@@ -128,9 +128,10 @@ function groupClassesByLevel(classes) {
     }));
 }
 
-function renderOptions(container, options, { clickable, onClick, showBars, counts, correctIndex }) {
+function renderOptions(container, options, { clickable, onClick, showBars, counts, correctIndex, optionLabels } = {}) {
   container.innerHTML = options
     .map((opt, i) => {
+      const optionLabel = optionLabels?.[i] || OPTION_LABELS[i] || String.fromCharCode(65 + i);
       const pct = counts && counts[i] ? counts[i] : 0;
       const bar = showBars ? `<span class="bar" style="width:${pct}%"></span>` : "";
       const countLabel = showBars ? `<span>${pct}%</span>` : "";
@@ -139,7 +140,7 @@ function renderOptions(container, options, { clickable, onClick, showBars, count
       if (correctIndex === i) classes.push("correct");
       return `<button type="button" class="${classes.join(" ")}" data-index="${i}"${clickable ? "" : " disabled"}>
           ${bar}
-          <span class="label"><span>${OPTION_LABELS[i] || String.fromCharCode(65 + i)} ${escapeHtml(opt)}</span>${countLabel}</span>
+          <span class="label"><span>${optionLabel} ${escapeHtml(opt)}</span>${countLabel}</span>
         </button>`;
     })
     .join("");

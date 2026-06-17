@@ -1,0 +1,299 @@
+.hostWaiting {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  background: #f5c842;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+}
+
+.hostWaiting * {
+  box-sizing: border-box;
+}
+
+.hostWaiting__bg,
+.hostWaiting__shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hostWaiting__bg {
+  object-fit: cover;
+}
+
+.hostWaiting__shade {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hostWaiting__title {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  margin: 0;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 40px;
+  letter-spacing: 0.9px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.hostWaiting__timer {
+  position: absolute;
+  top: 114px;
+  left: 36px;
+  width: 300px;
+  height: 498px;
+}
+
+.hostWaiting__timerRing {
+  position: relative;
+  width: 228px;
+  height: 228px;
+  padding: 40px;
+  border: 20px solid #feca57;
+  border-radius: 230px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+}
+
+.hostWaiting__watch {
+  position: absolute;
+  top: -96px;
+  left: 121px;
+  width: 200px;
+  height: 200px;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.2));
+}
+
+.hostWaiting__timerLabel,
+.hostWaiting__time {
+  margin: 0;
+  text-align: center;
+}
+
+.hostWaiting__timerLabel {
+  font-family: "DM Sans", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #b11980;
+  text-transform: capitalize;
+}
+
+.hostWaiting__time {
+  font-size: 50px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.9px;
+  color: #ff9f43;
+  text-shadow:
+    2px 2px 4px rgba(0, 0, 0, 0.3),
+    0 2px 0 rgba(255, 255, 255, 0.85);
+}
+
+.hostWaiting__studentsPanel {
+  position: absolute;
+  top: 115px;
+  right: 20px;
+  width: 930px;
+  height: 393px;
+  padding: 40px;
+  border: 10px solid rgba(162, 89, 255, 0.6);
+  border-radius: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 2px 4px 30px #ffb1ed;
+  backdrop-filter: blur(100px);
+}
+
+.hostWaiting__studentsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.hostWaiting__studentsTitle,
+.hostWaiting__studentsSubtitle {
+  margin: 0;
+}
+
+.hostWaiting__studentsTitle {
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.9px;
+  text-shadow:
+    2px 2px 4px rgba(0, 0, 0, 0.3),
+    0 0 8px rgba(177, 25, 128, 0.55);
+}
+
+.hostWaiting__studentsSubtitle {
+  margin-top: 10px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #b11980;
+  text-transform: capitalize;
+}
+
+.hostWaiting__count {
+  min-width: 88px;
+  min-height: 54px;
+  padding: 6px 20px;
+  border: 10px solid rgba(255, 255, 255, 0.2);
+  border-radius: 55px;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(52deg, #fc7dba 0%, #947af7 98%);
+  box-shadow:
+    0 0 12.5px rgba(255, 105, 180, 0.5),
+    inset 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.hostWaiting__count span,
+.hostWaiting__count em,
+.hostWaiting__count strong {
+  color: #ff9f43;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.9px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.hostWaiting__count span {
+  font-size: 40px;
+}
+
+.hostWaiting__count em,
+.hostWaiting__count strong {
+  font-size: 20px;
+}
+
+.hostWaiting__grid {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 30px;
+  list-style: none;
+  overflow: hidden;
+}
+
+.hostWaiting__student {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hostWaiting__avatar {
+  width: 80px;
+  height: 80px;
+  padding: 8.889px;
+  border: 2.667px solid #96e5dd;
+  border-radius: 44.444px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.65), #5da7ff);
+}
+
+.hostWaiting__avatar span {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #4a5568;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.hostWaiting__student p {
+  max-width: 100%;
+  margin: 0;
+  color: #000;
+  font-family: "DM Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.18;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.hostWaiting__wizard {
+  position: absolute;
+  left: -41px;
+  bottom: 142px;
+  width: 381px;
+  pointer-events: none;
+}
+
+.hostWaiting__footer {
+  position: absolute;
+  left: 0;
+  top: 650px;
+  width: 426px;
+  height: 70px;
+  padding: 0 20px;
+  border-radius: 0 20px 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.hostWaiting__button {
+  min-height: 42px;
+  padding: 9px 12px 13px;
+  border: 0;
+  border-radius: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  color: #fff;
+  cursor: pointer;
+  font-family: "Nunito", sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 20px;
+  letter-spacing: 0.36px;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 6px 0 rgba(0, 0, 0, 0.2),
+    0 2px 1px rgba(0, 0, 0, 0.25);
+}
+
+.hostWaiting__button--start {
+  min-width: 178px;
+}
+
+.hostWaiting__button img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}

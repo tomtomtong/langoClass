@@ -2,6 +2,9 @@
 let roomQuizSocket = null;
 let roomQuizCurrentQuestion = null;
 let roomQuizFastMode = false;
+
+const HOST_MCQ_OPTION_LABELS = ["A.", "B.", "C.", "D.", "E.", "F."];
+const HOST_MCQ_OPTION_COLORS = ["#15c4f8", "#45c937", "#f33b3d", "#eab308", "#a855f7", "#14b8a6"];
 let hostBuzzinSocketReady = false;
 let hostBuzzinRoomId = null;
 
@@ -74,20 +77,91 @@ function getRoomQuizSocket() {
 function renderHostQuizQuestion(data, { preparing = false } = {}) {
   showScreen("host-quiz-question");
   const pct = ((data.questionIndex + 1) / data.totalQuestions) * 100;
+  const points = data.points || (data.fastMode ? 500 : 300);
   $("#host-quiz-progress").style.width = `${pct}%`;
   $("#host-quiz-q-meta").textContent = preparing
     ? "Get ready…"
-    : `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
+    : `Question ${data.questionIndex + 1}`;
+  $("#host-quiz-points").textContent = `${points} pts`;
   setQuestionImage(
     $("#host-quiz-question-image"),
     $("#host-quiz-question-image-wrap"),
     resolvedMediaUrl(data.image)
   );
   $("#host-quiz-question-text").textContent = data.text || "";
-  renderOptions($("#host-quiz-options"), data.options || [], { clickable: false });
+  renderOptions($("#host-quiz-options"), data.options || [], {
+    clickable: false,
+    optionLabels: HOST_MCQ_OPTION_LABELS,
+  });
   $("#host-quiz-answered-count").textContent = preparing
     ? "Starting shortly…"
     : "Students are answering…";
+  startTimer(data.timeLimit || 5, (remaining) => {
+    $("#host-quiz-countdown").textContent = String(Math.max(0, remaining));
+  });
+}
+
+function resultResponseLabel(count) {
+  return `${count} Response${count === 1 ? "" : "s"}`;
+}
+
+function renderHostResultDistribution(question, answerCounts) {
+  const options = question?.options || [];
+  const total = answerCounts.reduce((sum, count) => sum + count, 0);
+  const donut = $("#host-quiz-results-donut");
+  const legend = $("#host-quiz-results-legend");
+
+  $("#host-quiz-results-total").textContent = String(total);
+
+  const safeTotal = total || 1;
+  let offset = 0;
+  const stops = answerCounts.map((count, index) => {
+    const start = offset;
+    const end = offset + (count / safeTotal) * 100;
+    offset = end;
+    const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
+    return `${color} ${start}% ${end}%`;
+  });
+  donut.style.setProperty("--donut-fill", total ? stops.join(", ") : "#d1d5db 0% 100%");
+
+  legend.innerHTML = options
+    .map((option, index) => {
+      const label = HOST_MCQ_OPTION_LABELS[index] || `${index + 1}.`;
+      const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
+      const count = answerCounts[index] || 0;
+      return `<div class="host-mcq-legend-item">
+        <span class="host-mcq-legend-label">
+          <span class="host-mcq-legend-dot" style="--dot-color: ${color}"></span>
+          <span>${label} ${escapeHtml(option)}</span>
+        </span>
+        <strong>${count} <span>Response${count === 1 ? "" : "s"}</span></strong>
+      </div>`;
+    })
+    .join("");
+}
+
+function initialsForName(name) {
+  const parts = String(name || "Student").trim().split(/\s+/).filter(Boolean);
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
+}
+
+function renderCorrectResponders(results) {
+  const container = $("#host-quiz-correct-responders");
+  const correct = (results || []).filter((result) => result.correct).slice(0, 9);
+  if (!correct.length) {
+    container.innerHTML = `<p class="host-mcq-correct-empty">No correct responses yet</p>`;
+    return;
+  }
+
+  container.innerHTML = correct
+    .map((result, index) => {
+      const name = String(result.name || "Student").trim() || "Student";
+      return `<div class="host-mcq-correct-student" style="--student-i: ${index}">
+        <div class="host-mcq-correct-avatar">${escapeHtml(initialsForName(name))}</div>
+        <p>${escapeHtml(name)}</p>
+      </div>`;
+    })
+    .join("");
 }
 
 function setupHostRoomQuizSocket(socket) {
@@ -102,30 +176,35 @@ function setupHostRoomQuizSocket(socket) {
 
   socket.on("question_between", ({ isLast } = {}) => {
     if (!roomQuizFastMode) return;
+    clearTimer();
     showScreen("host-quiz-question");
     $("#host-quiz-answered-count").textContent = isLast
       ? "Calculating final results…"
       : "Next question coming…";
   });
 
-  socket.on("question_results", ({ correctIndex, answerCounts, leaderboard }) => {
+  socket.on("question_results", ({ correctIndex, answerCounts, results, leaderboard }) => {
+    clearTimer();
     if (roomQuizFastMode) return;
     showScreen("host-quiz-results");
     const q = roomQuizCurrentQuestion;
+    const correctAnswer = q?.options?.[correctIndex] || "";
+    const points = q?.points || (q?.fastMode ? 500 : 300);
     setQuestionImage(
       $("#host-quiz-results-image"),
       $("#host-quiz-results-image-wrap"),
       resolvedMediaUrl(q?.image)
     );
+    $("#host-quiz-results-points").textContent = `${points} pts`;
     $("#host-quiz-results-question-text").textContent = q?.text || "";
-    const total = answerCounts.reduce((a, b) => a + b, 0) || 1;
-    const pcts = answerCounts.map((c) => Math.round((c / total) * 100));
-    renderOptions($("#host-quiz-results-bars"), q?.options || [], {
-      clickable: false,
-      showBars: true,
-      counts: pcts,
-      correctIndex,
-    });
+    $("#host-quiz-results-correct-answer").textContent =
+      `Correct Answer: ${HOST_MCQ_OPTION_LABELS[correctIndex] || ""} ${correctAnswer}`.trim();
+    $("#host-quiz-results-explanation").textContent = correctAnswer
+      ? `${correctAnswer} is the correct answer for this question.`
+      : "Review the class responses before moving on.";
+    $("#host-quiz-results-bars").innerHTML = "";
+    renderHostResultDistribution(q, answerCounts);
+    renderCorrectResponders(results);
     renderLeaderboard($("#host-quiz-leaderboard"), leaderboard);
     const isLast = q && q.questionIndex + 1 >= q.totalQuestions;
     $("#btn-host-quiz-next").textContent = isLast ? "Show final results" : "Next question";
@@ -209,6 +288,8 @@ function startHostRoomQuiz(roomId, exercise) {
             totalQuestions: quiz.questions.length,
             text: firstQuestion.text,
             options: firstQuestion.options,
+            timeLimit: firstQuestion.timeLimit || 5,
+            fastMode: quiz.fastMode,
             image: resolvedMediaUrl(firstQuestion.image) || null,
           };
           renderHostQuizQuestion(roomQuizCurrentQuestion, { preparing: true });

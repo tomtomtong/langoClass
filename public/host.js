@@ -1,5 +1,7 @@
 const STORAGE_KEY = "lango_host_prefs";
 const LEGACY_STORAGE_KEY = "lango_host_session";
+const HOST_STAGE_WIDTH = 1920;
+const HOST_STAGE_HEIGHT = 1080;
 
 const state = {
   token: null,
@@ -22,6 +24,20 @@ const state = {
 let hostSessionConnected = false;
 let waitingTimerInterval = null;
 const WAITING_TIMER_SECONDS = 300;
+
+function fitHostStage() {
+  const app = document.querySelector("#app.lango-host");
+  if (!app) return;
+  const viewport = window.visualViewport || window;
+  const width = viewport.width || window.innerWidth || HOST_STAGE_WIDTH;
+  const height = viewport.height || window.innerHeight || HOST_STAGE_HEIGHT;
+  const scale = Math.min(width / HOST_STAGE_WIDTH, height / HOST_STAGE_HEIGHT);
+  app.style.setProperty("--host-stage-scale", String(scale));
+}
+
+window.addEventListener("resize", fitHostStage);
+window.visualViewport?.addEventListener("resize", fitHostStage);
+fitHostStage();
 
 function loadPrefs() {
   try {
@@ -335,7 +351,7 @@ function renderSectionPickCard(section, { selectedId, index }) {
     : `<div class="course-pick-thumb course-pick-thumb--empty" aria-hidden="true"></div>`;
   const playButton = hasExercises
     ? `<button type="button" class="course-pick-select" data-id="${section.id}">
-          ${active ? "Let's Go!" : "Play!"}
+          Select
         </button>`
     : `<button type="button" class="course-pick-select course-pick-select--disabled" data-id="${section.id}" disabled>
           No exercises yet
@@ -429,7 +445,7 @@ function renderCourseCard(course, { selectedId, index }) {
         ${level ? `<p class="course-pick-level">${escapeHtml(level)}</p>` : ""}
         ${exerciseCount > 0 ? `<p class="course-pick-stars" aria-label="${exerciseCount} exercises">${"★".repeat(Math.min(exerciseCount, 5))}${exerciseCount > 5 ? `<span class="course-pick-stars-more">+${exerciseCount - 5}</span>` : ""}</p>` : ""}
         <button type="button" class="course-pick-select" data-id="${course.id}">
-          ${active ? "Let's Go!" : "Play!"}
+          Select
         </button>
       </div>
     </div>
