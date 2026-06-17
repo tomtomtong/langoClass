@@ -2354,6 +2354,19 @@ body:has(#screen-course.active) {
   line-height: 1.6;
 }
 
+.buzzin-topic {
+  max-width: 640px;
+  margin: 0 auto 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .buzzin-questions li + li {
   margin-top: 0.75rem;
 }
@@ -2415,6 +2428,145 @@ body:has(#screen-course.active) {
 
 .buzzin-result--late {
   color: var(--muted);
+}
+
+.buzzin-join-timer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  background: rgba(233, 69, 96, 0.12);
+  border: 2px solid rgba(233, 69, 96, 0.35);
+}
+
+.buzzin-join-timer-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.buzzin-join-timer-value {
+  min-width: 2.5rem;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+.host-buzzin-timer {
+  margin-top: 0.75rem;
+}
+
+.buzzin-turn-area {
+  margin-top: 1.25rem;
+  text-align: left;
+}
+
+.buzzin-turn-status {
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.buzzin-answer-input {
+  width: 100%;
+  margin-bottom: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.buzzin-submitted {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(46, 204, 113, 0.12);
+  border: 2px solid rgba(46, 204, 113, 0.35);
+  text-align: left;
+  line-height: 1.5;
+}
+
+.buzzin-turn-panel {
+  max-width: 640px;
+  margin: 0 auto 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.buzzin-responses {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+
+.buzzin-responses li {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 0;
+}
+
+.buzzin-responses li + li {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.buzzin-response-body {
+  flex: 1;
+  text-align: left;
+}
+
+.buzzin-response-body p {
+  margin: 0.35rem 0 0;
+  line-height: 1.5;
+}
+
+.buzzin-response-pending {
+  color: var(--accent);
+  font-style: italic;
+}
+
+.buzzin-analysis {
+  margin: 0.65rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(147, 51, 234, 0.1);
+  border: 1px solid rgba(147, 51, 234, 0.25);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.buzzin-analysis-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c084fc;
+}
+
+.buzzin-analysis--pending {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.buzzin-analysis--error {
+  background: rgba(233, 69, 96, 0.1);
+  border-color: rgba(233, 69, 96, 0.25);
+  color: #ffb4c0;
 }
 
 .buzzin-winners-panel {
@@ -2531,10 +2683,8 @@ body.cms-light .cms-exercise-order,
 body.cms-light .cms-exercise-section-select,
 body.cms-light .cms-q-text,
 body.cms-light .cms-video-url,
-body.cms-light .cms-buzzin-title,
-body.cms-light .cms-buzzin-buddy,
+body.cms-light .cms-buzzin-topic,
 body.cms-light .cms-opt-text,
-body.cms-light .cms-buzzin-q,
 body.cms-light .cms-section-order,
 body.cms-light .cms-exercise-add select,
 body.cms-light .cms-section-add select {
@@ -3287,8 +3437,7 @@ body.cms-light .cms-danger:hover:not(:disabled) {
 
 .cms-q-text,
 .cms-video-url,
-.cms-buzzin-title,
-.cms-buzzin-buddy {
+.cms-buzzin-topic {
   width: 100%;
   padding: 0.55rem 0.75rem;
   border-radius: 10px;
@@ -3343,22 +3492,6 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   flex: 1;
   padding: 0.45rem 0.65rem;
   border-radius: 8px;
-  border: 2px solid var(--accent2);
-  background: var(--surface);
-  color: var(--text);
-  font-family: inherit;
-}
-
-.cms-buzzin-q-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.cms-buzzin-q {
-  flex: 1;
-  padding: 0.55rem 0.75rem;
-  border-radius: 10px;
   border: 2px solid var(--accent2);
   background: var(--surface);
   color: var(--text);

@@ -109,23 +109,17 @@ function buzzinFromExercise(exercise) {
 
   const items = Array.isArray(exercise.items) ? exercise.items : [];
   const first = items[0] || {};
-  const questions = collectBuzzinQuestions(exercise);
-  const title = String(first.title || exercise.title || "").trim();
+  const topic = String(
+    first.topic ||
+      first.title ||
+      collectBuzzinQuestions(exercise)[0] ||
+      exercise.title ||
+      ""
+  ).trim();
 
-  if (!title && !questions.length && !items.length) return null;
+  if (!topic) return null;
 
-  return {
-    title: title || exercise.title || "Discussion",
-    buddy: first.buddy ?? null,
-    questions,
-  };
-}
-
-function renderBuzzinQuestionList(questions) {
-  if (!questions.length) {
-    return `<li class="hint">No discussion questions yet.</li>`;
-  }
-  return questions.map((q) => `<li>${escapeHtml(q)}</li>`).join("");
+  return { topic };
 }
 
 function renderBuzzinWinnersList(listEl, winners, emptyText) {
@@ -133,11 +127,54 @@ function renderBuzzinWinnersList(listEl, winners, emptyText) {
   listEl.innerHTML = winners.length
     ? winners
         .map(
-          (w, i) =>
-            `<li><span class="buzzin-rank">${i + 1}</span><span>${escapeHtml(w.displayName)}</span></li>`
+          (w) =>
+            `<li><span class="buzzin-rank">${w.rank}</span><span>${escapeHtml(w.displayName)}</span></li>`
         )
         .join("")
     : `<li class="hint">${escapeHtml(emptyText || "Waiting for students to buzz in…")}</li>`;
+}
+
+function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
+  if (!listEl) return;
+  const items = [...(responses || [])];
+  if (currentTurn && !items.some((r) => r.playerId === currentTurn.playerId)) {
+    items.push({
+      playerId: currentTurn.playerId,
+      displayName: currentTurn.displayName,
+      rank: currentTurn.rank,
+      text: "",
+      pending: true,
+    });
+  }
+
+  if (!items.length) {
+    listEl.innerHTML = `<li class="hint">${escapeHtml(emptyText || "Waiting for answers…")}</li>`;
+    return;
+  }
+
+  listEl.innerHTML = items
+    .map((item) => {
+      const body = item.pending
+        ? `<span class="buzzin-response-pending">Typing…</span>`
+        : escapeHtml(item.text);
+      const analysis = renderBuzzinAnalysisHtml(item);
+      return `<li><span class="buzzin-rank">${item.rank}</span><div class="buzzin-response-body"><strong>${escapeHtml(item.displayName)}</strong><p>${body}</p>${analysis}</div></li>`;
+    })
+    .join("");
+}
+
+function renderBuzzinAnalysisHtml(item) {
+  if (item.pending || !item.text) return "";
+  if (item.analysisStatus === "pending") {
+    return `<p class="buzzin-analysis buzzin-analysis--pending">Analyzing response…</p>`;
+  }
+  if (item.analysisStatus === "error") {
+    return `<p class="buzzin-analysis buzzin-analysis--error">${escapeHtml(item.analysis || "Analysis unavailable.")}</p>`;
+  }
+  if (item.analysis) {
+    return `<p class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}</p>`;
+  }
+  return "";
 }
 
 function exerciseMetaLabel(exercise) {

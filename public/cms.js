@@ -592,9 +592,9 @@ function defaultExercise(type) {
   if (type === "buzzin") {
     return {
       type: "buzzin",
-      title: "Discussion",
+      title: "Buzz In",
       subTitle: "Buzz In",
-      items: [{ title: "Discussion topic", buddy: "", questions: ["Question 1?"] }],
+      items: [{ topic: "What is your favorite animal?" }],
     };
   }
   if (type === "fastmcquiz") {
@@ -645,17 +645,7 @@ function demoExercise(type) {
       type: "buzzin",
       title: "Demo: Ocean Animals",
       subTitle: "Buzz In",
-      items: [
-        {
-          title: "Ocean Animals",
-          buddy: "Think about animals that live in the sea.",
-          questions: [
-            "Name an animal that lives in the ocean.",
-            "What is your favorite sea creature?",
-            "Why do fish have gills?",
-          ],
-        },
-      ],
+      items: [{ topic: "Name an animal that lives in the ocean and say why you like it." }],
     };
   }
   if (type === "fastmcquiz") {
@@ -1042,61 +1032,17 @@ function renderVideoBody(container, exercise) {
 
 function renderBuzzinBody(container, exercise) {
   const item = exercise.items?.[0] || {};
-  const buddyText = buddyDisplayText(item.buddy);
-  const savedQuestions = collectBuzzinQuestions(exercise);
+  const topic =
+    item.topic || collectBuzzinQuestions(exercise)[0] || item.title || exercise.title || "";
   container.innerHTML = `
     <label class="field">
-      <span>Discussion title</span>
-      <input type="text" class="cms-buzzin-title" value="${escapeHtml(item.title || "")}" />
-    </label>
-    <label class="field">
-      <span>Buddy name (optional)</span>
-      <input type="text" class="cms-buzzin-buddy" value="${escapeHtml(buddyText)}" />
-    </label>
-    <label class="field">
-      <span>Discussion questions</span>
-    </label>
-    <div class="cms-buzzin-questions"></div>
-    <button type="button" class="btn secondary small cms-add-buzzin-q">+ Add question</button>`;
-
-  const qContainer = container.querySelector(".cms-buzzin-questions");
-  let questions = savedQuestions.length ? [...savedQuestions] : [""];
-
-  function renderQuestions() {
-    qContainer.innerHTML = questions
-      .map(
-        (q, i) => `<div class="cms-buzzin-q-row">
-          <input type="text" class="cms-buzzin-q" data-i="${i}" value="${escapeHtml(q)}" placeholder="Discussion question ${i + 1}" />
-          <button type="button" class="cms-icon-btn cms-remove-buzzin-q" data-i="${i}">×</button>
-        </div>`
-      )
-      .join("");
-
-    qContainer.querySelectorAll(".cms-remove-buzzin-q").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        questions.splice(Number(btn.dataset.i), 1);
-        if (!questions.length) questions.push("");
-        renderQuestions();
-      });
-    });
-  }
-
-  renderQuestions();
-
-  container.querySelector(".cms-add-buzzin-q").addEventListener("click", () => {
-    questions.push("");
-    renderQuestions();
-  });
+      <span>Topic</span>
+      <input type="text" class="cms-buzzin-topic" value="${escapeHtml(topic)}" placeholder="What should students discuss?" />
+    </label>`;
 
   container._collectItems = () => {
-    questions = [...qContainer.querySelectorAll(".cms-buzzin-q")].map((el) => el.value.trim());
-    return [
-      {
-        title: container.querySelector(".cms-buzzin-title")?.value.trim() || "",
-        buddy: container.querySelector(".cms-buzzin-buddy")?.value.trim() || null,
-        questions: questions.filter(Boolean),
-      },
-    ];
+    const nextTopic = container.querySelector(".cms-buzzin-topic")?.value.trim() || "";
+    return nextTopic ? [{ topic: nextTopic }] : [];
   };
 }
 

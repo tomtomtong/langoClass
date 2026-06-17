@@ -513,7 +513,7 @@ function exerciseSubtitle(exercise) {
   const subtitle = String(exercise?.subTitle || "").trim();
   if (subtitle) return subtitle;
   if (isVideoExercise(exercise)) return "Watch the lesson video.";
-  if (isBuzzinExercise(exercise)) return "Answer fast to score points.";
+  if (isBuzzinExercise(exercise)) return "Buzz in, then answer in turn order.";
   if (isFastMcQuizExercise(exercise)) return "Answer quickly — results at the end.";
   if (isMcQuizExercise(exercise)) {
     const questionCount = (exercise.items || []).length;

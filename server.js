@@ -168,38 +168,158 @@ const games = new Map();
 const socketMeta = new Map();
 
 const BUZZIN_WINNER_COUNT = 3;
+const BUZZIN_JOIN_SECONDS = 20;
+const BUZZIN_RESPONSE_MAX_LEN = 500;
 
-/** @type {Map<string, { roundId: number, status: 'open' | 'full', buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }> }>} */
+/** @type {Map<string, BuzzInRound>} */
 const buzzInRounds = new Map();
 
-function createBuzzInRound(pin) {
-  const round = {
-    roundId: Date.now(),
-    status: "open",
-    buzzes: [],
-  };
-  buzzInRounds.set(pin, round);
-  return round;
+/** @typedef {{ roundId: number, phase: 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, analysis: string | null, analysisStatus: 'pending' | 'done' | 'error' }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
+
+function buzzinTopicFromExercise(exercise) {
+  if (!exercise) return "";
+  const items = Array.isArray(exercise.items) ? exercise.items : [];
+  const first = items[0] || {};
+  const legacyQuestion = Array.isArray(first.questions) ? first.questions[0] : null;
+  return String(
+    first.topic ||
+      legacyQuestion ||
+      first.title ||
+      exercise.title ||
+      ""
+  ).trim();
+}
+
+async function analyzeBuzzinStudentResponse({ topic, studentName, responseText }) {
+  const apiKey = getInworldApiKey();
+  if (!apiKey) {
+    return { ok: false, error: "LLM not configured. Add an Inworld API key in Config." };
+  }
+
+  const model = getInworldLlmModel();
+  const prompt = `You are a helpful English teacher assistant reviewing a student's spoken answer in class.
+
+Discussion topic: ${topic}
+Student name: ${studentName}
+Student answer: ${responseText}
+
+Write brief teacher-facing feedback in 2-4 sentences. Comment on how well the answer addresses the topic, note one language or vocabulary strength, and give one gentle suggestion. Be encouraging and concise. Plain text only, no bullet points.`;
+
+  try {
+    const analysis = await inworldLlmComplete(
+      apiKey,
+      model,
+      [{ role: "user", content: prompt }],
+      320
+    );
+    return { ok: true, analysis: analysis || "No feedback generated." };
+  } catch (err) {
+    return { ok: false, error: err.message || "Analysis failed." };
+  }
+}
+
+async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
+  const result = await analyzeBuzzinStudentResponse(ctx);
+  const round = buzzInRounds.get(pin);
+  if (!round) return;
+
+  const entry = round.responses.find((r) => r.playerId === playerId);
+  if (!entry) return;
+
+  if (result.ok) {
+    entry.analysis = result.analysis;
+    entry.analysisStatus = "done";
+  } else {
+    entry.analysis = result.error;
+    entry.analysisStatus = "error";
+  }
+
+  broadcastBuzzInUpdate(pin, "buzzin_response_analyzed");
+}
+
+function clearBuzzInJoinTimer(round) {
+  if (round?.joinTimer) {
+    clearTimeout(round.joinTimer);
+    round.joinTimer = null;
+  }
+}
+
+function buzzInCurrentTurn(round) {
+  if (round.phase !== "typing") return null;
+  return round.buzzes[round.turnIndex] || null;
 }
 
 function buzzInPublicPayload(round) {
+  const joinRemainingMs = round.phase === "join" ? Math.max(0, round.joinEndsAt - Date.now()) : 0;
   return {
     roundId: round.roundId,
+    phase: round.phase,
     status: round.status,
     winners: round.buzzes.slice(0, BUZZIN_WINNER_COUNT),
     buzzes: round.buzzes,
     totalBuzzes: round.buzzes.length,
     winnerCount: BUZZIN_WINNER_COUNT,
+    joinSeconds: BUZZIN_JOIN_SECONDS,
+    joinEndsAt: round.joinEndsAt,
+    joinSecondsRemaining: Math.ceil(joinRemainingMs / 1000),
+    topic: round.topic || "",
+    currentTurn: buzzInCurrentTurn(round),
+    responses: round.responses,
+    typingComplete: round.phase === "done",
   };
 }
 
-function broadcastBuzzInUpdate(pin) {
+function broadcastBuzzInUpdate(pin, eventName = "buzzin_update") {
   const round = buzzInRounds.get(pin);
   if (!round) return;
-  io.to(pin).emit("buzzin_update", buzzInPublicPayload(round));
+  io.to(pin).emit(eventName, buzzInPublicPayload(round));
+}
+
+function closeBuzzInJoinWindow(pin) {
+  const round = buzzInRounds.get(pin);
+  if (!round || round.phase !== "join") return;
+
+  clearBuzzInJoinTimer(round);
+  round.phase = round.buzzes.length ? "typing" : "done";
+  round.status = "closed";
+  round.turnIndex = 0;
+  broadcastBuzzInUpdate(pin, "buzzin_join_closed");
+}
+
+function advanceBuzzInTurn(pin) {
+  const round = buzzInRounds.get(pin);
+  if (!round || round.phase !== "typing") return;
+
+  round.turnIndex += 1;
+  if (round.turnIndex >= round.buzzes.length) {
+    round.phase = "done";
+  }
+  broadcastBuzzInUpdate(pin);
+}
+
+function createBuzzInRound(pin, topic = "") {
+  const existing = buzzInRounds.get(pin);
+  if (existing) clearBuzzInJoinTimer(existing);
+
+  const joinEndsAt = Date.now() + BUZZIN_JOIN_SECONDS * 1000;
+  const round = {
+    roundId: Date.now(),
+    phase: "join",
+    status: "open",
+    topic: String(topic || "").trim(),
+    buzzes: [],
+    responses: [],
+    turnIndex: 0,
+    joinEndsAt,
+    joinTimer: setTimeout(() => closeBuzzInJoinWindow(pin), BUZZIN_JOIN_SECONDS * 1000),
+  };
+  buzzInRounds.set(pin, round);
+  return round;
 }
 
 function clearBuzzInRound(pin) {
+  const round = buzzInRounds.get(pin);
+  if (round) clearBuzzInJoinTimer(round);
   buzzInRounds.delete(pin);
 }
 
@@ -746,9 +866,8 @@ async function testInworldTts(apiKey) {
   };
 }
 
-async function testInworldLlm(apiKey, model) {
+async function inworldLlmComplete(apiKey, model, messages, maxTokens = 256) {
   const llmModel = String(model || "auto").trim() || "auto";
-  const started = Date.now();
   const res = await fetch(`${INWORLD_API_BASE}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -757,8 +876,8 @@ async function testInworldLlm(apiKey, model) {
     },
     body: JSON.stringify({
       model: llmModel,
-      messages: [{ role: "user", content: "Reply with exactly: OK" }],
-      max_tokens: 16,
+      messages,
+      max_tokens: maxTokens,
     }),
   });
   const data = await parseInworldResponse(res);
@@ -767,13 +886,24 @@ async function testInworldLlm(apiKey, model) {
     throw new Error(`LLM (${llmModel}): ${inworldErrorMessage(data, res.status)}`);
   }
 
-  const reply = data?.choices?.[0]?.message?.content?.trim?.() || "";
+  return data?.choices?.[0]?.message?.content?.trim?.() || "";
+}
+
+async function testInworldLlm(apiKey, model) {
+  const llmModel = String(model || "auto").trim() || "auto";
+  const started = Date.now();
+  const reply = await inworldLlmComplete(
+    apiKey,
+    llmModel,
+    [{ role: "user", content: "Reply with exactly: OK" }],
+    16
+  );
   return {
     ok: true,
     model: llmModel,
     latencyMs: Date.now() - started,
     reply: reply.slice(0, 200),
-    usage: data?.usage || null,
+    usage: null,
   };
 }
 
@@ -1337,7 +1467,8 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const round = createBuzzInRound(pin);
+    const topic = buzzinTopicFromExercise(session.exercise);
+    const round = createBuzzInRound(pin, topic);
     const payload = buzzInPublicPayload(round);
     io.to(pin).emit("buzzin_round_started", payload);
     callback?.({ ok: true, ...payload });
@@ -1351,8 +1482,13 @@ io.on("connection", (socket) => {
     }
 
     const round = buzzInRounds.get(meta.pin);
-    if (!round || round.status !== "open") {
+    if (!round || round.phase !== "join" || round.status !== "open") {
       callback?.({ ok: false, error: "Buzz in is closed." });
+      return;
+    }
+
+    if (Date.now() >= round.joinEndsAt) {
+      callback?.({ ok: false, error: "Buzz in time is up." });
       return;
     }
 
@@ -1373,16 +1509,66 @@ io.on("connection", (socket) => {
       at: Date.now(),
     });
 
-    if (round.buzzes.length >= BUZZIN_WINNER_COUNT) {
-      round.status = "full";
-    }
-
     broadcastBuzzInUpdate(meta.pin);
     callback?.({
       ok: true,
       rank,
       selected: rank <= BUZZIN_WINNER_COUNT,
       roundId: round.roundId,
+    });
+  });
+
+  socket.on("submit_buzzin_response", ({ text }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    if (!meta || meta.role !== "session_player" || !meta.playerId || !meta.pin) {
+      callback?.({ ok: false, error: "Join the class waiting room first." });
+      return;
+    }
+
+    const round = buzzInRounds.get(meta.pin);
+    if (!round || round.phase !== "typing") {
+      callback?.({ ok: false, error: "It is not your turn to answer yet." });
+      return;
+    }
+
+    const current = buzzInCurrentTurn(round);
+    if (!current || current.playerId !== meta.playerId) {
+      callback?.({ ok: false, error: "It is not your turn to answer yet." });
+      return;
+    }
+
+    if (round.responses.some((r) => r.playerId === meta.playerId)) {
+      callback?.({ ok: false, error: "You already submitted an answer." });
+      return;
+    }
+
+    const trimmed = String(text || "").trim();
+    if (!trimmed) {
+      callback?.({ ok: false, error: "Enter your answer before submitting." });
+      return;
+    }
+    if (trimmed.length > BUZZIN_RESPONSE_MAX_LEN) {
+      callback?.({ ok: false, error: `Answer must be ${BUZZIN_RESPONSE_MAX_LEN} characters or fewer.` });
+      return;
+    }
+
+    round.responses.push({
+      playerId: meta.playerId,
+      displayName: current.displayName,
+      rank: current.rank,
+      text: trimmed,
+      at: Date.now(),
+      analysis: null,
+      analysisStatus: "pending",
+    });
+
+    advanceBuzzInTurn(meta.pin);
+    callback?.({ ok: true, ...buzzInPublicPayload(round) });
+
+    void analyzeAndAttachBuzzinResponse(meta.pin, meta.playerId, {
+      topic: round.topic,
+      studentName: current.displayName,
+      responseText: trimmed,
     });
   });
 

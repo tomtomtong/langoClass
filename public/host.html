@@ -350,16 +350,22 @@
     </section>
 
     <section id="screen-host-buzzin" class="screen">
-      <h2 id="host-buzzin-title"></h2>
-      <p class="hint" id="host-buzzin-buddy"></p>
+      <p class="buzzin-topic" id="host-buzzin-topic"></p>
       <div class="buzzin-winners-panel">
-        <h3 class="section-heading">Selected to talk (fastest 3)</h3>
+        <h3 class="section-heading">Buzz order</h3>
         <ol id="host-buzzin-winners" class="buzzin-winners"></ol>
         <p id="host-buzzin-buzz-count" class="hint"></p>
+        <div class="buzzin-join-timer host-buzzin-timer" id="host-buzzin-timer-wrap" hidden>
+          <span class="buzzin-join-timer-label">Buzz window</span>
+          <span id="host-buzzin-timer" class="buzzin-join-timer-value">20</span>
+        </div>
+      </div>
+      <div class="buzzin-turn-panel" id="host-buzzin-turn-panel" hidden>
+        <h3 class="section-heading">Student answers &amp; AI feedback</h3>
+        <p id="host-buzzin-turn-status" class="hint"></p>
+        <ol id="host-buzzin-responses" class="buzzin-responses"></ol>
       </div>
       <button class="btn secondary" id="btn-host-buzzin-reset" type="button">New buzz round</button>
-      <h3 class="section-heading">Discussion questions</h3>
-      <ol id="host-buzzin-questions" class="buzzin-questions"></ol>
       <button class="btn primary large" id="btn-host-buzzin-next-exercise" type="button" hidden>Next exercise</button>
       <button class="btn secondary" id="btn-host-buzzin-done">Back to waiting room</button>
       <button class="btn secondary" id="btn-start-another-buzzin">Start another session</button>

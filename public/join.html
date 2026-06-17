@@ -107,15 +107,22 @@
     </section>
 
     <section id="screen-room-buzzin" class="screen">
-      <h2 id="room-buzzin-title"></h2>
-      <p class="hint" id="room-buzzin-buddy"></p>
+      <p class="buzzin-topic" id="room-buzzin-topic"></p>
       <div class="buzzin-play-area">
         <p id="room-buzzin-status" class="buzzin-status">Get ready to buzz in…</p>
+        <div class="buzzin-join-timer" id="room-buzzin-timer-wrap" hidden>
+          <span class="buzzin-join-timer-label">Buzz in</span>
+          <span id="room-buzzin-timer" class="buzzin-join-timer-value">20</span>
+        </div>
         <button class="btn buzzin-btn" id="btn-room-buzz-in" type="button" disabled>BUZZ IN!</button>
         <p id="room-buzzin-result" class="buzzin-result" hidden></p>
+        <div class="buzzin-turn-area" id="room-buzzin-turn" hidden>
+          <p id="room-buzzin-turn-status" class="buzzin-turn-status"></p>
+          <textarea id="room-buzzin-answer" class="buzzin-answer-input" maxlength="500" rows="3" placeholder="Type your answer…"></textarea>
+          <button class="btn primary" id="btn-room-buzzin-submit" type="button">Submit answer</button>
+          <p id="room-buzzin-submitted" class="buzzin-submitted" hidden></p>
+        </div>
       </div>
-      <h3 class="section-heading">Discussion questions</h3>
-      <ol id="room-buzzin-questions" class="buzzin-questions"></ol>
     </section>
   </div>
 

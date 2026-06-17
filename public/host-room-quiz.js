@@ -4,20 +4,109 @@ let roomQuizCurrentQuestion = null;
 let roomQuizFastMode = false;
 let hostBuzzinSocketReady = false;
 let hostBuzzinRoomId = null;
+let hostBuzzinJoinTimer = null;
+
+function stopHostBuzzinJoinTimer() {
+  if (hostBuzzinJoinTimer) {
+    clearInterval(hostBuzzinJoinTimer);
+    hostBuzzinJoinTimer = null;
+  }
+}
+
+function startHostBuzzinJoinTimer(joinEndsAt) {
+  stopHostBuzzinJoinTimer();
+  const wrap = $("#host-buzzin-timer-wrap");
+  const valueEl = $("#host-buzzin-timer");
+  if (!wrap || !valueEl || !joinEndsAt) {
+    if (wrap) wrap.hidden = true;
+    return;
+  }
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((joinEndsAt - Date.now()) / 1000));
+    valueEl.textContent = String(remaining);
+    if (remaining <= 0) stopHostBuzzinJoinTimer();
+  };
+
+  wrap.hidden = false;
+  tick();
+  hostBuzzinJoinTimer = setInterval(tick, 250);
+}
+
+function hideHostBuzzinJoinTimer() {
+  stopHostBuzzinJoinTimer();
+  const wrap = $("#host-buzzin-timer-wrap");
+  if (wrap) wrap.hidden = true;
+}
+
+function updateHostBuzzinTurnUi(payload) {
+  const phase = payload.phase || "join";
+  const panel = $("#host-buzzin-turn-panel");
+  const turnStatus = $("#host-buzzin-turn-status");
+  const responsesEl = $("#host-buzzin-responses");
+  if (!panel || !turnStatus || !responsesEl) return;
+
+  if (phase === "join") {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  hideHostBuzzinJoinTimer();
+
+  if (!payload.buzzes?.length) {
+    turnStatus.textContent = "No one buzzed in.";
+    renderBuzzinResponsesList(responsesEl, [], null, "No answers yet.");
+    return;
+  }
+
+  if (payload.typingComplete) {
+    turnStatus.textContent = "All students have answered.";
+  } else if (payload.currentTurn) {
+    turnStatus.textContent = `Waiting for ${payload.currentTurn.displayName} (#${payload.currentTurn.rank}) to type their answer…`;
+  } else {
+    turnStatus.textContent = "Students answer in buzz order.";
+  }
+
+  renderBuzzinResponsesList(
+    responsesEl,
+    payload.responses || [],
+    payload.typingComplete ? null : payload.currentTurn,
+    "Waiting for answers…"
+  );
+}
 
 function updateHostBuzzinUi(payload) {
   renderBuzzinWinnersList(
     $("#host-buzzin-winners"),
-    payload.winners || [],
+    payload.buzzes || [],
     "Waiting for students to buzz in…"
   );
   const countEl = $("#host-buzzin-buzz-count");
+  const phase = payload.phase || "join";
   if (countEl) {
     const total = payload.totalBuzzes || 0;
-    countEl.textContent = total
-      ? `${total} student${total === 1 ? "" : "s"} buzzed in`
-      : "Students tap BUZZ IN on their devices.";
+    if (phase === "join") {
+      countEl.textContent = total
+        ? `${total} student${total === 1 ? "" : "s"} buzzed in — ${payload.joinSecondsRemaining ?? 20}s left`
+        : `Students have ${payload.joinSeconds ?? 20} seconds to buzz in.`;
+    } else if (phase === "typing") {
+      countEl.textContent = total
+        ? `${total} student${total === 1 ? "" : "s"} answer in buzz order.`
+        : "Buzz window closed — no buzzes.";
+    } else {
+      countEl.textContent = total
+        ? `${total} student${total === 1 ? "" : "s"} finished answering.`
+        : "Buzz round complete.";
+    }
   }
+
+  if (phase === "join") {
+    startHostBuzzinJoinTimer(payload.joinEndsAt);
+  } else {
+    hideHostBuzzinJoinTimer();
+  }
+  updateHostBuzzinTurnUi(payload);
 }
 
 function ensureHostBuzzinSocket() {
@@ -33,16 +122,30 @@ function ensureHostBuzzinSocket() {
   socket.on("buzzin_update", (payload) => {
     updateHostBuzzinUi(payload);
   });
+
+  socket.on("buzzin_join_closed", (payload) => {
+    if (payload.roundId != null && roomBuzzinRoundId == null) {
+      roomBuzzinRoundId = payload.roundId;
+    }
+    updateHostBuzzinUi(payload);
+  });
+
+  socket.on("buzzin_response_analyzed", (payload) => {
+    updateHostBuzzinUi(payload);
+  });
 }
 
 function startHostBuzzinRound(roomId) {
   if (!roomId) return Promise.resolve();
   hostBuzzinRoomId = roomId;
   ensureHostBuzzinSocket();
+  hideHostBuzzinJoinTimer();
+  const turnPanel = $("#host-buzzin-turn-panel");
+  if (turnPanel) turnPanel.hidden = true;
 
   renderBuzzinWinnersList($("#host-buzzin-winners"), [], "Waiting for students to buzz in…");
   const countEl = $("#host-buzzin-buzz-count");
-  if (countEl) countEl.textContent = "Students tap BUZZ IN on their devices.";
+  if (countEl) countEl.textContent = "Students have 20 seconds to buzz in.";
 
   const socket = getHostSessionSocket();
 
@@ -167,9 +270,7 @@ function showHostBuzzinExercise(exercise, roomId) {
   const buzzin = buzzinFromExercise(exercise);
   if (!buzzin) throw new Error("No Buzz In content in this exercise.");
 
-  $("#host-buzzin-title").textContent = buzzin.title;
-  $("#host-buzzin-buddy").textContent = buddyDisplayText(buzzin.buddy);
-  $("#host-buzzin-questions").innerHTML = renderBuzzinQuestionList(buzzin.questions);
+  $("#host-buzzin-topic").textContent = buzzin.topic;
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
   showScreen("host-buzzin");
   return startHostBuzzinRound(roomId);

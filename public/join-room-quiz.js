@@ -6,6 +6,132 @@ let roomQuizJoinTimer = null;
 let roomQuizFastMode = false;
 let roomBuzzinSocketReady = false;
 let roomBuzzinRoundId = null;
+let roomBuzzinJoinTimer = null;
+
+function stopRoomBuzzinJoinTimer() {
+  if (roomBuzzinJoinTimer) {
+    clearInterval(roomBuzzinJoinTimer);
+    roomBuzzinJoinTimer = null;
+  }
+}
+
+function startRoomBuzzinJoinTimer(joinEndsAt) {
+  stopRoomBuzzinJoinTimer();
+  const wrap = $("#room-buzzin-timer-wrap");
+  const valueEl = $("#room-buzzin-timer");
+  if (!wrap || !valueEl || !joinEndsAt) {
+    if (wrap) wrap.hidden = true;
+    return;
+  }
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((joinEndsAt - Date.now()) / 1000));
+    valueEl.textContent = String(remaining);
+    if (remaining <= 0) stopRoomBuzzinJoinTimer();
+  };
+
+  wrap.hidden = false;
+  tick();
+  roomBuzzinJoinTimer = setInterval(tick, 250);
+}
+
+function hideRoomBuzzinJoinTimer() {
+  stopRoomBuzzinJoinTimer();
+  const wrap = $("#room-buzzin-timer-wrap");
+  if (wrap) wrap.hidden = true;
+}
+
+function resetRoomBuzzinTurnUi() {
+  const turnArea = $("#room-buzzin-turn");
+  const answer = $("#room-buzzin-answer");
+  const submitBtn = $("#btn-room-buzzin-submit");
+  const submitted = $("#room-buzzin-submitted");
+  const turnStatus = $("#room-buzzin-turn-status");
+
+  if (turnArea) turnArea.hidden = true;
+  if (answer) {
+    answer.value = "";
+    answer.disabled = true;
+    answer.hidden = true;
+  }
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.hidden = true;
+  }
+  if (submitted) {
+    submitted.hidden = true;
+    submitted.textContent = "";
+  }
+  if (turnStatus) turnStatus.textContent = "";
+}
+
+function updateStudentBuzzinTurnUi(payload) {
+  const phase = payload.phase || "join";
+  const turnArea = $("#room-buzzin-turn");
+  const turnStatus = $("#room-buzzin-turn-status");
+  const answer = $("#room-buzzin-answer");
+  const submitBtn = $("#btn-room-buzzin-submit");
+  const submitted = $("#room-buzzin-submitted");
+  const playerId = roomParticipant?.userId;
+  const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
+  const myResponse = (payload.responses || []).find((r) => r.playerId === playerId);
+  const currentTurn = payload.currentTurn || null;
+
+  if (phase === "join") {
+    resetRoomBuzzinTurnUi();
+    return;
+  }
+
+  if (!turnArea || !turnStatus) return;
+  turnArea.hidden = false;
+  hideRoomBuzzinJoinTimer();
+
+  if (!myBuzz) {
+    turnStatus.textContent = "Buzz in closed. You did not buzz in time.";
+    if (answer) answer.hidden = true;
+    if (submitBtn) submitBtn.hidden = true;
+    if (submitted) submitted.hidden = true;
+    return;
+  }
+
+  if (myResponse) {
+    turnStatus.textContent = `You answered (#${myResponse.rank}). Waiting for others…`;
+    if (answer) answer.hidden = true;
+    if (submitBtn) submitBtn.hidden = true;
+    if (submitted) {
+      submitted.hidden = false;
+      submitted.textContent = myResponse.text;
+    }
+    return;
+  }
+
+  if (payload.typingComplete) {
+    turnStatus.textContent = "All answers submitted.";
+    if (answer) answer.hidden = true;
+    if (submitBtn) submitBtn.hidden = true;
+    return;
+  }
+
+  if (currentTurn?.playerId === playerId) {
+    turnStatus.textContent = `You're #${myBuzz.rank} — type your answer now.`;
+    if (answer) {
+      answer.hidden = false;
+      answer.disabled = false;
+    }
+    if (submitBtn) {
+      submitBtn.hidden = false;
+      submitBtn.disabled = false;
+    }
+    if (submitted) submitted.hidden = true;
+    return;
+  }
+
+  const waitingFor = currentTurn?.displayName || "another student";
+  turnStatus.textContent = `You're #${myBuzz.rank}. Waiting for ${waitingFor} (#${currentTurn?.rank || "?"})…`;
+  if (answer) answer.hidden = true;
+  if (submitBtn) submitBtn.hidden = true;
+  if (submitted) submitted.hidden = true;
+}
 
 function updateStudentBuzzinUi(payload) {
   const btn = $("#btn-room-buzz-in");
@@ -13,43 +139,52 @@ function updateStudentBuzzinUi(payload) {
   const result = $("#room-buzzin-result");
   if (!btn || !status) return;
 
+  const phase = payload.phase || (payload.status === "full" ? "join" : payload.status === "closed" ? "typing" : "join");
   const playerId = roomParticipant?.userId;
   const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
-  const winnersFull = payload.status === "full";
+  const joinClosed = phase !== "join";
+
+  if (phase === "join") {
+    startRoomBuzzinJoinTimer(payload.joinEndsAt);
+    resetRoomBuzzinTurnUi();
+  } else {
+    hideRoomBuzzinJoinTimer();
+    updateStudentBuzzinTurnUi(payload);
+  }
 
   if (myBuzz) {
     btn.disabled = true;
     result.hidden = false;
-    if (myBuzz.rank <= (payload.winnerCount || 3)) {
-      result.textContent =
-        myBuzz.rank === 1
-          ? "You're first — selected to talk!"
-          : `You're #${myBuzz.rank} — selected to talk!`;
-      result.className = "buzzin-result buzzin-result--selected";
+    result.textContent = `You buzzed in #${myBuzz.rank}.`;
+    result.className = "buzzin-result buzzin-result--selected";
+    if (joinClosed) {
+      status.textContent = joinClosed && phase === "typing"
+        ? "Buzz in closed — answer in turn order."
+        : "Buzz in closed.";
     } else {
-      result.textContent = `You buzzed in #${myBuzz.rank}. The fastest 3 were already selected.`;
-      result.className = "buzzin-result buzzin-result--late";
+      status.textContent = `You're in at #${myBuzz.rank}. Keep waiting…`;
     }
-    status.textContent = winnersFull
-      ? "Buzz in closed — fastest 3 selected."
-      : `You're in at #${myBuzz.rank}. Waiting for others…`;
     return;
   }
 
-  if (winnersFull) {
+  if (joinClosed) {
     btn.disabled = true;
-    status.textContent = "Buzz in closed — fastest 3 selected.";
+    status.textContent = phase === "done"
+      ? "Buzz round complete."
+      : "Buzz in closed — you did not buzz in time.";
     result.hidden = true;
     return;
   }
 
   btn.disabled = false;
-  status.textContent = "Tap BUZZ IN when you want to answer the topic!";
+  status.textContent = "Tap BUZZ IN before time runs out!";
   result.hidden = true;
 }
 
 function resetStudentBuzzinUi() {
   roomBuzzinRoundId = null;
+  stopRoomBuzzinJoinTimer();
+  resetRoomBuzzinTurnUi();
   const btn = $("#btn-room-buzz-in");
   const status = $("#room-buzzin-status");
   const result = $("#room-buzzin-result");
@@ -59,6 +194,7 @@ function resetStudentBuzzinUi() {
     result.hidden = true;
     result.textContent = "";
   }
+  hideRoomBuzzinJoinTimer();
 }
 
 function ensureRoomBuzzinSocket() {
@@ -74,6 +210,13 @@ function ensureRoomBuzzinSocket() {
   });
 
   socket.on("buzzin_update", (payload) => {
+    if (payload.roundId != null && roomBuzzinRoundId == null) {
+      roomBuzzinRoundId = payload.roundId;
+    }
+    updateStudentBuzzinUi(payload);
+  });
+
+  socket.on("buzzin_join_closed", (payload) => {
     if (payload.roundId != null && roomBuzzinRoundId == null) {
       roomBuzzinRoundId = payload.roundId;
     }
@@ -97,22 +240,39 @@ function ensureRoomBuzzinSocket() {
       const status = $("#room-buzzin-status");
       if (result) {
         result.hidden = false;
-        if (res.selected) {
-          result.textContent =
-            res.rank === 1
-              ? "You're first — selected to talk!"
-              : `You're #${res.rank} — selected to talk!`;
-          result.className = "buzzin-result buzzin-result--selected";
-        } else {
-          result.textContent = `You buzzed in #${res.rank}. The fastest 3 were already selected.`;
-          result.className = "buzzin-result buzzin-result--late";
-        }
+        result.textContent = `You buzzed in #${res.rank}!`;
+        result.className = "buzzin-result buzzin-result--selected";
       }
       if (status) {
-        status.textContent = res.selected
-          ? `You're in at #${res.rank}!`
-          : "Buzz in closed for top 3.";
+        status.textContent = `You're in at #${res.rank}! Wait for the buzz window to close…`;
       }
+    });
+  });
+
+  $("#btn-room-buzzin-submit")?.addEventListener("click", () => {
+    const answer = $("#room-buzzin-answer");
+    const submitBtn = $("#btn-room-buzzin-submit");
+    if (!answer || !submitBtn || submitBtn.disabled) return;
+
+    const text = answer.value.trim();
+    if (!text) {
+      const turnStatus = $("#room-buzzin-turn-status");
+      if (turnStatus) turnStatus.textContent = "Type your answer before submitting.";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    answer.disabled = true;
+
+    socket.emit("submit_buzzin_response", { text }, (res) => {
+      if (!res?.ok) {
+        submitBtn.disabled = false;
+        answer.disabled = false;
+        const turnStatus = $("#room-buzzin-turn-status");
+        if (turnStatus) turnStatus.textContent = res?.error || "Could not submit answer.";
+        return;
+      }
+      updateStudentBuzzinUi(res);
     });
   });
 
@@ -299,9 +459,7 @@ function showStudentBuzzinExercise(exercisePayload) {
   const buzzin = buzzinFromExercise(exercise);
   if (!buzzin) return;
 
-  $("#room-buzzin-title").textContent = buzzin.title;
-  $("#room-buzzin-buddy").textContent = buddyDisplayText(buzzin.buddy);
-  $("#room-buzzin-questions").innerHTML = renderBuzzinQuestionList(buzzin.questions);
+  $("#room-buzzin-topic").textContent = buzzin.topic;
   resetStudentBuzzinUi();
   showScreen("room-buzzin");
   startStudentBuzzinRound(roomParticipant?.roomId);
