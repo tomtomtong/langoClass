@@ -131,10 +131,17 @@ function setupHostRoomQuizSocket(socket) {
     $("#btn-host-quiz-next").textContent = isLast ? "Show final results" : "Next question";
   });
 
-  socket.on("game_finished", ({ leaderboard }) => {
+  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
     roomQuizFastMode = false;
     showScreen("host-quiz-finished");
-    renderLeaderboard($("#host-quiz-final-leaderboard"), leaderboard);
+    showExerciseLeaderboards({
+      exerciseLeaderboard: exerciseLeaderboard || leaderboard,
+      semesterLeaderboard,
+      exerciseListEl: $("#host-quiz-final-leaderboard"),
+      semesterListEl: $("#host-semester-leaderboard"),
+      semesterWrapEl: $("#host-semester-leaderboard-wrap"),
+      exerciseWrapEl: $("#host-exercise-leaderboard-wrap"),
+    });
     if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
   });
 

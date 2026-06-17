@@ -27,12 +27,52 @@ function showScreen(id) {
 }
 
 function renderLeaderboard(listEl, entries, highlightId) {
-  listEl.innerHTML = entries
+  if (!listEl) return;
+  const rows = (entries || []).map((p) => ({
+    id: p.id ?? p.studentUserId,
+    name: p.name ?? p.displayName ?? "Player",
+    score: p.score ?? p.totalScore ?? 0,
+  }));
+
+  if (!rows.length) {
+    listEl.innerHTML = `<li class="leaderboard-empty"><span>No scores yet</span></li>`;
+    return;
+  }
+
+  listEl.innerHTML = rows
     .map(
       (p) =>
         `<li${p.id === highlightId ? ' class="me"' : ""}><span>${escapeHtml(p.name)}</span><span class="score">${p.score}</span></li>`
     )
     .join("");
+}
+
+function showExerciseLeaderboards({
+  exerciseLeaderboard,
+  semesterLeaderboard,
+  highlightId,
+  exerciseListEl,
+  semesterListEl,
+  semesterWrapEl,
+  exerciseWrapEl,
+}) {
+  const hasExercise = (exerciseLeaderboard || []).length > 0;
+  const hasSemester = (semesterLeaderboard || []).length > 0;
+
+  if (exerciseWrapEl) exerciseWrapEl.hidden = !hasExercise;
+  if (semesterWrapEl) semesterWrapEl.hidden = !hasSemester;
+
+  if (hasExercise) {
+    renderLeaderboard(exerciseListEl, exerciseLeaderboard, highlightId);
+  } else if (exerciseListEl) {
+    exerciseListEl.innerHTML = "";
+  }
+
+  if (hasSemester) {
+    renderLeaderboard(semesterListEl, semesterLeaderboard, highlightId);
+  } else if (semesterListEl) {
+    semesterListEl.innerHTML = "";
+  }
 }
 
 function escapeHtml(str) {

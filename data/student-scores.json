@@ -10,6 +10,17 @@
       "firstScoreAt": "2026-06-16T02:46:51.723Z",
       "lastScoreAt": "2026-06-16T02:46:51.723Z",
       "updatedAt": "2026-06-16T02:46:51.723Z"
+    },
+    "835:2913:web_1781594822662_x604eecy": {
+      "teacherId": 835,
+      "classId": 2913,
+      "studentUserId": "web_1781594822662_x604eecy",
+      "displayName": "Student 001",
+      "totalScore": 0,
+      "exerciseCount": 1,
+      "firstScoreAt": "2026-06-16T07:27:13.604Z",
+      "lastScoreAt": "2026-06-16T07:27:13.604Z",
+      "updatedAt": "2026-06-16T07:27:13.604Z"
     }
   },
   "records": [
@@ -54,6 +65,20 @@
       "displayName": "Alice",
       "score": 800,
       "savedAt": "2026-06-16T02:46:51.723Z"
+    },
+    {
+      "recordKey": "835:2913:585663:3:web_1781594822662_x604eecy",
+      "teacherId": 835,
+      "classId": 2913,
+      "courseId": -1,
+      "exerciseId": 3,
+      "exerciseTitle": "Quiz2",
+      "exerciseType": "mcquiz",
+      "roomId": "585663",
+      "studentUserId": "web_1781594822662_x604eecy",
+      "displayName": "Student 001",
+      "score": 0,
+      "savedAt": "2026-06-16T07:27:13.604Z"
     }
   ]
 }

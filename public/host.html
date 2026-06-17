@@ -318,8 +318,15 @@
     </section>
 
     <section id="screen-host-quiz-finished" class="screen">
-      <h2>Final standings</h2>
-      <ol id="host-quiz-final-leaderboard" class="final-board"></ol>
+      <h2>Exercise complete!</h2>
+      <div class="leaderboard" id="host-exercise-leaderboard-wrap">
+        <h3>This exercise</h3>
+        <ol id="host-quiz-final-leaderboard"></ol>
+      </div>
+      <div class="leaderboard" id="host-semester-leaderboard-wrap" hidden>
+        <h3>Season total</h3>
+        <ol id="host-semester-leaderboard"></ol>
+      </div>
       <button class="btn primary large" id="btn-host-quiz-next-exercise" type="button" hidden>Next exercise</button>
       <button class="btn primary" id="btn-host-quiz-done">Back to waiting room</button>
       <button class="btn secondary" id="btn-start-another-quiz">Start another session</button>

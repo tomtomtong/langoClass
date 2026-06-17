@@ -87,9 +87,17 @@
     </section>
 
     <section id="screen-player-finished" class="screen">
-      <h2>Game Over!</h2>
-      <ol id="player-final-leaderboard" class="final-board"></ol>
-      <button class="btn secondary" onclick="location.href='/join.html'">Play Again</button>
+      <h2>Exercise complete!</h2>
+      <div class="leaderboard" id="player-exercise-leaderboard-wrap">
+        <h3>This exercise</h3>
+        <ol id="player-final-leaderboard"></ol>
+      </div>
+      <div class="leaderboard" id="player-semester-leaderboard-wrap" hidden>
+        <h3>Season total</h3>
+        <ol id="player-semester-leaderboard"></ol>
+      </div>
+      <button class="btn secondary" id="btn-back-room-waiting" hidden>Back to waiting room</button>
+      <button class="btn secondary" id="btn-play-again">Play Again</button>
     </section>
 
     <section id="screen-room-video" class="screen" hidden aria-hidden="true">

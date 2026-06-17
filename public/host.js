@@ -1373,9 +1373,21 @@ function backFromWaiting() {
 
 $("#btn-back-journey")?.addEventListener("click", backFromWaiting);
 
-document.querySelectorAll(
-  "#btn-back-waiting-quiz, #btn-back-waiting-results, #btn-back-waiting-finished, #btn-back-waiting-video, #btn-back-waiting-buzzin"
-).forEach((btn) => btn.addEventListener("click", backToWaitingFromExercise));
+document.querySelectorAll("#btn-back-waiting-quiz, #btn-back-waiting-results").forEach((btn) =>
+  btn.addEventListener("click", returnHostToWaitingRoom)
+);
+
+document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
+  btn.addEventListener("click", () => {
+    wrapUpRoomExercise(() => {
+      returnHostToWaitingRoom();
+    });
+  })
+);
+
+document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin").forEach((btn) =>
+  btn.addEventListener("click", finishVideoOrBuzzinExercise)
+);
 
 $("#btn-start-session").addEventListener("click", handleStartSession);
 
@@ -1411,17 +1423,57 @@ function resetSessionAndGoToJourney() {
 $("#btn-start-another").addEventListener("click", resetSessionAndGoToJourney);
 $("#btn-start-another-quiz")?.addEventListener("click", resetSessionAndGoToJourney);
 
-$("#btn-host-quiz-done")?.addEventListener("click", () => {
+function showHostExerciseFinishedScreen(payload) {
+  showExerciseLeaderboards({
+    exerciseLeaderboard: payload?.exerciseLeaderboard,
+    semesterLeaderboard: payload?.semesterLeaderboard,
+    exerciseListEl: $("#host-quiz-final-leaderboard"),
+    semesterListEl: $("#host-semester-leaderboard"),
+    semesterWrapEl: $("#host-semester-leaderboard-wrap"),
+    exerciseWrapEl: $("#host-exercise-leaderboard-wrap"),
+  });
   refreshNextExerciseUi();
-  showScreen("waiting");
-  setActiveStep("waiting");
-});
+  showScreen("host-quiz-finished");
+  setActiveStep("quiz");
+}
 
-function backToWaitingFromExercise() {
+function wrapUpRoomExercise(callback) {
+  const roomId = state.activeRoomId;
+  if (!roomId || typeof getHostSessionSocket !== "function") {
+    callback?.();
+    return;
+  }
+
+  getHostSessionSocket().emit("end_room_exercise", { roomId }, (res) => {
+    callback?.(res);
+  });
+}
+
+function returnHostToWaitingRoom() {
   refreshNextExerciseUi();
   showScreen("waiting");
   setActiveStep("waiting");
 }
+
+function finishVideoOrBuzzinExercise() {
+  wrapUpRoomExercise((res) => {
+    if (res?.ok && (res.semesterLeaderboard?.length || res.exerciseLeaderboard?.length)) {
+      showHostExerciseFinishedScreen(res);
+      return;
+    }
+    returnHostToWaitingRoom();
+  });
+}
+
+function backToWaitingFromExercise() {
+  finishVideoOrBuzzinExercise();
+}
+
+$("#btn-host-quiz-done")?.addEventListener("click", () => {
+  wrapUpRoomExercise(() => {
+    returnHostToWaitingRoom();
+  });
+});
 
 $("#btn-host-video-done")?.addEventListener("click", backToWaitingFromExercise);
 $("#btn-host-buzzin-done")?.addEventListener("click", backToWaitingFromExercise);

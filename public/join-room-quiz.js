@@ -229,11 +229,23 @@ function setupRoomPlayerQuiz(socket) {
     renderLeaderboard($("#player-leaderboard"), leaderboard, roomQuizPlayerId);
   });
 
-  socket.on("game_finished", ({ leaderboard }) => {
+  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
     roomQuizFastMode = false;
     clearTimer();
     showScreen("player-finished");
-    renderLeaderboard($("#player-final-leaderboard"), leaderboard, roomQuizPlayerId);
+    showExerciseLeaderboards({
+      exerciseLeaderboard: exerciseLeaderboard || leaderboard,
+      semesterLeaderboard,
+      highlightId: roomQuizPlayerId,
+      exerciseListEl: $("#player-final-leaderboard"),
+      semesterListEl: $("#player-semester-leaderboard"),
+      semesterWrapEl: $("#player-semester-leaderboard-wrap"),
+      exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
+    });
+    const backBtn = $("#btn-back-room-waiting");
+    const playBtn = $("#btn-play-again");
+    if (backBtn) backBtn.hidden = false;
+    if (playBtn) playBtn.hidden = true;
   });
 
   socket.on("game_ended", ({ reason }) => {

@@ -93,12 +93,24 @@
                   "image": "/uploads/questions/question-835-1781575837002.jpg"
                 }
               ]
+            },
+            {
+              "id": 4,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 2,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4"
+                }
+              ]
             }
           ]
         }
       ],
       "createdAt": "2026-06-15T02:57:28.201Z",
-      "updatedAt": "2026-06-16T02:10:37.773Z",
+      "updatedAt": "2026-06-16T09:50:33.708Z",
       "classIds": [
         2913
       ]

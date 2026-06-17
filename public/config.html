@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lango — Push notification config</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="cms-light">
+  <div id="app" class="cms-app config-app">
+    <nav class="cms-topbar">
+      <a class="cms-brand" href="/config.html">Notification config</a>
+      <div class="cms-topbar-actions">
+        <a class="cms-link" href="/host.html">Host</a>
+        <a class="cms-link" href="/cms.html">Course CMS</a>
+        <span class="cms-teacher" id="config-teacher-label" hidden></span>
+        <button type="button" class="btn secondary small cms-logout" id="btn-config-logout" hidden>Log out</button>
+      </div>
+    </nav>
+
+    <section id="screen-config-login" class="screen active">
+      <div class="cms-panel config-panel">
+        <h1>Teacher login</h1>
+        <p class="hint">Sign in to change the push notification base endpoint.</p>
+        <label class="field">
+          <span>Username or email</span>
+          <input type="text" id="config-login-username" autocomplete="username" />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="config-login-password" autocomplete="current-password" />
+        </label>
+        <button type="button" class="btn primary" id="btn-config-login">Login</button>
+        <p class="error" id="config-login-error"></p>
+      </div>
+    </section>
+
+    <section id="screen-config-main" class="screen">
+      <header class="cms-header">
+        <div>
+          <h1>Push notification base endpoint</h1>
+          <p class="hint">
+            This URL is sent as <code>base_endpoint</code> in notification data when you start a session.
+            Students use it to open the join page on the correct server.
+          </p>
+        </div>
+      </header>
+
+      <div class="cms-panel config-panel">
+        <label class="field">
+          <span>Saved base endpoint</span>
+          <input
+            type="url"
+            id="config-public-base-url"
+            placeholder="https://your-app.up.railway.app"
+            autocomplete="url"
+          />
+          <p class="hint">Leave empty to use the environment default below.</p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Active URL:</strong> <span id="config-effective-url"></span></p>
+          <p><strong>Environment default:</strong> <span id="config-env-default"></span></p>
+        </div>
+
+        <div class="config-preview">
+          <span class="field-label">Notification data preview</span>
+          <pre id="config-preview-json" class="config-preview-json"></pre>
+        </div>
+
+        <div class="config-actions">
+          <button type="button" class="btn primary" id="btn-config-save">Save</button>
+          <button type="button" class="btn secondary" id="btn-config-use-current">Use this site’s URL</button>
+          <button type="button" class="btn secondary" id="btn-config-reset">Reset to environment default</button>
+        </div>
+
+        <p class="status-msg" id="config-status"></p>
+        <p class="error" id="config-error"></p>
+      </div>
+    </section>
+  </div>
+
+  <script src="/common.js"></script>
+  <script src="/config.js"></script>
+</body>
+</html>

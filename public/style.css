@@ -573,6 +573,27 @@ h2 {
   color: var(--yellow);
 }
 
+.leaderboard ol li.me {
+  background: rgba(241, 196, 15, 0.12);
+  border-radius: 8px;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.leaderboard ol li.leaderboard-empty {
+  justify-content: center;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.leaderboard ol li.leaderboard-empty::before {
+  content: none;
+}
+
+.exercise-leaderboard-panel {
+  margin-top: 1.5rem;
+}
+
 .final-board li {
   font-size: 1.1rem;
   padding: 0.75rem 0 !important;
@@ -2565,6 +2586,52 @@ body.cms-light .cms-danger {
 
 body.cms-light .cms-danger:hover:not(:disabled) {
   background: #f9d4db !important;
+}
+
+.config-panel {
+  max-width: 720px;
+}
+
+.config-meta {
+  margin: 1rem 0 1.25rem;
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  background: #f4f7fb;
+  border: 1px solid #e3eaf3;
+  font-size: 0.95rem;
+}
+
+.config-meta p {
+  margin: 0.35rem 0;
+}
+
+.config-preview {
+  margin-bottom: 1.25rem;
+}
+
+.config-preview .field-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.config-preview-json {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #1e2430;
+  color: #e8edf4;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.config-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .cms-host-link {

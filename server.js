@@ -9,34 +9,42 @@ const { normalizeClassListResponse } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
 const scoreStore = require("./lib/score-store");
 const sessionStore = require("./lib/session-store");
+const paths = require("./lib/paths");
+const settingsStore = require("./lib/settings-store");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 6000;
 const LANGO_API_BASE = "https://dev.api.lango.ai/v1";
-const PUBLIC_BASE_URL = (
-  process.env.PUBLIC_BASE_URL || "https://58ef-138-199-60-185.ngrok-free.app"
+const ENV_PUBLIC_BASE_URL = (
+  process.env.PUBLIC_BASE_URL || "https://test.n9n.uk"
 ).replace(/\/$/, "");
+
+function getPublicBaseUrl() {
+  const saved = settingsStore.readSettings().publicBaseUrl;
+  return saved || ENV_PUBLIC_BASE_URL;
+}
+
+function normalizePublicBaseUrl(url) {
+  const trimmed = String(url || "").trim().replace(/\/$/, "");
+  if (!trimmed) return "";
+  if (!/^https?:\/\/.+/i.test(trimmed)) {
+    throw new Error("URL must start with http:// or https://");
+  }
+  return trimmed;
+}
 
 app.use(express.json());
 
-const UPLOADS_DIR = path.join(__dirname, "public", "uploads", "courses");
-const SECTION_UPLOADS_DIR = path.join(__dirname, "public", "uploads", "sections");
-const QUESTION_UPLOADS_DIR = path.join(__dirname, "public", "uploads", "questions");
+paths.ensurePersistentDirs();
+
+const UPLOADS_DIR = paths.uploadsCoursesDir;
+const SECTION_UPLOADS_DIR = paths.uploadsSectionsDir;
+const QUESTION_UPLOADS_DIR = paths.uploadsQuestionsDir;
 const MAX_MC_OPTIONS = 6;
 const ALLOWED_IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-if (!fs.existsSync(SECTION_UPLOADS_DIR)) {
-  fs.mkdirSync(SECTION_UPLOADS_DIR, { recursive: true });
-}
-if (!fs.existsSync(QUESTION_UPLOADS_DIR)) {
-  fs.mkdirSync(QUESTION_UPLOADS_DIR, { recursive: true });
-}
 
 const bannerUpload = multer({
   storage: multer.diskStorage({
@@ -110,7 +118,8 @@ function deleteLocalUpload(uploadUrl) {
   ) {
     return;
   }
-  const filePath = path.join(__dirname, "public", url);
+  const filePath = paths.uploadFilePath(url);
+  if (!filePath) return;
   try {
     fs.unlinkSync(filePath);
   } catch {
@@ -352,6 +361,26 @@ function getLeaderboard(game) {
     .sort((a, b) => b.score - a.score);
 }
 
+function getSemesterLeaderboardForRoom(pin) {
+  const session = sessionStore.getSession(pin);
+  if (!session?.teacherId || !session?.classId) return [];
+
+  return scoreStore
+    .listSemesterTotalsForClass(session.teacherId, session.classId)
+    .map((s) => ({
+      id: s.studentUserId,
+      name: s.displayName,
+      score: s.totalScore,
+    }));
+}
+
+function buildExerciseFinishedPayload(pin, { exerciseLeaderboard } = {}) {
+  return {
+    exerciseLeaderboard: exerciseLeaderboard || null,
+    semesterLeaderboard: getSemesterLeaderboardForRoom(pin),
+  };
+}
+
 function broadcastLobby(game) {
   const payload = {
     pin: game.pin,
@@ -456,8 +485,10 @@ function startQuestion(game) {
         );
       }
     }
+    const exerciseLeaderboard = getLeaderboard(game);
     io.to(game.pin).emit("game_finished", {
-      leaderboard: getLeaderboard(game),
+      leaderboard: exerciseLeaderboard,
+      ...buildExerciseFinishedPayload(game.pin, { exerciseLeaderboard }),
     });
     return;
   }
@@ -632,9 +663,50 @@ function teacherDisplayName(user) {
 function buildNotificationData(extra = {}) {
   return {
     ...extra,
-    base_endpoint: PUBLIC_BASE_URL,
+    base_endpoint: getPublicBaseUrl(),
   };
 }
+
+app.get("/api/config", (_req, res) => {
+  const settings = settingsStore.readSettings();
+  return res.json({
+    publicBaseUrl: settings.publicBaseUrl || "",
+    envDefault: ENV_PUBLIC_BASE_URL,
+    effectivePublicBaseUrl: getPublicBaseUrl(),
+    notificationPreview: buildNotificationData({
+      session_id: "123456",
+      class_name: "Example class",
+      teacher_name: "Example teacher",
+    }),
+  });
+});
+
+app.put("/api/config", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const { publicBaseUrl } = req.body || {};
+  try {
+    const normalized =
+      publicBaseUrl == null || publicBaseUrl === ""
+        ? ""
+        : normalizePublicBaseUrl(publicBaseUrl);
+    const settings = settingsStore.writeSettings({ publicBaseUrl: normalized });
+    return res.json({
+      ok: true,
+      publicBaseUrl: settings.publicBaseUrl || "",
+      envDefault: ENV_PUBLIC_BASE_URL,
+      effectivePublicBaseUrl: getPublicBaseUrl(),
+      notificationPreview: buildNotificationData({
+        session_id: "123456",
+        class_name: "Example class",
+        teacher_name: "Example teacher",
+      }),
+    });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Invalid URL." });
+  }
+});
 
 app.post("/api/lango/login", async (req, res) => {
   const username = String(req.body?.username || "").trim().toLowerCase();
@@ -968,6 +1040,7 @@ app.get("/api/scores", async (req, res) => {
   });
 });
 
+app.use("/uploads", express.static(paths.uploadsRoot));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (_req, res) => {
@@ -975,7 +1048,7 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/api/network-urls", (_req, res) => {
-  res.json({ port: PORT, addresses: getLocalIPv4(), publicBaseUrl: PUBLIC_BASE_URL });
+  res.json({ port: PORT, addresses: getLocalIPv4(), publicBaseUrl: getPublicBaseUrl() });
 });
 
 io.on("connection", (socket) => {
@@ -1178,6 +1251,25 @@ io.on("connection", (socket) => {
     }
 
     callback?.({ ok: true, active: true, ...buzzInPublicPayload(round) });
+  });
+
+  socket.on("end_room_exercise", ({ roomId }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can end an exercise." });
+      return;
+    }
+
+    const session = sessionStore.getSession(pin);
+    if (!session) {
+      callback?.({ ok: false, error: "Room not found." });
+      return;
+    }
+
+    const payload = buildExerciseFinishedPayload(pin);
+    io.to(pin).emit("room_exercise_wrap_up", payload);
+    callback?.({ ok: true, ...payload });
   });
 
   socket.on("start_next_exercise", ({ roomId, exercise }, callback) => {

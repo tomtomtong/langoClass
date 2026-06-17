@@ -48,6 +48,35 @@ function getRoomSessionSocket() {
       alert(reason || "Class session ended.");
       location.href = `/join.html?room=${encodeURIComponent(roomParticipant?.roomId || "")}`;
     });
+
+    roomSessionSocket.on("room_exercise_wrap_up", (payload) => {
+      if (!roomParticipant) return;
+
+      const hasScores =
+        (payload?.exerciseLeaderboard || []).length > 0 ||
+        (payload?.semesterLeaderboard || []).length > 0;
+
+      if (hasScores) {
+        showScreen("player-finished");
+        showExerciseLeaderboards({
+          exerciseLeaderboard: payload.exerciseLeaderboard,
+          semesterLeaderboard: payload.semesterLeaderboard,
+          highlightId: roomParticipant.userId,
+          exerciseListEl: $("#player-final-leaderboard"),
+          semesterListEl: $("#player-semester-leaderboard"),
+          semesterWrapEl: $("#player-semester-leaderboard-wrap"),
+          exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
+        });
+        const backBtn = $("#btn-back-room-waiting");
+        const playBtn = $("#btn-play-again");
+        if (backBtn) backBtn.hidden = false;
+        if (playBtn) playBtn.hidden = true;
+        return;
+      }
+
+      $("#room-waiting-status").textContent = "Waiting for the teacher to start…";
+      showScreen("room-waiting");
+    });
   }
   return roomSessionSocket;
 }
@@ -309,11 +338,23 @@ function initQuizJoin() {
     renderLeaderboard($("#player-leaderboard"), leaderboard, myPlayerId);
   });
 
-  socket.on("game_finished", ({ leaderboard }) => {
+  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
     quizFastMode = false;
     clearTimer();
     showScreen("player-finished");
-    renderLeaderboard($("#player-final-leaderboard"), leaderboard, myPlayerId);
+    showExerciseLeaderboards({
+      exerciseLeaderboard: exerciseLeaderboard || leaderboard,
+      semesterLeaderboard,
+      highlightId: myPlayerId,
+      exerciseListEl: $("#player-final-leaderboard"),
+      semesterListEl: $("#player-semester-leaderboard"),
+      semesterWrapEl: $("#player-semester-leaderboard-wrap"),
+      exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
+    });
+    const backBtn = $("#btn-back-room-waiting");
+    const playBtn = $("#btn-play-again");
+    if (backBtn) backBtn.hidden = true;
+    if (playBtn) playBtn.hidden = false;
   });
 
   socket.on("game_ended", ({ reason }) => {
@@ -325,11 +366,22 @@ function initQuizJoin() {
   if (urlPin) $("#join-pin").value = normalizePin(urlPin);
   if (urlNickname) $("#join-nickname").value = urlNickname.slice(0, 20);
 
+  $("#btn-play-again")?.addEventListener("click", () => {
+    location.href = "/join.html";
+  });
+
   updateJoinButton();
 }
 
-if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
+  if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
   initRoomJoin();
+  $("#btn-back-room-waiting")?.addEventListener("click", () => {
+    $("#room-waiting-status").textContent = "Waiting for the teacher to start…";
+    showScreen("room-waiting");
+  });
+  $("#btn-play-again")?.addEventListener("click", () => {
+    location.href = "/join.html";
+  });
 } else {
   initQuizJoin();
 }
