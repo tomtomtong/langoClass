@@ -1,5 +1,7 @@
 const STORAGE_KEY = "lango_host_prefs";
 const LEGACY_STORAGE_KEY = "lango_host_session";
+const HOST_STAGE_WIDTH = 1920;
+const HOST_STAGE_HEIGHT = 1080;
 
 const state = {
   token: null,
@@ -22,6 +24,20 @@ const state = {
 let hostSessionConnected = false;
 let waitingTimerInterval = null;
 const WAITING_TIMER_SECONDS = 300;
+
+function fitHostStage() {
+  const app = document.querySelector("#app.lango-host");
+  if (!app) return;
+  const viewport = window.visualViewport || window;
+  const width = viewport.width || window.innerWidth || HOST_STAGE_WIDTH;
+  const height = viewport.height || window.innerHeight || HOST_STAGE_HEIGHT;
+  const scale = Math.min(width / HOST_STAGE_WIDTH, height / HOST_STAGE_HEIGHT);
+  app.style.setProperty("--host-stage-scale", String(scale));
+}
+
+window.addEventListener("resize", fitHostStage);
+window.visualViewport?.addEventListener("resize", fitHostStage);
+fitHostStage();
 
 function loadPrefs() {
   try {
@@ -308,6 +324,31 @@ function updateSectionCountBadge(count) {
   badge.textContent = `${count} section${count === 1 ? "" : "s"} ready to play`;
 }
 
+function updateSectionProgressCard(sections, selectedId = state.selectedSection?.id) {
+  const card = $("#section-current-progress");
+  if (!card) return;
+
+  const sortedSections = [...(sections || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const total = sortedSections.length;
+  if (!total) {
+    card.hidden = true;
+    return;
+  }
+
+  const selectedIndex = sortedSections.findIndex((section) => section.id === selectedId);
+  const playableCount = sortedSections.filter((section) => (section.exercises || []).length > 0).length;
+  const completed = selectedIndex >= 0 ? selectedIndex + 1 : playableCount;
+  const clampedCompleted = Math.min(Math.max(completed, 0), total);
+  const percent = Math.round((clampedCompleted / total) * 100);
+  const progressDeg = percent * 3.6;
+
+  $("#section-current-progress-completed").textContent = String(clampedCompleted);
+  $("#section-current-progress-total").textContent = String(total);
+  $("#section-current-progress-pct").textContent = `${percent}%`;
+  $("#section-current-progress-ring").style.setProperty("--section-current-progress", `${progressDeg}deg`);
+  card.hidden = false;
+}
+
 function setSectionExercisePanelVisible(visible) {
   const overlay = $("#section-exercise-overlay");
   const scene = document.querySelector("#screen-section .section-scene");
@@ -321,11 +362,7 @@ function closeSectionExercises() {
 
 function renderSectionPickCard(section, { selectedId, index }) {
   const active = section.id === selectedId ? " active" : "";
-  const title = sectionTitle(section);
-  const description = sectionDescription(section);
   const banner = sectionBanner(section);
-  const sectionNum = section.order || index + 1;
-  const xp = sectionXpValue(section);
   const exerciseCount = (section.exercises || []).length;
   const hasExercises = exerciseCount > 0;
   const thumb = banner
@@ -333,21 +370,16 @@ function renderSectionPickCard(section, { selectedId, index }) {
     : `<div class="course-pick-thumb course-pick-thumb--empty" aria-hidden="true"></div>`;
   const playButton = hasExercises
     ? `<button type="button" class="course-pick-select" data-id="${section.id}">
-          ${active ? "Let's Go!" : "Play!"}
+          Start
         </button>`
     : `<button type="button" class="course-pick-select course-pick-select--disabled" data-id="${section.id}" disabled>
-          No exercises yet
+          Start
         </button>`;
 
   return `<article class="course-pick-card${active}${hasExercises ? "" : " course-pick-card--empty"}" data-id="${section.id}" style="--card-i: ${index}">
-    <span class="course-quest-badge">Section ${sectionNum}</span>
-    ${xp > 0 ? `<span class="course-xp-badge">${xp} XP</span>` : ""}
     <div class="course-pick-card-inner">
       ${thumb}
       <div class="course-pick-body">
-        <h2 class="course-pick-title">${escapeHtml(title)}</h2>
-        <p class="course-pick-desc">${escapeHtml(description)}</p>
-        ${exerciseCount > 0 ? `<p class="course-pick-stars" aria-label="${exerciseCount} exercises">${"★".repeat(Math.min(exerciseCount, 5))}${exerciseCount > 5 ? `<span class="course-pick-stars-more">+${exerciseCount - 5}</span>` : ""}</p>` : ""}
         ${playButton}
       </div>
     </div>
@@ -357,16 +389,13 @@ function renderSectionPickCard(section, { selectedId, index }) {
 function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) {
   if (!container) return;
   if (!sections.length) {
-    container.className = "course-grid";
+    container.className = "section-road";
     container.innerHTML = "";
     return;
   }
 
-  const layout = courseGridLayout(sections.length);
-  container.className = `course-grid ${layout.class}`;
-  container.innerHTML = sections
-    .map((section, index) => renderSectionPickCard(section, { selectedId, index }))
-    .join("");
+  container.className = "section-road";
+  container.innerHTML = renderSectionRoad(sections, { selectedId });
 
   container.querySelectorAll(".course-pick-select").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -374,6 +403,139 @@ function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) 
       onSelect(Number(btn.dataset.id));
     });
   });
+}
+
+const SECTION_ROAD_POINTS = [
+  { x: 9, y: 21 },
+  { x: 39, y: 66 },
+  { x: 58, y: 54 },
+  { x: 74, y: 37 },
+  { x: 87, y: 23 },
+  { x: 96, y: 20 },
+];
+
+function sectionRoadPoint(index, total) {
+  if (total <= SECTION_ROAD_POINTS.length) {
+    return SECTION_ROAD_POINTS[index] || SECTION_ROAD_POINTS[SECTION_ROAD_POINTS.length - 1];
+  }
+  const progress = total <= 1 ? 0 : index / (total - 1);
+  const wave = Math.sin(progress * Math.PI * 2.5);
+  return {
+    x: 10 + progress * 80,
+    y: 55 - wave * 16 - progress * 14,
+  };
+}
+
+function renderSectionRoad(sections, { selectedId }) {
+  const trackWidth = Math.max(220, (sections.length - 1) * 360 + 220);
+  const bridgeCount = Math.max(0, sections.length - 1);
+  const bridges = Array.from({ length: bridgeCount }, (_, index) => renderSectionRoadBridge(index))
+    .join("");
+  const cards = sections
+    .map((section, index) => renderSectionRoadCard(section, { selectedId, index }))
+    .join("");
+
+  return `<div class="section-road-shell" aria-label="Course sections">
+    <div class="section-road-track" style="--road-track-width: ${trackWidth}px;">
+      <div class="section-road-map" aria-hidden="true">
+        ${bridges}
+      </div>
+      <div class="section-road-nodes">
+        ${cards}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderSectionRoadBridge(index) {
+  const roadClass = index % 2 === 0 ? "section-road-svg--one" : "section-road-svg--two";
+  const roadSrc = index % 2 === 0 ? "/road/Vector road 1.svg" : "/road/Vector road 2.svg";
+  return `<div class="section-road-bridge" style="--bridge-x: ${index * 360 + 110}px;">
+    <img class="section-road-svg ${roadClass}" src="${roadSrc}" alt="" />
+  </div>`;
+}
+
+function renderSectionRoadSegments(points) {
+  if (!points.length) return "";
+  const segmentPoints = [...points, sectionRoadTailPoint(points)];
+  return segmentPoints
+    .slice(0, -1)
+    .map((point, index) => {
+      const next = segmentPoints[index + 1];
+      const dx = next.x - point.x;
+      const dy = next.y - point.y;
+      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+      const midX = point.x + dx / 2;
+      const midY = point.y + dy / 2;
+      return `<img class="section-road-segment" src="/road/Vector road 1.svg" alt="" style="--seg-x: ${midX}%; --seg-y: ${midY}%; --seg-rot: ${angle}deg; --seg-i: ${index};" />`;
+    })
+    .join("");
+}
+
+function sectionRoadTailPoint(points) {
+  const last = points[points.length - 1];
+  return {
+    x: Math.min(104, last.x + 13),
+    y: Math.max(16, last.y - 4),
+  };
+}
+
+function renderSectionRoadPath(points) {
+  if (points.length < 2) return "";
+  const guidePoints = sectionRoadGuidePoints(points);
+  const path = smoothRoadPath(guidePoints);
+  return `<svg class="section-road-path" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+    <path class="section-road-path-shadow" d="${path}" />
+    <path class="section-road-path-base" d="${path}" />
+    <path class="section-road-path-highlight" d="${path}" />
+  </svg>`;
+}
+
+function sectionRoadGuidePoints(points) {
+  const first = points[0];
+  const last = points[points.length - 1];
+  const lead = { x: Math.max(0, first.x - 15), y: first.y + 2 };
+  const tail =
+    last.x < 88
+      ? [
+          { x: 77, y: 45 },
+          { x: 88, y: 27 },
+          { x: 96, y: 23 },
+        ]
+      : [{ x: Math.min(99, last.x + 4), y: Math.max(18, last.y - 2) }];
+  return [lead, ...points, ...tail];
+}
+
+function smoothRoadPath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const current = points[i];
+    const next = points[i + 1];
+    const dx = next.x - current.x;
+    path += ` C ${current.x + dx * 0.46} ${current.y}, ${next.x - dx * 0.46} ${next.y}, ${next.x} ${next.y}`;
+  }
+  return path;
+}
+
+function renderSectionRoadCard(section, { selectedId, index }) {
+  const active = section.id === selectedId ? " active" : "";
+  const banner = sectionBanner(section);
+  const hasExercises = (section.exercises || []).length > 0;
+  const thumbnail = banner
+    ? `<img class="section-road-thumb" src="${escapeHtml(banner)}" alt="" />`
+    : `<span class="section-road-thumb section-road-thumb--empty" aria-hidden="true"></span>`;
+
+  return `<article class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}" style="--section-x: ${index * 360}px;">
+    <div class="section-road-content">
+      ${thumbnail}
+      <button type="button" class="section-road-button course-pick-select" data-id="${section.id}" ${hasExercises ? "" : "disabled"}>
+        Start
+      </button>
+    </div>
+  </article>`;
 }
 
 function courseXpValue(course) {
@@ -427,7 +589,7 @@ function renderCourseCard(course, { selectedId, index }) {
         ${level ? `<p class="course-pick-level">${escapeHtml(level)}</p>` : ""}
         ${exerciseCount > 0 ? `<p class="course-pick-stars" aria-label="${exerciseCount} exercises">${"★".repeat(Math.min(exerciseCount, 5))}${exerciseCount > 5 ? `<span class="course-pick-stars-more">+${exerciseCount - 5}</span>` : ""}</p>` : ""}
         <button type="button" class="course-pick-select" data-id="${course.id}">
-          ${active ? "Let's Go!" : "Play!"}
+          Select
         </button>
       </div>
     </div>
@@ -786,6 +948,7 @@ async function enterSectionStep({ resume = false } = {}) {
     sectionGrid.className = "course-grid";
   }
   updateSectionCountBadge(0);
+  updateSectionProgressCard([]);
   $("#exercise-list").innerHTML = "";
   $("#journey-error").textContent = "";
   $("#journey-status").textContent = "";
@@ -827,6 +990,7 @@ function renderSectionPicker() {
     $("#section-status").textContent = "No sections in this course.";
     renderSectionPickerGrid(grid, [], { selectedId: null, onSelect: () => {} });
     updateSectionCountBadge(0);
+    updateSectionProgressCard([]);
     return;
   }
 
@@ -834,6 +998,7 @@ function renderSectionPicker() {
     ? ""
     : "Sections are listed below — add exercises in the CMS to make them playable.";
   updateSectionCountBadge(sections.length);
+  updateSectionProgressCard(sections);
 
   function handleSectionSelect(id) {
     const section = findSectionInList(id);
@@ -845,6 +1010,7 @@ function renderSectionPicker() {
       selectedId: state.selectedSection?.id,
       onSelect: handleSectionSelect,
     });
+    updateSectionProgressCard(sections, state.selectedSection?.id);
     void showSectionExercises();
   }
 

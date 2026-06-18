@@ -5,13 +5,13 @@
       "teacherId": 835,
       "name": "test",
       "description": "",
-      "banner": "/uploads/courses/course--1-1781507073450.png",
+      "banner": "/uploads/courses/course--1-1781587595180.jpg",
       "langCode": "en",
       "sections": [
         {
           "id": 1,
-          "title": "Exercises",
-          "banner": "/uploads/sections/section--1-1-1781507168003.png",
+          "title": "Section 1",
+          "banner": "/uploads/sections/section--1-1-1781592693865.png",
           "order": 1,
           "exercises": [
             {
@@ -25,15 +25,23 @@
                   "title": "Sample question2?",
                   "options": [
                     {
-                      "text": "Option A2",
+                      "text": "Apple",
                       "isCorrect": true
                     },
                     {
-                      "text": "Option B2",
+                      "text": "Ball",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Cat",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Dog",
                       "isCorrect": false
                     }
                   ],
-                  "timeLimit": 15,
+                  "timeLimit": 10,
                   "image": null
                 }
               ]
@@ -67,7 +75,7 @@
         {
           "id": 2,
           "title": "Section 2",
-          "banner": "/uploads/sections/section--1-2-1781511945980.png",
+          "banner": "/uploads/sections/section--1-2-1781592695845.png",
           "order": 2,
           "exercises": [
             {
@@ -107,13 +115,49 @@
               ]
             }
           ]
+        },
+        {
+          "id": 3,
+          "title": "Section 3",
+          "banner": "/uploads/sections/section--1-3-1781695084896.png",
+          "order": 3,
+          "exercises": []
+        },
+        {
+          "id": 4,
+          "title": "Section 4",
+          "banner": "/uploads/sections/section--1-4-1781695102180.png",
+          "order": 4,
+          "exercises": []
         }
       ],
       "createdAt": "2026-06-15T02:57:28.201Z",
-      "updatedAt": "2026-06-16T09:50:33.708Z",
+      "updatedAt": "2026-06-17T11:18:23.207Z",
       "classIds": [
         2913
       ]
+    },
+    {
+      "id": -2,
+      "teacherId": 835,
+      "name": "New course",
+      "description": "",
+      "banner": "/uploads/courses/course--2-1781587617346.jpg",
+      "langCode": "en",
+      "classIds": [
+        2913
+      ],
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "",
+          "order": 1,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-06-16T05:24:25.712Z",
+      "updatedAt": "2026-06-16T05:27:03.466Z"
     }
   ]
 }

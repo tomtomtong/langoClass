@@ -112,10 +112,10 @@
                 <span class="course-quest-line done"></span>
                 <span class="course-quest-dot active"></span>
               </div>
-              <p class="course-step">Step 2 of 2 · Pick your quest</p>
-              <h1 class="course-page-title">Choose Your Adventure!</h1>
+              <p class="course-step">Step 2 Of 2</p>
+              <h1 class="course-page-title">Select Your Course</h1>
               <p class="course-class-label" id="course-class-label-wrap">
-                Class: <strong id="class-label"></strong>
+                <strong id="class-label"></strong>
               </p>
               <p class="course-count-badge" id="course-count-badge" hidden></p>
             </div>
@@ -132,7 +132,7 @@
         <footer class="course-toolbar">
           <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-class">
             <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-            <span>Class</span>
+            <span>Dashboard</span>
           </button>
           <div class="course-toolbar-actions">
             <button type="button" class="course-toolbar-logout" id="btn-logout-course">Log out</button>
@@ -164,6 +164,20 @@
             </div>
 
             <div class="course-grid-scroll">
+              <aside
+                class="section-current-progress"
+                id="section-current-progress"
+                aria-label="Current progress"
+                hidden
+              >
+                <div class="section-current-progress-ring" id="section-current-progress-ring">
+                  <span class="section-current-progress-pct" id="section-current-progress-pct">0%</span>
+                </div>
+                <p class="section-current-progress-label">
+                  <span id="section-current-progress-completed">0</span> out of
+                  <span id="section-current-progress-total">0</span> Sections Completed
+                </p>
+              </aside>
               <div id="section-grid" class="course-grid"></div>
             </div>
 
@@ -193,7 +207,7 @@
                       Cancel
                     </button>
                     <button class="exercise-start-btn" id="btn-start-session" type="button" disabled>
-                      Continue
+                      Start session &amp; send notification
                     </button>
                   </div>
                 </footer>
@@ -284,36 +298,106 @@
       </div>
     </section>
 
-    <section id="screen-host-quiz-question" class="screen">
-      <div class="progress-bar"><div id="host-quiz-progress"></div></div>
-      <p class="q-meta" id="host-quiz-q-meta"></p>
-      <div class="question-image-wrap" id="host-quiz-question-image-wrap" hidden>
-        <img class="question-image" id="host-quiz-question-image" alt="" />
-      </div>
-      <h2 class="question-text" id="host-quiz-question-text"></h2>
-      <div class="options-grid host-options" id="host-quiz-options"></div>
-      <p class="answered-count" id="host-quiz-answered-count"></p>
-      <div class="screen-toolbar">
-        <button type="button" class="back-btn" id="btn-back-waiting-quiz">← Waiting room</button>
-        <button type="button" class="btn secondary small" id="btn-logout-quiz">Log out</button>
+    <section id="screen-host-quiz-question" class="screen host-mcq-screen">
+      <img class="host-mcq-bg" src="/assets/course/courseBG.png" alt="" />
+      <div class="host-mcq-container">
+        <div class="progress-bar host-mcq-progress"><div id="host-quiz-progress"></div></div>
+        <header class="host-mcq-header">
+          <p class="q-meta host-mcq-title" id="host-quiz-q-meta"></p>
+        </header>
+
+        <main class="host-mcq-main">
+          <section class="host-mcq-question-box">
+            <p class="host-mcq-points" id="host-quiz-points">300 pts</p>
+            <div class="host-mcq-sparkle" aria-hidden="true"></div>
+            <h2 class="question-text host-mcq-question" id="host-quiz-question-text"></h2>
+            <div class="question-image-wrap host-mcq-image-wrap" id="host-quiz-question-image-wrap" hidden>
+              <img class="question-image host-mcq-image" id="host-quiz-question-image" alt="" />
+            </div>
+          </section>
+
+          <div class="options-grid host-options host-mcq-options" id="host-quiz-options"></div>
+        </main>
+
+        <aside class="host-mcq-countdown" aria-label="Question countdown">
+          <span id="host-quiz-countdown">5</span>
+        </aside>
+
+        <footer class="host-mcq-footer">
+          <button type="button" class="host-mcq-footer-btn" id="btn-back-waiting-quiz">
+            <span aria-hidden="true">←</span>
+            <span>Dashboard</span>
+          </button>
+          <p class="answered-count host-mcq-status" id="host-quiz-answered-count"></p>
+          <button type="button" class="host-mcq-footer-btn host-mcq-next-btn" disabled>
+            <span>Next</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="host-mcq-hidden-logout" id="btn-logout-quiz" hidden>Log out</button>
+        </footer>
       </div>
     </section>
 
-    <section id="screen-host-quiz-results" class="screen">
-      <h2>Results</h2>
-      <div class="question-image-wrap" id="host-quiz-results-image-wrap" hidden>
-        <img class="question-image" id="host-quiz-results-image" alt="" />
-      </div>
-      <h3 class="question-text host-quiz-results-question" id="host-quiz-results-question-text"></h3>
-      <div class="options-grid results-grid" id="host-quiz-results-bars"></div>
-      <div class="leaderboard">
-        <h3>Leaderboard</h3>
-        <ol id="host-quiz-leaderboard"></ol>
-      </div>
-      <button class="btn primary" id="btn-host-quiz-next">Next question</button>
-      <div class="screen-toolbar">
-        <button type="button" class="back-btn" id="btn-back-waiting-results">← Waiting room</button>
-        <button type="button" class="btn secondary small" id="btn-logout-results">Log out</button>
+    <section id="screen-host-quiz-results" class="screen host-mcq-result-screen">
+      <img class="host-mcq-bg" src="/assets/course/courseBG.png" alt="" />
+      <div class="host-mcq-result-container">
+        <header class="host-mcq-result-header">
+          <h2 class="host-mcq-result-title">Quiz Results</h2>
+        </header>
+
+        <main class="host-mcq-result-main">
+          <div class="host-mcq-result-left">
+            <section class="host-mcq-result-question-box">
+              <p class="host-mcq-result-points" id="host-quiz-results-points">300 pts</p>
+              <h3 class="question-text host-quiz-results-question" id="host-quiz-results-question-text"></h3>
+              <div class="host-mcq-result-correct">
+                <span class="host-mcq-result-check" aria-hidden="true">✓</span>
+                <p id="host-quiz-results-correct-answer">Correct Answer:</p>
+              </div>
+              <p class="host-mcq-result-explanation" id="host-quiz-results-explanation"></p>
+              <div class="question-image-wrap host-mcq-result-image-wrap" id="host-quiz-results-image-wrap" hidden>
+                <img class="question-image host-mcq-result-image" id="host-quiz-results-image" alt="" />
+              </div>
+              <div class="host-mcq-sparkle" aria-hidden="true"></div>
+            </section>
+
+            <section class="host-mcq-distribution">
+              <h3 class="host-mcq-distribution-title">Answer Distribution</h3>
+              <div class="host-mcq-distribution-body">
+                <div class="host-mcq-donut" id="host-quiz-results-donut">
+                  <span class="host-mcq-donut-label">Total<br />Responses</span>
+                  <strong id="host-quiz-results-total">0</strong>
+                </div>
+                <div class="host-mcq-legend" id="host-quiz-results-legend"></div>
+              </div>
+              <div class="options-grid results-grid" id="host-quiz-results-bars" hidden></div>
+            </section>
+          </div>
+
+          <aside class="host-mcq-correct-board">
+            <header class="host-mcq-correct-board-header">
+              <h3>Correct Responses</h3>
+              <p>Students Who Answered Correctly</p>
+            </header>
+            <div class="host-mcq-correct-grid" id="host-quiz-correct-responders"></div>
+            <div class="leaderboard host-mcq-result-leaderboard" hidden>
+              <h3>Leaderboard</h3>
+              <ol id="host-quiz-leaderboard"></ol>
+            </div>
+          </aside>
+        </main>
+
+        <footer class="host-mcq-footer host-mcq-result-footer">
+          <button type="button" class="host-mcq-footer-btn" id="btn-back-waiting-results">
+            <span aria-hidden="true">←</span>
+            <span>Dashboard</span>
+          </button>
+          <button type="button" class="host-mcq-footer-btn host-mcq-next-btn" id="btn-host-quiz-next">
+            <span>Next</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="host-mcq-hidden-logout" id="btn-logout-results" hidden>Log out</button>
+        </footer>
       </div>
     </section>
 

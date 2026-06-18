@@ -1,0 +1,65 @@
+.hostSectionProgress {
+  width: 640px;
+  min-height: 235px;
+  padding: 24px 28px;
+  border: 4px solid rgba(184, 128, 255, 0.82);
+  border-radius: 34px;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+  background: linear-gradient(96deg, #b11980 0%, #743c9b 100%);
+  box-shadow:
+    0 0 18px rgba(255, 177, 237, 0.92),
+    inset 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.hostSectionProgress__ring {
+  --progress: 0deg;
+  position: relative;
+  flex: 0 0 auto;
+  width: 190px;
+  height: 190px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle, #fff 0 32%, transparent 33%),
+    conic-gradient(from -42deg, #ff9f43 0deg, #feca57 var(--progress), transparent var(--progress) 360deg),
+    #fff;
+}
+
+.hostSectionProgress__ring::before {
+  content: "";
+  position: absolute;
+  inset: 39px;
+  border-radius: inherit;
+  background: #fff;
+}
+
+.hostSectionProgress__pct {
+  position: relative;
+  z-index: 1;
+  color: #ff9f43;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow:
+    2px 2px 2px rgba(0, 0, 0, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.hostSectionProgress__label {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #fff;
+  font-size: 29px;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: 0;
+  text-shadow:
+    2px 2px 4px rgba(0, 0, 0, 0.3),
+    0 0 7px rgba(177, 25, 128, 0.55);
+}

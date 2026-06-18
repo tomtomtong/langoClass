@@ -1,0 +1,340 @@
+.hostSectionJourney {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  color: #fff;
+  background: #f5c842;
+  font-family: "Nunito", sans-serif;
+}
+
+.hostSectionJourney * {
+  box-sizing: border-box;
+}
+
+.hostSectionJourney__bg,
+.hostSectionJourney__shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hostSectionJourney__bg {
+  object-fit: cover;
+  filter: blur(4px);
+  transform: scale(1.035);
+}
+
+.hostSectionJourney__shade {
+  background: rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(3px);
+}
+
+.hostSectionJourney__cornerTitle {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  margin: 0;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 40px;
+  letter-spacing: 0.9px;
+  text-shadow:
+    2px 2px 0 rgba(177, 25, 128, 0.85),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.hostSectionJourney__course {
+  position: absolute;
+  right: 20px;
+  top: 52px;
+  max-width: 360px;
+  margin: 0;
+  color: #344356;
+  font-family: "DM Sans", sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: right;
+}
+
+.hostSectionJourney__heading {
+  position: absolute;
+  left: 50%;
+  top: 95px;
+  width: 720px;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.hostSectionJourney__kicker,
+.hostSectionJourney__subtitle {
+  margin: 0;
+  font-family: "DM Sans", sans-serif;
+  font-weight: 800;
+  line-height: 1.12;
+  text-transform: capitalize;
+}
+
+.hostSectionJourney__kicker {
+  font-size: 30px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.hostSectionJourney__title {
+  margin: 9px 0 0;
+  font-size: 50px;
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: 0.9px;
+  -webkit-text-stroke: 3.3px rgba(177, 25, 128, 0.7);
+  paint-order: stroke fill;
+  text-shadow:
+    2px 2px 4px rgba(0, 0, 0, 0.3),
+    0 0 10px rgba(255, 177, 237, 0.95);
+}
+
+.hostSectionJourney__subtitle {
+  margin-top: 8px;
+  color: #344356;
+  font-size: 18px;
+}
+
+.hostSectionJourney__map {
+  position: absolute;
+  left: 210px;
+  right: 70px;
+  top: 191px;
+  height: 380px;
+}
+
+.hostSectionJourney__road {
+  position: absolute;
+  height: auto;
+  z-index: 2;
+  filter:
+    drop-shadow(0 9px 8px rgba(124, 80, 37, 0.18))
+    drop-shadow(0 0 5px rgba(255, 248, 218, 0.48));
+}
+
+.hostSectionJourney__road--one {
+  left: 0;
+  top: 107px;
+  width: 480px;
+}
+
+.hostSectionJourney__road--two {
+  left: 373px;
+  top: 12px;
+  width: 520px;
+}
+
+.hostSectionJourney__path {
+  display: none;
+}
+
+.hostSectionJourney__path path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.hostSectionJourney__pathShadow {
+  stroke: rgba(126, 80, 44, 0.24);
+  stroke-width: 35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: translate(0, 3px);
+}
+
+.hostSectionJourney__pathBase {
+  stroke: #f5d28b;
+  stroke-width: 25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hostSectionJourney__pathHighlight {
+  stroke: rgba(255, 245, 198, 0.86);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 0.01 4;
+}
+
+.hostSectionJourney__nodes {
+  position: absolute;
+  left: 210px;
+  right: 70px;
+  top: 191px;
+  height: 380px;
+}
+
+.hostSectionJourney__card {
+  position: absolute;
+  left: var(--node-x);
+  top: var(--node-y);
+  width: 200px;
+  transform: translate(-50%, -50%);
+  color: #344356;
+}
+
+.hostSectionJourney__card.is-locked {
+  opacity: 0.7;
+}
+
+.hostSectionJourney__pin {
+  display: none;
+}
+
+.hostSectionJourney__pin span {
+  color: #ff9f43;
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow:
+    1.3px 1.3px 2.7px rgba(0, 0, 0, 0.18),
+    0 1.3px 0 rgba(255, 255, 255, 0.85);
+}
+
+.hostSectionJourney__content {
+  min-height: 257px;
+  padding: 32px 23px 23px;
+  border: 5px solid rgba(184, 128, 255, 0.76);
+  border-radius: 33px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    5px 5px 0 rgba(184, 128, 255, 0.28),
+    0 8px 19px rgba(112, 68, 150, 0.14);
+  backdrop-filter: blur(27px);
+}
+
+.hostSectionJourney__card:hover .hostSectionJourney__content,
+.hostSectionJourney__card.is-active .hostSectionJourney__content {
+  border-color: rgba(252, 125, 186, 0.9);
+}
+
+.hostSectionJourney__thumb {
+  width: 61px;
+  height: 61px;
+  border: 3px solid #96e5dd;
+  border-radius: 999px;
+  object-fit: cover;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.7), #5da7ff);
+}
+
+.hostSectionJourney__thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.hostSectionJourney__copy {
+  width: 100%;
+  text-align: center;
+}
+
+.hostSectionJourney__copy p,
+.hostSectionJourney__copy h2 {
+  margin: 0;
+}
+
+.hostSectionJourney__copy p {
+  color: #b11980;
+  font-family: "DM Sans", sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.hostSectionJourney__copy h2 {
+  margin-top: 4px;
+  color: #ff9f43;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: 0.3px;
+  overflow-wrap: anywhere;
+  text-shadow:
+    1px 1px 2px rgba(0, 0, 0, 0.18),
+    0 1.3px 0 rgba(255, 255, 255, 0.9);
+}
+
+.hostSectionJourney__copy span {
+  display: block;
+  margin-top: 5px;
+  color: #344356;
+  font-family: "DM Sans", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.hostSectionJourney__button {
+  min-width: 160px;
+  min-height: 47px;
+  margin-top: 8px;
+  padding: 9px 16px 13px;
+  border: 0;
+  border-radius: 100px;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 24px;
+  letter-spacing: 0.3px;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 7px 0 rgba(77, 86, 97, 0.24),
+    0 3px 1px rgba(0, 0, 0, 0.25);
+}
+
+.hostSectionJourney__footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 426px;
+  height: 70px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 20px 20px 0;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.hostSectionJourney__back {
+  min-height: 42px;
+  padding: 9px 12px 13px;
+  border: 0;
+  border-radius: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 20px;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 6px 0 rgba(0, 0, 0, 0.2),
+    0 2px 1px rgba(0, 0, 0, 0.25);
+}
+
+.hostSectionJourney__back img {
+  width: 24px;
+  height: 24px;
+}
