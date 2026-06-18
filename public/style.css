@@ -1517,6 +1517,7 @@ body:has(#screen-login.active) {
 .lango-host:has(#screen-course.active),
 .lango-host:has(#screen-section.active),
 .lango-host:has(#screen-waiting.active),
+.lango-host:has(#screen-host-video.active),
 .lango-host:has(#screen-host-quiz-question.active),
 .lango-host:has(#screen-host-quiz-results.active),
 .lango-host:has(#screen-host-quiz-finished.active) {
@@ -1538,6 +1539,8 @@ body:has(#screen-login.active) {
 .lango-host:has(#screen-section.active) .flow-steps,
 .lango-host:has(#screen-waiting.active) .site-nav,
 .lango-host:has(#screen-waiting.active) .flow-steps,
+.lango-host:has(#screen-host-video.active) .site-nav,
+.lango-host:has(#screen-host-video.active) .flow-steps,
 .lango-host:has(#screen-host-quiz-question.active) .site-nav,
 .lango-host:has(#screen-host-quiz-question.active) .flow-steps,
 .lango-host:has(#screen-host-quiz-results.active) .site-nav,
@@ -1557,7 +1560,8 @@ body:has(#screen-login.active) {
 
 body:has(#screen-class.active),
 body:has(#screen-section.active),
-body:has(#screen-waiting.active) {
+body:has(#screen-waiting.active),
+body:has(#screen-host-video.active) {
   background: #f5c842;
   background-image: none;
 }
@@ -6199,7 +6203,8 @@ body:has(#app.lango-host) {
 #app.lango-host .course-screen,
 #app.lango-host .section-screen,
 #app.lango-host .waiting-screen,
-#app.lango-host .host-mcq-screen {
+#app.lango-host .host-mcq-screen,
+#app.lango-host .host-video-screen {
   min-height: 0;
 }
 
@@ -6208,7 +6213,8 @@ body:has(#app.lango-host) {
 #app.lango-host .course-scene,
 #app.lango-host .section-scene,
 #app.lango-host .waiting-scene,
-#app.lango-host .host-mcq-screen {
+#app.lango-host .host-mcq-screen,
+#app.lango-host .host-video-screen {
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -6219,7 +6225,8 @@ body:has(#app.lango-host) {
 #app.lango-host .course-bg,
 #app.lango-host .section-bg,
 #app.lango-host .waiting-bg,
-#app.lango-host .host-mcq-bg {
+#app.lango-host .host-mcq-bg,
+#app.lango-host .host-video-bg {
   width: 100%;
   height: 100%;
 }
@@ -6240,6 +6247,497 @@ body:has(#app.lango-host) {
 #app.lango-host .host-mcq-countdown {
   top: 59px;
   right: 208px;
+}
+
+/* Fast MC quiz exercise, based on Figma frame 294:16807. */
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-container {
+  padding: 20px;
+  gap: 0;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-progress {
+  display: none;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-header {
+  flex: 0 0 auto;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-title {
+  flex: 1 0 0;
+  min-width: 0;
+  font-size: 50px;
+  line-height: 1.12;
+  letter-spacing: 0.9px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-main {
+  width: 100%;
+  flex: 1 0 0;
+  align-items: center;
+  justify-content: center;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-question-box {
+  width: 800px;
+  height: 546px;
+  min-height: 0;
+  padding: 36px;
+  gap: 12px;
+  justify-content: center;
+  background: linear-gradient(91.39deg, rgba(177, 25, 128, 0.8) 10.96%, rgba(116, 60, 155, 0.8) 97.2%);
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-points {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: 100%;
+  align-self: stretch;
+  font-size: 32px;
+  line-height: 1.12;
+  letter-spacing: 0.75px;
+  text-align: right;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-question {
+  width: 100%;
+  font-family: "HK Grotesk", "Nunito", sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 36px;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-image-wrap {
+  width: 448px;
+  height: 283px;
+  flex: 0 0 auto;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-image {
+  width: 448px;
+  height: 283px;
+  border-radius: 20px;
+  object-fit: cover;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-options,
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-status {
+  display: none;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-countdown {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  top: 562px;
+  width: 95px;
+  height: 95px;
+  border-width: 15px;
+  transform: translateX(-50%);
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-countdown span {
+  font-size: 48px;
+  letter-spacing: 0.75px;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-footer {
+  gap: 32px;
+}
+
+/* Host video exercise, based on Figma frame 117:15454. */
+#app.lango-host .host-video-screen {
+  position: relative;
+  overflow: hidden;
+  background: #f5c842;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+}
+
+#app.lango-host .host-video-bg {
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+}
+
+#app.lango-host .host-video-container {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1280px;
+  height: 720px;
+  min-height: 720px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+  transform: translate(-50%, -50%) scale(1.5);
+  transform-origin: center center;
+}
+
+#app.lango-host .host-video-header {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#app.lango-host .host-video-title {
+  width: 537px;
+  max-width: 100%;
+  margin: 0;
+  color: #fff;
+  font-size: 50px;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: 0.9px;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#app.lango-host .host-video-subtitle {
+  max-width: 640px;
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.28);
+}
+
+#app.lango-host .host-video-subtitle:empty {
+  display: none;
+}
+
+#app.lango-host .host-video-main {
+  width: 100%;
+  min-height: 0;
+  flex: 1 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#app.lango-host .host-video-card {
+  position: relative;
+  padding: 34px 44px;
+  border: 4px solid #fc7dba;
+  border-radius: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(91.63deg, rgba(177, 25, 128, 0.8) 10.96%, rgba(116, 60, 155, 0.8) 97.2%);
+  box-shadow:
+    0 0 25px rgba(255, 105, 180, 0.5),
+    inset 0 0 10px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+}
+
+#app.lango-host .host-video-sparkle {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: #fde047;
+  opacity: 0.7;
+  filter: blur(2px);
+}
+
+#app.lango-host .host-video-frame {
+  position: relative;
+  width: 856px;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+
+#app.lango-host .host-video-player,
+#app.lango-host .exercise-video.host-video-player {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  border-radius: 0;
+  background: #000;
+  object-fit: cover;
+}
+
+#app.lango-host .host-video-placeholder {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 219px;
+  height: 219px;
+  fill: #1f2937;
+  opacity: 0.28;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+#app.lango-host .host-video-screen.has-video .host-video-placeholder {
+  display: none;
+}
+
+#app.lango-host .host-video-controls {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 18px;
+  height: 54px;
+  padding: 7px 12px;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(177, 25, 128, 0.86) 0%, rgba(116, 60, 155, 0.86) 100%);
+  box-shadow:
+    0 8px 0 rgba(0, 0, 0, 0.18),
+    0 2px 12px rgba(255, 105, 180, 0.45),
+    inset 0 0 10px rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+#app.lango-host .host-video-control-btn {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 5px 0 rgba(0, 0, 0, 0.18),
+    0 2px 1px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-video-control-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 3px 0 rgba(0, 0, 0, 0.18),
+    0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-video-play-icon {
+  width: 0;
+  height: 0;
+  margin-left: 3px;
+  border-bottom: 9px solid transparent;
+  border-left: 14px solid #fff;
+  border-top: 9px solid transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.16));
+}
+
+#app.lango-host .host-video-screen.is-playing .host-video-play-icon {
+  width: 14px;
+  height: 18px;
+  margin-left: 0;
+  border: 0;
+  background:
+    linear-gradient(#fff, #fff) left center / 5px 18px no-repeat,
+    linear-gradient(#fff, #fff) right center / 5px 18px no-repeat;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.16));
+}
+
+#app.lango-host .host-video-time {
+  min-width: 48px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.36px;
+  text-align: center;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+#app.lango-host .host-video-scrubber {
+  --host-video-progress: 0%;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  border-radius: 999px;
+  flex: 1 1 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  background:
+    linear-gradient(90deg, #feca57 0 var(--host-video-progress), rgba(255, 255, 255, 0.46) var(--host-video-progress) 100%);
+  cursor: pointer;
+  outline: none;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+#app.lango-host .host-video-scrubber::-webkit-slider-runnable-track {
+  height: 18px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+#app.lango-host .host-video-scrubber::-webkit-slider-thumb {
+  width: 34px;
+  height: 34px;
+  margin-top: -8px;
+  border: 4px solid rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(180deg, #ff7fca 0%, #fc7dba 100%);
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.2),
+    0 0 12px rgba(255, 105, 180, 0.75);
+}
+
+#app.lango-host .host-video-scrubber::-moz-range-track {
+  height: 18px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+#app.lango-host .host-video-scrubber::-moz-range-progress {
+  height: 18px;
+  border-radius: 999px;
+  background: #feca57;
+}
+
+#app.lango-host .host-video-scrubber::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border: 4px solid rgba(255, 255, 255, 0.78);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff7fca 0%, #fc7dba 100%);
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.2),
+    0 0 12px rgba(255, 105, 180, 0.75);
+}
+
+#app.lango-host .host-video-volume-icon {
+  position: relative;
+  width: 22px;
+  height: 18px;
+  display: block;
+}
+
+#app.lango-host .host-video-volume-icon::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 8px;
+  height: 10px;
+  border-radius: 3px 0 0 3px;
+  background: #fff;
+  box-shadow: 7px -4px 0 4px #fff;
+  clip-path: polygon(0 20%, 48% 20%, 100% 0, 100% 100%, 48% 80%, 0 80%);
+}
+
+#app.lango-host .host-video-volume-icon::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 2px;
+  width: 9px;
+  height: 14px;
+  border: 3px solid #fff;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  border-top-color: transparent;
+  border-radius: 50%;
+}
+
+#app.lango-host .host-video-screen.is-muted .host-video-volume-icon::after {
+  right: 0;
+  top: 8px;
+  width: 20px;
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  transform: rotate(-45deg);
+}
+
+#app.lango-host .host-video-footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 639px;
+  height: 105px;
+  padding: 0 30px;
+  border-radius: 0 30px 30px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+#app.lango-host .host-video-footer-btn {
+  min-width: 144px;
+  height: 63px;
+  padding: 13.5px 18px 19.5px;
+  border: 0;
+  border-radius: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 27px;
+  font-weight: 900;
+  line-height: 30px;
+  letter-spacing: 0.54px;
+  text-transform: capitalize;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+  box-shadow:
+    inset 0 -3px 3px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 4.5px rgba(255, 255, 255, 0.5),
+    0 9px 0 rgba(0, 0, 0, 0.2),
+    0 3px 1.5px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-video-footer-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 -3px 3px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 4.5px rgba(255, 255, 255, 0.5),
+    0 5px 0 rgba(0, 0, 0, 0.2),
+    0 2px 1px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-video-footer-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+}
+
+#app.lango-host .host-video-footer-icon--next {
+  transform: rotate(180deg);
 }
 
 /* Waiting room Figma frame 117:15321, scaled from 1280x720 to the 1920x1080 host stage. */
@@ -7050,16 +7548,16 @@ body:has(#app.lango-host) {
 #app.lango-host .section-current-progress {
   position: absolute;
   left: 50%;
-  bottom: 14px;
+  bottom: 18px;
   z-index: 7;
-  width: 640px;
-  min-height: 235px;
-  padding: 24px 28px;
+  width: 520px;
+  min-height: 122px;
+  padding: 14px 22px;
   border: 4px solid rgba(184, 128, 255, 0.82);
-  border-radius: 34px;
+  border-radius: 28px;
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
   color: #fff;
   font-family: "Nunito", sans-serif;
   background: linear-gradient(96deg, #b11980 0%, #743c9b 100%);
@@ -7086,8 +7584,8 @@ body:has(#app.lango-host) {
   --section-current-progress: 0deg;
   position: relative;
   flex: 0 0 auto;
-  width: 190px;
-  height: 190px;
+  width: 96px;
+  height: 96px;
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -7103,7 +7601,7 @@ body:has(#app.lango-host) {
 #app.lango-host .section-current-progress-ring::before {
   content: "";
   position: absolute;
-  inset: 39px;
+  inset: 20px;
   border-radius: inherit;
   background: #fff;
 }
@@ -7111,7 +7609,7 @@ body:has(#app.lango-host) {
 #app.lango-host .section-current-progress-ring::after {
   content: "";
   position: absolute;
-  inset: 8px;
+  inset: 5px;
   border-radius: inherit;
   background: linear-gradient(115deg, transparent 12%, rgba(255, 255, 255, 0.72) 42%, transparent 64%);
   opacity: 0.35;
@@ -7124,7 +7622,7 @@ body:has(#app.lango-host) {
   position: relative;
   z-index: 2;
   color: #ff9f43;
-  font-size: 25px;
+  font-size: 18px;
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0;
@@ -7138,9 +7636,9 @@ body:has(#app.lango-host) {
   min-width: 0;
   margin: 0;
   color: #fff;
-  font-size: 29px;
+  font-size: 24px;
   font-weight: 900;
-  line-height: 1.12;
+  line-height: 1.08;
   letter-spacing: 0;
   text-shadow:
     2px 2px 4px rgba(0, 0, 0, 0.3),

@@ -69,6 +69,42 @@
                   "image": null
                 }
               ]
+            },
+            {
+              "id": 6,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 3,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4"
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "title": "Fast quiz",
+              "subTitle": "Fast MC Quiz",
+              "order": 4,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
             }
           ]
         },
@@ -132,7 +168,7 @@
         }
       ],
       "createdAt": "2026-06-15T02:57:28.201Z",
-      "updatedAt": "2026-06-17T11:18:23.207Z",
+      "updatedAt": "2026-06-18T08:35:40.516Z",
       "classIds": [
         2913
       ]
