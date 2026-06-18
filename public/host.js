@@ -24,6 +24,18 @@ const state = {
 let hostSessionConnected = false;
 let waitingTimerInterval = null;
 const WAITING_TIMER_SECONDS = 300;
+const LOGIN_SCAN_CYCLE_MS = 3600;
+const HOST_SOUND_EFFECTS = {
+  loginSuccess: "/assets/soundeffect/login_success.mp3",
+  loginFail: "/assets/soundeffect/login_fail.mp3",
+  startSession: "/assets/soundeffect/Start.mp3",
+  uncleTommyLetsGo: [
+    "/assets/soundeffect/uncletommy_letsgo_1.mp3",
+    "/assets/soundeffect/uncletommy_letsgo_2.mp3",
+  ],
+  pageNext: "/assets/soundeffect/Page_nextbutton.mp3",
+  pageBack: "/assets/soundeffect/Page_Backforward.mp3",
+};
 
 function fitHostStage() {
   const app = document.querySelector("#app.lango-host");
@@ -33,6 +45,62 @@ function fitHostStage() {
   const height = viewport.height || window.innerHeight || HOST_STAGE_HEIGHT;
   const scale = Math.min(width / HOST_STAGE_WIDTH, height / HOST_STAGE_HEIGHT);
   app.style.setProperty("--host-stage-scale", String(scale));
+}
+
+function waitForLoginScanCycle(startedAt) {
+  if (!startedAt) return Promise.resolve();
+  const elapsed = performance.now() - startedAt;
+  const remaining = LOGIN_SCAN_CYCLE_MS - (elapsed % LOGIN_SCAN_CYCLE_MS);
+  return new Promise((resolve) => setTimeout(resolve, Math.max(180, remaining)));
+}
+
+function playHostSound(src, { volume = 1 } = {}) {
+  if (!src) return;
+  const audio = new Audio(src);
+  audio.volume = volume;
+  const playPromise = audio.play();
+  if (playPromise?.catch) {
+    playPromise.catch(() => {
+      /* Browsers can block audio until a user gesture; ignore gracefully. */
+    });
+  }
+}
+
+function playHostSoundGroup(sources, options) {
+  for (const src of sources.filter(Boolean)) {
+    playHostSound(src, options);
+  }
+}
+
+function playLoginSuccessSound() {
+  playHostSound(HOST_SOUND_EFFECTS.loginSuccess);
+}
+
+function playLoginFailSound() {
+  playHostSound(HOST_SOUND_EFFECTS.loginFail);
+}
+
+function playPageNextSound() {
+  playHostSound(HOST_SOUND_EFFECTS.pageNext, { volume: 0.85 });
+}
+
+function playPageBackSound() {
+  playHostSound(HOST_SOUND_EFFECTS.pageBack, { volume: 0.85 });
+}
+
+function playStartSessionSound() {
+  const letsGoOptions = HOST_SOUND_EFFECTS.uncleTommyLetsGo;
+  const letsGo = letsGoOptions[Math.floor(Math.random() * letsGoOptions.length)];
+  playHostSoundGroup([HOST_SOUND_EFFECTS.startSession, letsGo]);
+}
+
+function flashStartSessionArt() {
+  const art = $("#waiting-start-session-art");
+  if (!art) return;
+  art.classList.remove("is-playing");
+  void art.offsetWidth;
+  art.classList.add("is-playing");
+  window.setTimeout(() => art.classList.remove("is-playing"), 2600);
 }
 
 window.addEventListener("resize", fitHostStage);
@@ -346,6 +414,14 @@ function updateSectionProgressCard(sections, selectedId = state.selectedSection?
   $("#section-current-progress-total").textContent = String(total);
   $("#section-current-progress-pct").textContent = `${percent}%`;
   $("#section-current-progress-ring").style.setProperty("--section-current-progress", `${progressDeg}deg`);
+  const progressKey = `${clampedCompleted}/${total}`;
+  if (card.dataset.progressKey && card.dataset.progressKey !== progressKey) {
+    card.classList.remove("section-current-progress--updated");
+    requestAnimationFrame(() => {
+      card.classList.add("section-current-progress--updated");
+    });
+  }
+  card.dataset.progressKey = progressKey;
   card.hidden = false;
 }
 
@@ -400,6 +476,7 @@ function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) 
   container.querySelectorAll(".course-pick-select").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      playPageNextSound();
       onSelect(Number(btn.dataset.id));
     });
   });
@@ -612,6 +689,7 @@ function renderCourseGrid(container, courses, { selectedId, onSelect }) {
   container.querySelectorAll(".course-pick-select").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      playPageNextSound();
       onSelect(Number(btn.dataset.id));
     });
   });
@@ -637,7 +715,10 @@ function renderClassGrid(container, classes, { selectedId, onSelect }) {
     .join("");
 
   container.querySelectorAll(".class-card").forEach((btn) => {
-    btn.addEventListener("click", () => onSelect(Number(btn.dataset.id)));
+    btn.addEventListener("click", () => {
+      playPageNextSound();
+      onSelect(Number(btn.dataset.id));
+    });
   });
 }
 
@@ -745,6 +826,9 @@ function renderExercises() {
 }
 
 async function handleLogin() {
+  const btn = $("#btn-login");
+  if (btn.disabled) return;
+
   const username = $("#login-username").value.trim().toLowerCase();
   const password = $("#login-password").value;
   $("#login-error").textContent = "";
@@ -754,8 +838,9 @@ async function handleLogin() {
     return;
   }
 
-  const btn = $("#btn-login");
   btn.disabled = true;
+  btn.classList.add("is-scanning");
+  const scanStartedAt = performance.now();
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
@@ -768,11 +853,15 @@ async function handleLogin() {
     state.token = user.token;
     state.loginUsername = username;
     savePrefs();
+    await waitForLoginScanCycle(scanStartedAt);
+    playLoginSuccessSound();
     await enterClassStep({ resume: true });
   } catch (err) {
+    playLoginFailSound();
     $("#login-error").textContent = err.message;
   } finally {
     btn.disabled = false;
+    btn.classList.remove("is-scanning");
   }
 }
 
@@ -1365,6 +1454,7 @@ async function enterWaitingRoom(roomId, apiResponse) {
 async function handleStartSession() {
   if (!state.selectedExercise) return;
 
+  playPageNextSound();
   $("#journey-error").textContent = "";
   const btn = $("#btn-start-session");
   btn.disabled = true;
@@ -1407,6 +1497,7 @@ async function handleStartNextExercise() {
   const next = getNextExerciseAfter(state.selectedExercise);
   if (!next || !state.activeRoomId) return;
 
+  playPageNextSound();
   $("#waiting-error").textContent = "";
   state.selectedExercise = next;
 
@@ -1442,6 +1533,8 @@ async function handleStartNextExercise() {
 async function handleStartClass() {
   if (!state.activeRoomId || state.sessionStarted) return;
 
+  playStartSessionSound();
+  flashStartSessionArt();
   $("#waiting-error").textContent = "";
   const btn = $("#btn-start-class");
   btn.disabled = true;
@@ -1498,6 +1591,7 @@ document.querySelectorAll(
 ).forEach((btn) => btn.addEventListener("click", handleLogout));
 
 $("#btn-back-class").addEventListener("click", () => {
+  playPageBackSound();
   state.course = null;
   state.selectedSection = null;
   savePrefs();
@@ -1505,6 +1599,7 @@ $("#btn-back-class").addEventListener("click", () => {
 });
 
 $("#btn-back-course-from-section").addEventListener("click", () => {
+  playPageBackSound();
   state.selectedSection = null;
   state.exercises = [];
   state.selectedExercise = null;
@@ -1525,6 +1620,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 function backFromWaiting() {
+  playPageBackSound();
   stopWaitingPoll();
   disconnectHostSession();
   state.activeRoomId = null;
@@ -1538,11 +1634,15 @@ function backFromWaiting() {
 $("#btn-back-journey")?.addEventListener("click", backFromWaiting);
 
 document.querySelectorAll("#btn-back-waiting-quiz, #btn-back-waiting-results").forEach((btn) =>
-  btn.addEventListener("click", returnHostToWaitingRoom)
+  btn.addEventListener("click", () => {
+    playPageBackSound();
+    returnHostToWaitingRoom();
+  })
 );
 
 document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
   btn.addEventListener("click", () => {
+    playPageBackSound();
     wrapUpRoomExercise(() => {
       returnHostToWaitingRoom();
     });
@@ -1550,7 +1650,10 @@ document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
 );
 
 document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin").forEach((btn) =>
-  btn.addEventListener("click", finishVideoOrBuzzinExercise)
+  btn.addEventListener("click", () => {
+    playPageBackSound();
+    finishVideoOrBuzzinExercise();
+  })
 );
 
 $("#btn-start-session").addEventListener("click", handleStartSession);
@@ -1584,8 +1687,14 @@ function resetSessionAndGoToJourney() {
   void showSectionExercises();
 }
 
-$("#btn-start-another").addEventListener("click", resetSessionAndGoToJourney);
-$("#btn-start-another-quiz")?.addEventListener("click", resetSessionAndGoToJourney);
+$("#btn-start-another").addEventListener("click", () => {
+  playPageNextSound();
+  resetSessionAndGoToJourney();
+});
+$("#btn-start-another-quiz")?.addEventListener("click", () => {
+  playPageNextSound();
+  resetSessionAndGoToJourney();
+});
 
 function showHostExerciseFinishedScreen(payload) {
   showExerciseLeaderboards({
@@ -1634,15 +1743,28 @@ function backToWaitingFromExercise() {
 }
 
 $("#btn-host-quiz-done")?.addEventListener("click", () => {
+  playPageBackSound();
   wrapUpRoomExercise(() => {
     returnHostToWaitingRoom();
   });
 });
 
-$("#btn-host-video-done")?.addEventListener("click", backToWaitingFromExercise);
-$("#btn-host-buzzin-done")?.addEventListener("click", backToWaitingFromExercise);
-$("#btn-start-another-video")?.addEventListener("click", resetSessionAndGoToJourney);
-$("#btn-start-another-buzzin")?.addEventListener("click", resetSessionAndGoToJourney);
+$("#btn-host-video-done")?.addEventListener("click", () => {
+  playPageBackSound();
+  backToWaitingFromExercise();
+});
+$("#btn-host-buzzin-done")?.addEventListener("click", () => {
+  playPageBackSound();
+  backToWaitingFromExercise();
+});
+$("#btn-start-another-video")?.addEventListener("click", () => {
+  playPageNextSound();
+  resetSessionAndGoToJourney();
+});
+$("#btn-start-another-buzzin")?.addEventListener("click", () => {
+  playPageNextSound();
+  resetSessionAndGoToJourney();
+});
 
 document.querySelectorAll(
   "#btn-host-quiz-next-exercise, #btn-host-video-next-exercise, #btn-host-buzzin-next-exercise"

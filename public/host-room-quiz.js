@@ -419,6 +419,7 @@ function startHostRoomQuiz(roomId, exercise) {
 
 function initHostRoomQuizUi() {
   $("#btn-host-quiz-next")?.addEventListener("click", () => {
+    if (typeof playPageNextSound === "function") playPageNextSound();
     getRoomQuizSocket().emit("next_question");
   });
 

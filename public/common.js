@@ -33,9 +33,61 @@ function normalizePin(pin) {
   return String(pin || "").replace(/\D/g, "").slice(0, 6);
 }
 
-function showScreen(id) {
+let screenTransitionPromise = Promise.resolve();
+let screenTransitionToken = 0;
+
+function getScreenTransitionLayer() {
+  const app = document.querySelector("#app.lango-host");
+  if (!app) return null;
+  let layer = app.querySelector(".host-page-transition");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "host-page-transition";
+    layer.setAttribute("aria-hidden", "true");
+    app.appendChild(layer);
+  }
+  return layer;
+}
+
+function activateScreen(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
-  document.querySelector(`#screen-${id}`).classList.add("active");
+  document.querySelector(`#screen-${id}`)?.classList.add("active");
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function showScreen(id) {
+  const next = document.querySelector(`#screen-${id}`);
+  if (!next) return Promise.resolve();
+
+  const current = document.querySelector(".screen.active");
+  const layer = getScreenTransitionLayer();
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
+  if (!layer || !current || current === next || reduceMotion) {
+    activateScreen(id);
+    return Promise.resolve();
+  }
+
+  const token = ++screenTransitionToken;
+  screenTransitionPromise = screenTransitionPromise
+    .catch(() => {})
+    .then(async () => {
+      layer.classList.remove("is-playing");
+      void layer.offsetWidth;
+      layer.classList.add("is-playing");
+      await wait(920);
+      if (token !== screenTransitionToken) return;
+      activateScreen(id);
+      await wait(260);
+      if (token === screenTransitionToken) {
+        layer.classList.remove("is-playing");
+      }
+    });
+
+  return screenTransitionPromise;
 }
 
 function renderLeaderboard(listEl, entries, highlightId) {
