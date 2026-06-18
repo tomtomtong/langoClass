@@ -164,6 +164,20 @@
             </div>
 
             <div class="course-grid-scroll">
+              <aside
+                class="section-current-progress"
+                id="section-current-progress"
+                aria-label="Current progress"
+                hidden
+              >
+                <div class="section-current-progress-ring" id="section-current-progress-ring">
+                  <span class="section-current-progress-pct" id="section-current-progress-pct">0%</span>
+                </div>
+                <p class="section-current-progress-label">
+                  <span id="section-current-progress-completed">0</span> out of
+                  <span id="section-current-progress-total">0</span> Sections Completed
+                </p>
+              </aside>
               <div id="section-grid" class="course-grid"></div>
             </div>
 
@@ -193,7 +207,7 @@
                       Cancel
                     </button>
                     <button class="exercise-start-btn" id="btn-start-session" type="button" disabled>
-                      Continue
+                      Start session &amp; send notification
                     </button>
                   </div>
                 </footer>
