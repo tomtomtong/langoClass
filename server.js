@@ -8,6 +8,7 @@ const path = require("path");
 const { normalizeClassListResponse } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
 const scoreStore = require("./lib/score-store");
+const hostProgressStore = require("./lib/host-progress-store");
 const sessionStore = require("./lib/session-store");
 const paths = require("./lib/paths");
 const settingsStore = require("./lib/settings-store");
@@ -1294,6 +1295,49 @@ app.post("/api/session/start", async (req, res) => {
     notification: notifyBody,
     apiResponse: data,
   });
+});
+
+app.get("/api/host/progress", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const classId = Number(req.query.classId);
+  const courseId = Number(req.query.courseId);
+  if (!Number.isFinite(classId) || !Number.isFinite(courseId)) {
+    return res.status(400).json({ message: "classId and courseId query parameters are required." });
+  }
+
+  return res.json({
+    progress: hostProgressStore.getProgress(auth.teacherId, classId, courseId),
+  });
+});
+
+app.put("/api/host/progress", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const classId = Number(req.body?.classId);
+  const courseId = Number(req.body?.courseId);
+  if (!Number.isFinite(classId) || !Number.isFinite(courseId)) {
+    return res.status(400).json({ message: "classId and courseId are required." });
+  }
+
+  const patch = {};
+  if (req.body?.completedExerciseIds != null) {
+    patch.completedExerciseIds = req.body.completedExerciseIds;
+  }
+  if (req.body?.visitedSectionIds != null) {
+    patch.visitedSectionIds = req.body.visitedSectionIds;
+  }
+  if (req.body?.lastSectionId !== undefined) {
+    patch.lastSectionId = req.body.lastSectionId;
+  }
+  if (req.body?.lastExerciseId !== undefined) {
+    patch.lastExerciseId = req.body.lastExerciseId;
+  }
+
+  const progress = hostProgressStore.upsertProgress(auth.teacherId, classId, courseId, patch);
+  return res.json({ progress });
 });
 
 app.get("/api/scores", async (req, res) => {

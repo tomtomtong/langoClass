@@ -329,10 +329,12 @@ async function openCourseEditor(courseId) {
     const data = await api(`/api/cms/courses/${courseId}`);
     state.editingCourse = data.course;
     state.editingSectionIndex = null;
-    state.sections = (data.sections || []).map((section) => ({
-      ...section,
-      exercises: (section.exercises || []).map((exercise) => ({ ...exercise })),
-    }));
+    state.sections = sortSectionsByOrder(
+      (data.sections || []).map((section) => ({
+        ...section,
+        exercises: (section.exercises || []).map((exercise) => ({ ...exercise })),
+      }))
+    );
     populateDetailsForm();
     renderAssignedClasses();
     closeSectionExercises({ reRender: false });
@@ -373,14 +375,29 @@ function getActiveTabId() {
   return document.querySelector(".cms-tab.active")?.dataset.tab || "details";
 }
 
+function sortSectionsByOrder(sections) {
+  return [...(sections || [])]
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map((section, index) => ({ ...section, order: index + 1 }));
+}
+
+function findSectionFromCard(sectionCard) {
+  const idRaw = sectionCard.dataset.sectionId;
+  if (idRaw != null) {
+    const byId = state.sections.find((section) => String(section.id) === idRaw);
+    if (byId) return byId;
+  }
+  const idx = Number(sectionCard.dataset.sectionIndex);
+  return Number.isFinite(idx) ? state.sections[idx] : null;
+}
+
 function syncSectionsMetadataFromDom() {
   const container = $("#cms-section-list");
   if (!container?.children.length) return;
 
   const updated = [];
   container.querySelectorAll(".cms-section-card").forEach((sectionCard) => {
-    const idx = Number(sectionCard.dataset.sectionIndex);
-    const section = state.sections[idx];
+    const section = findSectionFromCard(sectionCard);
     if (!section) return;
 
     const idRaw = sectionCard.dataset.sectionId;
@@ -394,11 +411,12 @@ function syncSectionsMetadataFromDom() {
     });
   });
 
-  updated.sort((a, b) => a.order - b.order);
-  updated.forEach((section, index) => {
-    section.order = index + 1;
-  });
-  state.sections = updated;
+  state.sections = sortSectionsByOrder(updated);
+}
+
+function applySectionOrderFromDom() {
+  syncSectionsMetadataFromDom();
+  renderSectionEditors();
 }
 
 function collectExerciseFromCard(card) {
@@ -1067,6 +1085,10 @@ function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesCont
   card.querySelector('[data-field="title"]').value = exercise.title || "";
   card.querySelector(".cms-exercise-order").value = String(exercise.order ?? exerciseIndex + 1);
   card.querySelector('[data-field="subTitle"]').value = exercise.subTitle || "";
+  card.querySelector(".cms-exercise-order").addEventListener("change", () => {
+    syncExercisesFromDom();
+    renderExerciseEditors();
+  });
 
   renderExerciseBody(card, exercise);
 
@@ -1096,6 +1118,7 @@ function renderSectionEditors() {
 
     sectionCard.querySelector(".cms-section-title").value = section.title || "";
     sectionCard.querySelector(".cms-section-order").value = String(section.order ?? sectionIndex + 1);
+    sectionCard.querySelector(".cms-section-order").addEventListener("change", applySectionOrderFromDom);
     sectionCard.querySelector(".cms-section-banner-value").value = section.banner || "";
     updateSectionBannerPreview(sectionCard, section.banner || "");
 
@@ -1279,14 +1302,15 @@ async function saveCourseStructure({ errorEl, statusEl, btn, successMessage }) {
       method: "PUT",
       body: { sections },
     });
-    state.sections = (data.sections || []).map((section) => ({
-      ...section,
-      exercises: (section.exercises || []).map((exercise) => ({ ...exercise })),
-    }));
+    state.sections = sortSectionsByOrder(
+      (data.sections || []).map((section) => ({
+        ...section,
+        exercises: (section.exercises || []).map((exercise) => ({ ...exercise })),
+      }))
+    );
     closeSectionExercises({ reRender: false });
     renderSectionEditors();
     statusEl.textContent = successMessage;
-    await enterCourseList();
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {

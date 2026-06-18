@@ -315,6 +315,9 @@ function setupHostRoomQuizSocket(socket) {
 
   socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
     roomQuizFastMode = false;
+    if (typeof markCurrentHostExerciseCompleted === "function") {
+      markCurrentHostExerciseCompleted();
+    }
     showScreen("host-quiz-finished");
     showExerciseLeaderboards({
       exerciseLeaderboard: exerciseLeaderboard || leaderboard,

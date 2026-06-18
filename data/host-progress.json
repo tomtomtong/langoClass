@@ -1,0 +1,18 @@
+{
+  "records": [
+    {
+      "teacherId": 1,
+      "classId": 2,
+      "courseId": 3,
+      "completedExerciseIds": [
+        1
+      ],
+      "visitedSectionIds": [
+        1
+      ],
+      "lastSectionId": 1,
+      "lastExerciseId": 2,
+      "updatedAt": "2026-06-18T04:54:29.952Z"
+    }
+  ]
+}

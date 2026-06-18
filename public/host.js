@@ -15,6 +15,8 @@ const state = {
   selectedSection: null,
   exercises: [],
   selectedExercise: null,
+  hostProgress: null,
+  hostProgressSaving: false,
   activeRoomId: null,
   sessionStarted: false,
   quizActive: false,
@@ -167,6 +169,144 @@ function findSectionInList(sectionId) {
 function sectionTitle(section) {
   return section?.title || "Section";
 }
+
+function emptyHostProgress() {
+  return {
+    completedExerciseIds: [],
+    visitedSectionIds: [],
+    lastSectionId: null,
+    lastExerciseId: null,
+  };
+}
+
+function completedExerciseIdSet() {
+  return new Set(state.hostProgress?.completedExerciseIds || []);
+}
+
+function isHostExerciseCompleted(exerciseId) {
+  return completedExerciseIdSet().has(Number(exerciseId));
+}
+
+function getSortedSections() {
+  return [...state.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function getPlayableSections(sections = getSortedSections()) {
+  return sections.filter((section) => (section.exercises || []).length > 0);
+}
+
+function sectionExerciseList(section) {
+  return [...(section.exercises || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function isHostSectionUnlocked(section, playableSections) {
+  const index = playableSections.findIndex((entry) => entry.id === section.id);
+  if (index <= 0) return index === 0;
+  const previous = playableSections[index - 1];
+  const previousExercises = sectionExerciseList(previous);
+  if (!previousExercises.length) return isHostSectionUnlocked(previous, playableSections);
+  return previousExercises.every((exercise) => isHostExerciseCompleted(exercise.id));
+}
+
+function isHostExerciseUnlocked(exercise, exerciseIndex, exercises) {
+  if (exerciseIndex <= 0) return true;
+  return isHostExerciseCompleted(exercises[exerciseIndex - 1]?.id);
+}
+
+function countCompletedHostSections(sections = getSortedSections()) {
+  const playable = getPlayableSections(sections);
+  return playable.filter((section) => {
+    const exercises = sectionExerciseList(section);
+    return exercises.length > 0 && exercises.every((exercise) => isHostExerciseCompleted(exercise.id));
+  }).length;
+}
+
+function defaultUnlockedHostExercise(exercises) {
+  return exercises.find((exercise, index) => isHostExerciseUnlocked(exercise, index, exercises)) || null;
+}
+
+function preferredHostExercise(exercises) {
+  const lastExerciseId = state.hostProgress?.lastExerciseId;
+  if (lastExerciseId != null) {
+    const saved = exercises.find((exercise) => exercise.id === lastExerciseId);
+    const savedIndex = saved ? exercises.findIndex((exercise) => exercise.id === saved.id) : -1;
+    if (saved && savedIndex >= 0 && isHostExerciseUnlocked(saved, savedIndex, exercises)) {
+      return saved;
+    }
+  }
+  const nextIncomplete = exercises.find(
+    (exercise, index) =>
+      isHostExerciseUnlocked(exercise, index, exercises) && !isHostExerciseCompleted(exercise.id)
+  );
+  return nextIncomplete || defaultUnlockedHostExercise(exercises);
+}
+
+async function loadHostProgress() {
+  if (!state.course?.id || !state.classItem?.id) {
+    state.hostProgress = emptyHostProgress();
+    return;
+  }
+
+  try {
+    const data = await api(
+      `/api/host/progress?classId=${state.classItem.id}&courseId=${state.course.id}`
+    );
+    state.hostProgress = data.progress || emptyHostProgress();
+  } catch {
+    state.hostProgress = emptyHostProgress();
+  }
+}
+
+async function persistHostProgress(patch) {
+  if (!state.course?.id || !state.classItem?.id) return;
+  if (state.hostProgressSaving) return;
+
+  state.hostProgressSaving = true;
+  try {
+    const data = await api("/api/host/progress", {
+      method: "PUT",
+      body: {
+        classId: state.classItem.id,
+        courseId: state.course.id,
+        ...patch,
+      },
+    });
+    state.hostProgress = data.progress || state.hostProgress || emptyHostProgress();
+    savePrefs();
+  } catch (err) {
+    console.warn("Could not save host progress:", err.message);
+  } finally {
+    state.hostProgressSaving = false;
+  }
+}
+
+async function markHostSectionVisited(sectionId) {
+  if (sectionId == null) return;
+  await persistHostProgress({
+    visitedSectionIds: [Number(sectionId)],
+    lastSectionId: Number(sectionId),
+  });
+}
+
+async function markHostExerciseSelected(exerciseId) {
+  if (exerciseId == null) return;
+  await persistHostProgress({ lastExerciseId: Number(exerciseId) });
+}
+
+async function markHostExerciseCompleted(exerciseId) {
+  if (exerciseId == null || isHostExerciseCompleted(exerciseId)) return;
+  await persistHostProgress({ completedExerciseIds: [Number(exerciseId)] });
+  updateSectionProgressCard(getSortedSections(), state.selectedSection?.id);
+  renderSectionPicker();
+  renderExercises();
+}
+
+function markCurrentHostExerciseCompleted() {
+  if (!state.selectedExercise?.id) return;
+  void markHostExerciseCompleted(state.selectedExercise.id);
+}
+
+window.markCurrentHostExerciseCompleted = markCurrentHostExerciseCompleted;
 
 function getSelectedSectionExercises() {
   if (!state.selectedSection) return [];
@@ -397,24 +537,22 @@ function updateSectionProgressCard(sections, selectedId = state.selectedSection?
   if (!card) return;
 
   const sortedSections = [...(sections || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
-  const total = sortedSections.length;
+  const playableSections = getPlayableSections(sortedSections);
+  const total = playableSections.length;
   if (!total) {
     card.hidden = true;
     return;
   }
 
-  const selectedIndex = sortedSections.findIndex((section) => section.id === selectedId);
-  const playableCount = sortedSections.filter((section) => (section.exercises || []).length > 0).length;
-  const completed = selectedIndex >= 0 ? selectedIndex + 1 : playableCount;
-  const clampedCompleted = Math.min(Math.max(completed, 0), total);
-  const percent = Math.round((clampedCompleted / total) * 100);
+  const completed = countCompletedHostSections(sortedSections);
+  const percent = total ? Math.round((completed / total) * 100) : 0;
   const progressDeg = percent * 3.6;
 
-  $("#section-current-progress-completed").textContent = String(clampedCompleted);
+  $("#section-current-progress-completed").textContent = String(completed);
   $("#section-current-progress-total").textContent = String(total);
   $("#section-current-progress-pct").textContent = `${percent}%`;
   $("#section-current-progress-ring").style.setProperty("--section-current-progress", `${progressDeg}deg`);
-  const progressKey = `${clampedCompleted}/${total}`;
+  const progressKey = `${completed}/${total}`;
   if (card.dataset.progressKey && card.dataset.progressKey !== progressKey) {
     card.classList.remove("section-current-progress--updated");
     requestAnimationFrame(() => {
@@ -436,7 +574,7 @@ function closeSectionExercises() {
   setSectionExercisePanelVisible(false);
 }
 
-function renderSectionPickCard(section, { selectedId, index }) {
+function renderSectionPickCard(section, { selectedId, index, locked = false }) {
   const active = section.id === selectedId ? " active" : "";
   const banner = sectionBanner(section);
   const exerciseCount = (section.exercises || []).length;
@@ -444,15 +582,19 @@ function renderSectionPickCard(section, { selectedId, index }) {
   const thumb = banner
     ? `<img class="course-pick-thumb" src="${escapeHtml(banner)}" alt="" />`
     : `<div class="course-pick-thumb course-pick-thumb--empty" aria-hidden="true"></div>`;
-  const playButton = hasExercises
-    ? `<button type="button" class="course-pick-select" data-id="${section.id}">
+  const playButton = !hasExercises
+    ? `<button type="button" class="course-pick-select course-pick-select--disabled" data-id="${section.id}" disabled>
           Start
         </button>`
-    : `<button type="button" class="course-pick-select course-pick-select--disabled" data-id="${section.id}" disabled>
+    : locked
+      ? `<button type="button" class="course-pick-select course-pick-select--locked" data-id="${section.id}" disabled>
+          Locked
+        </button>`
+      : `<button type="button" class="course-pick-select" data-id="${section.id}">
           Start
         </button>`;
 
-  return `<article class="course-pick-card${active}${hasExercises ? "" : " course-pick-card--empty"}" data-id="${section.id}" style="--card-i: ${index}">
+  return `<article class="course-pick-card${active}${hasExercises ? "" : " course-pick-card--empty"}${locked ? " course-pick-card--locked" : ""}" data-id="${section.id}" style="--card-i: ${index}">
     <div class="course-pick-card-inner">
       ${thumb}
       <div class="course-pick-body">
@@ -470,10 +612,11 @@ function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) 
     return;
   }
 
+  const playableSections = getPlayableSections(sections);
   container.className = "section-road";
-  container.innerHTML = renderSectionRoad(sections, { selectedId });
+  container.innerHTML = renderSectionRoad(sections, { selectedId, playableSections });
 
-  container.querySelectorAll(".course-pick-select").forEach((btn) => {
+  container.querySelectorAll(".course-pick-select:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       playPageNextSound();
@@ -503,13 +646,19 @@ function sectionRoadPoint(index, total) {
   };
 }
 
-function renderSectionRoad(sections, { selectedId }) {
+function renderSectionRoad(sections, { selectedId, playableSections = getPlayableSections(sections) }) {
   const trackWidth = Math.max(220, (sections.length - 1) * 360 + 220);
   const bridgeCount = Math.max(0, sections.length - 1);
   const bridges = Array.from({ length: bridgeCount }, (_, index) => renderSectionRoadBridge(index))
     .join("");
   const cards = sections
-    .map((section, index) => renderSectionRoadCard(section, { selectedId, index }))
+    .map((section, index) =>
+      renderSectionRoadCard(section, {
+        selectedId,
+        index,
+        locked: !isHostSectionUnlocked(section, playableSections),
+      })
+    )
     .join("");
 
   return `<div class="section-road-shell" aria-label="Course sections">
@@ -597,19 +746,22 @@ function smoothRoadPath(points) {
   return path;
 }
 
-function renderSectionRoadCard(section, { selectedId, index }) {
+function renderSectionRoadCard(section, { selectedId, index, locked = false }) {
   const active = section.id === selectedId ? " active" : "";
   const banner = sectionBanner(section);
   const hasExercises = (section.exercises || []).length > 0;
   const thumbnail = banner
     ? `<img class="section-road-thumb" src="${escapeHtml(banner)}" alt="" />`
     : `<span class="section-road-thumb section-road-thumb--empty" aria-hidden="true"></span>`;
+  const buttonLabel = locked ? "Locked" : "Start";
+  const buttonClass = locked ? "section-road-button course-pick-select course-pick-select--locked" : "section-road-button course-pick-select";
+  const disabled = !hasExercises || locked ? "disabled" : "";
 
-  return `<article class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}" style="--section-x: ${index * 360}px;">
+  return `<article class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}${locked ? " section-road-card--locked" : ""}" style="--section-x: ${index * 360}px;">
     <div class="section-road-content">
       ${thumbnail}
-      <button type="button" class="section-road-button course-pick-select" data-id="${section.id}" ${hasExercises ? "" : "disabled"}>
-        Start
+      <button type="button" class="${buttonClass}" data-id="${section.id}" ${disabled}>
+        ${buttonLabel}
       </button>
     </div>
   </article>`;
@@ -779,13 +931,14 @@ function updateExerciseContextLabel() {
   $("#section-label").textContent = sectionTitle(state.selectedSection);
 }
 
-function renderExerciseItem(exercise, index, selectedId) {
+function renderExerciseItem(exercise, index, selectedId, { locked = false, completed = false } = {}) {
   const active = exercise.id === selectedId;
   const title = exercise.title || `Exercise ${exercise.id}`;
   const subtitle = exerciseSubtitle(exercise);
   const points = exercisePointsValue(exercise);
+  const statusLabel = completed ? "Done" : locked ? "Locked" : `${points} pts`;
 
-  return `<button type="button" class="exercise-item${active ? " active" : ""}" data-id="${exercise.id}" role="option" aria-selected="${active ? "true" : "false"}">
+  return `<button type="button" class="exercise-item${active ? " active" : ""}${locked ? " exercise-item--locked" : ""}${completed ? " exercise-item--completed" : ""}" data-id="${exercise.id}" data-locked="${locked ? "true" : "false"}" role="option" aria-selected="${active ? "true" : "false"}" ${locked ? "disabled" : ""}>
     <span class="exercise-item-main">
       <span class="exercise-item-num">${index + 1}.</span>
       <span class="exercise-item-text">
@@ -793,7 +946,7 @@ function renderExerciseItem(exercise, index, selectedId) {
         ${subtitle ? `<span class="exercise-item-sub">${escapeHtml(subtitle)}</span>` : ""}
       </span>
     </span>
-    <span class="exercise-item-pts">${points} pts</span>
+    <span class="exercise-item-pts">${statusLabel}</span>
   </button>`;
 }
 
@@ -810,19 +963,33 @@ function renderExercises() {
   }
 
   container.innerHTML = exercises
-    .map((exercise, index) => renderExerciseItem(exercise, index, selectedId))
+    .map((exercise, index) =>
+      renderExerciseItem(exercise, index, selectedId, {
+        locked: !isHostExerciseUnlocked(exercise, index, exercises),
+        completed: isHostExerciseCompleted(exercise.id),
+      })
+    )
     .join("");
 
-  container.querySelectorAll(".exercise-item").forEach((btn) => {
+  container.querySelectorAll(".exercise-item:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = Number(btn.dataset.id);
-      state.selectedExercise = exercises.find((e) => e.id === id) || null;
+      const exerciseIndex = exercises.findIndex((exercise) => exercise.id === id);
+      const exercise = exercises[exerciseIndex];
+      if (!exercise || !isHostExerciseUnlocked(exercise, exerciseIndex, exercises)) return;
+      state.selectedExercise = exercise;
+      void markHostExerciseSelected(exercise.id);
       renderExercises();
       $("#btn-start-session").disabled = !state.selectedExercise;
     });
   });
 
-  $("#btn-start-session").disabled = !state.selectedExercise;
+  $("#btn-start-session").disabled =
+    !state.selectedExercise ||
+    !exercises.some(
+      (exercise, index) =>
+        exercise.id === state.selectedExercise?.id && isHostExerciseUnlocked(exercise, index, exercises)
+    );
 }
 
 async function handleLogin() {
@@ -910,6 +1077,7 @@ async function enterClassStep({ resume = false } = {}) {
       if (state.classItem?.id !== next?.id) {
         state.course = null;
         state.selectedSection = null;
+        state.hostProgress = null;
       }
       state.classItem = next;
       savePrefs();
@@ -999,6 +1167,7 @@ function renderCourseSections() {
     const next = findCourseInList(id);
     if (state.course?.id !== next?.id) {
       state.selectedSection = null;
+      state.hostProgress = null;
     }
     state.course = next;
     savePrefs();
@@ -1047,10 +1216,12 @@ async function enterSectionStep({ resume = false } = {}) {
 
   try {
     await loadCourseSections();
+    await loadHostProgress();
 
     if (resume && state.selectedSection?.id) {
       const savedSection = findSectionInList(state.selectedSection.id);
-      if (savedSection) {
+      const playableSections = getPlayableSections();
+      if (savedSection && isHostSectionUnlocked(savedSection, playableSections)) {
         state.selectedSection = savedSection;
         savePrefs();
         renderSectionPicker();
@@ -1061,6 +1232,15 @@ async function enterSectionStep({ resume = false } = {}) {
       savePrefs();
     }
 
+    if (state.hostProgress?.lastSectionId) {
+      const savedSection = findSectionInList(state.hostProgress.lastSectionId);
+      const playableSections = getPlayableSections();
+      if (savedSection && isHostSectionUnlocked(savedSection, playableSections)) {
+        state.selectedSection = savedSection;
+        savePrefs();
+      }
+    }
+
     renderSectionPicker();
   } catch (err) {
     $("#section-status").textContent = "";
@@ -1069,8 +1249,8 @@ async function enterSectionStep({ resume = false } = {}) {
 }
 
 function renderSectionPicker() {
-  const sections = [...state.sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-  const playableSections = sections.filter((section) => (section.exercises || []).length > 0);
+  const sections = getSortedSections();
+  const playableSections = getPlayableSections(sections);
   const grid = $("#section-grid");
   const label = $("#section-course-label");
   if (label) label.textContent = courseTitle(state.course);
@@ -1092,9 +1272,11 @@ function renderSectionPicker() {
   function handleSectionSelect(id) {
     const section = findSectionInList(id);
     if (!section || !(section.exercises || []).length) return;
+    if (!isHostSectionUnlocked(section, playableSections)) return;
 
     state.selectedSection = section;
     savePrefs();
+    void markHostSectionVisited(section.id);
     renderSectionPickerGrid(grid, sections, {
       selectedId: state.selectedSection?.id,
       onSelect: handleSectionSelect,
@@ -1131,7 +1313,7 @@ async function showSectionExercises() {
 
     const exercises = getSelectedSectionExercises();
     if (exercises.length) {
-      state.selectedExercise = exercises[0];
+      state.selectedExercise = preferredHostExercise(exercises);
     }
 
     if (exercises.length) {
@@ -1456,6 +1638,7 @@ async function handleStartSession() {
 
   playPageNextSound();
   $("#journey-error").textContent = "";
+  void markHostExerciseSelected(state.selectedExercise.id);
   const btn = $("#btn-start-session");
   btn.disabled = true;
   btn.textContent = "Creating session…";
@@ -1499,7 +1682,11 @@ async function handleStartNextExercise() {
 
   playPageNextSound();
   $("#waiting-error").textContent = "";
+  if (state.selectedExercise?.id) {
+    await markHostExerciseCompleted(state.selectedExercise.id);
+  }
   state.selectedExercise = next;
+  void markHostExerciseSelected(next.id);
 
   const buttons = [
     "#btn-host-quiz-next-exercise",
@@ -1697,6 +1884,7 @@ $("#btn-start-another-quiz")?.addEventListener("click", () => {
 });
 
 function showHostExerciseFinishedScreen(payload) {
+  markCurrentHostExerciseCompleted();
   showExerciseLeaderboards({
     exerciseLeaderboard: payload?.exerciseLeaderboard,
     semesterLeaderboard: payload?.semesterLeaderboard,
@@ -1744,6 +1932,7 @@ function backToWaitingFromExercise() {
 
 $("#btn-host-quiz-done")?.addEventListener("click", () => {
   playPageBackSound();
+  markCurrentHostExerciseCompleted();
   wrapUpRoomExercise(() => {
     returnHostToWaitingRoom();
   });
