@@ -128,11 +128,32 @@ function renderConfig(data) {
   $("#config-inworld-llm-model").value = data.inworldLlmModelSaved || "";
   $("#config-inworld-llm-effective").textContent = data.effectiveInworldLlmModel || "—";
   $("#config-inworld-llm-env-default").textContent = data.inworldLlmModelEnvDefault || "—";
+
+  const qwenConfigured = !!data.qwenApiKeyConfigured;
+  const qwenSaved = !!data.qwenApiKeySaved;
+  $("#config-qwen-status-label").textContent = qwenConfigured ? "Configured" : "Not configured";
+  $("#config-qwen-masked").textContent = qwenConfigured ? data.qwenApiKeyMasked || "—" : "—";
+  $("#config-qwen-env-hint").hidden = !data.qwenEnvDefaultConfigured || qwenSaved;
+
+  if (qwenSaved) {
+    $("#config-qwen-key").placeholder = "Key saved — paste to replace";
+  } else {
+    $("#config-qwen-key").placeholder = "Paste key here";
+  }
+
+  $("#config-qwen-model").value = data.qwenModelSaved || "";
+  $("#config-qwen-model-effective").textContent = data.effectiveQwenModel || "—";
+  $("#config-qwen-model-env-default").textContent = data.qwenModelEnvDefault || "—";
 }
 
 function clearInworldTestResult() {
   $("#config-inworld-test-wrap").hidden = true;
   $("#config-inworld-test-result").textContent = "";
+}
+
+function clearQwenTestResult() {
+  $("#config-qwen-test-wrap").hidden = true;
+  $("#config-qwen-test-result").textContent = "";
 }
 
 async function saveInworldLlmModel(inworldLlmModel) {
@@ -207,6 +228,81 @@ async function testInworldKey() {
       `API test succeeded (TTS ${ttsMs} ms, LLM ${llmMs} ms).`;
   } catch (err) {
     $("#config-inworld-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveQwenModel(qwenModel) {
+  $("#config-qwen-error").textContent = "";
+  $("#config-qwen-save-status").textContent = "";
+  clearQwenTestResult();
+
+  const btn = $("#btn-config-save-qwen-model");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { qwenModel },
+    });
+    renderConfig(data);
+    $("#config-qwen-save-status").textContent = qwenModel
+      ? `Model saved: ${data.effectiveQwenModel}`
+      : "Saved model cleared. Using environment default.";
+  } catch (err) {
+    $("#config-qwen-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveQwenKey(qwenApiKey) {
+  $("#config-qwen-error").textContent = "";
+  $("#config-qwen-save-status").textContent = "";
+  clearQwenTestResult();
+
+  const btn = $("#btn-config-save-qwen");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { qwenApiKey },
+    });
+    renderConfig(data);
+    $("#config-qwen-key").value = "";
+    $("#config-qwen-save-status").textContent = qwenApiKey
+      ? "Qwen key saved."
+      : "Saved key cleared. Using environment default if set.";
+  } catch (err) {
+    $("#config-qwen-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function testQwenKey() {
+  $("#config-qwen-error").textContent = "";
+  $("#config-qwen-save-status").textContent = "";
+  clearQwenTestResult();
+
+  const inputKey = $("#config-qwen-key").value.trim();
+  const inputModel = $("#config-qwen-model").value.trim();
+  const btn = $("#btn-config-test-qwen");
+  btn.disabled = true;
+  try {
+    const body = {};
+    if (inputKey) body.qwenApiKey = inputKey;
+    if (inputModel) body.qwenModel = inputModel;
+    const data = await api("/api/config/test-qwen", {
+      method: "POST",
+      body,
+    });
+    $("#config-qwen-test-wrap").hidden = false;
+    $("#config-qwen-test-result").textContent = JSON.stringify(data, null, 2);
+    const llmMs = data.llm?.latencyMs ?? "—";
+    $("#config-qwen-save-status").textContent = `API test succeeded (LLM ${llmMs} ms).`;
+  } catch (err) {
+    $("#config-qwen-error").textContent = err.message;
   } finally {
     btn.disabled = false;
   }
@@ -321,6 +417,21 @@ async function init() {
   $("#btn-config-reset-inworld-model").addEventListener("click", () => {
     $("#config-inworld-llm-model").value = "";
     saveInworldLlmModel("");
+  });
+  $("#btn-config-save-qwen").addEventListener("click", () => {
+    saveQwenKey($("#config-qwen-key").value.trim());
+  });
+  $("#btn-config-save-qwen-model").addEventListener("click", () => {
+    saveQwenModel($("#config-qwen-model").value.trim());
+  });
+  $("#btn-config-test-qwen").addEventListener("click", testQwenKey);
+  $("#btn-config-clear-qwen").addEventListener("click", () => {
+    $("#config-qwen-key").value = "";
+    saveQwenKey("");
+  });
+  $("#btn-config-reset-qwen-model").addEventListener("click", () => {
+    $("#config-qwen-model").value = "";
+    saveQwenModel("");
   });
 
   if (state.token && state.user) {

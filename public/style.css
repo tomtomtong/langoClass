@@ -4280,6 +4280,10 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   gap: 0.75rem;
 }
 
+.cms-section-add-bottom {
+  margin-bottom: 1.25rem;
+}
+
 .cms-section-add select {
   font-family: inherit;
   border: 2px solid var(--accent2);

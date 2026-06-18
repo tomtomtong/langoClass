@@ -151,6 +151,76 @@
         <p class="status-msg" id="config-inworld-save-status"></p>
         <p class="error" id="config-inworld-error"></p>
       </div>
+
+      <div class="cms-panel config-panel config-section-spaced">
+        <h2>Qwen API</h2>
+        <p class="hint">
+          Paste your DashScope API key from
+          <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" rel="noopener">Alibaba Cloud DashScope</a>.
+          The key is stored on this server and used for Qwen LLM requests.
+        </p>
+
+        <label class="field">
+          <span>Qwen API key</span>
+          <input
+            type="password"
+            id="config-qwen-key"
+            placeholder="Paste key here"
+            autocomplete="off"
+          />
+          <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Status:</strong> <span id="config-qwen-status-label">—</span></p>
+          <p><strong>Active key:</strong> <span id="config-qwen-masked">—</span></p>
+          <p class="hint" id="config-qwen-env-hint" hidden>
+            Using <code>QWEN_API_KEY</code> environment variable (no saved key).
+          </p>
+        </div>
+
+        <label class="field">
+          <span>Model</span>
+          <input
+            type="text"
+            id="config-qwen-model"
+            list="config-qwen-models"
+            placeholder="qwen-plus"
+            autocomplete="off"
+          />
+          <datalist id="config-qwen-models">
+            <option value="qwen-turbo"></option>
+            <option value="qwen-plus"></option>
+            <option value="qwen-max"></option>
+            <option value="qwen-long"></option>
+          </datalist>
+          <p class="hint">
+            DashScope model name (e.g. <code>qwen-plus</code>).
+            Leave empty when saving to use the environment default.
+          </p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Active model:</strong> <span id="config-qwen-model-effective">—</span></p>
+          <p><strong>Environment default:</strong> <span id="config-qwen-model-env-default">—</span></p>
+        </div>
+
+        <div class="config-actions">
+          <button type="button" class="btn primary" id="btn-config-save-qwen">Save key</button>
+          <button type="button" class="btn primary" id="btn-config-save-qwen-model">Save model</button>
+          <button type="button" class="btn secondary" id="btn-config-test-qwen">Test API</button>
+          <button type="button" class="btn secondary" id="btn-config-clear-qwen">Clear saved key</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-qwen-model">Reset model to env default</button>
+        </div>
+
+        <div class="config-preview config-inworld-test-preview" id="config-qwen-test-wrap" hidden>
+          <span class="field-label">Test result</span>
+          <pre id="config-qwen-test-result" class="config-preview-json"></pre>
+        </div>
+
+        <p class="status-msg" id="config-qwen-save-status"></p>
+        <p class="error" id="config-qwen-error"></p>
+      </div>
     </section>
   </div>
 

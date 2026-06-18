@@ -24,7 +24,12 @@ const ENV_PUBLIC_BASE_URL = (
 ).replace(/\/$/, "");
 const ENV_INWORLD_API_KEY = String(process.env.INWORLD_API_KEY || "").trim();
 const ENV_INWORLD_LLM_MODEL = String(process.env.INWORLD_LLM_MODEL || "auto").trim();
+const ENV_QWEN_API_KEY = String(process.env.QWEN_API_KEY || "").trim();
+const ENV_QWEN_MODEL = String(process.env.QWEN_MODEL || "qwen-plus").trim();
 const INWORLD_API_BASE = "https://api.inworld.ai";
+const QWEN_API_BASE = String(
+  process.env.QWEN_API_BASE || "https://dashscope.aliyuncs.com/compatible-mode/v1"
+).replace(/\/$/, "");
 
 function getPublicBaseUrl() {
   const saved = settingsStore.readSettings().publicBaseUrl;
@@ -39,6 +44,16 @@ function getInworldApiKey() {
 function getInworldLlmModel() {
   const saved = settingsStore.readSettings().inworldLlmModel;
   return saved || ENV_INWORLD_LLM_MODEL || "auto";
+}
+
+function getQwenApiKey() {
+  const saved = settingsStore.readSettings().qwenApiKey;
+  return saved || ENV_QWEN_API_KEY;
+}
+
+function getQwenModel() {
+  const saved = settingsStore.readSettings().qwenModel;
+  return saved || ENV_QWEN_MODEL || "qwen-plus";
 }
 
 function maskApiKey(key) {
@@ -825,6 +840,13 @@ function buildConfigResponse() {
     inworldLlmModelSaved: settings.inworldLlmModel || "",
     inworldLlmModelEnvDefault: ENV_INWORLD_LLM_MODEL,
     effectiveInworldLlmModel,
+    qwenApiKeySaved: !!settings.qwenApiKey,
+    qwenEnvDefaultConfigured: !!ENV_QWEN_API_KEY,
+    qwenApiKeyConfigured: !!getQwenApiKey(),
+    qwenApiKeyMasked: maskApiKey(getQwenApiKey()),
+    qwenModelSaved: settings.qwenModel || "",
+    qwenModelEnvDefault: ENV_QWEN_MODEL,
+    effectiveQwenModel: getQwenModel(),
     notificationPreview: buildNotificationData({
       session_id: "123456",
       class_name: "Example class",
@@ -930,6 +952,78 @@ async function testInworldApiKey(apiKey, llmModel) {
   };
 }
 
+function qwenErrorMessage(data, status) {
+  return (
+    data?.error?.message ||
+    data?.message ||
+    data?.code ||
+    `Qwen API returned ${status}.`
+  );
+}
+
+async function qwenLlmComplete(apiKey, model, messages, maxTokens = 256) {
+  const qwenModel = String(model || "qwen-plus").trim() || "qwen-plus";
+  const res = await fetch(`${QWEN_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: qwenModel,
+      messages,
+      max_tokens: maxTokens,
+    }),
+  });
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text || res.statusText };
+  }
+
+  if (!res.ok) {
+    throw new Error(`LLM (${qwenModel}): ${qwenErrorMessage(data, res.status)}`);
+  }
+
+  return data?.choices?.[0]?.message?.content?.trim?.() || "";
+}
+
+async function testQwenLlm(apiKey, model) {
+  const qwenModel = String(model || "qwen-plus").trim() || "qwen-plus";
+  const started = Date.now();
+  const reply = await qwenLlmComplete(
+    apiKey,
+    qwenModel,
+    [{ role: "user", content: "Reply with exactly: OK" }],
+    16
+  );
+  return {
+    ok: true,
+    model: qwenModel,
+    latencyMs: Date.now() - started,
+    reply: reply.slice(0, 200),
+    usage: null,
+  };
+}
+
+async function testQwenApiKey(apiKey, model) {
+  const key = String(apiKey || "").trim();
+  if (!key) {
+    throw new Error("No Qwen API key to test. Enter a key or set QWEN_API_KEY.");
+  }
+
+  const started = Date.now();
+  const llm = await testQwenLlm(key, model);
+
+  return {
+    ok: true,
+    latencyMs: Date.now() - started,
+    llm,
+  };
+}
+
 app.get("/api/config", (_req, res) => {
   return res.json(buildConfigResponse());
 });
@@ -938,7 +1032,7 @@ app.put("/api/config", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  const { publicBaseUrl, inworldApiKey, inworldLlmModel } = req.body || {};
+  const { publicBaseUrl, inworldApiKey, inworldLlmModel, qwenApiKey, qwenModel } = req.body || {};
   const updates = {};
 
   if (publicBaseUrl !== undefined) {
@@ -958,6 +1052,14 @@ app.put("/api/config", async (req, res) => {
 
   if (inworldLlmModel !== undefined) {
     updates.inworldLlmModel = String(inworldLlmModel || "").trim();
+  }
+
+  if (qwenApiKey !== undefined) {
+    updates.qwenApiKey = String(qwenApiKey || "").trim();
+  }
+
+  if (qwenModel !== undefined) {
+    updates.qwenModel = String(qwenModel || "").trim();
   }
 
   if (!Object.keys(updates).length) {
@@ -988,6 +1090,29 @@ app.post("/api/config/test-inworld", async (req, res) => {
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ message: err.message || "Inworld API test failed." });
+  }
+});
+
+app.post("/api/config/test-qwen", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const bodyKey = req.body?.qwenApiKey;
+  const bodyModel = req.body?.qwenModel;
+  const keyToTest =
+    bodyKey != null && String(bodyKey).trim()
+      ? String(bodyKey).trim()
+      : getQwenApiKey();
+  const modelToTest =
+    bodyModel != null && String(bodyModel).trim()
+      ? String(bodyModel).trim()
+      : getQwenModel();
+
+  try {
+    const result = await testQwenApiKey(keyToTest, modelToTest);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Qwen API test failed." });
   }
 });
 
