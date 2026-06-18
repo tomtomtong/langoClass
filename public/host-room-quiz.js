@@ -178,6 +178,9 @@ function getRoomQuizSocket() {
 }
 
 function renderHostQuizQuestion(data, { preparing = false } = {}) {
+  const screen = $("#screen-host-quiz-question");
+  const isFastMode = !!data.fastMode;
+  screen?.classList.toggle("fast-mode", isFastMode);
   showScreen("host-quiz-question");
   const pct = ((data.questionIndex + 1) / data.totalQuestions) * 100;
   const points = data.points || (data.fastMode ? 500 : 300);
@@ -198,7 +201,9 @@ function renderHostQuizQuestion(data, { preparing = false } = {}) {
   });
   $("#host-quiz-answered-count").textContent = preparing
     ? "Starting shortly…"
-    : "Students are answering…";
+    : isFastMode
+      ? "Quick answers in progress…"
+      : "Students are answering…";
   startTimer(data.timeLimit || 5, (remaining) => {
     $("#host-quiz-countdown").textContent = String(Math.max(0, remaining));
   });
@@ -280,6 +285,7 @@ function setupHostRoomQuizSocket(socket) {
   socket.on("question_between", ({ isLast } = {}) => {
     if (!roomQuizFastMode) return;
     clearTimer();
+    $("#screen-host-quiz-question")?.classList.add("fast-mode");
     showScreen("host-quiz-question");
     $("#host-quiz-answered-count").textContent = isLast
       ? "Calculating final results…"
@@ -335,15 +341,131 @@ function setupHostRoomQuizSocket(socket) {
   });
 }
 
+let hostVideoControlsReady = false;
+let hostVideoScrubbing = false;
+
+function formatHostVideoTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const totalSeconds = Math.floor(seconds);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function updateHostVideoControls() {
+  const screen = $("#screen-host-video");
+  const video = $("#host-video-player");
+  const scrubber = $("#host-video-scrubber");
+  const current = $("#host-video-current");
+  const duration = $("#host-video-duration");
+  const play = $("#host-video-play");
+  const mute = $("#host-video-mute");
+  if (!screen || !video || !scrubber) return;
+
+  const videoDuration = Number.isFinite(video.duration) ? video.duration : 0;
+  const progress = videoDuration > 0 ? video.currentTime / videoDuration : 0;
+  const progressValue = Math.round(progress * 1000);
+
+  if (!hostVideoScrubbing) {
+    scrubber.value = String(progressValue);
+  }
+  scrubber.style.setProperty("--host-video-progress", `${Math.max(0, Math.min(100, progress * 100))}%`);
+  if (current) current.textContent = formatHostVideoTime(video.currentTime);
+  if (duration) duration.textContent = formatHostVideoTime(videoDuration);
+  screen.classList.toggle("is-playing", !video.paused && !video.ended);
+  screen.classList.toggle("is-muted", video.muted || video.volume === 0);
+  if (play) play.setAttribute("aria-label", video.paused ? "Play video" : "Pause video");
+  if (mute) mute.setAttribute("aria-label", video.muted || video.volume === 0 ? "Unmute video" : "Mute video");
+}
+
+function seekHostVideoFromScrubber() {
+  const video = $("#host-video-player");
+  const scrubber = $("#host-video-scrubber");
+  if (!video || !scrubber || !Number.isFinite(video.duration) || video.duration <= 0) return;
+  const progress = Number(scrubber.value) / Number(scrubber.max || 1000);
+  video.currentTime = Math.max(0, Math.min(video.duration, video.duration * progress));
+  scrubber.style.setProperty("--host-video-progress", `${Math.max(0, Math.min(100, progress * 100))}%`);
+  updateHostVideoControls();
+}
+
+function setupHostVideoControls() {
+  if (hostVideoControlsReady) return;
+  const video = $("#host-video-player");
+  const play = $("#host-video-play");
+  const scrubber = $("#host-video-scrubber");
+  const mute = $("#host-video-mute");
+  if (!video || !play || !scrubber || !mute) return;
+
+  hostVideoControlsReady = true;
+
+  play.addEventListener("click", () => {
+    if (video.paused || video.ended) {
+      video.play().catch(() => {
+        /* Ignore autoplay or gesture restrictions. */
+      });
+    } else {
+      video.pause();
+    }
+  });
+
+  video.addEventListener("click", () => {
+    if (video.paused || video.ended) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  });
+
+  mute.addEventListener("click", () => {
+    video.muted = !video.muted;
+    updateHostVideoControls();
+  });
+
+  scrubber.addEventListener("input", () => {
+    hostVideoScrubbing = true;
+    seekHostVideoFromScrubber();
+  });
+
+  scrubber.addEventListener("change", () => {
+    seekHostVideoFromScrubber();
+    hostVideoScrubbing = false;
+    updateHostVideoControls();
+  });
+
+  scrubber.addEventListener("pointerup", () => {
+    hostVideoScrubbing = false;
+    updateHostVideoControls();
+  });
+
+  ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "ended", "volumechange"].forEach((eventName) => {
+    video.addEventListener(eventName, updateHostVideoControls);
+  });
+}
+
+function resetHostVideoControls() {
+  const scrubber = $("#host-video-scrubber");
+  hostVideoScrubbing = false;
+  if (scrubber) {
+    scrubber.value = "0";
+    scrubber.style.setProperty("--host-video-progress", "0%");
+  }
+  updateHostVideoControls();
+}
+
 function showHostVideoExercise(exercise) {
   const url = resolvedMediaUrl(videoUrlFromExercise(exercise));
   if (!url) throw new Error("No video URL in this exercise.");
 
   $("#host-video-title").textContent = exercise.title || "Video";
   $("#host-video-subtitle").textContent = exercise.subTitle || "";
+  $("#screen-host-video")?.classList.toggle("has-subtitle", Boolean(exercise.subTitle));
   const video = $("#host-video-player");
+  video.controls = false;
   video.src = url;
   video.load();
+  setupHostVideoControls();
+  resetHostVideoControls();
+  $("#screen-host-video")?.classList.add("has-video");
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
   showScreen("host-video");
 }

@@ -38,6 +38,14 @@ const HOST_SOUND_EFFECTS = {
   pageNext: "/assets/soundeffect/Page_nextbutton.mp3",
   pageBack: "/assets/soundeffect/Page_Backforward.mp3",
 };
+const HOST_BGM_TRACKS = [
+  "/assets/bgm/BGM_1.mp3",
+  "/assets/bgm/BGM_2.mp3",
+];
+const HOST_BGM_VOLUME = 0.6;
+let hostBgmAudio = null;
+let hostBgmLastTrack = "";
+let hostBgmStarted = false;
 
 function fitHostStage() {
   const app = document.querySelector("#app.lango-host");
@@ -74,6 +82,52 @@ function playHostSoundGroup(sources, options) {
   }
 }
 
+function pickHostBgmTrack() {
+  const tracks = HOST_BGM_TRACKS.filter(Boolean);
+  if (!tracks.length) return "";
+  if (tracks.length === 1) return tracks[0];
+  let next = tracks[Math.floor(Math.random() * tracks.length)];
+  if (next === hostBgmLastTrack) {
+    next = tracks[(tracks.indexOf(next) + 1) % tracks.length];
+  }
+  hostBgmLastTrack = next;
+  return next;
+}
+
+function playNextHostBgm() {
+  if (!hostBgmAudio) return;
+  const track = pickHostBgmTrack();
+  if (!track) return;
+  hostBgmAudio.src = track;
+  hostBgmAudio.currentTime = 0;
+  const playPromise = hostBgmAudio.play();
+  if (playPromise?.catch) {
+    playPromise.catch(() => {
+      hostBgmStarted = false;
+    });
+  }
+}
+
+function startHostBgm() {
+  if (hostBgmStarted) return;
+  if (!hostBgmAudio) {
+    hostBgmAudio = new Audio();
+    hostBgmAudio.volume = HOST_BGM_VOLUME;
+    hostBgmAudio.addEventListener("ended", playNextHostBgm);
+  }
+  hostBgmStarted = true;
+  playNextHostBgm();
+}
+
+function setupHostBgm() {
+  startHostBgm();
+  const startFromGesture = () => {
+    startHostBgm();
+  };
+  document.addEventListener("pointerdown", startFromGesture);
+  document.addEventListener("keydown", startFromGesture);
+}
+
 function playLoginSuccessSound() {
   playHostSound(HOST_SOUND_EFFECTS.loginSuccess);
 }
@@ -108,6 +162,7 @@ function flashStartSessionArt() {
 window.addEventListener("resize", fitHostStage);
 window.visualViewport?.addEventListener("resize", fitHostStage);
 fitHostStage();
+setupHostBgm();
 
 function loadPrefs() {
   try {

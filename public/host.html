@@ -476,17 +476,58 @@
       </div>
     </section>
 
-    <section id="screen-host-video" class="screen">
-      <h2 id="host-video-title"></h2>
-      <p class="hint" id="host-video-subtitle"></p>
-      <video id="host-video-player" class="exercise-video" controls playsinline></video>
-      <button class="btn primary large" id="btn-host-video-next-exercise" type="button" hidden>Next exercise</button>
-      <button class="btn secondary" id="btn-host-video-done">Back to waiting room</button>
-      <button class="btn secondary" id="btn-start-another-video">Start another session</button>
-      <div class="screen-toolbar">
-        <button type="button" class="back-btn" id="btn-back-waiting-video">← Waiting room</button>
-        <button type="button" class="btn secondary small" id="btn-logout-video">Log out</button>
+    <section id="screen-host-video" class="screen host-video-screen">
+      <img class="host-video-bg" src="/assets/course/courseBG.png" alt="" />
+      <div class="host-video-container">
+        <header class="host-video-header">
+          <h2 class="host-video-title" id="host-video-title"></h2>
+          <p class="host-video-subtitle" id="host-video-subtitle"></p>
+        </header>
+
+        <main class="host-video-main">
+          <section class="host-video-card" aria-label="Video player">
+            <span class="host-video-sparkle" aria-hidden="true"></span>
+            <div class="host-video-frame">
+              <video id="host-video-player" class="exercise-video host-video-player" playsinline></video>
+              <svg class="host-video-placeholder" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-13Z"></path>
+                <path d="m10 8 6 4-6 4V8Z"></path>
+              </svg>
+              <div class="host-video-controls" aria-label="Video controls">
+                <button class="host-video-control-btn host-video-play-btn" id="host-video-play" type="button" aria-label="Play video">
+                  <span class="host-video-play-icon" aria-hidden="true"></span>
+                </button>
+                <span class="host-video-time" id="host-video-current">0:00</span>
+                <input
+                  class="host-video-scrubber"
+                  id="host-video-scrubber"
+                  type="range"
+                  min="0"
+                  max="1000"
+                  step="1"
+                  value="0"
+                  aria-label="Video progress"
+                />
+                <span class="host-video-time" id="host-video-duration">0:00</span>
+                <button class="host-video-control-btn host-video-mute-btn" id="host-video-mute" type="button" aria-label="Mute video">
+                  <span class="host-video-volume-icon" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </main>
       </div>
+
+      <footer class="host-video-footer">
+        <button type="button" class="host-video-footer-btn" id="btn-back-waiting-video">
+          <img class="host-video-footer-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="host-video-footer-btn" id="btn-host-video-done">
+          <span>Next</span>
+          <img class="host-video-footer-icon host-video-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+        </button>
+      </footer>
     </section>
 
     <section id="screen-host-buzzin" class="screen">

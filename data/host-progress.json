@@ -13,6 +13,22 @@
       "lastSectionId": 1,
       "lastExerciseId": 2,
       "updatedAt": "2026-06-18T04:54:29.952Z"
+    },
+    {
+      "teacherId": 835,
+      "classId": 2913,
+      "courseId": -1,
+      "completedExerciseIds": [
+        1,
+        2,
+        6
+      ],
+      "visitedSectionIds": [
+        1
+      ],
+      "lastSectionId": 1,
+      "lastExerciseId": 7,
+      "updatedAt": "2026-06-18T08:51:39.610Z"
     }
   ]
 }
