@@ -3834,6 +3834,232 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   max-width: 900px;
 }
 
+.cms-app:has(#cms-exercises-view:not([hidden])) {
+  max-width: 1200px;
+}
+
+.cms-join-gallery-wrap {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  border: 2px solid #e3eaf3;
+  background: #f8fafc;
+}
+
+.cms-join-gallery-summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1rem;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.cms-join-gallery-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cms-join-gallery-summary::before {
+  content: "▾";
+  display: inline-block;
+  margin-right: 0.35rem;
+  transition: transform 0.15s ease;
+}
+
+.cms-join-gallery-wrap:not([open]) .cms-join-gallery-summary::before {
+  transform: rotate(-90deg);
+}
+
+.cms-join-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.cms-join-preview-card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.cms-join-preview-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.cms-join-preview-caption strong {
+  font-size: 0.95rem;
+}
+
+.cms-join-screen-id {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: #e8eef5;
+  color: #334155;
+  width: fit-content;
+}
+
+.cms-join-phone {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --accent: #e94560;
+  --accent2: #0f3460;
+  --text: #eaeaea;
+  --muted: #a0a0b0;
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 20px;
+  border: 3px solid #334155;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+  min-height: 320px;
+}
+
+.cms-join-phone-screen {
+  padding: 1rem 0.75rem 1.25rem;
+  font-size: 0.72rem;
+}
+
+.cms-join-phone .timer-ring {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  border-width: 3px;
+}
+
+.cms-join-phone .q-meta {
+  font-size: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.cms-join-phone .question-text {
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.25;
+}
+
+.cms-join-phone .question-image-wrap {
+  margin-bottom: 0.5rem;
+}
+
+.cms-join-phone .question-image {
+  max-height: 72px;
+  border-radius: 8px;
+}
+
+.cms-join-phone .options-grid.player-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.cms-join-phone .option.player-btn {
+  min-height: 2.4rem;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.62rem;
+  border-radius: 8px;
+}
+
+.cms-join-phone .option .label span {
+  display: block;
+  line-height: 1.2;
+}
+
+.cms-join-phone .feedback {
+  font-size: 0.62rem;
+  margin-top: 0.5rem;
+  min-height: 0;
+}
+
+.cms-join-phone-screen--waiting .waiting {
+  text-align: center;
+}
+
+.cms-join-phone-screen--waiting h2 {
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.cms-join-phone .pulse {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 0.75rem;
+}
+
+.cms-join-phone .player-name-display {
+  font-size: 0.95rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.cms-join-phone-screen--waiting .hint,
+.cms-join-phone .cms-join-video-ref {
+  font-size: 0.62rem;
+  margin-top: 0.35rem;
+}
+
+.cms-join-phone-screen--buzzin .buzzin-topic {
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.cms-join-phone .buzzin-status {
+  font-size: 0.68rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.cms-join-phone .buzzin-join-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin-bottom: 0.65rem;
+}
+
+.cms-join-phone .buzzin-join-timer-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.cms-join-phone .buzzin-join-timer-value {
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.cms-join-phone .buzzin-btn {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 0.65rem 0.5rem;
+}
+
+@media (max-width: 1100px) {
+  .cms-join-gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .cms-join-gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cms-app:has(#cms-exercises-view:not([hidden])) {
+    max-width: 900px;
+  }
+}
+
 .cms-topbar {
   display: flex;
   align-items: center;
