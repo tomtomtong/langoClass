@@ -373,7 +373,9 @@ function initQuizJoin() {
   updateJoinButton();
 }
 
-  if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
+if (urlParams.has("preview")) {
+  /* Layout preview mode — join-preview.js drives the UI. */
+} else if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
   initRoomJoin();
   $("#btn-back-room-waiting")?.addEventListener("click", () => {
     $("#room-waiting-status").textContent = "Waiting for the teacher to start…";

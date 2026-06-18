@@ -492,7 +492,6 @@ function openSectionExercises(sectionIndex) {
   $("#cms-exercises-error").textContent = "";
   $("#cms-exercises-status").textContent = "";
   renderExerciseEditors();
-  renderJoinLayoutGallery();
 }
 
 function closeSectionExercises({ reRender = true } = {}) {
@@ -1076,144 +1075,6 @@ function renderExerciseBody(card, exercise) {
   else renderMcQuizBody(body, exercise);
 }
 
-const JOIN_LAYOUT_TYPES = ["mcquiz", "fastmcquiz", "video", "buzzin"];
-
-const JOIN_LAYOUT_META = {
-  mcquiz: {
-    label: "MC Quiz",
-    screen: "screen-player-question",
-    note: "Timer, options, leaderboard between questions",
-  },
-  fastmcquiz: {
-    label: "Fast MC Quiz",
-    screen: "screen-player-question",
-    note: "Same layout — auto-advances, no mid-quiz leaderboard",
-  },
-  video: {
-    label: "Video",
-    screen: "screen-room-waiting",
-    note: "Students stay in the waiting room while video plays on host",
-  },
-  buzzin: {
-    label: "Buzz In",
-    screen: "screen-room-buzzin",
-    note: "Buzz window, then typed answers in turn order",
-  },
-};
-
-let joinGalleryRefreshTimer = null;
-
-function sampleExerciseForJoinPreview(type) {
-  const section =
-    state.editingSectionIndex != null ? state.sections[state.editingSectionIndex] : null;
-  const fromSection = (section?.exercises || []).find((ex) => (ex.type || "mcquiz") === type);
-  if (fromSection) return fromSection;
-  return demoExercise(type);
-}
-
-function joinPreviewMcQuizHtml(exercise, { fast = false } = {}) {
-  const items = exercise.items?.length ? exercise.items : defaultExercise(exercise.type).items;
-  const item = items[0] || {};
-  const options = (item.options || []).filter((o) => String(o.text || "").trim());
-  const fallback = [
-    { text: "Option A" },
-    { text: "Option B" },
-    { text: "Option C" },
-    { text: "Option D" },
-  ];
-  const displayOptions = (options.length >= 2 ? options : fallback).slice(0, 6);
-  const optionLabels = ["A", "B", "C", "D", "E", "F"];
-  const optsHtml = displayOptions
-    .map(
-      (opt, i) => `<button type="button" class="option player-btn" data-index="${i}" disabled tabindex="-1">
-          <span class="label"><span>${optionLabels[i]} ${escapeHtml(opt.text || "")}</span></span>
-        </button>`
-    )
-    .join("");
-  const imageUrl = String(item.image || "").trim();
-  const imageHtml = imageUrl
-    ? `<div class="question-image-wrap"><img class="question-image" src="${escapeHtml(imageUrl)}" alt="" /></div>`
-    : "";
-  const qCount = items.length || 1;
-
-  return `<div class="cms-join-phone-screen">
-      <div class="timer-ring" aria-hidden="true"><span>${item.timeLimit || 15}</span></div>
-      <p class="q-meta">Question 1 of ${qCount}</p>
-      ${imageHtml}
-      <h2 class="question-text">${escapeHtml(item.title || "Question text")}</h2>
-      <div class="options-grid player-options">${optsHtml}</div>
-      <p class="feedback">${fast ? "Fast mode — next question loads automatically" : ""}</p>
-    </div>`;
-}
-
-function joinPreviewVideoHtml(exercise) {
-  const title = exercise.title || "Video lesson";
-  return `<div class="cms-join-phone-screen cms-join-phone-screen--waiting">
-      <div class="waiting">
-        <div class="pulse" aria-hidden="true"></div>
-        <h2>You're in the waiting room</h2>
-        <p class="player-name-display">Student</p>
-        <p class="hint">Room: <code>123456</code></p>
-        <p id="room-waiting-status">Watch the lesson on the teacher's screen.</p>
-        <p class="cms-join-video-ref hint">${escapeHtml(title)}</p>
-      </div>
-    </div>`;
-}
-
-function joinPreviewBuzzinHtml(exercise) {
-  const item = exercise.items?.[0] || {};
-  const topic =
-    item.topic || collectBuzzinQuestions(exercise)[0] || item.title || exercise.title || "Discussion topic";
-  return `<div class="cms-join-phone-screen cms-join-phone-screen--buzzin">
-      <p class="buzzin-topic">${escapeHtml(topic)}</p>
-      <div class="buzzin-play-area">
-        <p class="buzzin-status">Get ready to buzz in…</p>
-        <div class="buzzin-join-timer">
-          <span class="buzzin-join-timer-label">Buzz in</span>
-          <span class="buzzin-join-timer-value">20</span>
-        </div>
-        <button type="button" class="btn buzzin-btn" disabled tabindex="-1">BUZZ IN!</button>
-      </div>
-    </div>`;
-}
-
-function joinPreviewHtmlForType(type) {
-  const exercise = sampleExerciseForJoinPreview(type);
-  if (type === "video") return joinPreviewVideoHtml(exercise);
-  if (type === "buzzin") return joinPreviewBuzzinHtml(exercise);
-  if (type === "fastmcquiz") return joinPreviewMcQuizHtml(exercise, { fast: true });
-  return joinPreviewMcQuizHtml(exercise);
-}
-
-function renderJoinLayoutGallery() {
-  const gallery = $("#cms-join-gallery");
-  if (!gallery || state.editingSectionIndex == null) return;
-
-  gallery.innerHTML = JOIN_LAYOUT_TYPES.map((type) => {
-    const meta = JOIN_LAYOUT_META[type];
-    return `<figure class="cms-join-preview-card" data-join-type="${type}">
-      <figcaption class="cms-join-preview-caption">
-        <strong>${escapeHtml(meta.label)}</strong>
-        <code class="cms-join-screen-id">${escapeHtml(meta.screen)}</code>
-        <span class="hint">${escapeHtml(meta.note)}</span>
-      </figcaption>
-      <div class="cms-join-phone" aria-label="${escapeHtml(meta.label)} student preview">
-        ${joinPreviewHtmlForType(type)}
-      </div>
-    </figure>`;
-  }).join("");
-}
-
-function scheduleJoinLayoutGalleryRefresh() {
-  if (joinGalleryRefreshTimer) clearTimeout(joinGalleryRefreshTimer);
-  joinGalleryRefreshTimer = setTimeout(() => {
-    joinGalleryRefreshTimer = null;
-    if (state.editingSectionIndex == null) return;
-    syncExercisesFromDom();
-    renderJoinLayoutGallery();
-  }, 250);
-}
-
 function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesContainer) {
   const tpl = document.getElementById("tpl-exercise-editor");
   const card = tpl.content.firstElementChild.cloneNode(true);
@@ -1343,14 +1204,12 @@ function renderExerciseEditors() {
   const exercises = section.exercises || [];
   if (!exercises.length) {
     container.innerHTML = `<p class="hint">No exercises yet. Choose a type and click “Add exercise”.</p>`;
-    renderJoinLayoutGallery();
     return;
   }
 
   exercises.forEach((exercise, exerciseIndex) => {
     renderExerciseCard(exercise, sectionIndex, exerciseIndex, container);
   });
-  renderJoinLayoutGallery();
 }
 
 function setupSectionDrag(sectionCard, container) {
@@ -1521,9 +1380,6 @@ $("#btn-add-exercise").addEventListener("click", addExercise);
 $("#btn-back-sections").addEventListener("click", () => closeSectionExercises());
 $("#btn-save-sections").addEventListener("click", saveSections);
 $("#btn-save-exercises").addEventListener("click", saveExercises);
-
-$("#cms-exercise-list")?.addEventListener("input", scheduleJoinLayoutGalleryRefresh);
-$("#cms-exercise-list")?.addEventListener("change", scheduleJoinLayoutGalleryRefresh);
 
 document.querySelectorAll(".cms-tab").forEach((tab) => {
   tab.addEventListener("click", () => switchTab(tab.dataset.tab));
