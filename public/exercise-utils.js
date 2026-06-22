@@ -185,6 +185,21 @@ function exerciseMetaLabel(exercise) {
   return parts.join(" · ");
 }
 
+/** Join preview layout id for an exercise type (join.html?preview=1). */
+function joinPreviewLayoutForExercise(exercise) {
+  if (isVideoExercise(exercise)) return "video";
+  if (isBuzzinExercise(exercise)) return "buzzin-join";
+  if (isLiveMcQuizExercise(exercise)) return "mc-question";
+  return "mc-question";
+}
+
+function joinPreviewUrl(layoutId) {
+  const url = new URL("/join.html", window.location.origin);
+  url.searchParams.set("preview", "1");
+  if (layoutId) url.searchParams.set("layout", layoutId);
+  return `${url.pathname}${url.search}`;
+}
+
 const mediaBlobCache = new Map();
 
 function resolvedMediaUrl(url) {

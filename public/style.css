@@ -4240,6 +4240,18 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   margin-bottom: 1.25rem;
 }
 
+.cms-exercise-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.cms-exercise-preview-all {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 .cms-exercise-add {
   display: flex;
   gap: 0.75rem;
@@ -4453,6 +4465,14 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 0.75rem;
+}
+
+.cms-exercise-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--accent2);
 }
 
 .cms-drag-handle {

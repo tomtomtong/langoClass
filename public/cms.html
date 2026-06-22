@@ -14,6 +14,7 @@
       <a class="cms-brand" href="/cms.html">Course CMS</a>
       <div class="cms-topbar-actions">
         <a class="cms-link" href="/host.html">← Back to host</a>
+        <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener">Student preview ↗</a>
         <a class="cms-link" href="/config.html">Notification config</a>
         <span class="cms-teacher" id="cms-teacher-label" hidden></span>
         <button type="button" class="btn secondary small cms-logout" id="btn-cms-logout" hidden>Log out</button>
@@ -115,7 +116,9 @@
           <h2 class="cms-subview-title" id="cms-exercises-section-title">Section exercises</h2>
           <div class="cms-exercise-toolbar">
             <span class="hint">Add blank templates or ready-to-use demos, then save when done.</span>
-            <div class="cms-exercise-add">
+            <div class="cms-exercise-toolbar-row">
+              <a class="cms-link cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener">Preview all student layouts ↗</a>
+              <div class="cms-exercise-add">
               <select id="cms-new-exercise-type">
                 <optgroup label="Blank template">
                   <option value="mcquiz">MC Quiz</option>
@@ -131,6 +134,7 @@
                 </optgroup>
               </select>
               <button type="button" class="btn secondary small" id="btn-add-exercise">+ Add exercise</button>
+              </div>
             </div>
           </div>
           <div id="cms-exercise-list" class="cms-exercise-list"></div>
@@ -190,6 +194,9 @@
         </label>
       </div>
       <div class="cms-exercise-body"></div>
+      <footer class="cms-exercise-footer">
+        <a class="btn secondary small cms-exercise-preview" target="_blank" rel="noopener">Preview student layout ↗</a>
+      </footer>
     </article>
   </template>
 

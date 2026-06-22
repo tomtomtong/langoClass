@@ -1092,6 +1092,11 @@ function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesCont
 
   renderExerciseBody(card, exercise);
 
+  const previewLink = card.querySelector(".cms-exercise-preview");
+  if (previewLink) {
+    previewLink.href = joinPreviewUrl(joinPreviewLayoutForExercise(exercise));
+  }
+
   card.querySelector(".cms-remove-exercise").addEventListener("click", () => {
     const exerciseId = card.dataset.exerciseId;
     syncExercisesFromDom();
