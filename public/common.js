@@ -88,7 +88,44 @@ function getScreenTransitionLayer() {
     layer.setAttribute("aria-hidden", "true");
     app.appendChild(layer);
   }
+
+  if (document.body.classList.contains("join-page") && !layer.querySelector(".join-transition-cast")) {
+    const cast = document.createElement("div");
+    cast.className = "join-transition-cast";
+
+    [1, 2, 3, 4].forEach((pose) => {
+      const image = document.createElement("img");
+      image.className = "join-transition-tommy";
+      image.src = `/assets/transitions/user_uncletommy_${pose}.png`;
+      image.alt = "";
+      image.decoding = "async";
+      image.loading = "eager";
+      cast.appendChild(image);
+    });
+
+    layer.appendChild(cast);
+  }
   return layer;
+}
+
+if (document.body?.classList.contains("join-page")) {
+  getScreenTransitionLayer();
+}
+
+function selectJoinTransitionCharacter(layer) {
+  const characters = [...(layer?.querySelectorAll(".join-transition-tommy") || [])];
+  if (!characters.length) return;
+
+  const previous = Number(layer.dataset.tommyPose ?? -1);
+  let next = Math.floor(Math.random() * characters.length);
+  if (characters.length > 1 && next === previous) {
+    next = (next + 1 + Math.floor(Math.random() * (characters.length - 1))) % characters.length;
+  }
+
+  layer.dataset.tommyPose = String(next);
+  characters.forEach((character, index) => {
+    character.classList.toggle("is-active", index === next);
+  });
 }
 
 function activateScreen(id) {
@@ -118,6 +155,7 @@ function showScreen(id) {
     .catch(() => {})
     .then(async () => {
       layer.classList.remove("is-playing");
+      selectJoinTransitionCharacter(layer);
       void layer.offsetWidth;
       layer.classList.add("is-playing");
       await wait(920);
@@ -432,19 +470,41 @@ function showPlayerMcqAnsweredState(answerIndex) {
   const screen = $("#screen-player-question");
   const title = $("#player-mcq-title");
   const label = $("#player-selected-answer-label");
-  const timer = $("#timer-text");
   const timerRing = $("#timer-ring");
   const buttons = $("#player-options")?.querySelectorAll(".player-btn") || [];
 
   screen?.classList.add("is-answered");
   if (title) title.textContent = "Quick Questions";
   if (label) label.hidden = false;
-  if (timer) timer.textContent = "0";
   timerRing?.classList.remove("urgent");
   buttons.forEach((button, index) => {
     button.disabled = true;
     button.classList.toggle("selected", index === answerIndex);
   });
+}
+
+function startDeadlineTimer(endsAt, fallbackSeconds, onTick, onEnd) {
+  clearTimer();
+  const fallback = Math.max(0, Number(fallbackSeconds) || 0);
+  const deadline = Number(endsAt) || Date.now() + fallback * 1000;
+  let lastRemaining = null;
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    if (remaining !== lastRemaining) {
+      lastRemaining = remaining;
+      onTick(remaining);
+    }
+    if (remaining <= 0) {
+      clearTimer();
+      onEnd?.();
+    }
+  };
+
+  tick();
+  if (lastRemaining > 0) {
+    window._timerInterval = setInterval(tick, 200);
+  }
 }
 
 function startTimer(seconds, onTick, onEnd) {

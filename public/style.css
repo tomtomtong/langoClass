@@ -136,6 +136,58 @@ html:has(body.join-page) {
   animation: joinGameSparkBurst 1.18s ease-out forwards;
 }
 
+.join-transition-cast {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.join-transition-tommy {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(280px, 88vw, 560px);
+  max-height: 82vh;
+  height: auto;
+  opacity: 0;
+  object-fit: contain;
+  transform: translate(-50%, 55%) scale(0.52) rotate(-5deg);
+  transform-origin: 50% 50%;
+  filter:
+    drop-shadow(0 10px 5px rgba(65, 33, 107, 0.34))
+    drop-shadow(0 0 14px rgba(255, 114, 189, 0.75));
+  will-change: transform, opacity;
+}
+
+.join-page .host-page-transition.is-playing .join-transition-tommy.is-active {
+  animation: joinTommyJump 1.08s cubic-bezier(0.16, 1, 0.3, 1) 30ms both;
+}
+
+@keyframes joinTommyJump {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 55%) scale(0.52) rotate(-5deg);
+  }
+  34% {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.08) rotate(1deg);
+  }
+  58% {
+    opacity: 1;
+    transform: translate(-50%, -47%) scale(0.98) rotate(-1deg);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -66%) scale(0.96) rotate(2deg);
+  }
+}
+
 @keyframes joinGamePortal {
   0% {
     opacity: 0;
@@ -897,13 +949,6 @@ h2 {
 @keyframes pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.1); opacity: 0.7; }
-}
-
-.player-name-display {
-  font-size: 1.5rem;
-  font-weight: 900;
-  color: var(--accent);
-  margin: 0.5rem 0 1rem;
 }
 
 /* Figma frame 124:15636 — uses the shared join-page background like MC quiz screens. */
@@ -1708,6 +1753,11 @@ body.join-preview-mode.join-preview-toolbar-open {
   color: #f33b3d;
 }
 
+#screen-player-question.is-answered .timer-ring.urgent {
+  border-color: #feca57;
+  color: #ff9f43;
+}
+
 .player-mcq-options-wrap {
   width: 100%;
   padding: 0 20px;
@@ -2005,9 +2055,9 @@ body.join-preview-mode.join-preview-toolbar-open {
   line-height: normal;
   letter-spacing: 0.9px;
   text-align: center;
-  -webkit-text-stroke: 4px rgba(190, 81, 205, 0.7);
+  -webkit-text-stroke: 4px #c46ed3;
   paint-order: stroke fill;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .player-mcq-result-help {
@@ -2071,19 +2121,22 @@ body.join-preview-mode.join-preview-toolbar-open {
 
 #screen-player-results .result-msg {
   margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: #fff;
   font-size: 40px;
   font-weight: 900;
   line-height: normal;
   letter-spacing: 0.9px;
   text-align: center;
-  -webkit-text-stroke: 5px #e978c5;
+  -webkit-text-stroke: 4px #e978c5;
   paint-order: stroke fill;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 #screen-player-results.is-wrong .result-msg {
-  -webkit-text-stroke-color: #e978c5;
+  color: #fff;
 }
 
 #screen-player-results.is-wrong .player-mcq-result-points {
@@ -2111,9 +2164,9 @@ body.join-preview-mode.join-preview-toolbar-open {
   line-height: normal;
   letter-spacing: 0.75px;
   text-align: center;
-  -webkit-text-stroke: 4px #fff;
+  -webkit-text-stroke: 3px #fff;
   paint-order: stroke fill;
-  filter: drop-shadow(1.67px 1.67px 1.5px rgba(0, 0, 0, 0.3));
+  filter: none;
 }
 
 .player-mcq-result-encouragement {
@@ -2124,9 +2177,9 @@ body.join-preview-mode.join-preview-toolbar-open {
   line-height: normal;
   letter-spacing: 0.9px;
   text-align: center;
-  -webkit-text-stroke: 5px #b11980;
+  -webkit-text-stroke: 4px #b11980;
   paint-order: stroke fill;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .player-mcq-result-data {
@@ -2278,6 +2331,7 @@ body.join-preview-mode.join-preview-toolbar-open {
 
   #screen-player-results .result-msg {
     font-size: clamp(26px, 8vw, 38px);
+    -webkit-text-stroke-width: 3px;
     white-space: normal;
   }
 
@@ -2292,6 +2346,7 @@ body.join-preview-mode.join-preview-toolbar-open {
 
   .player-mcq-result-encouragement {
     font-size: 28px;
+    -webkit-text-stroke-width: 3px;
   }
 }
 
@@ -2534,7 +2589,7 @@ body.join-preview-mode.join-preview-toolbar-open {
   .player-mcq-result-encouragement {
     align-self: start;
     font-size: 24px;
-    -webkit-text-stroke-width: 4px;
+    -webkit-text-stroke-width: 3px;
   }
 }
 
@@ -8846,13 +8901,19 @@ body:has(#app.lango-host) {
   position: absolute;
   left: 0;
   right: 0;
-  top: 410px;
+  top: 350px;
   bottom: 120px;
   width: 100%;
   display: block;
   overflow-x: hidden;
-  overflow-y: hidden;
-  padding: 0;
+  overflow-y: auto;
+  padding: 0 0 20px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#app.lango-host .course-grid-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 #app.lango-host .course-grid {
@@ -9499,39 +9560,38 @@ body:has(#app.lango-host) {
 
 #app.lango-host .section-road-content {
   position: relative;
-  min-height: 244px;
-  padding: 42px 28px 34px;
-  border: 8px solid rgba(184, 128, 255, 0.76);
-  border-radius: 50px;
+  min-height: 220px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow:
-    8px 8px 0 rgba(184, 128, 255, 0.28),
-    0 12px 28px rgba(112, 68, 150, 0.14);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: transform 180ms ease, filter 180ms ease;
 }
 
-#app.lango-host .section-road-card:hover .section-road-content,
+#app.lango-host .section-road-card:not(.section-road-card--locked):not(.section-road-card--empty):hover .section-road-content,
 #app.lango-host .section-road-card.active .section-road-content {
-  transform: translateY(-5px);
-  border-color: rgba(252, 125, 186, 0.9);
-  box-shadow: 3px 12px 48px rgba(255, 177, 237, 0.98);
+  transform: translateY(-7px) scale(1.04);
+  filter: drop-shadow(0 12px 18px rgba(112, 68, 150, 0.25));
 }
 
 #app.lango-host .section-road-card--empty {
-  opacity: 0.7;
+  opacity: 1;
 }
 
-#app.lango-host .section-road-card--locked,
 #app.lango-host .course-pick-card--locked {
   opacity: 0.72;
   filter: grayscale(0.35);
+}
+
+#app.lango-host .section-road-card--locked {
+  opacity: 1;
+  filter: none;
 }
 
 #app.lango-host .course-pick-select--locked,
@@ -9562,12 +9622,61 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .section-road-thumb {
-  width: 110px;
-  height: 110px;
-  border: 4px solid #96e5dd;
+  display: block;
+  width: 220px;
+  height: 220px;
+  border: 0;
+  border-radius: 36px;
+  object-fit: contain;
+  background: transparent;
+  filter: drop-shadow(0 12px 12px rgba(52, 67, 86, 0.2));
+}
+
+#app.lango-host .section-road-thumb-button {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
-  object-fit: cover;
-  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.7), #5da7ff);
+  background: transparent;
+  cursor: pointer;
+}
+
+#app.lango-host .section-road-thumb-button:focus-visible {
+  outline: 6px solid #feca57;
+  outline-offset: 5px;
+}
+
+#app.lango-host .section-road-thumb-button:disabled {
+  cursor: not-allowed;
+}
+
+#app.lango-host .section-road-thumb-button:disabled .section-road-thumb {
+  opacity: 0.58;
+  filter: grayscale(1) drop-shadow(0 10px 10px rgba(52, 67, 86, 0.14));
+}
+
+#app.lango-host .section-road-lock {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 76px;
+  height: 76px;
+  border: 5px solid rgba(255, 255, 255, 0.8);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(52, 67, 86, 0.82);
+  box-shadow: 0 8px 18px rgba(31, 41, 55, 0.35);
+  transform: translate(-50%, -50%);
+}
+
+#app.lango-host .section-road-lock svg {
+  width: 43px;
+  height: 43px;
+  fill: currentColor;
 }
 
 #app.lango-host .section-road-thumb--empty {
@@ -9774,17 +9883,16 @@ body:has(#app.lango-host) {
   box-shadow: 0 6px 3px rgba(0, 0, 0, 0.25);
 }
 
+#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item--completed:not(.active),
+#app.lango-host .section-exercise-panel .exercise-item--completed:not(.active) {
+  background: linear-gradient(101deg, #d21bc8 0%, #7c3aed 100%);
+}
+
 #app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active,
-#app.lango-host .section-exercise-panel .exercise-item.active,
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item:first-child {
+#app.lango-host .section-exercise-panel .exercise-item.active {
   opacity: 1;
   background: linear-gradient(101deg, #b11980 2.8%, #743c9b 89%);
   box-shadow: 0 6px 3px rgba(0, 0, 0, 0.25);
-}
-
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item:nth-child(2).active,
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item:nth-child(2) {
-  background: linear-gradient(101deg, #d21bc8 0%, #7c3aed 100%);
 }
 
 #app.lango-host .section-exercise-panel .exercise-item:hover:not(.active) {
@@ -9813,9 +9921,7 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-num,
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item:first-child .exercise-item-num,
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-title,
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item:first-child .exercise-item-title {
+#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-title {
   color: #fff;
 }
 
@@ -9840,8 +9946,7 @@ body:has(#app.lango-host) {
   opacity: 1;
 }
 
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-sub,
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item:first-child .exercise-item-sub {
+#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-sub {
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -9852,8 +9957,7 @@ body:has(#app.lango-host) {
   text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
 }
 
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-pts,
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item:first-child .exercise-item-pts {
+#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-pts {
   color: #feca57;
 }
 

@@ -204,7 +204,7 @@ function renderHostQuizQuestion(data, { preparing = false } = {}) {
     : isFastMode
       ? "Quick answers in progress…"
       : "Students are answering…";
-  startTimer(data.timeLimit || 5, (remaining) => {
+  startDeadlineTimer(data.endsAt, data.timeLimit || 5, (remaining) => {
     $("#host-quiz-countdown").textContent = String(Math.max(0, remaining));
   });
 }
@@ -421,6 +421,14 @@ function setupHostVideoControls() {
     updateHostVideoControls();
   });
 
+  video.addEventListener("play", () => {
+    if (typeof fadeOutHostBgm === "function") fadeOutHostBgm();
+  });
+
+  video.addEventListener("ended", () => {
+    if (typeof fadeInHostBgm === "function") fadeInHostBgm();
+  });
+
   scrubber.addEventListener("input", () => {
     hostVideoScrubbing = true;
     seekHostVideoFromScrubber();
@@ -452,6 +460,13 @@ function resetHostVideoControls() {
   updateHostVideoControls();
 }
 
+function stopHostVideoPlayback() {
+  const video = $("#host-video-player");
+  if (!video) return;
+  video.pause();
+  updateHostVideoControls();
+}
+
 function showHostVideoExercise(exercise) {
   const url = resolvedMediaUrl(videoUrlFromExercise(exercise));
   if (!url) throw new Error("No video URL in this exercise.");
@@ -461,12 +476,16 @@ function showHostVideoExercise(exercise) {
   $("#screen-host-video")?.classList.toggle("has-subtitle", Boolean(exercise.subTitle));
   const video = $("#host-video-player");
   video.controls = false;
+  video.defaultMuted = false;
+  video.muted = false;
+  video.volume = 1;
   video.src = url;
   video.load();
   setupHostVideoControls();
   resetHostVideoControls();
   $("#screen-host-video")?.classList.add("has-video");
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
+  if (typeof fadeOutHostBgm === "function") fadeOutHostBgm();
   showScreen("host-video");
 }
 
@@ -482,6 +501,7 @@ function showHostBuzzinExercise(exercise, roomId) {
 
 function startHostExercise(roomId, exercise) {
   if (isLiveMcQuizExercise(exercise)) {
+    if (typeof fadeInHostBgm === "function") fadeInHostBgm();
     return startHostRoomQuiz(roomId, exercise);
   }
   if (isVideoExercise(exercise)) {
@@ -489,6 +509,7 @@ function startHostExercise(roomId, exercise) {
     return Promise.resolve();
   }
   if (isBuzzinExercise(exercise)) {
+    if (typeof fadeInHostBgm === "function") fadeInHostBgm();
     return showHostBuzzinExercise(exercise, roomId);
   }
   return Promise.reject(new Error(`Unsupported exercise type: ${exercise?.type || "unknown"}`));

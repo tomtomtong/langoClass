@@ -477,13 +477,17 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
 function emitCurrentQuestion(socket, game) {
   const question = game.quiz.questions[game.currentQuestionIndex];
   if (!question) return;
+  const timeLimitSeconds = question.timeLimit || 15;
 
   socket.emit("question_start", {
     questionIndex: game.currentQuestionIndex,
     totalQuestions: game.quiz.questions.length,
     text: question.text,
     options: question.options,
-    timeLimit: question.timeLimit || 15,
+    timeLimit: timeLimitSeconds,
+    endsAt: game.questionStartedAt
+      ? game.questionStartedAt + timeLimitSeconds * 1000
+      : Date.now() + timeLimitSeconds * 1000,
     points: game.fastMode ? 500 : 300,
     image: question.image || null,
   });
@@ -664,6 +668,7 @@ function startQuestion(game) {
     text: question.text,
     options: question.options,
     timeLimit: question.timeLimit || 15,
+    endsAt: game.questionStartedAt + timeLimit,
     points: game.fastMode ? 500 : 300,
     image: question.image || null,
   });

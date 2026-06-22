@@ -14,7 +14,6 @@
     { id: "join-room", label: "Join — Room code" },
     { id: "room-waiting", label: "Waiting room" },
     { id: "room-passive-waiting", label: "Passive waiting — video" },
-    { id: "player-lobby", label: "Quiz lobby" },
     { id: "mc-question", label: "MC Quiz — question" },
     { id: "mc-answered", label: "MC Quiz — answered" },
     { id: "mc-results", label: "MC Quiz — correct result" },
@@ -136,13 +135,6 @@
         showPreviewScreen("room-passive-waiting");
         break;
 
-      case "player-lobby":
-        $("#player-name-display").textContent = "Alex (preview)";
-        $("#lobby-status").textContent = "Waiting for host to start…";
-        $("#player-quiz-title").textContent = "Demo: Ocean Animals Quiz";
-        showPreviewScreen("player-lobby");
-        break;
-
       case "mc-question":
         resetPlayerMcqAnsweredState();
         showPreviewScreen("player-question");
@@ -172,6 +164,7 @@
         $("#player-q-meta").textContent = "Question 1 of 3";
         $("#player-question-text").textContent = SAMPLE.question;
         $("#answer-feedback").textContent = "Answer locked in!";
+        $("#timer-text").textContent = "8";
         renderOptions($("#player-options"), SAMPLE.options, {
           clickable: true,
           optionLabels: ["A.", "B.", "C.", "D."],

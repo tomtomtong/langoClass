@@ -340,18 +340,17 @@ function setupRoomPlayerQuiz(socket) {
         showPlayerMcqAnsweredState(index);
         socket.emit("submit_answer", { answerIndex: index });
         $("#answer-feedback").textContent = "Answer locked in!";
-        clearTimer();
       },
     });
 
-    startTimer(
+    startDeadlineTimer(
+      data.endsAt,
       data.timeLimit,
       (remaining) => {
         $("#timer-text").textContent = remaining;
         $("#timer-ring").classList.toggle("urgent", remaining <= 5);
       },
       () => {
-        resetPlayerMcqAnsweredState();
         $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
         $("#answer-feedback").textContent = "Time's up!";
       }

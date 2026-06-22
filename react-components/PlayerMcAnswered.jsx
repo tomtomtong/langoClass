@@ -12,6 +12,7 @@ const DEFAULT_OPTIONS = [
 const OPTION_LABELS = ["A.", "B.", "C.", "D.", "E.", "F."];
 
 export default function PlayerMcAnswered({
+  countdown = 5,
   selectedIndex = 0,
   question = "What is the process by which plants make their own food?",
   options = DEFAULT_OPTIONS,
@@ -25,9 +26,9 @@ export default function PlayerMcAnswered({
         </header>
 
         <main className="playerMcq__main">
-          <section className="playerMcq__timerCard" aria-label="Time remaining: 0 seconds">
+          <section className="playerMcq__timerCard" aria-label={`Time remaining: ${countdown} seconds`}>
             <span className="playerMcq__sparkle" aria-hidden="true" />
-            <div className="playerMcq__timer" aria-hidden="true">0</div>
+            <div className="playerMcq__timer" aria-hidden="true">{countdown}</div>
           </section>
 
           <p className="playerMcqAnswered__label">Selected answer</p>

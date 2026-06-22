@@ -42,10 +42,12 @@ const HOST_BGM_TRACKS = [
   "/assets/bgm/BGM_1.mp3",
   "/assets/bgm/BGM_2.mp3",
 ];
-const HOST_BGM_VOLUME = 0.6;
+const HOST_BGM_VOLUME = 0.3;
+const HOST_BGM_FADE_MS = 700;
 let hostBgmAudio = null;
 let hostBgmLastTrack = "";
 let hostBgmStarted = false;
+let hostBgmFadeFrame = null;
 
 function fitHostStage() {
   const app = document.querySelector("#app.lango-host");
@@ -117,6 +119,62 @@ function startHostBgm() {
   }
   hostBgmStarted = true;
   playNextHostBgm();
+}
+
+function fadeHostBgmTo(targetVolume, { pauseAtEnd = false } = {}) {
+  if (!hostBgmAudio) {
+    if (targetVolume <= 0) return;
+    startHostBgm();
+  }
+  if (!hostBgmAudio) return;
+
+  if (hostBgmFadeFrame != null) {
+    cancelAnimationFrame(hostBgmFadeFrame);
+    hostBgmFadeFrame = null;
+  }
+
+  const audio = hostBgmAudio;
+  const target = Math.max(0, Math.min(1, targetVolume));
+  const startVolume = audio.volume;
+  const startedAt = performance.now();
+
+  if (target > 0 && audio.paused) {
+    hostBgmStarted = true;
+    const playPromise = audio.play();
+    if (playPromise?.catch) {
+      playPromise.catch(() => {
+        hostBgmStarted = false;
+      });
+    }
+  }
+
+  const step = (now) => {
+    const progress = Math.min(1, (now - startedAt) / HOST_BGM_FADE_MS);
+    audio.volume = startVolume + (target - startVolume) * progress;
+
+    if (progress < 1) {
+      hostBgmFadeFrame = requestAnimationFrame(step);
+      return;
+    }
+
+    hostBgmFadeFrame = null;
+    audio.volume = target;
+    if (pauseAtEnd && target === 0) audio.pause();
+  };
+
+  hostBgmFadeFrame = requestAnimationFrame(step);
+}
+
+function fadeOutHostBgm() {
+  fadeHostBgmTo(0, { pauseAtEnd: true });
+}
+
+function fadeInHostBgm() {
+  if (!hostBgmAudio) startHostBgm();
+  if (!hostBgmAudio) return;
+
+  if (hostBgmAudio.paused) hostBgmAudio.volume = 0;
+  fadeHostBgmTo(HOST_BGM_VOLUME);
 }
 
 function setupHostBgm() {
@@ -671,7 +729,7 @@ function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) 
   container.className = "section-road";
   container.innerHTML = renderSectionRoad(sections, { selectedId, playableSections });
 
-  container.querySelectorAll(".course-pick-select:not([disabled])").forEach((btn) => {
+  container.querySelectorAll(".section-road-select-target:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       playPageNextSound();
@@ -805,19 +863,26 @@ function renderSectionRoadCard(section, { selectedId, index, locked = false }) {
   const active = section.id === selectedId ? " active" : "";
   const banner = sectionBanner(section);
   const hasExercises = (section.exercises || []).length > 0;
-  const thumbnail = banner
+  const buttonLabel = !hasExercises || locked ? "Locked" : "Start";
+  const disabled = !hasExercises || locked ? "disabled" : "";
+  const thumbnailContent = banner
     ? `<img class="section-road-thumb" src="${escapeHtml(banner)}" alt="" />`
     : `<span class="section-road-thumb section-road-thumb--empty" aria-hidden="true"></span>`;
-  const buttonLabel = locked ? "Locked" : "Start";
-  const buttonClass = locked ? "section-road-button course-pick-select course-pick-select--locked" : "section-road-button course-pick-select";
-  const disabled = !hasExercises || locked ? "disabled" : "";
+  const lockIcon = disabled
+    ? `<span class="section-road-lock" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M7 10V8a5 5 0 0 1 10 0v2h1.25A1.75 1.75 0 0 1 20 11.75v8.5A1.75 1.75 0 0 1 18.25 22H5.75A1.75 1.75 0 0 1 4 20.25v-8.5A1.75 1.75 0 0 1 5.75 10H7Zm2.5 0h5V8a2.5 2.5 0 0 0-5 0v2Zm2.5 3.5a2 2 0 0 0-1 3.73V19h2v-1.77a2 2 0 0 0-1-3.73Z" />
+        </svg>
+      </span>`
+    : "";
+  const thumbnail = `<button type="button" class="section-road-thumb-button section-road-select-target" data-id="${section.id}" aria-label="${buttonLabel} section" ${disabled}>
+    ${thumbnailContent}
+    ${lockIcon}
+  </button>`;
 
   return `<article class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}${locked ? " section-road-card--locked" : ""}" style="--section-x: ${index * 360}px;">
     <div class="section-road-content">
       ${thumbnail}
-      <button type="button" class="${buttonClass}" data-id="${section.id}" ${disabled}>
-        ${buttonLabel}
-      </button>
     </div>
   </article>`;
 }
@@ -1735,6 +1800,7 @@ async function handleStartNextExercise() {
   const next = getNextExerciseAfter(state.selectedExercise);
   if (!next || !state.activeRoomId) return;
 
+  if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   playPageNextSound();
   $("#waiting-error").textContent = "";
   if (state.selectedExercise?.id) {
@@ -1807,6 +1873,8 @@ async function handleStartClass() {
 }
 
 function handleLogout() {
+  if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
+  fadeInHostBgm();
   stopWaitingPoll();
   disconnectHostSession();
   state.activeRoomId = null;
@@ -1939,6 +2007,8 @@ $("#btn-start-another-quiz")?.addEventListener("click", () => {
 });
 
 function showHostExerciseFinishedScreen(payload) {
+  if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
+  fadeInHostBgm();
   markCurrentHostExerciseCompleted();
   showExerciseLeaderboards({
     exerciseLeaderboard: payload?.exerciseLeaderboard,
@@ -1966,6 +2036,8 @@ function wrapUpRoomExercise(callback) {
 }
 
 function returnHostToWaitingRoom() {
+  if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
+  fadeInHostBgm();
   refreshNextExerciseUi();
   showScreen("waiting");
   setActiveStep("waiting");

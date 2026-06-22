@@ -252,9 +252,12 @@ function initQuizJoin() {
       }
 
       myPlayerId = res.playerId;
-      $("#player-name-display").textContent = nickname;
-      $("#player-quiz-title").textContent = res.quizTitle;
-      showScreen("player-lobby");
+      $("#room-waiting-title").textContent = res.quizTitle || "Waiting Room";
+      $("#room-player-name").textContent = nickname;
+      $("#room-id-display").textContent = pin;
+      $("#room-waiting-status").textContent = "Waiting for host to start…";
+      $("#btn-leave-room").hidden = true;
+      showScreen("room-waiting");
     });
   }
 
@@ -269,7 +272,7 @@ function initQuizJoin() {
 
   socket.on("game_starting", ({ fastMode } = {}) => {
     quizFastMode = !!fastMode;
-    $("#lobby-status").textContent = "Get ready…";
+    $("#room-waiting-status").textContent = "Get ready…";
   });
 
   socket.on("question_start", (data) => {
@@ -289,18 +292,17 @@ function initQuizJoin() {
         showPlayerMcqAnsweredState(index);
         socket.emit("submit_answer", { answerIndex: index });
         $("#answer-feedback").textContent = "Answer locked in!";
-        clearTimer();
       },
     });
 
-    startTimer(
+    startDeadlineTimer(
+      data.endsAt,
       data.timeLimit,
       (remaining) => {
         $("#timer-text").textContent = remaining;
         $("#timer-ring").classList.toggle("urgent", remaining <= 5);
       },
       () => {
-        resetPlayerMcqAnsweredState();
         $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
         $("#answer-feedback").textContent = "Time's up!";
       }

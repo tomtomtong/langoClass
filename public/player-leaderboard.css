@@ -287,3 +287,112 @@
   .player-leaderboard__tab,
   .player-leaderboard__action { transition: none; }
 }
+
+/* Shared join-page treatment: a soft gradient travels around all four card edges. */
+@property --join-edge-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.join-page :is(
+  .general-waiting-ui__message-card,
+  .passive-waiting-ui__message-card,
+  .player-mcq-timer-card,
+  .player-mcq-result-card,
+  #screen-player-question .option.player-btn,
+  .player-leaderboard__panel,
+  .player-leaderboard__row,
+  .buzzin-play-area,
+  .buzzin-join-timer,
+  .buzzin-turn-area,
+  .btn,
+  .player-leaderboard__tab,
+  .player-leaderboard__action
+) {
+  position: relative;
+  isolation: isolate;
+}
+
+.join-page :is(
+  .general-waiting-ui__message-card,
+  .passive-waiting-ui__message-card,
+  .player-mcq-timer-card,
+  .player-mcq-result-card,
+  #screen-player-question .option.player-btn,
+  .player-leaderboard__panel,
+  .player-leaderboard__row,
+  .buzzin-play-area,
+  .buzzin-join-timer,
+  .buzzin-turn-area,
+  .btn,
+  .player-leaderboard__tab,
+  .player-leaderboard__action
+)::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  z-index: 5;
+  padding: 4px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--join-edge-angle),
+    #ff72bd,
+    #feca57,
+    #15c4f8,
+    #9b7bff,
+    #ff72bd
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  filter: drop-shadow(0 0 7px rgba(255, 114, 189, 0.72));
+  animation: joinBoxEdgeFlow 4.5s linear infinite;
+}
+
+.join-page .field :is(input, select, textarea) {
+  --join-field-surface: var(--surface);
+  border-color: transparent;
+  background:
+    linear-gradient(var(--join-field-surface), var(--join-field-surface)) padding-box,
+    conic-gradient(
+      from var(--join-edge-angle),
+      #ff72bd,
+      #feca57,
+      #15c4f8,
+      #9b7bff,
+      #ff72bd
+    ) border-box;
+  animation: joinBoxEdgeFlow 4.5s linear infinite;
+}
+
+@keyframes joinBoxEdgeFlow {
+  to { --join-edge-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .join-page :is(
+    .general-waiting-ui__message-card,
+    .passive-waiting-ui__message-card,
+    .player-mcq-timer-card,
+    .player-mcq-result-card,
+    #screen-player-question .option.player-btn,
+    .player-leaderboard__panel,
+    .player-leaderboard__row,
+    .buzzin-play-area,
+    .buzzin-join-timer,
+    .buzzin-turn-area,
+    .btn,
+    .player-leaderboard__tab,
+    .player-leaderboard__action
+  )::after,
+  .join-page .field :is(input, select, textarea) {
+    animation: none;
+  }
+}
