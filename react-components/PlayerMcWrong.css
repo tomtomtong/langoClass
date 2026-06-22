@@ -1,0 +1,7 @@
+.playerMcWrong .playerMcSuccess__message {
+  -webkit-text-stroke-color: #e978c5;
+}
+
+.playerMcWrong .playerMcSuccess__icon {
+  justify-content: center;
+}

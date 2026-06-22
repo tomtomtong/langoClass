@@ -1,5 +1,47 @@
 const OPTION_LABELS = ["▲", "◆", "●", "■", "★", "⬡"];
 
+const PLAYER_SOUND_EFFECTS = Object.freeze({
+  click: "/assets/soundeffect/user_click.mp3",
+  correct: "/assets/soundeffect/user_correct_answer.mp3",
+  wrong: "/assets/soundeffect/user_wrong_answer.mp3",
+});
+
+const playerSoundBank = new Map();
+
+function playPlayerSound(name, volume = 0.8) {
+  const src = PLAYER_SOUND_EFFECTS[name];
+  if (!src) return;
+
+  let audio = playerSoundBank.get(name);
+  if (!audio) {
+    audio = new Audio(src);
+    audio.preload = "auto";
+    playerSoundBank.set(name, audio);
+  }
+
+  audio.pause();
+  audio.currentTime = 0;
+  audio.volume = volume;
+  const playPromise = audio.play();
+  if (playPromise?.catch) {
+    playPromise.catch(() => {
+      /* Audio can be blocked until the first user gesture; fail silently. */
+    });
+  }
+}
+
+if (document.body?.classList.contains("join-page")) {
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (event.target.closest("button:not(:disabled)")) {
+        playPlayerSound("click", 0.65);
+      }
+    },
+    { capture: true }
+  );
+}
+
 const DEFAULT_TEACHER_LOGIN_USERNAME = "lango-developer-alex";
 const DEFAULT_TEACHER_LOGIN_PASSWORD = "lango123";
 
@@ -37,7 +79,7 @@ let screenTransitionPromise = Promise.resolve();
 let screenTransitionToken = 0;
 
 function getScreenTransitionLayer() {
-  const app = document.querySelector("#app.lango-host");
+  const app = document.querySelector("#app.lango-host, body.join-page #app");
   if (!app) return null;
   let layer = app.querySelector(".host-page-transition");
   if (!layer) {
@@ -122,6 +164,84 @@ function showExerciseLeaderboards({
 }) {
   const hasExercise = (exerciseLeaderboard || []).length > 0;
   const hasSemester = (semesterLeaderboard || []).length > 0;
+
+  const normalizeRows = (entries) =>
+    (entries || []).map((p) => ({
+      id: p.id ?? p.studentUserId,
+      name: String(p.name ?? p.displayName ?? "Player"),
+      score: p.score ?? p.totalScore ?? 0,
+    }));
+
+  const exerciseRows = normalizeRows(exerciseLeaderboard);
+  const semesterRows = normalizeRows(semesterLeaderboard);
+  const finishedScreen = exerciseListEl?.closest(".player-leaderboard");
+
+  if (finishedScreen) {
+    const tabs = [...finishedScreen.querySelectorAll("[data-leaderboard-view]")];
+    const pointsEl = finishedScreen.querySelector("#player-current-points");
+
+    const renderCards = (listEl, rows) => {
+      if (!listEl) return;
+      if (!rows.length) {
+        listEl.innerHTML = `<li class="player-leaderboard__empty">No scores yet</li>`;
+        return;
+      }
+
+      listEl.innerHTML = rows
+        .slice(0, 3)
+        .map((p, index) => {
+          const rank = index + 1;
+          const ordinal = rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd";
+          const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+          const initial = escapeHtml((p.name.trim()[0] || "?").toUpperCase());
+          return `<li class="player-leaderboard__row player-leaderboard__row--${rank}${p.id === highlightId ? " is-me" : ""}">
+            <div class="player-leaderboard__profile" aria-hidden="true">
+              <span class="player-leaderboard__medal">${medal}</span>
+              <span class="player-leaderboard__avatar">${initial}</span>
+            </div>
+            <span class="player-leaderboard__rank">${ordinal}</span>
+            <span class="player-leaderboard__player">
+              <span class="player-leaderboard__name">${escapeHtml(p.name)}</span>
+              <span class="player-leaderboard__score">${Number(p.score).toLocaleString()} pts</span>
+            </span>
+          </li>`;
+        })
+        .join("");
+    };
+
+    const setView = (view) => {
+      const overall = view === "overall" && hasSemester;
+      exerciseWrapEl.hidden = overall;
+      semesterWrapEl.hidden = !overall;
+      tabs.forEach((tab) => {
+        const active = tab.dataset.leaderboardView === (overall ? "overall" : "current");
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", String(active));
+        tab.tabIndex = active ? 0 : -1;
+      });
+
+      const rows = overall ? semesterRows : exerciseRows;
+      const ownRow = rows.find((row) => row.id === highlightId);
+      if (pointsEl) pointsEl.textContent = `${Number(ownRow?.score || 0).toLocaleString()} pts`;
+    };
+
+    renderCards(exerciseListEl, exerciseRows);
+    renderCards(semesterListEl, semesterRows);
+    tabs.forEach((tab) => {
+      tab.hidden = tab.dataset.leaderboardView === "overall" && !hasSemester;
+      tab.onclick = () => setView(tab.dataset.leaderboardView);
+      tab.onkeydown = (event) => {
+        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+        event.preventDefault();
+        const available = tabs.filter((item) => !item.hidden);
+        const next = available[(available.indexOf(tab) + 1) % available.length];
+        next.focus();
+        next.click();
+      };
+    });
+    setView("current");
+    return;
+  }
 
   if (exerciseWrapEl) exerciseWrapEl.hidden = !hasExercise;
   if (semesterWrapEl) semesterWrapEl.hidden = !hasSemester;
@@ -254,6 +374,77 @@ function renderOptions(container, options, { clickable, onClick, showBars, count
       btn.addEventListener("click", () => onClick(Number(btn.dataset.index), btn));
     });
   }
+}
+
+function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
+  const screen = $("#screen-player-results");
+  const msg = $("#player-result-msg");
+  const icon = $("#player-result-icon");
+  const points = $("#player-result-points");
+  const encouragement = $("#player-result-encouragement");
+  const score = $("#player-result-score");
+  const questionScore = $("#player-score");
+  const isCorrect = !!mine?.correct;
+  const hasAnswer = mine?.answerIndex != null;
+  const scoreRow = leaderboard.find((row) => row.id === playerId || row.playerId === playerId);
+
+  playPlayerSound(isCorrect ? "correct" : "wrong");
+
+  screen?.classList.toggle("is-correct", isCorrect);
+  screen?.classList.toggle("is-wrong", !isCorrect);
+
+  if (isCorrect) {
+    msg.textContent = "You answered it correctly";
+    msg.className = "result-msg correct";
+    icon.textContent = "✅";
+    points.textContent = `${mine?.points || 0} pts`;
+    encouragement.textContent = "Keep going";
+  } else if (hasAnswer) {
+    msg.textContent = "You were so close !";
+    msg.className = "result-msg wrong";
+    icon.textContent = "💪";
+    points.textContent = "0 pts";
+    encouragement.textContent = "Keep it up for next time.";
+  } else {
+    msg.textContent = "Time's up";
+    msg.className = "result-msg wrong";
+    icon.textContent = "⏰";
+    points.textContent = "0 pts";
+    encouragement.textContent = "Try the next one";
+  }
+
+  const totalScore = scoreRow?.score || 0;
+  if (score) score.textContent = `Score : ${totalScore}`;
+  if (questionScore) questionScore.textContent = `Score : ${totalScore}`;
+  renderLeaderboard($("#player-leaderboard"), leaderboard, playerId);
+}
+
+function resetPlayerMcqAnsweredState() {
+  const screen = $("#screen-player-question");
+  screen?.classList.remove("is-answered");
+  const title = $("#player-mcq-title");
+  const label = $("#player-selected-answer-label");
+  if (title) title.textContent = "MCQ Question";
+  if (label) label.hidden = true;
+}
+
+function showPlayerMcqAnsweredState(answerIndex) {
+  const screen = $("#screen-player-question");
+  const title = $("#player-mcq-title");
+  const label = $("#player-selected-answer-label");
+  const timer = $("#timer-text");
+  const timerRing = $("#timer-ring");
+  const buttons = $("#player-options")?.querySelectorAll(".player-btn") || [];
+
+  screen?.classList.add("is-answered");
+  if (title) title.textContent = "Quick Questions";
+  if (label) label.hidden = false;
+  if (timer) timer.textContent = "0";
+  timerRing?.classList.remove("urgent");
+  buttons.forEach((button, index) => {
+    button.disabled = true;
+    button.classList.toggle("selected", index === answerIndex);
+  });
 }
 
 function startTimer(seconds, onTick, onEnd) {

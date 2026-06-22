@@ -2062,10 +2062,12 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   const base = `http://localhost:${PORT}`;
+  const networkBase = `http://${getLocalIPv4()[0] || "localhost"}:${PORT}`;
   console.log(`QuizLive running at ${base}`);
   console.log(`  Host: ${base}/host.html`);
   console.log(`  CMS:  ${base}/cms.html`);
   console.log(`  Join: ${base}/join.html`);
+  console.log(`  Phone/tablet: ${networkBase}/join.html`);
 });

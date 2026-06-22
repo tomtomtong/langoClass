@@ -1,0 +1,289 @@
+/* Figma 193:6781 (current session) and 294:23021 (overall). */
+.player-leaderboard {
+  --leaderboard-orange-top: #feca57;
+  --leaderboard-orange-bottom: #ff9f43;
+  --leaderboard-pink: #fc7dba;
+  position: relative;
+  width: min(744px, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  margin: 0 auto;
+  overflow: hidden;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+}
+
+.join-page #app:has(.player-leaderboard.active) {
+  width: min(744px, 100%);
+  max-width: 744px;
+  padding: 0;
+}
+
+.player-leaderboard *,
+.player-leaderboard *::before,
+.player-leaderboard *::after { box-sizing: border-box; }
+
+.player-leaderboard__backdrop {
+  /* The join page already supplies the Figma background dim/blur layer. */
+  display: none;
+}
+
+.player-leaderboard__shell {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  padding: clamp(24px, 7.06vh, 80px) 20px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 2.82vh, 32px);
+}
+
+.player-leaderboard__title {
+  height: 55px;
+  margin: 0;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(32px, 5.38vw, 40px);
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+  text-align: center;
+  -webkit-text-stroke: 4px rgba(190, 81, 205, 0.72);
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.player-leaderboard__panel {
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: clamp(20px, 3.53vh, 40px) clamp(14px, 4.03vw, 30px);
+  border: clamp(6px, 1.34vw, 10px) solid rgba(162, 89, 255, 0.6);
+  border-radius: clamp(46px, 13.44vw, 100px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(10px, 1.77vh, 20px);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 2px 4px 30px #ffb1ed;
+  backdrop-filter: blur(100px);
+}
+
+.player-leaderboard__tabs {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.player-leaderboard__tab,
+.player-leaderboard__action {
+  min-height: 42px;
+  padding: 9px 12px 13px;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 100px;
+  background: linear-gradient(180deg, var(--leaderboard-orange-top), var(--leaderboard-orange-bottom));
+  color: #fff;
+  font: inherit;
+  font-size: clamp(15px, 2.42vw, 18px);
+  font-weight: 900;
+  line-height: 20px;
+  letter-spacing: 0.36px;
+  text-transform: capitalize;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.2), inset 0 -2px 2px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+.player-leaderboard__tab:not(.is-active) {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.player-leaderboard__tab:focus-visible,
+.player-leaderboard__action:focus-visible { outline: 4px solid #a259ff; outline-offset: 3px; }
+
+.player-leaderboard__board {
+  width: min(600px, 100%);
+  min-height: 0;
+}
+
+.player-leaderboard__list {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(9px, 1.77vh, 20px);
+  list-style: none;
+}
+
+.player-leaderboard__row {
+  position: relative;
+  min-height: clamp(112px, 14.0vh, 159px);
+  padding: 12px clamp(16px, 5.65vw, 42px);
+  overflow: hidden;
+  border: 4px solid var(--leaderboard-pink);
+  border-radius: 30px;
+  display: grid;
+  grid-template-columns: clamp(74px, 20.16vw, 150px) minmax(58px, 0.7fr) minmax(108px, 1fr);
+  align-items: center;
+  gap: clamp(4px, 1.34vw, 10px);
+  color: #000;
+  background: #e2e2e2;
+  box-shadow: 0 0 12.5px rgba(255, 105, 180, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.player-leaderboard__row::before {
+  content: "";
+  position: absolute;
+  inset: 5px 16px auto;
+  height: 84%;
+  border-radius: 12px 12px 148px 148px;
+  background: linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.1));
+  pointer-events: none;
+}
+
+.player-leaderboard__row--1 { background: linear-gradient(180deg, var(--leaderboard-orange-top), var(--leaderboard-orange-bottom)); }
+.player-leaderboard__row--3 { background: #dc9e42; }
+.player-leaderboard__row.is-me { outline: 4px solid #a259ff; outline-offset: -8px; }
+
+.player-leaderboard__profile,
+.player-leaderboard__rank,
+.player-leaderboard__player { position: relative; z-index: 1; }
+
+.player-leaderboard__profile {
+  height: clamp(84px, 12.62vh, 143px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.player-leaderboard__avatar {
+  width: clamp(72px, 15.32vw, 114px);
+  aspect-ratio: 1;
+  border: clamp(5px, .94vw, 7px) solid #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #8a68d5, #ef88bf);
+  color: #fff;
+  font-size: clamp(30px, 5.38vw, 40px);
+  font-weight: 900;
+  box-shadow: 0 5px 0 rgba(114, 64, 169, 0.45), 0 0 0 5px rgba(252, 125, 186, 0.62);
+}
+
+.player-leaderboard__medal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  font-size: clamp(38px, 7.12vw, 53px);
+  line-height: 1;
+  filter: drop-shadow(0 4px 2px rgba(0,0,0,.25));
+}
+
+.player-leaderboard__rank {
+  font-size: clamp(30px, 6.72vw, 50px);
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+  text-align: center;
+}
+
+.player-leaderboard__player {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-leaderboard__name,
+.player-leaderboard__score {
+  width: 100%;
+  overflow: hidden;
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.player-leaderboard__name { font-size: clamp(14px, 2.69vw, 20px); }
+.player-leaderboard__score {
+  color: #fff;
+  font-size: clamp(23px, 5.38vw, 40px);
+  -webkit-text-stroke: 2px rgba(177, 25, 128, 0.72);
+  paint-order: stroke fill;
+}
+
+.player-leaderboard__empty {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  color: #6c4c7c;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.player-leaderboard__footer {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  text-align: center;
+}
+
+.player-leaderboard__points-label,
+.player-leaderboard__points,
+.player-leaderboard__encouragement {
+  margin: 0;
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+  -webkit-text-stroke: 3px rgba(177, 25, 128, 0.82);
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 4px rgba(0,0,0,.3);
+}
+.player-leaderboard__points-label { font-size: clamp(20px, 4.03vw, 30px); }
+.player-leaderboard__points { font-size: clamp(28px, 5.38vw, 40px); }
+.player-leaderboard__encouragement { margin-top: 8px; font-size: clamp(17px, 3.49vw, 26px); }
+
+.player-leaderboard__actions { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
+.player-leaderboard__action { min-height: 34px; padding: 5px 12px 9px; font-size: 14px; line-height: 16px; }
+
+@media (max-height: 820px) {
+  .player-leaderboard__title { height: 44px; }
+  .player-leaderboard__panel { padding-top: 16px; padding-bottom: 16px; }
+  .player-leaderboard__row { min-height: 104px; }
+  .player-leaderboard__profile { height: 82px; }
+  .player-leaderboard__encouragement { display: none; }
+}
+
+@media (max-width: 430px) {
+  .player-leaderboard__shell { padding-left: 12px; padding-right: 12px; }
+  .player-leaderboard__panel { padding-left: 10px; padding-right: 10px; }
+  .player-leaderboard__row { padding-left: 10px; padding-right: 10px; grid-template-columns: 78px 60px minmax(0, 1fr); }
+  .player-leaderboard__medal { left: -2px; }
+  .player-leaderboard__title { -webkit-text-stroke-width: 3px; }
+  .player-leaderboard__points-label,
+  .player-leaderboard__points,
+  .player-leaderboard__encouragement { -webkit-text-stroke-width: 2px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-leaderboard__tab,
+  .player-leaderboard__action { transition: none; }
+}

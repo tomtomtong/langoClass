@@ -325,6 +325,7 @@ function setupRoomPlayerQuiz(socket) {
     stopRoomQuizJoinRetry();
     roomQuizCurrentQuestion = data;
     clearTimer();
+    resetPlayerMcqAnsweredState();
     showScreen("player-question");
     $("#player-q-meta").textContent =
       `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
@@ -334,9 +335,9 @@ function setupRoomPlayerQuiz(socket) {
 
     renderOptions($("#player-options"), data.options, {
       clickable: true,
+      optionLabels: ["A.", "B.", "C.", "D.", "E.", "F."],
       onClick: (index, btn) => {
-        $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
-        btn.classList.add("selected");
+        showPlayerMcqAnsweredState(index);
         socket.emit("submit_answer", { answerIndex: index });
         $("#answer-feedback").textContent = "Answer locked in!";
         clearTimer();
@@ -350,6 +351,7 @@ function setupRoomPlayerQuiz(socket) {
         $("#timer-ring").classList.toggle("urgent", remaining <= 5);
       },
       () => {
+        resetPlayerMcqAnsweredState();
         $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
         $("#answer-feedback").textContent = "Time's up!";
       }
@@ -375,18 +377,7 @@ function setupRoomPlayerQuiz(socket) {
     clearTimer();
     showScreen("player-results");
     const mine = results.find((r) => r.playerId === roomQuizPlayerId);
-    const msg = $("#player-result-msg");
-    if (mine?.correct) {
-      msg.textContent = `Correct! +${mine.points} points`;
-      msg.className = "result-msg correct";
-    } else if (mine?.answerIndex != null) {
-      msg.textContent = "Wrong answer";
-      msg.className = "result-msg wrong";
-    } else {
-      msg.textContent = "No answer submitted";
-      msg.className = "result-msg wrong";
-    }
-    renderLeaderboard($("#player-leaderboard"), leaderboard, roomQuizPlayerId);
+    renderPlayerMcqResult(mine, leaderboard, roomQuizPlayerId);
   });
 
   socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
@@ -447,8 +438,13 @@ function showStudentVideoExercise(exercisePayload) {
   stopRoomStatusPoll();
   stopRoomQuizJoinRetry();
 
-  $("#room-waiting-status").textContent = "Watch the lesson on the teacher's screen.";
-  showScreen("room-waiting");
+  const exercise = exerciseFromSessionRecord(exercisePayload);
+  const title = exercise?.title || "Watch the lesson";
+
+  $("#room-passive-waiting-title").textContent = title;
+  $("#room-passive-waiting-status").textContent =
+    "No action is needed. Please watch the teacher's screen.";
+  showScreen("room-passive-waiting");
 }
 
 function showStudentBuzzinExercise(exercisePayload) {

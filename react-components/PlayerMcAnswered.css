@@ -1,0 +1,56 @@
+.playerMcqAnswered .playerMcq__timerCard {
+  justify-content: center;
+}
+
+.playerMcqAnswered__label {
+  width: 100%;
+  margin: 0;
+  color: #fff;
+  font-family: "HK Grotesk", "Nunito", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 24px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.playerMcqAnswered .playerMcq__option {
+  opacity: 1;
+  color: #d0d8e2;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 10px 0 rgba(0, 0, 0, 0.2),
+    0 4px 2px rgba(0, 0, 0, 0.25);
+}
+
+.playerMcqAnswered .playerMcq__option.is-selected {
+  color: #fff;
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 10px 0 rgba(0, 0, 0, 0.2),
+    0 4px 1px rgba(0, 0, 0, 0.25);
+}
+
+.playerMcqAnswered .playerMcq__option.is-selected[data-index="0"] {
+  background: #15c4f8;
+}
+
+.playerMcqAnswered .playerMcq__option.is-selected[data-index="1"] {
+  background: #45c937;
+}
+
+.playerMcqAnswered .playerMcq__option.is-selected[data-index="2"] {
+  background: #f33b3d;
+}
+
+.playerMcqAnswered .playerMcq__option.is-selected[data-index="3"] {
+  background: linear-gradient(180deg, #feca57, #ff9f43);
+}
+
+@media (max-width: 700px) {
+  .playerMcqAnswered__label {
+    font-size: 22px;
+  }
+}

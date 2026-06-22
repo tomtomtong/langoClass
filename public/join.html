@@ -7,8 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/player-leaderboard.css" />
 </head>
-<body>
+<body class="join-page">
   <div id="app">
     <section id="screen-join" class="screen active">
       <div id="join-panel-quiz">
@@ -44,15 +45,38 @@
       </div>
     </section>
 
-    <section id="screen-room-waiting" class="screen">
-      <div class="waiting">
-        <div class="pulse"></div>
-        <h2>You're in the waiting room</h2>
-        <p class="player-name-display" id="room-player-name"></p>
-        <p class="hint">Room: <code id="room-id-display"></code></p>
-        <p id="room-waiting-status">Waiting for the teacher to start…</p>
+    <section id="screen-room-waiting" class="screen general-waiting-ui" aria-labelledby="room-waiting-title">
+      <div class="general-waiting-ui__content">
+        <header class="general-waiting-ui__header">
+          <h1 id="room-waiting-title">Waiting Room</h1>
+        </header>
+
+        <main class="general-waiting-ui__main">
+          <div class="general-waiting-ui__message-card">
+            <p id="room-waiting-status" aria-live="polite">Please look at the digital whiteboard outside.</p>
+          </div>
+
+          <div class="general-waiting-ui__session-details">
+            <span id="room-player-name"></span>
+            <code id="room-id-display"></code>
+          </div>
+        </main>
       </div>
-      <button class="btn secondary" id="btn-leave-room">Leave</button>
+      <button id="btn-leave-room" type="button" hidden>Leave waiting room</button>
+    </section>
+
+    <section id="screen-room-passive-waiting" class="screen passive-waiting-ui" aria-labelledby="room-passive-waiting-title">
+      <div class="passive-waiting-ui__content">
+        <header class="passive-waiting-ui__header">
+          <h1 id="room-passive-waiting-title">Watch the lesson</h1>
+        </header>
+
+        <main class="passive-waiting-ui__main">
+          <div class="passive-waiting-ui__message-card">
+            <p id="room-passive-waiting-status" aria-live="polite">No action is needed. Please watch the teacher's screen.</p>
+          </div>
+        </main>
+      </div>
     </section>
 
     <section id="screen-player-lobby" class="screen">
@@ -65,45 +89,97 @@
       </div>
     </section>
 
-    <section id="screen-player-question" class="screen">
-      <div class="timer-ring" id="timer-ring">
-        <span id="timer-text">15</span>
+    <section id="screen-player-question" class="screen player-mcq-screen" aria-labelledby="player-mcq-title">
+      <div class="player-mcq-backdrop" aria-hidden="true"></div>
+      <div class="player-mcq-shell">
+        <header class="player-mcq-header">
+          <h1 class="player-mcq-title" id="player-mcq-title">MCQ Question</h1>
+        </header>
+
+        <main class="player-mcq-main">
+          <section class="player-mcq-timer-card" aria-label="Time remaining">
+            <p class="player-mcq-timer-label">Timer</p>
+            <span class="player-mcq-sparkle" aria-hidden="true"></span>
+            <div class="timer-ring" id="timer-ring">
+              <span id="timer-text">15</span>
+            </div>
+          </section>
+
+          <p class="player-mcq-selected-label" id="player-selected-answer-label" hidden>Selected answer</p>
+          <div class="player-mcq-options-wrap">
+            <div class="options-grid player-options" id="player-options"></div>
+          </div>
+          <p class="feedback" id="answer-feedback" aria-live="polite"></p>
+
+          <div class="player-mcq-context">
+            <p class="q-meta" id="player-q-meta"></p>
+            <div class="question-image-wrap" id="player-question-image-wrap" hidden aria-hidden="true">
+              <img class="question-image" id="player-question-image" alt="" hidden />
+            </div>
+            <h2 class="question-text" id="player-question-text"></h2>
+          </div>
+        </main>
       </div>
-      <p class="q-meta" id="player-q-meta"></p>
-      <div class="question-image-wrap" id="player-question-image-wrap" hidden aria-hidden="true">
-        <img class="question-image" id="player-question-image" alt="" hidden />
-      </div>
-      <h2 class="question-text" id="player-question-text"></h2>
-      <div class="options-grid player-options" id="player-options"></div>
-      <p class="feedback" id="answer-feedback"></p>
     </section>
 
-    <section id="screen-player-results" class="screen">
-      <div id="player-result-msg" class="result-msg"></div>
-      <div class="leaderboard compact">
-        <h3>Leaderboard</h3>
-        <ol id="player-leaderboard"></ol>
+    <section id="screen-player-results" class="screen player-mcq-result-screen" aria-labelledby="player-result-screen-title">
+      <div class="player-mcq-result-backdrop" aria-hidden="true"></div>
+      <div class="player-mcq-result-shell">
+        <header class="player-mcq-result-header">
+          <h1 class="player-mcq-result-title" id="player-result-screen-title">Quick Questions</h1>
+        </header>
+
+        <main class="player-mcq-result-main">
+          <section class="player-mcq-result-card">
+            <div id="player-result-msg" class="result-msg correct">You answered it correctly</div>
+            <div class="player-mcq-result-icon" id="player-result-icon" aria-hidden="true">✅</div>
+            <p class="player-mcq-result-points" id="player-result-points">500 pts</p>
+            <p class="player-mcq-result-encouragement" id="player-result-encouragement">Keep going</p>
+          </section>
+        </main>
+
+        <div class="player-mcq-result-data" aria-hidden="true">
+          <div class="leaderboard compact">
+            <h3>Leaderboard</h3>
+            <ol id="player-leaderboard"></ol>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="screen-player-finished" class="screen">
-      <h2>Exercise complete!</h2>
-      <div class="leaderboard" id="player-exercise-leaderboard-wrap">
-        <h3>This exercise</h3>
-        <ol id="player-final-leaderboard"></ol>
-      </div>
-      <div class="leaderboard" id="player-semester-leaderboard-wrap" hidden>
-        <h3>Season total</h3>
-        <ol id="player-semester-leaderboard"></ol>
-      </div>
-      <button class="btn secondary" id="btn-back-room-waiting" hidden>Back to waiting room</button>
-      <button class="btn secondary" id="btn-play-again">Play Again</button>
-    </section>
+    <section id="screen-player-finished" class="screen player-leaderboard" aria-labelledby="player-leaderboard-title">
+      <div class="player-leaderboard__backdrop" aria-hidden="true"></div>
+      <div class="player-leaderboard__shell">
+        <h1 class="player-leaderboard__title" id="player-leaderboard-title">Leaderboard</h1>
 
-    <section id="screen-room-video" class="screen" hidden aria-hidden="true">
-      <h2 id="room-video-title"></h2>
-      <p class="hint" id="room-video-subtitle"></p>
-      <video id="room-video-player" class="exercise-video" controls playsinline hidden></video>
+        <main class="player-leaderboard__panel">
+          <div class="player-leaderboard__tabs" role="tablist" aria-label="Leaderboard period">
+            <button class="player-leaderboard__tab is-active" id="leaderboard-current-tab" type="button" role="tab" aria-selected="true" aria-controls="player-exercise-leaderboard-wrap" data-leaderboard-view="current">
+              Current Session
+            </button>
+            <button class="player-leaderboard__tab" id="leaderboard-overall-tab" type="button" role="tab" aria-selected="false" aria-controls="player-semester-leaderboard-wrap" data-leaderboard-view="overall">
+              Overall
+            </button>
+          </div>
+
+          <div class="player-leaderboard__board" id="player-exercise-leaderboard-wrap" role="tabpanel" aria-labelledby="leaderboard-current-tab">
+            <ol class="player-leaderboard__list" id="player-final-leaderboard"></ol>
+          </div>
+          <div class="player-leaderboard__board" id="player-semester-leaderboard-wrap" role="tabpanel" aria-labelledby="leaderboard-overall-tab" hidden>
+            <ol class="player-leaderboard__list" id="player-semester-leaderboard"></ol>
+          </div>
+
+          <footer class="player-leaderboard__footer">
+            <p class="player-leaderboard__points-label">Your Current Points</p>
+            <p class="player-leaderboard__points" id="player-current-points">0 pts</p>
+            <p class="player-leaderboard__encouragement">Keep going!<br />You're making great progress.</p>
+            <div class="player-leaderboard__actions">
+              <button class="player-leaderboard__action" id="btn-back-room-waiting" type="button" hidden>Back to waiting room</button>
+              <button class="player-leaderboard__action" id="btn-play-again" type="button">Play Again</button>
+            </div>
+          </footer>
+        </main>
+      </div>
     </section>
 
     <section id="screen-room-buzzin" class="screen">

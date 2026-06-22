@@ -7,30 +7,27 @@
   if (!params.has("preview")) return;
 
   const STORAGE_KEY = "lango_join_preview_layout";
-  const MCQ_STYLE_KEY = "lango_join_preview_mcq_style";
+  const TOOLBAR_OPEN_KEY = "lango_join_preview_toolbar_open";
 
   const LAYOUTS = [
     { id: "join-quiz", label: "Join — Quiz PIN" },
     { id: "join-room", label: "Join — Room code" },
     { id: "room-waiting", label: "Waiting room" },
+    { id: "room-passive-waiting", label: "Passive waiting — video" },
     { id: "player-lobby", label: "Quiz lobby" },
     { id: "mc-question", label: "MC Quiz — question" },
-    { id: "mc-results", label: "MC Quiz — results" },
-    { id: "finished", label: "Exercise complete" },
-    { id: "video", label: "Video exercise" },
+    { id: "mc-answered", label: "MC Quiz — answered" },
+    { id: "mc-results", label: "MC Quiz — correct result" },
+    { id: "mc-wrong", label: "MC Quiz — wrong result" },
+    { id: "finished", label: "Leaderboard" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
     { id: "buzzin-turn", label: "Buzz In — your turn" },
     { id: "buzzin-wait", label: "Buzz In — waiting turn" },
   ];
 
-  const MCQ_STYLES = [
-    { id: "classic", label: "Classic grid" },
-    { id: "lango", label: "Lango pills" },
-  ];
-
   const SAMPLE = {
-    options: ["Honey", "Milk", "Bread", "Jam"],
-    question: "What do bees make?",
+    options: ["Photosynthesis", "Cellular Respiration", "Decomposition", "Transpiration"],
+    question: "What is the process by which plants make their own food?",
     image:
       "https://images.unsplash.com/photo-1558642452-9d2b7bef6b22?w=640&h=360&fit=crop",
     leaderboard: [
@@ -41,8 +38,6 @@
     ],
   };
 
-  let mcqStyle = localStorage.getItem(MCQ_STYLE_KEY) || "classic";
-
   function buildToolbar() {
     const bar = document.createElement("div");
     bar.className = "join-preview-toolbar";
@@ -52,14 +47,33 @@
         <span>Screen</span>
         <select id="join-layout-select"></select>
       </label>
-      <label class="join-preview-field" id="join-mcq-style-field" hidden>
-        <span>MC style</span>
-        <select id="join-mcq-style-select"></select>
-      </label>
       <p class="join-preview-hint">Add <code>?preview=1</code> to the URL. Socket join is disabled in preview mode.</p>
       <button type="button" class="btn secondary small" id="join-preview-exit">Exit preview</button>
     `;
     document.body.appendChild(bar);
+
+    const toggle = document.createElement("button");
+    toggle.className = "join-preview-toggle";
+    toggle.type = "button";
+    toggle.setAttribute("aria-controls", "join-preview-toolbar");
+    toggle.setAttribute("aria-label", "Toggle exercise layout preview controls");
+    document.body.appendChild(toggle);
+    bar.id = "join-preview-toolbar";
+
+    const setToolbarOpen = (open) => {
+      bar.classList.toggle("is-hidden", !open);
+      document.body.classList.toggle("join-preview-toolbar-open", open);
+      toggle.classList.toggle("is-open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.textContent = open ? "Hide preview" : "Show preview";
+      localStorage.setItem(TOOLBAR_OPEN_KEY, open ? "1" : "0");
+    };
+
+    toggle.addEventListener("click", () => {
+      setToolbarOpen(!document.body.classList.contains("join-preview-toolbar-open"));
+    });
+
+    setToolbarOpen(localStorage.getItem(TOOLBAR_OPEN_KEY) === "1");
 
     const layoutSelect = bar.querySelector("#join-layout-select");
     LAYOUTS.forEach(({ id, label }) => {
@@ -69,27 +83,9 @@
       layoutSelect.appendChild(opt);
     });
 
-    const styleSelect = bar.querySelector("#join-mcq-style-select");
-    MCQ_STYLES.forEach(({ id, label }) => {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = label;
-      styleSelect.appendChild(opt);
-    });
-    styleSelect.value = mcqStyle;
-
     layoutSelect.addEventListener("change", () => {
       localStorage.setItem(STORAGE_KEY, layoutSelect.value);
       applyLayout(layoutSelect.value);
-    });
-
-    styleSelect.addEventListener("change", () => {
-      mcqStyle = styleSelect.value;
-      localStorage.setItem(MCQ_STYLE_KEY, mcqStyle);
-      applyMcqStyle();
-      if (["mc-question", "mc-results"].includes(layoutSelect.value)) {
-        applyLayout(layoutSelect.value);
-      }
     });
 
     bar.querySelector("#join-preview-exit").addEventListener("click", () => {
@@ -99,18 +95,7 @@
       window.location.href = next.pathname + next.search;
     });
 
-    return { layoutSelect, styleField: bar.querySelector("#join-mcq-style-field") };
-  }
-
-  function applyMcqStyle() {
-    const screen = document.querySelector("#screen-player-question");
-    if (!screen) return;
-    screen.classList.toggle("player-mcq-lango", mcqStyle === "lango");
-    screen.classList.toggle("player-mcq-classic", mcqStyle === "classic");
-  }
-
-  function setMcqStyleFieldVisible(visible, styleField) {
-    if (styleField) styleField.hidden = !visible;
+    return { layoutSelect };
   }
 
   function showPreviewScreen(id) {
@@ -124,9 +109,6 @@
   }
 
   function applyLayout(layoutId) {
-    const styleField = document.querySelector("#join-mcq-style-field");
-    setMcqStyleFieldVisible(["mc-question", "mc-results"].includes(layoutId), styleField);
-
     switch (layoutId) {
       case "join-quiz":
         $("#join-panel-quiz").hidden = false;
@@ -147,6 +129,13 @@
         showPreviewScreen("room-waiting");
         break;
 
+      case "room-passive-waiting":
+        $("#room-passive-waiting-title").textContent = "Demo: In the Sea";
+        $("#room-passive-waiting-status").textContent =
+          "No action is needed. Please watch the teacher's screen.";
+        showPreviewScreen("room-passive-waiting");
+        break;
+
       case "player-lobby":
         $("#player-name-display").textContent = "Alex (preview)";
         $("#lobby-status").textContent = "Waiting for host to start…";
@@ -155,7 +144,7 @@
         break;
 
       case "mc-question":
-        applyMcqStyle();
+        resetPlayerMcqAnsweredState();
         showPreviewScreen("player-question");
         $("#player-q-meta").textContent = "Question 1 of 3";
         setQuestionImage(
@@ -169,21 +158,43 @@
         $("#timer-ring").classList.remove("urgent");
         renderOptions($("#player-options"), SAMPLE.options, {
           clickable: true,
+          optionLabels: ["A.", "B.", "C.", "D."],
           onClick: (_index, btn) => {
-            $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
-            btn.classList.add("selected");
+            showPlayerMcqAnsweredState(_index);
             $("#answer-feedback").textContent = "Answer locked in!";
           },
         });
         break;
 
+      case "mc-answered":
+        resetPlayerMcqAnsweredState();
+        showPreviewScreen("player-question");
+        $("#player-q-meta").textContent = "Question 1 of 3";
+        $("#player-question-text").textContent = SAMPLE.question;
+        $("#answer-feedback").textContent = "Answer locked in!";
+        renderOptions($("#player-options"), SAMPLE.options, {
+          clickable: true,
+          optionLabels: ["A.", "B.", "C.", "D."],
+        });
+        showPlayerMcqAnsweredState(0);
+        break;
+
       case "mc-results":
-        applyMcqStyle();
         showPreviewScreen("player-results");
-        const msg = $("#player-result-msg");
-        msg.textContent = "Correct! +300 points";
-        msg.className = "result-msg correct";
-        renderLeaderboard($("#player-leaderboard"), SAMPLE.leaderboard, "me");
+        renderPlayerMcqResult(
+          { playerId: "me", answerIndex: 0, correct: true, points: 500 },
+          SAMPLE.leaderboard.map((row) => row.id === "me" ? { ...row, score: 15356 } : row),
+          "me"
+        );
+        break;
+
+      case "mc-wrong":
+        showPreviewScreen("player-results");
+        renderPlayerMcqResult(
+          { playerId: "me", answerIndex: 1, correct: false, points: 0 },
+          SAMPLE.leaderboard.map((row) => row.id === "me" ? { ...row, score: 15356 } : row),
+          "me"
+        );
         break;
 
       case "finished":
@@ -202,13 +213,6 @@
         });
         $("#btn-back-room-waiting").hidden = false;
         $("#btn-play-again").hidden = true;
-        break;
-
-      case "video":
-        $("#room-video-title").textContent = "Demo: In the Sea";
-        $("#room-video-subtitle").textContent = "Watch the lesson on the teacher's screen.";
-        $("#room-video-player").hidden = true;
-        showPreviewScreen("room-video");
         break;
 
       case "buzzin-join":

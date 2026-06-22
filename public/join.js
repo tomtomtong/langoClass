@@ -74,7 +74,7 @@ function getRoomSessionSocket() {
         return;
       }
 
-      $("#room-waiting-status").textContent = "Waiting for the teacher to start…";
+      $("#room-waiting-status").textContent = "Please look at the digital whiteboard outside.";
       showScreen("room-waiting");
     });
   }
@@ -169,7 +169,7 @@ function doJoinRoom() {
         $("#room-waiting-status").textContent =
           data.sessionStatus === "start"
             ? "Class is starting…"
-            : "Waiting for the teacher to start…";
+            : "Please look at the digital whiteboard outside.";
         showScreen("room-waiting");
 
         const nextUrl = new URL(window.location.href);
@@ -275,6 +275,7 @@ function initQuizJoin() {
   socket.on("question_start", (data) => {
     currentQuestion = data;
     clearTimer();
+    resetPlayerMcqAnsweredState();
     showScreen("player-question");
     $("#player-q-meta").textContent = `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
     setQuestionImage($("#player-question-image"), $("#player-question-image-wrap"), null);
@@ -283,9 +284,9 @@ function initQuizJoin() {
 
     renderOptions($("#player-options"), data.options, {
       clickable: true,
+      optionLabels: ["A.", "B.", "C.", "D.", "E.", "F."],
       onClick: (index, btn) => {
-        $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
-        btn.classList.add("selected");
+        showPlayerMcqAnsweredState(index);
         socket.emit("submit_answer", { answerIndex: index });
         $("#answer-feedback").textContent = "Answer locked in!";
         clearTimer();
@@ -299,6 +300,7 @@ function initQuizJoin() {
         $("#timer-ring").classList.toggle("urgent", remaining <= 5);
       },
       () => {
+        resetPlayerMcqAnsweredState();
         $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
         $("#answer-feedback").textContent = "Time's up!";
       }
@@ -324,18 +326,7 @@ function initQuizJoin() {
     clearTimer();
     showScreen("player-results");
     const mine = results.find((r) => r.playerId === myPlayerId);
-    const msg = $("#player-result-msg");
-    if (mine?.correct) {
-      msg.textContent = `Correct! +${mine.points} points`;
-      msg.className = "result-msg correct";
-    } else if (mine?.answerIndex != null) {
-      msg.textContent = "Wrong answer";
-      msg.className = "result-msg wrong";
-    } else {
-      msg.textContent = "No answer submitted";
-      msg.className = "result-msg wrong";
-    }
-    renderLeaderboard($("#player-leaderboard"), leaderboard, myPlayerId);
+    renderPlayerMcqResult(mine, leaderboard, myPlayerId);
   });
 
   socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
@@ -378,7 +369,7 @@ if (urlParams.has("preview")) {
 } else if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
   initRoomJoin();
   $("#btn-back-room-waiting")?.addEventListener("click", () => {
-    $("#room-waiting-status").textContent = "Waiting for the teacher to start…";
+    $("#room-waiting-status").textContent = "Please look at the digital whiteboard outside.";
     showScreen("room-waiting");
   });
   $("#btn-play-again")?.addEventListener("click", () => {
