@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenRouter Audio Transcribe &amp; Pronunciation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/transcribe.css" />
+</head>
+<body class="transcribe-page">
+  <div class="transcribe-app">
+    <header class="transcribe-header">
+      <h1>OpenRouter Audio Transcribe &amp; Pronunciation</h1>
+      <p class="transcribe-subtitle">Upload audio for transcription and pronunciation feedback</p>
+      <p class="transcribe-hint">
+        Get an API key at
+        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>
+      </p>
+    </header>
+
+    <form class="transcribe-form" id="transcribe-form" onsubmit="return false;">
+      <label class="transcribe-field">
+        <span>OpenRouter API key</span>
+        <div class="transcribe-key-row">
+          <input type="password" id="transcribe-api-key" autocomplete="off" placeholder="sk-or-…" />
+          <label class="transcribe-show-key">
+            <input type="checkbox" id="transcribe-show-key" />
+            Show
+          </label>
+        </div>
+      </label>
+
+      <label class="transcribe-field">
+        <span>Model</span>
+        <input type="text" id="transcribe-model" list="transcribe-models" />
+        <datalist id="transcribe-models">
+          <option value="mistralai/voxtral-small-24b-2507"></option>
+          <option value="xiaomi/mimo-v2.5"></option>
+        </datalist>
+        <p class="transcribe-field-hint" id="transcribe-model-default"></p>
+      </label>
+
+      <label class="transcribe-field">
+        <span>Audio file</span>
+        <div class="transcribe-file-row">
+          <input type="text" id="transcribe-file-name" readonly placeholder="No file chosen" />
+          <label class="transcribe-browse-btn">
+            Browse…
+            <input type="file" id="transcribe-audio-file" accept="audio/*,.mp3,.wav,.webm,.m4a,.ogg,.flac,.aac" hidden />
+          </label>
+        </div>
+      </label>
+
+      <div class="transcribe-actions">
+        <button type="button" class="transcribe-btn primary" id="btn-transcribe">Transcribe</button>
+        <button type="button" class="transcribe-btn" id="btn-transcribe-test">Test API</button>
+        <button type="button" class="transcribe-btn" id="btn-transcribe-save">Save settings</button>
+        <button type="button" class="transcribe-btn" id="btn-transcribe-copy">Copy result</button>
+        <button type="button" class="transcribe-btn" id="btn-transcribe-clear">Clear</button>
+      </div>
+    </form>
+
+    <section class="transcribe-error-section" id="transcribe-error-section" hidden>
+      <div class="transcribe-error-header">
+        <h2>Error log</h2>
+        <button type="button" class="transcribe-btn small" id="btn-transcribe-clear-errors">Clear errors</button>
+      </div>
+      <textarea id="transcribe-error-log" class="transcribe-error-log" readonly spellcheck="false" aria-live="polite"></textarea>
+    </section>
+
+    <section class="transcribe-output-section">
+      <h2>Transcript &amp; pronunciation feedback</h2>
+      <textarea id="transcribe-output" class="transcribe-output" readonly spellcheck="false" placeholder="Results will appear here…"></textarea>
+    </section>
+
+    <p class="transcribe-status" id="transcribe-status" aria-live="polite">
+      Choose an audio file, then click Transcribe for transcript and pronunciation feedback.
+    </p>
+  </div>
+
+  <script src="/transcribe.js"></script>
+</body>
+</html>

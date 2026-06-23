@@ -37,6 +37,16 @@ const QWEN_API_BASE = String(
   process.env.QWEN_API_BASE || "https://dashscope.aliyuncs.com/compatible-mode/v1"
 ).replace(/\/$/, "");
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
+const TRANSCRIBE_DEFAULT_MODEL = "mistralai/voxtral-small-24b-2507";
+const TRANSCRIBE_MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+const TRANSCRIBE_PROMPT =
+  "Listen to this audio and respond with exactly two sections:\n\n" +
+  "Transcript:\n" +
+  "Write exactly what was spoken, verbatim. No extra commentary in this section.\n\n" +
+  "Pronunciation feedback:\n" +
+  "Comment on pronunciation quality. Note any mispronounced or unclear words, " +
+  "stress, rhythm, or intonation issues, and give brief constructive tips. " +
+  "If pronunciation is generally good, say so and mention any small improvements.";
 
 function getPublicBaseUrl() {
   const saved = settingsStore.readSettings().publicBaseUrl;
@@ -146,6 +156,11 @@ const questionImageUpload = multer({
     const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
     cb(ok ? null : new Error("Only JPEG, PNG, WebP, or GIF images are allowed."), ok);
   },
+});
+
+const transcribeUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: TRANSCRIBE_MAX_AUDIO_BYTES },
 });
 
 function handleQuestionImageUpload(req, res) {
@@ -379,6 +394,89 @@ async function transcribeBuzzinAudioWithOpenRouter(audioBase64, format) {
   const text = data?.choices?.[0]?.message?.content?.trim?.() || "";
   if (!text) {
     throw new Error("Could not transcribe your recording. Try again.");
+  }
+  return text;
+}
+
+function extractOpenRouterMessageText(data) {
+  const choices = data?.choices || [];
+  if (!choices.length) return "";
+  const content = choices[0]?.message?.content;
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part?.type === "text")
+      .map((part) => String(part.text || "").trim())
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
+  return "";
+}
+
+function audioFormatFromFilename(filename) {
+  const ext = path.extname(String(filename || "")).toLowerCase().replace(/^\./, "");
+  return ext || "webm";
+}
+
+async function transcribeOpenRouterAudio({ apiKey, model, audioBuffer, format, prompt, maxTokens = 1024 }) {
+  const key = String(apiKey || "").trim();
+  if (!key) {
+    throw new Error("Enter your OpenRouter API key.");
+  }
+
+  const buzzinModel = String(model || TRANSCRIBE_DEFAULT_MODEL).trim() || TRANSCRIBE_DEFAULT_MODEL;
+  if (!audioBuffer?.length) {
+    throw new Error("The selected audio file is empty.");
+  }
+  if (audioBuffer.length > TRANSCRIBE_MAX_AUDIO_BYTES) {
+    throw new Error("Audio file is too large (max 25 MB).");
+  }
+
+  const audioFormat = String(format || "webm").trim().toLowerCase().replace(/^\./, "") || "webm";
+  const mimeType = buzzinAudioMimeType(audioFormat);
+  const dataUrl = `data:${mimeType};base64,${audioBuffer.toString("base64")}`;
+
+  const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": getPublicBaseUrl(),
+      "X-Title": "OpenRouter Audio Transcribe",
+    },
+    body: JSON.stringify({
+      model: buzzinModel,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_audio",
+              input_audio: {
+                data: dataUrl,
+                format: audioFormat,
+              },
+            },
+            {
+              type: "text",
+              text: prompt,
+            },
+          ],
+        },
+      ],
+      max_tokens: maxTokens,
+    }),
+  });
+
+  const data = await parseOpenRouterResponse(res);
+  if (!res.ok) {
+    throw new Error(`Transcription (${buzzinModel}): ${openRouterErrorMessage(data, res.status)}`);
+  }
+
+  const text = extractOpenRouterMessageText(data);
+  if (!text) {
+    throw new Error("Could not transcribe the audio. Try another file or model.");
   }
   return text;
 }
@@ -1361,6 +1459,48 @@ app.post("/api/config/test-openrouter", async (req, res) => {
   } catch (err) {
     return res.status(400).json({ message: err.message || "OpenRouter API test failed." });
   }
+});
+
+app.post("/api/transcribe/test", async (req, res) => {
+  const apiKey = String(req.body?.apiKey || "").trim();
+  const model = String(req.body?.model || "").trim();
+
+  try {
+    const result = await testOpenRouterBuzzinModel(apiKey, model || TRANSCRIBE_DEFAULT_MODEL);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "OpenRouter API test failed." });
+  }
+});
+
+app.post("/api/transcribe/audio", (req, res) => {
+  transcribeUpload.single("audio")(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Upload failed." });
+    }
+
+    const apiKey = String(req.body?.apiKey || "").trim();
+    const model = String(req.body?.model || "").trim();
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ message: "Choose an audio file first." });
+    }
+
+    try {
+      const format = audioFormatFromFilename(file.originalname);
+      const text = await transcribeOpenRouterAudio({
+        apiKey,
+        model: model || TRANSCRIBE_DEFAULT_MODEL,
+        audioBuffer: file.buffer,
+        format,
+        prompt: TRANSCRIBE_PROMPT,
+      });
+      return res.json({ ok: true, text });
+    } catch (transcribeErr) {
+      return res.status(400).json({ message: transcribeErr.message || "Transcription failed." });
+    }
+  });
 });
 
 app.post("/api/lango/login", async (req, res) => {

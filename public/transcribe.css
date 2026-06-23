@@ -1,0 +1,255 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body.transcribe-page {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Nunito", sans-serif;
+  color: #1f2937;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(99, 102, 241, 0.12), transparent 55%),
+    radial-gradient(ellipse at 80% 100%, rgba(14, 165, 233, 0.1), transparent 50%),
+    #f8fafc;
+}
+
+.transcribe-app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+
+.transcribe-header h1 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.transcribe-subtitle {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.transcribe-hint {
+  margin: 0 0 24px;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.transcribe-hint a {
+  color: #4f46e5;
+}
+
+.transcribe-form {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.transcribe-field {
+  display: grid;
+  gap: 6px;
+}
+
+.transcribe-field > span {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.transcribe-field input[type="text"],
+.transcribe-field input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+  color: #111827;
+  background: #fff;
+}
+
+.transcribe-field input:focus {
+  outline: 2px solid rgba(79, 70, 229, 0.35);
+  border-color: #6366f1;
+}
+
+.transcribe-field-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.transcribe-key-row,
+.transcribe-file-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.transcribe-key-row input,
+.transcribe-file-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.transcribe-show-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #4b5563;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.transcribe-browse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #374151;
+  background: #f9fafb;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.transcribe-browse-btn:hover {
+  background: #f3f4f6;
+}
+
+.transcribe-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.transcribe-btn {
+  padding: 10px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+}
+
+.transcribe-btn:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.transcribe-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.transcribe-btn.primary {
+  color: #fff;
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.transcribe-btn.primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.transcribe-btn.small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.transcribe-error-section {
+  margin-top: 20px;
+}
+
+.transcribe-error-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.transcribe-error-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.transcribe-error-log {
+  width: 100%;
+  min-height: 120px;
+  max-height: 240px;
+  padding: 14px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #991b1b;
+  background: #fef2f2;
+  resize: vertical;
+}
+
+.transcribe-output-section {
+  margin-top: 20px;
+}
+
+.transcribe-output-section h2 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.transcribe-output {
+  width: 100%;
+  min-height: 280px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #111827;
+  background: #fff;
+  resize: vertical;
+}
+
+.transcribe-status {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.transcribe-status.is-error {
+  color: #dc2626;
+}
+
+@media (max-width: 560px) {
+  .transcribe-key-row,
+  .transcribe-file-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .transcribe-show-key {
+    justify-content: flex-start;
+  }
+}
