@@ -30,7 +30,7 @@ const ENV_QWEN_API_KEY = String(process.env.QWEN_API_KEY || "").trim();
 const ENV_QWEN_MODEL = String(process.env.QWEN_MODEL || "qwen-plus").trim();
 const ENV_OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
 const ENV_OPENROUTER_BUZZIN_MODEL = String(
-  process.env.OPENROUTER_BUZZIN_MODEL || "xiaomi/mimo-v2.5"
+  process.env.OPENROUTER_BUZZIN_MODEL || "mistralai/voxtral-small-24b-2507"
 ).trim();
 const INWORLD_API_BASE = "https://api.inworld.ai";
 const QWEN_API_BASE = String(
@@ -70,7 +70,7 @@ function getOpenRouterApiKey() {
 
 function getOpenRouterBuzzinModel() {
   const saved = settingsStore.readSettings().openrouterBuzzinModel;
-  return saved || ENV_OPENROUTER_BUZZIN_MODEL || "xiaomi/mimo-v2.5";
+  return saved || ENV_OPENROUTER_BUZZIN_MODEL || "mistralai/voxtral-small-24b-2507";
 }
 
 function maskApiKey(key) {
@@ -1202,7 +1202,7 @@ async function testOpenRouterBuzzinModel(apiKey, model) {
     throw new Error("No OpenRouter API key to test. Enter a key or set OPENROUTER_API_KEY.");
   }
 
-  const buzzinModel = String(model || getOpenRouterBuzzinModel()).trim() || "xiaomi/mimo-v2.5";
+  const buzzinModel = String(model || getOpenRouterBuzzinModel()).trim() || "mistralai/voxtral-small-24b-2507";
   const started = Date.now();
   const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
     method: "POST",

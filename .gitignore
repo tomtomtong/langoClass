@@ -5,3 +5,4 @@ node_modules/
 .DS_Store
 *.swp
 langoClass/
+.openrouter_transcribe_config.json
