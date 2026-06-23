@@ -35,6 +35,7 @@ const HOST_SOUND_EFFECTS = {
     "/assets/soundeffect/uncletommy_letsgo_1.mp3",
     "/assets/soundeffect/uncletommy_letsgo_2.mp3",
   ],
+  exerciseCountdownVideo: "/assets/transitions/countdown321.mp4",
   pageNext: "/assets/soundeffect/Page_nextbutton.mp3",
   pageBack: "/assets/soundeffect/Page_Backforward.mp3",
 };
@@ -76,6 +77,22 @@ function playHostSound(src, { volume = 1 } = {}) {
       /* Browsers can block audio until a user gesture; ignore gracefully. */
     });
   }
+}
+
+function playHostSoundAwait(src, { volume = 1 } = {}) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve();
+      return;
+    }
+    const audio = new Audio(src);
+    audio.volume = volume;
+    const finish = () => resolve();
+    audio.addEventListener("ended", finish, { once: true });
+    audio.addEventListener("error", finish, { once: true });
+    const playPromise = audio.play();
+    if (playPromise?.catch) playPromise.catch(finish);
+  });
 }
 
 function playHostSoundGroup(sources, options) {
@@ -202,10 +219,62 @@ function playPageBackSound() {
   playHostSound(HOST_SOUND_EFFECTS.pageBack, { volume: 0.85 });
 }
 
-function playStartSessionSound() {
+async function playStartSessionSound() {
   const letsGoOptions = HOST_SOUND_EFFECTS.uncleTommyLetsGo;
   const letsGo = letsGoOptions[Math.floor(Math.random() * letsGoOptions.length)];
-  playHostSoundGroup([HOST_SOUND_EFFECTS.startSession, letsGo]);
+  playHostSound(HOST_SOUND_EFFECTS.startSession);
+  await playHostSoundAwait(letsGo);
+}
+
+function getExerciseCountdownLayer() {
+  const app = document.querySelector("#app.lango-host");
+  if (!app) return null;
+
+  let layer = app.querySelector(".host-exercise-countdown");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "host-exercise-countdown";
+    layer.setAttribute("aria-hidden", "true");
+
+    const video = document.createElement("video");
+    video.className = "host-exercise-countdown-video";
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.src = HOST_SOUND_EFFECTS.exerciseCountdownVideo;
+    layer.appendChild(video);
+    app.appendChild(layer);
+  }
+
+  return layer;
+}
+
+function playExerciseCountdownVideo() {
+  return new Promise((resolve) => {
+    const layer = getExerciseCountdownLayer();
+    const video = layer?.querySelector("video");
+    if (!layer || !video) {
+      resolve();
+      return;
+    }
+
+    const finish = () => {
+      layer.classList.remove("is-playing");
+      video.pause();
+      resolve();
+    };
+
+    video.currentTime = 0;
+    layer.classList.add("is-playing");
+    video.addEventListener("ended", finish, { once: true });
+    video.addEventListener("error", finish, { once: true });
+    const playPromise = video.play();
+    if (playPromise?.catch) playPromise.catch(finish);
+  });
+}
+
+function shouldPlayHostMcQuizCountdown(exercise) {
+  const type = normalizeExerciseType(exercise?.type);
+  return type === "mcquiz" || type === "fastmcquiz";
 }
 
 function flashStartSessionArt() {
@@ -1846,7 +1915,6 @@ async function handleStartNextExercise() {
 async function handleStartClass() {
   if (!state.activeRoomId || state.sessionStarted) return;
 
-  playStartSessionSound();
   flashStartSessionArt();
   $("#waiting-error").textContent = "";
   const btn = $("#btn-start-class");
@@ -1854,6 +1922,10 @@ async function handleStartClass() {
   btn.textContent = "Starting…";
 
   try {
+    await playStartSessionSound();
+    if (shouldPlayHostMcQuizCountdown(state.selectedExercise)) {
+      await playExerciseCountdownVideo();
+    }
     await startSessionViaSocket(state.activeRoomId);
     state.sessionStarted = true;
     stopWaitingPoll();

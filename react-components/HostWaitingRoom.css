@@ -93,6 +93,8 @@
   line-height: 1;
   letter-spacing: 0.9px;
   color: #ff9f43;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   text-shadow:
     2px 2px 4px rgba(0, 0, 0, 0.3),
     0 2px 0 rgba(255, 255, 255, 0.85);
