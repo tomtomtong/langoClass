@@ -184,8 +184,10 @@
         <p id="room-buzzin-result" class="buzzin-result" hidden></p>
         <div class="buzzin-turn-area" id="room-buzzin-turn" hidden>
           <p id="room-buzzin-turn-status" class="buzzin-turn-status"></p>
-          <textarea id="room-buzzin-answer" class="buzzin-answer-input" maxlength="500" rows="3" placeholder="Type your answer…"></textarea>
-          <button class="btn primary" id="btn-room-buzzin-submit" type="button">Submit answer</button>
+          <div class="buzzin-record-controls">
+            <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button">Record answer</button>
+            <span id="room-buzzin-record-status" class="buzzin-record-status" hidden></span>
+          </div>
           <p id="room-buzzin-submitted" class="buzzin-submitted" hidden></p>
         </div>
       </div>

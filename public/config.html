@@ -221,6 +221,73 @@
         <p class="status-msg" id="config-qwen-save-status"></p>
         <p class="error" id="config-qwen-error"></p>
       </div>
+
+      <div class="cms-panel config-panel config-section-spaced">
+        <h2>OpenRouter (Buzz In transcription)</h2>
+        <p class="hint">
+          Paste your OpenRouter API key from
+          <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>.
+          Used to transcribe student voice answers in Buzz In exercises via
+          <code>xiaomi/mimo-v2.5</code>.
+        </p>
+
+        <label class="field">
+          <span>OpenRouter API key</span>
+          <input
+            type="password"
+            id="config-openrouter-key"
+            placeholder="Paste key here"
+            autocomplete="off"
+          />
+          <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Status:</strong> <span id="config-openrouter-status-label">—</span></p>
+          <p><strong>Active key:</strong> <span id="config-openrouter-masked">—</span></p>
+          <p class="hint" id="config-openrouter-env-hint" hidden>
+            Using <code>OPENROUTER_API_KEY</code> environment variable (no saved key).
+          </p>
+        </div>
+
+        <label class="field">
+          <span>Buzz In transcription model</span>
+          <input
+            type="text"
+            id="config-openrouter-buzzin-model"
+            list="config-openrouter-buzzin-models"
+            placeholder="xiaomi/mimo-v2.5"
+            autocomplete="off"
+          />
+          <datalist id="config-openrouter-buzzin-models">
+            <option value="xiaomi/mimo-v2.5"></option>
+          </datalist>
+          <p class="hint">
+            OpenRouter model slug for speech-to-text. Default is <code>xiaomi/mimo-v2.5</code>.
+          </p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Active model:</strong> <span id="config-openrouter-buzzin-model-effective">—</span></p>
+          <p><strong>Environment default:</strong> <span id="config-openrouter-buzzin-model-env-default">—</span></p>
+        </div>
+
+        <div class="config-actions">
+          <button type="button" class="btn primary" id="btn-config-save-openrouter">Save key</button>
+          <button type="button" class="btn primary" id="btn-config-save-openrouter-model">Save model</button>
+          <button type="button" class="btn secondary" id="btn-config-test-openrouter">Test API</button>
+          <button type="button" class="btn secondary" id="btn-config-clear-openrouter">Clear saved key</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-openrouter-model">Reset model to env default</button>
+        </div>
+
+        <div class="config-preview config-inworld-test-preview" id="config-openrouter-test-wrap" hidden>
+          <span class="field-label">Test result</span>
+          <pre id="config-openrouter-test-result" class="config-preview-json"></pre>
+        </div>
+
+        <p class="status-msg" id="config-openrouter-save-status"></p>
+        <p class="error" id="config-openrouter-error"></p>
+      </div>
     </section>
   </div>
 

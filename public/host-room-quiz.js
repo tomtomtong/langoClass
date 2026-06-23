@@ -66,7 +66,7 @@ function updateHostBuzzinTurnUi(payload) {
   if (payload.typingComplete) {
     turnStatus.textContent = "All students have answered.";
   } else if (payload.currentTurn) {
-    turnStatus.textContent = `Waiting for ${payload.currentTurn.displayName} (#${payload.currentTurn.rank}) to type their answer…`;
+    turnStatus.textContent = `Waiting for ${payload.currentTurn.displayName} (#${payload.currentTurn.rank}) to record their answer…`;
   } else {
     turnStatus.textContent = "Students answer in buzz order.";
   }

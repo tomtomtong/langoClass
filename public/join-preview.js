@@ -223,7 +223,7 @@
           topic: "Name an animal that lives in the ocean and say why you like it.",
           phase: "turn",
           rank: 2,
-          status: "You're #2 — type your answer now.",
+          status: "You're #2 — tap Record and speak your answer.",
           showTurn: true,
         });
         break;
@@ -283,27 +283,20 @@
 
     const turnArea = $("#room-buzzin-turn");
     const turnStatus = $("#room-buzzin-turn-status");
-    const answer = $("#room-buzzin-answer");
-    const submitBtn = $("#btn-room-buzzin-submit");
+    const recordBtn = $("#btn-room-buzzin-record");
     const submitted = $("#room-buzzin-submitted");
 
     if (showTurn && turnArea) {
       turnArea.hidden = false;
       if (turnStatus) turnStatus.textContent = status;
-      if (answer) {
-        answer.hidden = false;
-        answer.disabled = false;
-        answer.value = "";
-      }
-      if (submitBtn) {
-        submitBtn.hidden = false;
-        submitBtn.disabled = false;
+      if (recordBtn) {
+        recordBtn.hidden = false;
+        recordBtn.disabled = false;
       }
       if (submitted) submitted.hidden = true;
     } else if (turnArea) {
       turnArea.hidden = true;
-      if (answer) answer.hidden = true;
-      if (submitBtn) submitBtn.hidden = true;
+      if (recordBtn) recordBtn.hidden = true;
       if (submitted) submitted.hidden = true;
     }
   }

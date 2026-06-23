@@ -5081,6 +5081,29 @@ body:has(#screen-host-quiz-question.active) {
   line-height: 1.5;
 }
 
+.buzzin-record-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.buzzin-record-btn {
+  min-width: 10rem;
+}
+
+.buzzin-record-btn.is-recording {
+  background: rgba(231, 76, 60, 0.18);
+  border-color: rgba(231, 76, 60, 0.55);
+  color: #ff8a80;
+}
+
+.buzzin-record-status {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
 .buzzin-answer-input {
   width: 100%;
   margin-bottom: 0.75rem;

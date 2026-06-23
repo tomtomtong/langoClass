@@ -155,7 +155,7 @@ function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
   listEl.innerHTML = items
     .map((item) => {
       const body = item.pending
-        ? `<span class="buzzin-response-pending">Typing…</span>`
+        ? `<span class="buzzin-response-pending">Speaking…</span>`
         : escapeHtml(item.text);
       const analysis = renderBuzzinAnalysisHtml(item);
       return `<li><span class="buzzin-rank">${item.rank}</span><div class="buzzin-response-body"><strong>${escapeHtml(item.displayName)}</strong><p>${body}</p>${analysis}</div></li>`;

@@ -144,6 +144,29 @@ function renderConfig(data) {
   $("#config-qwen-model").value = data.qwenModelSaved || "";
   $("#config-qwen-model-effective").textContent = data.effectiveQwenModel || "—";
   $("#config-qwen-model-env-default").textContent = data.qwenModelEnvDefault || "—";
+
+  const openrouterConfigured = !!data.openrouterApiKeyConfigured;
+  const openrouterSaved = !!data.openrouterApiKeySaved;
+  $("#config-openrouter-status-label").textContent = openrouterConfigured
+    ? "Configured"
+    : "Not configured";
+  $("#config-openrouter-masked").textContent = openrouterConfigured
+    ? data.openrouterApiKeyMasked || "—"
+    : "—";
+  $("#config-openrouter-env-hint").hidden =
+    !data.openrouterEnvDefaultConfigured || openrouterSaved;
+
+  if (openrouterSaved) {
+    $("#config-openrouter-key").placeholder = "Key saved — paste to replace";
+  } else {
+    $("#config-openrouter-key").placeholder = "Paste key here";
+  }
+
+  $("#config-openrouter-buzzin-model").value = data.openrouterBuzzinModelSaved || "";
+  $("#config-openrouter-buzzin-model-effective").textContent =
+    data.effectiveOpenRouterBuzzinModel || "—";
+  $("#config-openrouter-buzzin-model-env-default").textContent =
+    data.openrouterBuzzinModelEnvDefault || "—";
 }
 
 function clearInworldTestResult() {
@@ -154,6 +177,11 @@ function clearInworldTestResult() {
 function clearQwenTestResult() {
   $("#config-qwen-test-wrap").hidden = true;
   $("#config-qwen-test-result").textContent = "";
+}
+
+function clearOpenRouterTestResult() {
+  $("#config-openrouter-test-wrap").hidden = true;
+  $("#config-openrouter-test-result").textContent = "";
 }
 
 async function saveInworldLlmModel(inworldLlmModel) {
@@ -308,6 +336,81 @@ async function testQwenKey() {
   }
 }
 
+async function saveOpenRouterBuzzinModel(openrouterBuzzinModel) {
+  $("#config-openrouter-error").textContent = "";
+  $("#config-openrouter-save-status").textContent = "";
+  clearOpenRouterTestResult();
+
+  const btn = $("#btn-config-save-openrouter-model");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { openrouterBuzzinModel },
+    });
+    renderConfig(data);
+    $("#config-openrouter-save-status").textContent = openrouterBuzzinModel
+      ? `Model saved: ${data.effectiveOpenRouterBuzzinModel}`
+      : "Saved model cleared. Using environment default.";
+  } catch (err) {
+    $("#config-openrouter-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveOpenRouterKey(openrouterApiKey) {
+  $("#config-openrouter-error").textContent = "";
+  $("#config-openrouter-save-status").textContent = "";
+  clearOpenRouterTestResult();
+
+  const btn = $("#btn-config-save-openrouter");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { openrouterApiKey },
+    });
+    renderConfig(data);
+    $("#config-openrouter-key").value = "";
+    $("#config-openrouter-save-status").textContent = openrouterApiKey
+      ? "OpenRouter key saved."
+      : "Saved key cleared. Using environment default if set.";
+  } catch (err) {
+    $("#config-openrouter-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function testOpenRouterKey() {
+  $("#config-openrouter-error").textContent = "";
+  $("#config-openrouter-save-status").textContent = "";
+  clearOpenRouterTestResult();
+
+  const inputKey = $("#config-openrouter-key").value.trim();
+  const inputModel = $("#config-openrouter-buzzin-model").value.trim();
+  const btn = $("#btn-config-test-openrouter");
+  btn.disabled = true;
+  try {
+    const body = {};
+    if (inputKey) body.openrouterApiKey = inputKey;
+    if (inputModel) body.openrouterBuzzinModel = inputModel;
+    const data = await api("/api/config/test-openrouter", {
+      method: "POST",
+      body,
+    });
+    $("#config-openrouter-test-wrap").hidden = false;
+    $("#config-openrouter-test-result").textContent = JSON.stringify(data, null, 2);
+    const llmMs = data.latencyMs ?? "—";
+    $("#config-openrouter-save-status").textContent = `API test succeeded (LLM ${llmMs} ms).`;
+  } catch (err) {
+    $("#config-openrouter-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function loadConfig() {
   $("#config-error").textContent = "";
   const data = await api("/api/config");
@@ -432,6 +535,21 @@ async function init() {
   $("#btn-config-reset-qwen-model").addEventListener("click", () => {
     $("#config-qwen-model").value = "";
     saveQwenModel("");
+  });
+  $("#btn-config-save-openrouter").addEventListener("click", () => {
+    saveOpenRouterKey($("#config-openrouter-key").value.trim());
+  });
+  $("#btn-config-save-openrouter-model").addEventListener("click", () => {
+    saveOpenRouterBuzzinModel($("#config-openrouter-buzzin-model").value.trim());
+  });
+  $("#btn-config-test-openrouter").addEventListener("click", testOpenRouterKey);
+  $("#btn-config-clear-openrouter").addEventListener("click", () => {
+    $("#config-openrouter-key").value = "";
+    saveOpenRouterKey("");
+  });
+  $("#btn-config-reset-openrouter-model").addEventListener("click", () => {
+    $("#config-openrouter-buzzin-model").value = "";
+    saveOpenRouterBuzzinModel("");
   });
 
   if (state.token && state.user) {

@@ -15,7 +15,9 @@ const settingsStore = require("./lib/settings-store");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  maxHttpBufferSize: 5 * 1024 * 1024,
+});
 
 const PORT = process.env.PORT || 6000;
 const LANGO_API_BASE = "https://dev.api.lango.ai/v1";
@@ -26,10 +28,15 @@ const ENV_INWORLD_API_KEY = String(process.env.INWORLD_API_KEY || "").trim();
 const ENV_INWORLD_LLM_MODEL = String(process.env.INWORLD_LLM_MODEL || "auto").trim();
 const ENV_QWEN_API_KEY = String(process.env.QWEN_API_KEY || "").trim();
 const ENV_QWEN_MODEL = String(process.env.QWEN_MODEL || "qwen-plus").trim();
+const ENV_OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
+const ENV_OPENROUTER_BUZZIN_MODEL = String(
+  process.env.OPENROUTER_BUZZIN_MODEL || "xiaomi/mimo-v2.5"
+).trim();
 const INWORLD_API_BASE = "https://api.inworld.ai";
 const QWEN_API_BASE = String(
   process.env.QWEN_API_BASE || "https://dashscope.aliyuncs.com/compatible-mode/v1"
 ).replace(/\/$/, "");
+const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
 
 function getPublicBaseUrl() {
   const saved = settingsStore.readSettings().publicBaseUrl;
@@ -54,6 +61,16 @@ function getQwenApiKey() {
 function getQwenModel() {
   const saved = settingsStore.readSettings().qwenModel;
   return saved || ENV_QWEN_MODEL || "qwen-plus";
+}
+
+function getOpenRouterApiKey() {
+  const saved = settingsStore.readSettings().openrouterApiKey;
+  return saved || ENV_OPENROUTER_API_KEY;
+}
+
+function getOpenRouterBuzzinModel() {
+  const saved = settingsStore.readSettings().openrouterBuzzinModel;
+  return saved || ENV_OPENROUTER_BUZZIN_MODEL || "xiaomi/mimo-v2.5";
 }
 
 function maskApiKey(key) {
@@ -186,6 +203,7 @@ const socketMeta = new Map();
 const BUZZIN_WINNER_COUNT = 3;
 const BUZZIN_JOIN_SECONDS = 20;
 const BUZZIN_RESPONSE_MAX_LEN = 500;
+const BUZZIN_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
 
 /** @type {Map<string, BuzzInRound>} */
 const buzzInRounds = new Map();
@@ -251,6 +269,118 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
   }
 
   broadcastBuzzInUpdate(pin, "buzzin_response_analyzed");
+}
+
+function buzzinAudioMimeType(format) {
+  const normalized = String(format || "webm").trim().toLowerCase().replace(/^\./, "");
+  const map = {
+    webm: "audio/webm",
+    wav: "audio/wav",
+    mp3: "audio/mpeg",
+    m4a: "audio/mp4",
+    ogg: "audio/ogg",
+    flac: "audio/flac",
+    aac: "audio/aac",
+  };
+  return map[normalized] || `audio/${normalized}`;
+}
+
+function parseBuzzinAudioPayload(audioBase64, format) {
+  const raw = String(audioBase64 || "").trim();
+  if (!raw) {
+    throw new Error("Record your answer before submitting.");
+  }
+
+  let base64Data = raw;
+  if (raw.startsWith("data:")) {
+    const comma = raw.indexOf(",");
+    if (comma === -1) {
+      throw new Error("Invalid audio data.");
+    }
+    base64Data = raw.slice(comma + 1);
+  }
+
+  const bytes = Buffer.from(base64Data, "base64");
+  if (!bytes.length) {
+    throw new Error("Invalid audio data.");
+  }
+  if (bytes.length > BUZZIN_AUDIO_MAX_BYTES) {
+    throw new Error("Recording is too long. Try a shorter answer.");
+  }
+
+  const audioFormat = String(format || "webm").trim().toLowerCase().replace(/^\./, "") || "webm";
+  const mimeType = buzzinAudioMimeType(audioFormat);
+  return {
+    audioFormat,
+    mimeType,
+    dataUrl: `data:${mimeType};base64,${base64Data}`,
+  };
+}
+
+async function parseOpenRouterResponse(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return { message: text || res.statusText };
+  }
+}
+
+function openRouterErrorMessage(data, status) {
+  return data?.error?.message || data?.message || `OpenRouter API returned ${status}.`;
+}
+
+async function transcribeBuzzinAudioWithOpenRouter(audioBase64, format) {
+  const apiKey = getOpenRouterApiKey();
+  if (!apiKey) {
+    throw new Error("OpenRouter is not configured. Add an API key in Config.");
+  }
+
+  const model = getOpenRouterBuzzinModel();
+  const { audioFormat, dataUrl } = parseBuzzinAudioPayload(audioBase64, format);
+
+  const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": getPublicBaseUrl(),
+      "X-Title": "Lango Buzz In",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_audio",
+              input_audio: {
+                data: dataUrl,
+                format: audioFormat,
+              },
+            },
+            {
+              type: "text",
+              text: "Transcribe the spoken words in this audio verbatim. Return only the transcript with no commentary or punctuation unless clearly spoken.",
+            },
+          ],
+        },
+      ],
+      max_tokens: 512,
+    }),
+  });
+
+  const data = await parseOpenRouterResponse(res);
+  if (!res.ok) {
+    throw new Error(`Transcription (${model}): ${openRouterErrorMessage(data, res.status)}`);
+  }
+
+  const text = data?.choices?.[0]?.message?.content?.trim?.() || "";
+  if (!text) {
+    throw new Error("Could not transcribe your recording. Try again.");
+  }
+  return text;
 }
 
 function clearBuzzInJoinTimer(round) {
@@ -882,6 +1012,13 @@ function buildConfigResponse() {
     qwenModelSaved: settings.qwenModel || "",
     qwenModelEnvDefault: ENV_QWEN_MODEL,
     effectiveQwenModel: getQwenModel(),
+    openrouterApiKeySaved: !!settings.openrouterApiKey,
+    openrouterEnvDefaultConfigured: !!ENV_OPENROUTER_API_KEY,
+    openrouterApiKeyConfigured: !!getOpenRouterApiKey(),
+    openrouterApiKeyMasked: maskApiKey(getOpenRouterApiKey()),
+    openrouterBuzzinModelSaved: settings.openrouterBuzzinModel || "",
+    openrouterBuzzinModelEnvDefault: ENV_OPENROUTER_BUZZIN_MODEL,
+    effectiveOpenRouterBuzzinModel: getOpenRouterBuzzinModel(),
     notificationPreview: buildNotificationData({
       session_id: "123456",
       class_name: "Example class",
@@ -1059,6 +1196,42 @@ async function testQwenApiKey(apiKey, model) {
   };
 }
 
+async function testOpenRouterBuzzinModel(apiKey, model) {
+  const key = String(apiKey || "").trim();
+  if (!key) {
+    throw new Error("No OpenRouter API key to test. Enter a key or set OPENROUTER_API_KEY.");
+  }
+
+  const buzzinModel = String(model || getOpenRouterBuzzinModel()).trim() || "xiaomi/mimo-v2.5";
+  const started = Date.now();
+  const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": getPublicBaseUrl(),
+      "X-Title": "Lango Buzz In",
+    },
+    body: JSON.stringify({
+      model: buzzinModel,
+      messages: [{ role: "user", content: "Reply with exactly: OK" }],
+      max_tokens: 16,
+    }),
+  });
+  const data = await parseOpenRouterResponse(res);
+  if (!res.ok) {
+    throw new Error(`LLM (${buzzinModel}): ${openRouterErrorMessage(data, res.status)}`);
+  }
+
+  const reply = data?.choices?.[0]?.message?.content?.trim?.() || "";
+  return {
+    ok: true,
+    model: buzzinModel,
+    latencyMs: Date.now() - started,
+    reply: reply.slice(0, 200),
+  };
+}
+
 app.get("/api/config", (_req, res) => {
   return res.json(buildConfigResponse());
 });
@@ -1067,7 +1240,15 @@ app.put("/api/config", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  const { publicBaseUrl, inworldApiKey, inworldLlmModel, qwenApiKey, qwenModel } = req.body || {};
+  const {
+    publicBaseUrl,
+    inworldApiKey,
+    inworldLlmModel,
+    qwenApiKey,
+    qwenModel,
+    openrouterApiKey,
+    openrouterBuzzinModel,
+  } = req.body || {};
   const updates = {};
 
   if (publicBaseUrl !== undefined) {
@@ -1095,6 +1276,14 @@ app.put("/api/config", async (req, res) => {
 
   if (qwenModel !== undefined) {
     updates.qwenModel = String(qwenModel || "").trim();
+  }
+
+  if (openrouterApiKey !== undefined) {
+    updates.openrouterApiKey = String(openrouterApiKey || "").trim();
+  }
+
+  if (openrouterBuzzinModel !== undefined) {
+    updates.openrouterBuzzinModel = String(openrouterBuzzinModel || "").trim();
   }
 
   if (!Object.keys(updates).length) {
@@ -1148,6 +1337,29 @@ app.post("/api/config/test-qwen", async (req, res) => {
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ message: err.message || "Qwen API test failed." });
+  }
+});
+
+app.post("/api/config/test-openrouter", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const bodyKey = req.body?.openrouterApiKey;
+  const bodyModel = req.body?.openrouterBuzzinModel;
+  const keyToTest =
+    bodyKey != null && String(bodyKey).trim()
+      ? String(bodyKey).trim()
+      : getOpenRouterApiKey();
+  const modelToTest =
+    bodyModel != null && String(bodyModel).trim()
+      ? String(bodyModel).trim()
+      : getOpenRouterBuzzinModel();
+
+  try {
+    const result = await testOpenRouterBuzzinModel(keyToTest, modelToTest);
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "OpenRouter API test failed." });
   }
 });
 
@@ -1725,7 +1937,34 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("submit_buzzin_response", ({ text }, callback) => {
+  socket.on("transcribe_buzzin_audio", async ({ audioBase64, format }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    if (!meta || meta.role !== "session_player" || !meta.playerId || !meta.pin) {
+      callback?.({ ok: false, error: "Join the class waiting room first." });
+      return;
+    }
+
+    const round = buzzInRounds.get(meta.pin);
+    if (!round || round.phase !== "typing") {
+      callback?.({ ok: false, error: "It is not your turn to answer yet." });
+      return;
+    }
+
+    const current = buzzInCurrentTurn(round);
+    if (!current || current.playerId !== meta.playerId) {
+      callback?.({ ok: false, error: "It is not your turn to answer yet." });
+      return;
+    }
+
+    try {
+      const text = await transcribeBuzzinAudioWithOpenRouter(audioBase64, format);
+      callback?.({ ok: true, text });
+    } catch (err) {
+      callback?.({ ok: false, error: err.message || "Transcription failed." });
+    }
+  });
+
+  socket.on("submit_buzzin_response", async ({ text, audioBase64, format }, callback) => {
     const meta = socketMeta.get(socket.id);
     if (!meta || meta.role !== "session_player" || !meta.playerId || !meta.pin) {
       callback?.({ ok: false, error: "Join the class waiting room first." });
@@ -1749,9 +1988,18 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const trimmed = String(text || "").trim();
+    let trimmed = String(text || "").trim();
+    if (!trimmed && audioBase64) {
+      try {
+        trimmed = await transcribeBuzzinAudioWithOpenRouter(audioBase64, format);
+      } catch (err) {
+        callback?.({ ok: false, error: err.message || "Transcription failed." });
+        return;
+      }
+    }
+
     if (!trimmed) {
-      callback?.({ ok: false, error: "Enter your answer before submitting." });
+      callback?.({ ok: false, error: "Record your answer before submitting." });
       return;
     }
     if (trimmed.length > BUZZIN_RESPONSE_MAX_LEN) {
