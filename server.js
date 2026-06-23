@@ -328,7 +328,7 @@ function parseBuzzinAudioPayload(audioBase64, format) {
   return {
     audioFormat,
     mimeType,
-    dataUrl: `data:${mimeType};base64,${base64Data}`,
+    base64Data,
   };
 }
 
@@ -342,7 +342,16 @@ async function parseOpenRouterResponse(res) {
 }
 
 function openRouterErrorMessage(data, status) {
-  return data?.error?.message || data?.message || `OpenRouter API returned ${status}.`;
+  const parts = [];
+  const primary = data?.error?.message || data?.message;
+  if (primary) parts.push(primary);
+  if (data?.error?.metadata) {
+    parts.push(JSON.stringify(data.error.metadata));
+  }
+  if (data?.error?.code) {
+    parts.push(`code: ${data.error.code}`);
+  }
+  return parts.join(" — ") || `OpenRouter API returned ${status}.`;
 }
 
 async function transcribeBuzzinAudioWithOpenRouter(audioBase64, format) {
@@ -352,7 +361,7 @@ async function transcribeBuzzinAudioWithOpenRouter(audioBase64, format) {
   }
 
   const model = getOpenRouterBuzzinModel();
-  const { audioFormat, dataUrl } = parseBuzzinAudioPayload(audioBase64, format);
+  const { audioFormat, base64Data } = parseBuzzinAudioPayload(audioBase64, format);
 
   const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
     method: "POST",
@@ -371,7 +380,7 @@ async function transcribeBuzzinAudioWithOpenRouter(audioBase64, format) {
             {
               type: "input_audio",
               input_audio: {
-                data: dataUrl,
+                data: base64Data,
                 format: audioFormat,
               },
             },
@@ -434,8 +443,7 @@ async function transcribeOpenRouterAudio({ apiKey, model, audioBuffer, format, p
   }
 
   const audioFormat = String(format || "webm").trim().toLowerCase().replace(/^\./, "") || "webm";
-  const mimeType = buzzinAudioMimeType(audioFormat);
-  const dataUrl = `data:${mimeType};base64,${audioBuffer.toString("base64")}`;
+  const base64Data = audioBuffer.toString("base64");
 
   const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
     method: "POST",
@@ -454,7 +462,7 @@ async function transcribeOpenRouterAudio({ apiKey, model, audioBuffer, format, p
             {
               type: "input_audio",
               input_audio: {
-                data: dataUrl,
+                data: base64Data,
                 format: audioFormat,
               },
             },
@@ -471,7 +479,11 @@ async function transcribeOpenRouterAudio({ apiKey, model, audioBuffer, format, p
 
   const data = await parseOpenRouterResponse(res);
   if (!res.ok) {
-    throw new Error(`Transcription (${buzzinModel}): ${openRouterErrorMessage(data, res.status)}`);
+    const err = new Error(
+      `Transcription (${buzzinModel}): ${openRouterErrorMessage(data, res.status)}`
+    );
+    err.openRouterDetails = data;
+    throw err;
   }
 
   const text = extractOpenRouterMessageText(data);
@@ -1498,7 +1510,10 @@ app.post("/api/transcribe/audio", (req, res) => {
       });
       return res.json({ ok: true, text });
     } catch (transcribeErr) {
-      return res.status(400).json({ message: transcribeErr.message || "Transcription failed." });
+      return res.status(400).json({
+        message: transcribeErr.message || "Transcription failed.",
+        details: transcribeErr.openRouterDetails || null,
+      });
     }
   });
 });

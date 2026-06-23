@@ -65,9 +65,8 @@ def audio_format_from_path(path: Path) -> tuple[str, str]:
     return ext, mime
 
 
-def build_data_url(audio_bytes: bytes, mime_type: str) -> str:
-    encoded = base64.b64encode(audio_bytes).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
+def build_audio_base64(audio_bytes: bytes) -> str:
+    return base64.b64encode(audio_bytes).decode("ascii")
 
 
 def openrouter_error_message(data: dict | None, status: int) -> str:
@@ -153,7 +152,7 @@ def transcribe_audio(api_key: str, model: str, audio_path: Path) -> str:
         raise ValueError("Audio file is too large (max 25 MB).")
 
     audio_format, mime_type = audio_format_from_path(audio_path)
-    data_url = build_data_url(audio_bytes, mime_type)
+    audio_base64 = build_audio_base64(audio_bytes)
 
     response = requests.post(
         f"{OPENROUTER_API_BASE}/chat/completions",
@@ -167,7 +166,7 @@ def transcribe_audio(api_key: str, model: str, audio_path: Path) -> str:
                         {
                             "type": "input_audio",
                             "input_audio": {
-                                "data": data_url,
+                                "data": audio_base64,
                                 "format": audio_format,
                             },
                         },
