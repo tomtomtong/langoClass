@@ -21,14 +21,16 @@
       "completedExerciseIds": [
         1,
         2,
-        6
+        6,
+        7,
+        10
       ],
       "visitedSectionIds": [
         1
       ],
       "lastSectionId": 1,
-      "lastExerciseId": 7,
-      "updatedAt": "2026-06-18T08:51:39.610Z"
+      "lastExerciseId": 10,
+      "updatedAt": "2026-06-23T09:41:55.275Z"
     }
   ]
 }

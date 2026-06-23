@@ -491,6 +491,7 @@ function stopRoomQuizJoinRetry() {
 function setupRoomPlayerQuiz(socket) {
   socket.on("game_starting", ({ fastMode } = {}) => {
     roomQuizFastMode = !!fastMode;
+    if (roomQuizFastMode) window.roomFastQuizCompleted = false;
     $("#room-waiting-status").textContent = "Get ready…";
   });
 
@@ -554,8 +555,18 @@ function setupRoomPlayerQuiz(socket) {
   });
 
   socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
+    const wasFastMode = roomQuizFastMode;
     roomQuizFastMode = false;
     clearTimer();
+    if (wasFastMode) {
+      window.roomFastQuizCompleted = true;
+      if (typeof showPlayerPassiveWaiting === "function") {
+        showPlayerPassiveWaiting();
+      } else {
+        showScreen("room-passive-waiting");
+      }
+      return;
+    }
     showScreen("player-finished");
     showExerciseLeaderboards({
       exerciseLeaderboard: exerciseLeaderboard || leaderboard,

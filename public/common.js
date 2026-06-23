@@ -212,6 +212,100 @@ function showExerciseLeaderboards({
 
   const exerciseRows = normalizeRows(exerciseLeaderboard);
   const semesterRows = normalizeRows(semesterLeaderboard);
+  const hostScreen = exerciseListEl?.closest(".host-leaderboard");
+
+  if (hostScreen) {
+    const tabs = [...hostScreen.querySelectorAll("[data-host-leaderboard-view]")];
+    const title = hostScreen.querySelector("#host-leaderboard-title");
+
+    const ordinal = (rank) => {
+      const teen = rank % 100;
+      if (teen >= 11 && teen <= 13) return `${rank}th`;
+      if (rank % 10 === 1) return `${rank}st`;
+      if (rank % 10 === 2) return `${rank}nd`;
+      if (rank % 10 === 3) return `${rank}rd`;
+      return `${rank}th`;
+    };
+
+    const renderHostBoard = (container, rows, overall) => {
+      if (!container) return;
+      if (!rows.length) {
+        container.innerHTML = `<p class="host-leaderboard__empty">No scores yet</p>`;
+        return;
+      }
+
+      const podium = rows.slice(0, 3)
+        .map((row, index) => {
+          const rank = index + 1;
+          const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
+          const initial = escapeHtml((row.name.trim()[0] || "?").toUpperCase());
+          return `<li class="host-leaderboard__podium-row host-leaderboard__podium-row--${rank}">
+            <div class="host-leaderboard__profile" aria-hidden="true">
+              <span class="host-leaderboard__medal">${medal}</span>
+              <span class="host-leaderboard__avatar">${initial}</span>
+            </div>
+            <span class="host-leaderboard__rank">${ordinal(rank)}</span>
+            <span class="host-leaderboard__player">
+              <span class="host-leaderboard__name">${escapeHtml(row.name)}</span>
+              <span class="host-leaderboard__score">${Number(row.score).toLocaleString()} pts</span>
+            </span>
+          </li>`;
+        })
+        .join("");
+
+      const rankings = rows.slice(3)
+        .map((row, index) => {
+          const rank = index + 4;
+          const initial = escapeHtml((row.name.trim()[0] || "?").toUpperCase());
+          return `<li class="host-leaderboard__ranking-row">
+            <span class="host-leaderboard__ranking-rank">${rank}.</span>
+            <span class="host-leaderboard__ranking-avatar" aria-hidden="true">${initial}</span>
+            <span class="host-leaderboard__ranking-name">${escapeHtml(row.name)}</span>
+            <span class="host-leaderboard__ranking-result">
+              <strong>${Number(row.score).toLocaleString()} pts</strong>
+              <small>${overall ? "Overall Score" : "Section Scores"}</small>
+            </span>
+          </li>`;
+        })
+        .join("");
+
+      container.innerHTML = `<div class="host-leaderboard__columns">
+        <ol class="host-leaderboard__podium">${podium}</ol>
+        <ol class="host-leaderboard__rankings" start="4">${rankings || '<li class="host-leaderboard__empty host-leaderboard__empty--small">No other scores yet</li>'}</ol>
+      </div>`;
+    };
+
+    const setHostView = (view) => {
+      const overall = view === "overall" && hasSemester;
+      exerciseWrapEl.hidden = overall;
+      semesterWrapEl.hidden = !overall;
+      if (title) title.textContent = overall ? "Overall Results" : "Leaderboard - Session 1";
+      tabs.forEach((tab) => {
+        const active = tab.dataset.hostLeaderboardView === (overall ? "overall" : "current");
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", String(active));
+        tab.tabIndex = active ? 0 : -1;
+      });
+    };
+
+    renderHostBoard(exerciseListEl, exerciseRows, false);
+    renderHostBoard(semesterListEl, semesterRows, true);
+    tabs.forEach((tab) => {
+      tab.hidden = tab.dataset.hostLeaderboardView === "overall" && !hasSemester;
+      tab.onclick = () => setHostView(tab.dataset.hostLeaderboardView);
+      tab.onkeydown = (event) => {
+        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+        event.preventDefault();
+        const available = tabs.filter((item) => !item.hidden);
+        const next = available[(available.indexOf(tab) + 1) % available.length];
+        next.focus();
+        next.click();
+      };
+    });
+    setHostView("current");
+    return;
+  }
+
   const finishedScreen = exerciseListEl?.closest(".player-leaderboard");
 
   if (finishedScreen) {

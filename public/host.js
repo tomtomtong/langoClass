@@ -443,6 +443,7 @@ function refreshNextExerciseUi() {
 
   for (const id of [
     "btn-host-quiz-next-exercise",
+    "btn-host-fast-results-next-exercise",
     "btn-host-video-next-exercise",
     "btn-host-buzzin-next-exercise",
   ]) {
@@ -650,8 +651,7 @@ function updateSectionProgressCard(sections, selectedId = state.selectedSection?
   if (!card) return;
 
   const sortedSections = [...(sections || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
-  const playableSections = getPlayableSections(sortedSections);
-  const total = playableSections.length;
+  const total = sortedSections.length;
   if (!total) {
     card.hidden = true;
     return;
@@ -732,8 +732,13 @@ function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) 
   container.querySelectorAll(".section-road-select-target:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (btn.dataset.activating === "true") return;
+      btn.dataset.activating = "true";
+      btn.classList.remove("is-pressed");
+      void btn.offsetWidth;
+      btn.classList.add("is-pressed");
       playPageNextSound();
-      onSelect(Number(btn.dataset.id));
+      window.setTimeout(() => onSelect(Number(btn.dataset.id)), 160);
     });
   });
 }
@@ -2065,6 +2070,14 @@ $("#btn-host-quiz-done")?.addEventListener("click", () => {
   });
 });
 
+$("#btn-host-fast-results-done")?.addEventListener("click", () => {
+  playPageBackSound();
+  markCurrentHostExerciseCompleted();
+  wrapUpRoomExercise(() => {
+    returnHostToWaitingRoom();
+  });
+});
+
 $("#btn-host-video-done")?.addEventListener("click", () => {
   playPageBackSound();
   backToWaitingFromExercise();
@@ -2083,7 +2096,7 @@ $("#btn-start-another-buzzin")?.addEventListener("click", () => {
 });
 
 document.querySelectorAll(
-  "#btn-host-quiz-next-exercise, #btn-host-video-next-exercise, #btn-host-buzzin-next-exercise"
+  "#btn-host-quiz-next-exercise, #btn-host-fast-results-next-exercise, #btn-host-video-next-exercise, #btn-host-buzzin-next-exercise"
 ).forEach((btn) => btn.addEventListener("click", () => void handleStartNextExercise()));
 
 $("#login-username").addEventListener("change", () => {
@@ -2094,7 +2107,12 @@ $("#login-username").addEventListener("change", () => {
 loadPrefs();
 applyLoginUsernameToForm();
 
-if (state.token && state.user) {
+const hostLeaderboardPreviewMode =
+  new URLSearchParams(window.location.search).get("preview") === "leaderboard";
+
+if (hostLeaderboardPreviewMode) {
+  /* host-preview.js renders the standalone leaderboard fixture. */
+} else if (state.token && state.user) {
   enterClassStep({ resume: true });
 } else {
   goTo("login", "login");

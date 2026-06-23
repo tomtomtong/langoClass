@@ -80,6 +80,10 @@ function updateHostBuzzinTurnUi(payload) {
 }
 
 function updateHostBuzzinUi(payload) {
+  const activity = $("#host-buzzin-activity");
+  if (activity) {
+    activity.hidden = (payload.phase || "join") === "join" && !(payload.totalBuzzes || 0);
+  }
   renderBuzzinWinnersList(
     $("#host-buzzin-winners"),
     payload.buzzes || [],
@@ -145,6 +149,8 @@ function startHostBuzzinRound(roomId) {
   hideHostBuzzinJoinTimer();
   const turnPanel = $("#host-buzzin-turn-panel");
   if (turnPanel) turnPanel.hidden = true;
+  const activity = $("#host-buzzin-activity");
+  if (activity) activity.hidden = true;
 
   renderBuzzinWinnersList($("#host-buzzin-winners"), [], "Waiting for students to buzz in…");
   const countEl = $("#host-buzzin-buzz-count");
@@ -272,6 +278,43 @@ function renderCorrectResponders(results) {
     .join("");
 }
 
+function renderFastAccuracyLeaderboard(results) {
+  const container = $("#host-fast-result-groups");
+  if (!container) return;
+
+  const groups = new Map();
+  (results || []).forEach((student) => {
+    const count = Math.max(0, Number(student.correctAnswers) || 0);
+    if (!groups.has(count)) groups.set(count, []);
+    groups.get(count).push(student);
+  });
+
+  const sortedGroups = [...groups.entries()].sort(([a], [b]) => b - a);
+  if (!sortedGroups.length) {
+    container.innerHTML = '<p class="host-fast-result-empty">No responses yet</p>';
+    return;
+  }
+
+  let studentIndex = 0;
+  container.innerHTML = sortedGroups
+    .map(([correctAnswers, students]) => {
+      const cards = students.map((student) => {
+        const name = String(student.name || "Student").trim() || "Student";
+        const index = studentIndex++;
+        return `<article class="host-fast-result-student">
+          <span class="host-fast-result-avatar" style="--student-i:${index}" aria-hidden="true">${escapeHtml(initialsForName(name))}</span>
+          <span class="host-fast-result-name">${escapeHtml(name)}</span>
+        </article>`;
+      }).join("");
+
+      return `<section class="host-fast-result-group${students.length > 3 ? " is-expanded" : ""}">
+        <h3 class="host-fast-result-score"><strong>${correctAnswers}</strong><span>correct</span></h3>
+        <div class="host-fast-result-students">${cards}</div>
+      </section>`;
+    })
+    .join("");
+}
+
 function setupHostRoomQuizSocket(socket) {
   socket.on("game_starting", ({ fastMode } = {}) => {
     roomQuizFastMode = !!fastMode;
@@ -319,10 +362,17 @@ function setupHostRoomQuizSocket(socket) {
     $("#btn-host-quiz-next").textContent = isLast ? "Show final results" : "Next question";
   });
 
-  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
+  socket.on("game_finished", ({ leaderboard, accuracyLeaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
+    const wasFastMode = roomQuizFastMode;
     roomQuizFastMode = false;
     if (typeof markCurrentHostExerciseCompleted === "function") {
       markCurrentHostExerciseCompleted();
+    }
+    if (wasFastMode) {
+      renderFastAccuracyLeaderboard(accuracyLeaderboard || []);
+      showScreen("host-fast-results");
+      if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
+      return;
     }
     showScreen("host-quiz-finished");
     showExerciseLeaderboards({
@@ -494,6 +544,11 @@ function showHostBuzzinExercise(exercise, roomId) {
   if (!buzzin) throw new Error("No Buzz In content in this exercise.");
 
   $("#host-buzzin-topic").textContent = buzzin.topic;
+  const pointsEl = $("#host-buzzin-points");
+  if (pointsEl) {
+    const points = typeof exercisePointsValue === "function" ? exercisePointsValue(exercise) : 300;
+    pointsEl.textContent = `${points} pts`;
+  }
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
   showScreen("host-buzzin");
   return startHostBuzzinRound(roomId);

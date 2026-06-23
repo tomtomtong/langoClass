@@ -762,6 +762,16 @@ function getLeaderboard(game) {
     .sort((a, b) => b.score - a.score);
 }
 
+function getAccuracyLeaderboard(game) {
+  return [...game.players.values()]
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      correctAnswers: p.correctAnswers || 0,
+    }))
+    .sort((a, b) => b.correctAnswers - a.correctAnswers || a.name.localeCompare(b.name));
+}
+
 function getSemesterLeaderboardForRoom(pin) {
   const session = sessionStore.getSession(pin);
   if (!session?.teacherId || !session?.classId) return [];
@@ -825,6 +835,7 @@ function endQuestion(game) {
         const timeRatio = Math.max(0, 1 - timeTaken / timeLimitMs);
         const points = Math.round(BASE_POINTS + MAX_TIME_BONUS * timeRatio);
         player.score += points;
+        player.correctAnswers = (player.correctAnswers || 0) + 1;
         results.push({
           playerId: player.id,
           name: player.name,
@@ -889,6 +900,7 @@ function startQuestion(game) {
     const exerciseLeaderboard = getLeaderboard(game);
     io.to(game.pin).emit("game_finished", {
       leaderboard: exerciseLeaderboard,
+      accuracyLeaderboard: getAccuracyLeaderboard(game),
       ...buildExerciseFinishedPayload(game.pin, { exerciseLeaderboard }),
     });
     return;
@@ -2314,7 +2326,7 @@ io.on("connection", (socket) => {
     }
 
     const playerId = socket.id;
-    game.players.set(playerId, { id: playerId, name, score: 0 });
+    game.players.set(playerId, { id: playerId, name, score: 0, correctAnswers: 0 });
     socket.join(game.pin);
     socketMeta.set(socket.id, { pin: game.pin, role: "player", playerId });
 
@@ -2443,6 +2455,7 @@ io.on("connection", (socket) => {
       id: playerId,
       name,
       score: existing?.score || 0,
+      correctAnswers: existing?.correctAnswers || 0,
       socketId: socket.id,
     });
     socket.join(game.pin);

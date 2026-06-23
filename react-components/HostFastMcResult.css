@@ -1,0 +1,192 @@
+.hostFastResult {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+}
+
+.hostFastResult * { box-sizing: border-box; }
+
+.hostFastResult__background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hostFastResult__stage {
+  position: absolute;
+  inset: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+}
+
+.hostFastResult__title {
+  width: 100%;
+  margin: 0;
+  padding-bottom: 24px;
+  color: #fff;
+  font-size: 50px;
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  -webkit-text-stroke: 4px #c866da;
+  paint-order: stroke fill;
+}
+
+.hostFastResult__board {
+  width: 1240px;
+  height: 491px;
+  padding: 23px 20px 24px;
+  overflow: hidden;
+  border: 8px solid rgba(162, 89, 255, 0.6);
+  border-radius: 46px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 2px 4px 30px #ffb1ed;
+  backdrop-filter: blur(100px);
+}
+
+.hostFastResult__groups {
+  height: 428px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scrollbar-width: none;
+}
+
+.hostFastResult__groups::-webkit-scrollbar { display: none; }
+
+.hostFastResult__group {
+  min-height: 100px;
+  padding: 16px 28px;
+  border-radius: 14px;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  align-items: start;
+  background: #ffd1f1;
+}
+
+.hostFastResult__group:nth-child(even) { background: #ffbd90; }
+.hostFastResult__group[data-expanded] { min-height: 196px; }
+
+.hostFastResult__score {
+  height: 68px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  color: #fff;
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3), 0 0 2px #a25aff;
+}
+
+.hostFastResult__score strong {
+  width: 86px;
+  color: #fff;
+  font-size: 48px;
+  font-weight: 900;
+  text-align: center;
+  -webkit-text-stroke: 3px #feca57;
+  paint-order: stroke fill;
+}
+
+.hostFastResult__score span { font-size: 36px; }
+
+.hostFastResult__students {
+  display: grid;
+  grid-template-columns: repeat(3, 255px);
+  gap: 28px 31px;
+}
+
+.hostFastResult__student {
+  width: 255px;
+  height: 68px;
+  padding: 0 16px;
+  border: 4px solid transparent;
+  border-radius: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)) padding-box,
+    linear-gradient(100deg, #fc7dba, #a25aff) border-box;
+}
+
+.hostFastResult__avatar {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border: 4px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: hsl(calc(var(--avatar-index, 0) * 47deg + 185deg) 70% 77%);
+  color: #344356;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+}
+
+.hostFastResult__name {
+  width: 100px;
+  min-width: 0;
+  overflow: hidden;
+  background: linear-gradient(91deg, #743c9b 3%, #b11980 89%);
+  background-clip: text;
+  color: transparent;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+}
+
+.hostFastResult__footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 426px;
+  height: 70px;
+  padding: 0 20px;
+  border-radius: 0 20px 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.hostFastResult__button {
+  min-width: 96px;
+  height: 42px;
+  padding: 9px 12px 13px;
+  border: 0;
+  border-radius: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(#feca57, #ff9f43);
+  color: #fff;
+  font: 900 18px/20px "Nunito", sans-serif;
+  letter-spacing: 0.36px;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 -2px 2px rgba(0,0,0,.1), inset 0 0 0 3px rgba(255,255,255,.5), 0 6px 0 rgba(0,0,0,.2), 0 2px 1px rgba(0,0,0,.25);
+  cursor: pointer;
+}
+
+.hostFastResult__button--back { filter: grayscale(1); }
+.hostFastResult__button img { width: 24px; height: 24px; }
+.hostFastResult__nextIcon { transform: rotate(180deg); }

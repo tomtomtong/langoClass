@@ -29,12 +29,22 @@ function clearStoredParticipant() {
 
 let roomSessionSocket = null;
 
+function showPlayerPassiveWaiting({
+  title = "Exercise complete",
+  message = "No action is needed. Please watch the teacher's screen.",
+} = {}) {
+  $("#room-passive-waiting-title").textContent = title;
+  $("#room-passive-waiting-status").textContent = message;
+  showScreen("room-passive-waiting");
+}
+
 function getRoomSessionSocket() {
   if (!roomSessionSocket) {
     roomSessionSocket = io({ transports: ["websocket", "polling"] });
 
     roomSessionSocket.on("session_started", ({ exercise }) => {
       if (!roomParticipant) return;
+      window.roomFastQuizCompleted = false;
       $("#room-waiting-status").textContent = "Class is starting — get ready!";
       startRoomExercise(
         roomParticipant.roomId,
@@ -51,6 +61,11 @@ function getRoomSessionSocket() {
 
     roomSessionSocket.on("room_exercise_wrap_up", (payload) => {
       if (!roomParticipant) return;
+
+      if (window.roomFastQuizCompleted) {
+        showPlayerPassiveWaiting();
+        return;
+      }
 
       const hasScores =
         (payload?.exerciseLeaderboard || []).length > 0 ||
@@ -332,8 +347,13 @@ function initQuizJoin() {
   });
 
   socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
+    const wasFastMode = quizFastMode;
     quizFastMode = false;
     clearTimer();
+    if (wasFastMode) {
+      showPlayerPassiveWaiting();
+      return;
+    }
     showScreen("player-finished");
     showExerciseLeaderboards({
       exerciseLeaderboard: exerciseLeaderboard || leaderboard,
