@@ -175,10 +175,11 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
 
   try {
     const blob = await waitForRoomBuzzinRecordedBlob();
-    const audioBase64 = await blobToBase64(blob);
+    setRoomBuzzinRecordStatus("Converting recording to WAV…");
+    const audioBase64 = await blobToWavBase64(blob);
     socket.emit(
       "submit_buzzin_response",
-      { audioBase64, format: roomBuzzinRecordedFormat },
+      { audioBase64, format: "wav" },
       (res) => {
         if (!res?.ok) {
           if (recordBtn) recordBtn.disabled = false;

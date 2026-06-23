@@ -161,16 +161,40 @@ function waitForRecordedBlob(timeoutMs = 3000) {
   });
 }
 
-function setRecordedFile(blob, format) {
-  recordedBlob = blob;
-  recordedFormat = format;
-  selectedFile = new File([blob], `recording.${format}`, { type: blob.type || "audio/webm" });
+function setRecordedFile(uploadBlob, uploadFormat, previewBlob = uploadBlob) {
+  recordedBlob = uploadBlob;
+  recordedFormat = uploadFormat;
+  selectedFile = new File([uploadBlob], `recording.${uploadFormat}`, {
+    type: uploadBlob.type || "audio/wav",
+  });
 
   clearRecordingPreview();
-  previewUrl = URL.createObjectURL(blob);
+  previewUrl = URL.createObjectURL(previewBlob);
   audioPreview.src = previewUrl;
   audioPreview.hidden = false;
   setRecordStatus("Recording ready — click Transcribe or record again.");
+}
+
+async function finalizeRecording(rawBlob, sourceFormat) {
+  btnRecord.disabled = true;
+  setRecordStatus("Converting recording to WAV for transcription…");
+
+  try {
+    const wavBlob = await blobToWavBlob(rawBlob);
+    setRecordedFile(wavBlob, "wav", rawBlob);
+    setStatus("Recording saved as WAV. Click Transcribe.");
+  } catch (err) {
+    const message = err.message || "Could not convert recording to WAV.";
+    setRecordStatus("Conversion failed. Try recording again.");
+    setStatus(message, true);
+    logError("Record", message);
+    selectedFile = null;
+    recordedBlob = null;
+  } finally {
+    btnRecord.textContent = "Record";
+    btnRecord.classList.remove("is-recording");
+    btnRecord.disabled = busy;
+  }
 }
 
 async function startRecording() {
@@ -226,12 +250,10 @@ async function startRecording() {
     }
 
     const blobType = mimeType || "audio/webm";
-    setRecordedFile(new Blob(audioChunks, { type: blobType }), recordedFormat);
+    const rawBlob = new Blob(audioChunks, { type: blobType });
     audioChunks = [];
     mediaRecorder = null;
-    btnRecord.textContent = "Record";
-    btnRecord.classList.remove("is-recording");
-    btnRecord.disabled = busy;
+    void finalizeRecording(rawBlob, recordedFormat);
   });
 
   mediaRecorder.start();
