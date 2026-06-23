@@ -830,6 +830,36 @@ function buildNotificationData(extra = {}) {
   };
 }
 
+async function sendExerciseEndNotification(session) {
+  if (!session?.classId || !session?.authToken) return null;
+
+  const notifyBody = {
+    class_id: session.classId,
+    title: session.courseName || "Whiteboard session",
+    body: "End",
+    data: buildNotificationData({
+      session_id: session.roomId,
+      class_name: session.className || `Class ${session.classId}`,
+    }),
+  };
+
+  const { ok, status, data } = await langoRequest("POST", "/whiteboard/sendNotification", {
+    token: session.authToken,
+    body: notifyBody,
+  });
+
+  if (!ok) {
+    console.warn(
+      `[notify] End exercise notification failed for room ${session.roomId}: ${status}`,
+      data
+    );
+    return { ok: false, notification: notifyBody, apiResponse: data };
+  }
+
+  console.log(`[notify] Sent end exercise notification for room ${session.roomId}`);
+  return { ok: true, notification: notifyBody, apiResponse: data };
+}
+
 function buildConfigResponse() {
   const settings = settingsStore.readSettings();
   const effectiveInworldKey = getInworldApiKey();
@@ -1390,6 +1420,7 @@ app.post("/api/session/start", async (req, res) => {
     exercise,
     classItem,
     course,
+    authToken: token,
   });
 
   const notifyBody = {
@@ -1781,6 +1812,7 @@ io.on("connection", (socket) => {
 
     const payload = buildExerciseFinishedPayload(pin);
     io.to(pin).emit("room_exercise_wrap_up", payload);
+    void sendExerciseEndNotification(session);
     callback?.({ ok: true, ...payload });
   });
 
