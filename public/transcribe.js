@@ -1,12 +1,11 @@
 const DEFAULT_MODEL = "mistralai/voxtral-small-24b-2507";
 const STORAGE_KEY = "openrouter_transcribe_config";
+const MAX_RECORD_MS = 60000;
 
 const apiKeyInput = document.getElementById("transcribe-api-key");
 const showKeyCheckbox = document.getElementById("transcribe-show-key");
 const modelInput = document.getElementById("transcribe-model");
 const modelDefaultHint = document.getElementById("transcribe-model-default");
-const fileInput = document.getElementById("transcribe-audio-file");
-const fileNameInput = document.getElementById("transcribe-file-name");
 const output = document.getElementById("transcribe-output");
 const statusEl = document.getElementById("transcribe-status");
 const errorSection = document.getElementById("transcribe-error-section");
@@ -17,9 +16,19 @@ const btnSave = document.getElementById("btn-transcribe-save");
 const btnCopy = document.getElementById("btn-transcribe-copy");
 const btnClear = document.getElementById("btn-transcribe-clear");
 const btnClearErrors = document.getElementById("btn-transcribe-clear-errors");
+const btnRecord = document.getElementById("btn-transcribe-record");
+const recordStatus = document.getElementById("transcribe-record-status");
+const audioPreview = document.getElementById("transcribe-audio-preview");
 
 let busy = false;
 let selectedFile = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let recordStream = null;
+let recordedBlob = null;
+let recordedFormat = "webm";
+let recordTimer = null;
+let previewUrl = null;
 
 function loadSettings() {
   try {
@@ -47,6 +56,10 @@ function applySettings() {
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle("is-error", isError);
+}
+
+function setRecordStatus(message) {
+  recordStatus.textContent = message;
 }
 
 function formatErrorEntry(context, message, details = null) {
@@ -86,6 +99,189 @@ function setBusy(nextBusy) {
   busy = nextBusy;
   btnTranscribe.disabled = nextBusy;
   btnTest.disabled = nextBusy;
+  if (mediaRecorder?.state !== "recording") {
+    btnRecord.disabled = nextBusy;
+  }
+}
+
+function clearRecordingPreview() {
+  if (previewUrl) {
+    URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+  }
+  audioPreview.removeAttribute("src");
+  audioPreview.hidden = true;
+}
+
+function resetRecording() {
+  if (recordTimer) {
+    clearTimeout(recordTimer);
+    recordTimer = null;
+  }
+
+  if (mediaRecorder?.state === "recording") {
+    mediaRecorder.stop();
+  } else if (recordStream) {
+    recordStream.getTracks().forEach((track) => track.stop());
+    recordStream = null;
+  }
+
+  mediaRecorder = null;
+  audioChunks = [];
+  recordedBlob = null;
+  recordedFormat = "webm";
+  selectedFile = null;
+  clearRecordingPreview();
+
+  btnRecord.textContent = "Record";
+  btnRecord.classList.remove("is-recording");
+  btnRecord.disabled = busy;
+  setRecordStatus("Tap Record, then speak.");
+}
+
+function waitForRecordedBlob(timeoutMs = 3000) {
+  if (recordedBlob?.size) {
+    return Promise.resolve(recordedBlob);
+  }
+
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const tick = () => {
+      if (recordedBlob?.size) {
+        resolve(recordedBlob);
+        return;
+      }
+      if (Date.now() - started >= timeoutMs) {
+        reject(new Error("No audio captured. Try recording again."));
+        return;
+      }
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+function setRecordedFile(blob, format) {
+  recordedBlob = blob;
+  recordedFormat = format;
+  selectedFile = new File([blob], `recording.${format}`, { type: blob.type || "audio/webm" });
+
+  clearRecordingPreview();
+  previewUrl = URL.createObjectURL(blob);
+  audioPreview.src = previewUrl;
+  audioPreview.hidden = false;
+  setRecordStatus("Recording ready — click Transcribe or record again.");
+}
+
+async function startRecording() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    const message = "Microphone recording is not supported in this browser.";
+    setStatus(message, true);
+    logError("Record", message);
+    return;
+  }
+
+  resetRecording();
+
+  try {
+    recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    const message = err.message || "Could not access the microphone.";
+    setStatus(message, true);
+    logError("Record", message);
+    return;
+  }
+
+  audioChunks = [];
+  recordedBlob = null;
+  selectedFile = null;
+
+  const preferredTypes = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+  const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+  recordedFormat = mimeType.includes("mp4") ? "m4a" : mimeType.includes("ogg") ? "ogg" : "webm";
+
+  mediaRecorder = mimeType
+    ? new MediaRecorder(recordStream, { mimeType })
+    : new MediaRecorder(recordStream);
+
+  mediaRecorder.addEventListener("dataavailable", (event) => {
+    if (event.data?.size) audioChunks.push(event.data);
+  });
+
+  mediaRecorder.addEventListener("stop", () => {
+    if (recordStream) {
+      recordStream.getTracks().forEach((track) => track.stop());
+      recordStream = null;
+    }
+
+    if (!audioChunks.length) {
+      mediaRecorder = null;
+      setRecordStatus("No audio captured. Try recording again.");
+      return;
+    }
+
+    const blobType = mimeType || "audio/webm";
+    setRecordedFile(new Blob(audioChunks, { type: blobType }), recordedFormat);
+    audioChunks = [];
+    mediaRecorder = null;
+    btnRecord.textContent = "Record";
+    btnRecord.classList.remove("is-recording");
+    btnRecord.disabled = busy;
+  });
+
+  mediaRecorder.start();
+  btnRecord.textContent = "Stop recording";
+  btnRecord.classList.add("is-recording");
+  setRecordStatus("Recording… tap Stop when finished.");
+  setStatus("Recording in progress…");
+
+  recordTimer = setTimeout(() => {
+    if (mediaRecorder?.state === "recording") {
+      void stopRecording({ timedOut: true });
+    }
+  }, MAX_RECORD_MS);
+}
+
+async function stopRecording({ timedOut = false } = {}) {
+  if (recordTimer) {
+    clearTimeout(recordTimer);
+    recordTimer = null;
+  }
+
+  if (mediaRecorder?.state !== "recording") {
+    return;
+  }
+
+  mediaRecorder.stop();
+
+  try {
+    await waitForRecordedBlob();
+    setStatus(
+      timedOut
+        ? "Time limit reached — recording saved. Click Transcribe."
+        : "Recording saved. Click Transcribe."
+    );
+  } catch (err) {
+    const message = err.message || "No audio captured. Try recording again.";
+    setStatus(message, true);
+    logError("Record", message);
+  }
+}
+
+async function toggleRecording() {
+  if (busy) return;
+
+  if (mediaRecorder?.state === "recording") {
+    await stopRecording();
+    return;
+  }
+
+  await startRecording();
 }
 
 async function postJson(url, body) {
@@ -143,8 +339,13 @@ async function transcribeAudio() {
     logError("Transcribe", message);
     return;
   }
+
+  if (mediaRecorder?.state === "recording") {
+    await stopRecording();
+  }
+
   if (!selectedFile) {
-    const message = "Choose an audio file first.";
+    const message = "Record audio first.";
     setStatus(message, true);
     logError("Transcribe", message);
     return;
@@ -210,9 +411,8 @@ showKeyCheckbox.addEventListener("change", () => {
   apiKeyInput.type = showKeyCheckbox.checked ? "text" : "password";
 });
 
-fileInput.addEventListener("change", () => {
-  selectedFile = fileInput.files?.[0] || null;
-  fileNameInput.value = selectedFile ? selectedFile.name : "";
+btnRecord.addEventListener("click", () => {
+  void toggleRecording();
 });
 
 btnTranscribe.addEventListener("click", () => {

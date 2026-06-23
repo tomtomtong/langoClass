@@ -12,7 +12,7 @@
   <div class="transcribe-app">
     <header class="transcribe-header">
       <h1>OpenRouter Audio Transcribe &amp; Pronunciation</h1>
-      <p class="transcribe-subtitle">Upload audio for transcription and pronunciation feedback</p>
+      <p class="transcribe-subtitle">Record audio for transcription and pronunciation feedback</p>
       <p class="transcribe-hint">
         Get an API key at
         <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>
@@ -41,16 +41,14 @@
         <p class="transcribe-field-hint" id="transcribe-model-default"></p>
       </label>
 
-      <label class="transcribe-field">
-        <span>Audio file</span>
-        <div class="transcribe-file-row">
-          <input type="text" id="transcribe-file-name" readonly placeholder="No file chosen" />
-          <label class="transcribe-browse-btn">
-            Browse…
-            <input type="file" id="transcribe-audio-file" accept="audio/*,.mp3,.wav,.webm,.m4a,.ogg,.flac,.aac" hidden />
-          </label>
+      <div class="transcribe-field">
+        <span>Audio</span>
+        <div class="transcribe-record-row">
+          <button type="button" class="transcribe-btn transcribe-record-btn" id="btn-transcribe-record">Record</button>
+          <span class="transcribe-record-status" id="transcribe-record-status">Tap Record, then speak.</span>
         </div>
-      </label>
+        <audio id="transcribe-audio-preview" class="transcribe-audio-preview" controls hidden></audio>
+      </div>
 
       <div class="transcribe-actions">
         <button type="button" class="transcribe-btn primary" id="btn-transcribe">Transcribe</button>
@@ -75,7 +73,7 @@
     </section>
 
     <p class="transcribe-status" id="transcribe-status" aria-live="polite">
-      Choose an audio file, then click Transcribe for transcript and pronunciation feedback.
+      Record your answer, then click Transcribe for transcript and pronunciation feedback.
     </p>
   </div>
 

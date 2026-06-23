@@ -130,6 +130,33 @@ body.transcribe-page {
   background: #f3f4f6;
 }
 
+.transcribe-record-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.transcribe-record-btn.is-recording {
+  color: #fff;
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.transcribe-record-btn.is-recording:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.transcribe-record-status {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.transcribe-audio-preview {
+  width: 100%;
+  margin-top: 8px;
+}
+
 .transcribe-actions {
   display: flex;
   flex-wrap: wrap;
