@@ -1970,8 +1970,7 @@ async function startSelectedHostExercise({
       button.textContent = idleText;
     }
     if (state.sessionStarted) {
-      showScreen("waiting");
-      setActiveStep("waiting");
+      returnHostToJourney();
     }
   }
 }
@@ -2059,7 +2058,7 @@ $("#btn-back-journey")?.addEventListener("click", backFromWaiting);
 document.querySelectorAll("#btn-back-waiting-quiz, #btn-back-waiting-results").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
-    returnHostToWaitingRoom();
+    returnHostToJourney();
   })
 );
 
@@ -2067,7 +2066,7 @@ document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
     wrapUpRoomExercise(() => {
-      returnHostToWaitingRoom();
+      returnHostToJourney();
     });
   })
 );
@@ -2103,12 +2102,7 @@ $("#btn-copy-room-id").addEventListener("click", async () => {
 });
 
 function resetSessionAndGoToJourney() {
-  state.sessionStarted = false;
-  state.quizActive = false;
-  state.selectedExercise = null;
-  goTo("section", "section");
-  renderSectionPicker();
-  void showSectionExercises();
+  returnHostToJourney();
 }
 
 $("#btn-start-another").addEventListener("click", () => {
@@ -2149,15 +2143,22 @@ function wrapUpRoomExercise(callback) {
   });
 }
 
-function returnHostToWaitingRoom() {
+function returnHostToJourney() {
   if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   fadeInHostBgm();
   state.sessionStarted = false;
+  state.quizActive = false;
   state.selectedExercise = null;
   updateWaitingStartButton();
   refreshNextExerciseUi();
-  showScreen("waiting");
-  setActiveStep("waiting");
+
+  if (state.course?.id) {
+    goTo("section", "section");
+    renderSectionPicker();
+    void showSectionExercises();
+    return;
+  }
+  void enterCourseStep();
 }
 
 function finishVideoOrBuzzinExercise() {
@@ -2166,7 +2167,7 @@ function finishVideoOrBuzzinExercise() {
       showHostExerciseFinishedScreen(res);
       return;
     }
-    returnHostToWaitingRoom();
+    returnHostToJourney();
   });
 }
 
@@ -2178,7 +2179,7 @@ $("#btn-host-quiz-done")?.addEventListener("click", () => {
   playPageBackSound();
   markCurrentHostExerciseCompleted();
   wrapUpRoomExercise(() => {
-    returnHostToWaitingRoom();
+    returnHostToJourney();
   });
 });
 
@@ -2186,7 +2187,7 @@ $("#btn-host-fast-results-done")?.addEventListener("click", () => {
   playPageBackSound();
   markCurrentHostExerciseCompleted();
   wrapUpRoomExercise(() => {
-    returnHostToWaitingRoom();
+    returnHostToJourney();
   });
 });
 
