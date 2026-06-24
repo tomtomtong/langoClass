@@ -693,12 +693,29 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
   const existing = games.get(pin);
   if (existing) clearQuestionTimer(existing);
 
+  const session = sessionStore.getSession(pin);
+  const roomPlayers = new Map(
+    [...(session?.participants?.values() || [])].map((participant) => [
+      participant.userId,
+      {
+        id: participant.userId,
+        name: participant.displayName,
+        score: 0,
+        correctAnswers: 0,
+        socketId: null,
+      },
+    ])
+  );
+
   const game = {
     pin,
     hostId: hostSocketId,
     quiz: normalized,
     status: "lobby",
-    players: new Map(),
+    // Students join the quiz over a second socket, so those join events can arrive
+    // after the first question starts. Seed the roster from the class waiting room;
+    // otherwise the first student to join and answer is mistaken for the whole class.
+    players: roomPlayers,
     currentQuestionIndex: -1,
     questionStartedAt: null,
     answers: new Map(),
@@ -1784,9 +1801,9 @@ app.post("/api/session/start", async (req, res) => {
   if (!token) return res.status(401).json({ message: "Missing auth token." });
 
   const { class: classItem, course, exercise, user } = req.body || {};
-  if (!classItem?.id || !course?.id || !exercise?.id || !user?.id) {
+  if (!classItem?.id || !course?.id || !user?.id) {
     return res.status(400).json({
-      message: "class, course, exercise, and user with id are required.",
+      message: "class, course, and user with id are required.",
     });
   }
 
@@ -2023,6 +2040,11 @@ io.on("connection", (socket) => {
       return;
     }
 
+    if (!session.exercise?.id) {
+      callback?.({ ok: false, error: "Select an exercise before starting the class." });
+      return;
+    }
+
     const alreadyStarted = session.status === "start";
     if (!alreadyStarted) {
       sessionStore.startSession(session);
@@ -2036,6 +2058,38 @@ io.on("connection", (socket) => {
       roomId: pin,
       status: "start",
       alreadyStarted,
+    });
+  });
+
+  socket.on("select_session_exercise", ({ roomId, exercise }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can select an exercise." });
+      return;
+    }
+
+    const session = sessionStore.getSession(pin);
+    if (!session) {
+      callback?.({ ok: false, error: "Room not found." });
+      return;
+    }
+
+    if (session.status !== "waiting") {
+      callback?.({ ok: false, error: "The class has already started." });
+      return;
+    }
+
+    if (!sessionStore.updateExercise(session, exercise)) {
+      callback?.({ ok: false, error: "Select a valid exercise." });
+      return;
+    }
+
+    callback?.({
+      ok: true,
+      roomId: pin,
+      status: session.status,
+      exercise: session.exercise,
     });
   });
 

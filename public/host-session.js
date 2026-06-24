@@ -66,6 +66,22 @@ function startSessionViaSocket(roomId) {
   });
 }
 
+function selectSessionExerciseViaSocket(roomId, exercise) {
+  const socket = getHostSessionSocket();
+
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      socket.emit("select_session_exercise", { roomId, exercise }, (res) => {
+        if (!res?.ok) reject(new Error(res?.error || "Could not select exercise."));
+        else resolve(res);
+      });
+    };
+
+    if (socket.connected) run();
+    else socket.once("connect", run);
+  });
+}
+
 function startNextExerciseViaSocket(roomId, exercise) {
   const socket = getHostSessionSocket();
 

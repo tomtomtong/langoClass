@@ -7,8 +7,10 @@ const PLAYER_SOUND_EFFECTS = Object.freeze({
 });
 
 const playerSoundBank = new Map();
+const playerSoundEffectsMuted = document.body?.classList.contains("join-page");
 
 function playPlayerSound(name, volume = 0.8) {
+  if (playerSoundEffectsMuted) return;
   const src = PLAYER_SOUND_EFFECTS[name];
   if (!src) return;
 
@@ -89,7 +91,10 @@ function getScreenTransitionLayer() {
     app.appendChild(layer);
   }
 
-  if (document.body.classList.contains("join-page") && !layer.querySelector(".join-transition-cast")) {
+  const usesCharacterTransition =
+    document.body.classList.contains("join-page") || app.classList.contains("lango-host");
+
+  if (usesCharacterTransition && !layer.querySelector(".join-transition-cast")) {
     const cast = document.createElement("div");
     cast.className = "join-transition-cast";
 
@@ -108,7 +113,10 @@ function getScreenTransitionLayer() {
   return layer;
 }
 
-if (document.body?.classList.contains("join-page")) {
+if (
+  document.body?.classList.contains("join-page") ||
+  document.querySelector("#app.lango-host")
+) {
   getScreenTransitionLayer();
 }
 

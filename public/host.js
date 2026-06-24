@@ -25,6 +25,7 @@ const state = {
 
 let hostSessionConnected = false;
 let waitingTimerInterval = null;
+let courseSessionCreating = false;
 const WAITING_TIMER_SECONDS = 300;
 const LOGIN_SCAN_CYCLE_MS = 3600;
 const HOST_SOUND_EFFECTS = {
@@ -1358,18 +1359,20 @@ function renderCourseSections() {
   updateCourseCountBadge(state.courses.length);
 
   function handleCourseSelect(id) {
+    if (courseSessionCreating) return;
     const next = findCourseInList(id);
     if (state.course?.id !== next?.id) {
       state.selectedSection = null;
       state.hostProgress = null;
     }
     state.course = next;
+    state.selectedExercise = null;
     savePrefs();
     renderCourseGrid($("#course-sections"), state.courses, {
       selectedId: state.course?.id,
       onSelect: handleCourseSelect,
     });
-    if (state.course) enterSectionStep();
+    if (state.course) void createWaitingRoomForCourse();
   }
 
   renderCourseGrid($("#course-sections"), state.courses, {
@@ -1818,8 +1821,8 @@ async function enterWaitingRoom(roomId, apiResponse) {
   renderNotificationStats(apiResponse);
 
   const startBtn = $("#btn-start-class");
-  startBtn.disabled = false;
-  startBtn.textContent = "Start Session";
+  startBtn.disabled = !state.selectedExercise;
+  startBtn.textContent = state.selectedExercise ? "Start Session" : "Choose Exercise";
 
   renderParticipants([]);
   startWaitingTimer();
@@ -1827,15 +1830,18 @@ async function enterWaitingRoom(roomId, apiResponse) {
   void startWaitingPoll();
 }
 
-async function handleStartSession() {
-  if (!state.selectedExercise) return;
+async function createWaitingRoomForCourse() {
+  if (!state.classItem?.id || !state.course?.id || !state.user?.id || courseSessionCreating) return;
 
-  playPageNextSound();
-  $("#journey-error").textContent = "";
-  void markHostExerciseSelected(state.selectedExercise.id);
-  const btn = $("#btn-start-session");
-  btn.disabled = true;
-  btn.textContent = "Creating session…";
+  courseSessionCreating = true;
+  $("#course-error").textContent = "";
+  $("#course-status").textContent = "Creating waiting room…";
+
+  stopWaitingPoll();
+  disconnectHostSession();
+  state.activeRoomId = null;
+  state.sessionStarted = false;
+  state.quizActive = false;
 
   try {
     const result = await api("/api/session/start", {
@@ -1843,7 +1849,6 @@ async function handleStartSession() {
       body: {
         class: state.classItem,
         course: state.course,
-        exercise: state.selectedExercise,
         user: state.user,
       },
     });
@@ -1856,10 +1861,31 @@ async function handleStartSession() {
 
     await enterWaitingRoom(roomId, result.apiResponse);
   } catch (err) {
+    $("#course-error").textContent = err.message;
+  } finally {
+    courseSessionCreating = false;
+    $("#course-status").textContent = "";
+  }
+}
+
+async function handleStartSession() {
+  if (!state.selectedExercise || !state.activeRoomId) return;
+
+  playPageNextSound();
+  $("#journey-error").textContent = "";
+  void markHostExerciseSelected(state.selectedExercise.id);
+  const btn = $("#btn-start-session");
+  btn.disabled = true;
+  btn.textContent = "Selecting exercise…";
+
+  try {
+    await selectSessionExerciseViaSocket(state.activeRoomId, state.selectedExercise);
+    await enterWaitingRoom(state.activeRoomId);
+  } catch (err) {
     $("#journey-error").textContent = err.message;
   } finally {
     btn.disabled = !state.selectedExercise;
-    btn.textContent = "Start session & send notification";
+    btn.textContent = "Continue to waiting room";
   }
 }
 
@@ -2009,13 +2035,8 @@ document.addEventListener("keydown", (e) => {
 function backFromWaiting() {
   playPageBackSound();
   stopWaitingPoll();
-  disconnectHostSession();
-  state.activeRoomId = null;
-  state.sessionStarted = false;
   state.quizActive = false;
-  goTo("section", "section");
-  renderSectionPicker();
-  void showSectionExercises();
+  void enterSectionStep({ resume: true });
 }
 
 $("#btn-back-journey")?.addEventListener("click", backFromWaiting);

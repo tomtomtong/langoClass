@@ -91,12 +91,14 @@ html:has(body.join-page) {
 }
 
 /* Neon game portal used between join screens. */
-.join-page .host-page-transition {
+.join-page .host-page-transition,
+#app.lango-host .host-page-transition {
   position: fixed;
   background: rgba(17, 10, 38, 0.18);
 }
 
-.join-page .host-page-transition::before {
+.join-page .host-page-transition::before,
+#app.lango-host .host-page-transition::before {
   inset: -24vmax;
   background:
     radial-gradient(circle, transparent 0 18%, rgba(255, 255, 255, 0.92) 18.5% 20%, transparent 20.5%),
@@ -115,7 +117,8 @@ html:has(body.join-page) {
   border-radius: 50%;
 }
 
-.join-page .host-page-transition::after {
+.join-page .host-page-transition::after,
+#app.lango-host .host-page-transition::after {
   inset: 0;
   background:
     radial-gradient(circle at 12% 24%, #fff 0 4px, #feca57 5px 8px, transparent 9px),
@@ -128,11 +131,13 @@ html:has(body.join-page) {
   transform: scale(0.72) rotate(-8deg);
 }
 
-.join-page .host-page-transition.is-playing::before {
+.join-page .host-page-transition.is-playing::before,
+#app.lango-host .host-page-transition.is-playing::before {
   animation: joinGamePortal 1.18s cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 
-.join-page .host-page-transition.is-playing::after {
+.join-page .host-page-transition.is-playing::after,
+#app.lango-host .host-page-transition.is-playing::after {
   animation: joinGameSparkBurst 1.18s ease-out forwards;
 }
 
@@ -161,8 +166,14 @@ html:has(body.join-page) {
   will-change: transform, opacity;
 }
 
-.join-page .host-page-transition.is-playing .join-transition-tommy.is-active {
+.join-page .host-page-transition.is-playing .join-transition-tommy.is-active,
+#app.lango-host .host-page-transition.is-playing .join-transition-tommy.is-active {
   animation: joinTommyJump 1.08s cubic-bezier(0.16, 1, 0.3, 1) 30ms both;
+}
+
+#app.lango-host .join-transition-tommy {
+  width: 760px;
+  max-height: 84%;
 }
 
 @keyframes joinTommyJump {
@@ -218,7 +229,8 @@ html:has(body.join-page) {
   }
 }
 
-.join-page .screen.active {
+.join-page .screen.active,
+#app.lango-host .screen.active {
   animation: joinScreenEnter 420ms cubic-bezier(0.2, 0.9, 0.25, 1.15) backwards;
 }
 
