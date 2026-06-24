@@ -1946,9 +1946,9 @@ app.post("/api/session/end", async (req, res) => {
     body: "End",
     data: buildNotificationData({
       session_id: pin,
+      body: "End",
       class_name: className,
       teacher_name: teacherDisplayName(user || { id: session.teacherId }),
-      event: "end",
     }),
   };
 
