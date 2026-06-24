@@ -311,9 +311,6 @@ function loadPrefs() {
       state.token = data.token;
       state.user = data.user;
     }
-    if (data.classItem?.id) state.classItem = data.classItem;
-    if (data.course?.id) state.course = data.course;
-    if (data.selectedSection?.id) state.selectedSection = data.selectedSection;
   } catch {
     /* ignore */
   }
@@ -330,9 +327,6 @@ function savePrefs() {
       loginUsername: state.loginUsername,
       token: state.token,
       user: state.user,
-      classItem: state.classItem,
-      course: state.course,
-      selectedSection: state.selectedSection,
     })
   );
 }
@@ -1225,7 +1219,7 @@ async function handleLogin() {
     savePrefs();
     await waitForLoginScanCycle(scanStartedAt);
     playLoginSuccessSound();
-    await enterClassStep({ resume: true });
+    await enterClassStep();
   } catch (err) {
     playLoginFailSound();
     $("#login-error").textContent = err.message;
@@ -1235,7 +1229,7 @@ async function handleLogin() {
   }
 }
 
-async function enterClassStep({ resume = false } = {}) {
+async function enterClassStep() {
   const teacherName = teacherDisplayName();
   $("#teacher-label").textContent = teacherName;
   $("#teacher-label-wrap").hidden = !teacherName;
@@ -1249,29 +1243,12 @@ async function enterClassStep({ resume = false } = {}) {
     const classes = extractClassList(data);
     state.classes = classes;
 
-    if (resume && state.classItem?.id) {
-      const savedClass = classes.find((c) => Number(c.id) === Number(state.classItem.id));
-      if (savedClass) {
-        state.classItem = savedClass;
-        savePrefs();
-        await createWaitingRoomForClass();
-        return;
-      } else {
-        state.classItem = null;
-        state.course = null;
-        savePrefs();
-      }
-    }
-
     if (!classes.length) {
       $("#class-status").textContent = "No classes returned for this teacher.";
       return;
     }
 
-    $("#class-status").textContent =
-      resume && state.classItem?.id
-        ? "Saved class not found — select a class."
-        : "";
+    $("#class-status").textContent = "";
 
     function handleClassSelect(id) {
       const next = classes.find((c) => Number(c.id) === Number(id)) || null;
@@ -1281,7 +1258,6 @@ async function enterClassStep({ resume = false } = {}) {
         state.hostProgress = null;
       }
       state.classItem = next;
-      savePrefs();
       renderClassGrid($("#class-sections"), classes, {
         selectedId: state.classItem?.id,
         onSelect: handleClassSelect,
@@ -2015,6 +1991,8 @@ function handleLogout() {
   state.sessionStarted = false;
   state.quizActive = false;
   clearAuth();
+  state.classItem = null;
+  state.course = null;
   state.sections = [];
   state.selectedSection = null;
   state.exercises = [];
@@ -2240,6 +2218,7 @@ $("#login-username").addEventListener("change", () => {
 
 loadPrefs();
 applyLoginUsernameToForm();
+if (state.token && state.user) savePrefs();
 
 const hostLeaderboardPreviewMode =
   new URLSearchParams(window.location.search).get("preview") === "leaderboard";
@@ -2247,7 +2226,7 @@ const hostLeaderboardPreviewMode =
 if (hostLeaderboardPreviewMode) {
   /* host-preview.js renders the standalone leaderboard fixture. */
 } else if (state.token && state.user) {
-  enterClassStep({ resume: true });
+  enterClassStep();
 } else {
   goTo("login", "login");
 }
