@@ -49,6 +49,10 @@
       <div class="general-waiting-ui__content">
         <header class="general-waiting-ui__header">
           <h1 id="room-waiting-title">Waiting Room</h1>
+          <div class="general-waiting-room-code" aria-label="Room code">
+            <span class="general-waiting-room-code__label">Room</span>
+            <code class="general-waiting-room-code__id" id="room-id-display"></code>
+          </div>
         </header>
 
         <main class="general-waiting-ui__main">
@@ -56,9 +60,8 @@
             <p id="room-waiting-status" aria-live="polite">Please look at the digital whiteboard outside.</p>
           </div>
 
-          <div class="general-waiting-ui__session-details">
+          <div class="general-waiting-ui__session-details" hidden aria-hidden="true">
             <span id="room-player-name"></span>
-            <code id="room-id-display"></code>
           </div>
         </main>
       </div>

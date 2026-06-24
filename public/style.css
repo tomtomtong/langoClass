@@ -1086,8 +1086,50 @@ h2 {
 .general-waiting-ui__header {
   width: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 16px;
+}
+
+.general-waiting-room-code {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 28px 16px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 4px solid rgba(255, 184, 77, 0.95);
+  box-shadow:
+    0 0 0 3px rgba(255, 184, 77, 0.35),
+    0 0 24px rgba(236, 72, 153, 0.28),
+    0 12px 28px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.general-waiting-room-code__label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #9333ea;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.general-waiting-room-code__id {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 900;
+  color: #ea580c;
+  letter-spacing: 0.22em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  padding-left: 0.22em;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  border-radius: 14px;
+  padding: 8px 18px 8px calc(18px + 0.22em);
+  box-shadow: inset 0 0 0 2px rgba(234, 88, 12, 0.18);
 }
 
 .general-waiting-ui__header h1 {
@@ -1142,14 +1184,7 @@ h2 {
 }
 
 .general-waiting-ui__session-details {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+  display: none;
 }
 
 @media (max-height: 900px), (max-width: 560px) {
@@ -1161,6 +1196,15 @@ h2 {
 
   .general-waiting-ui__header h1 {
     font-size: clamp(23px, 7vw, 34px);
+  }
+
+  .general-waiting-room-code {
+    padding: 12px 22px 14px;
+  }
+
+  .general-waiting-room-code__id {
+    font-size: clamp(1.65rem, 8vw, 2.25rem);
+    padding: 6px 14px 6px calc(14px + 0.22em);
   }
 
   .general-waiting-ui__message-card {
@@ -7622,6 +7666,78 @@ body.cms-light .cms-danger:hover:not(:disabled) {
     0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
+.waiting-room-code-card {
+  position: absolute;
+  top: calc(max(1.25rem, env(safe-area-inset-top)) + clamp(2.75rem, 5vw, 3.75rem));
+  left: max(1.25rem, env(safe-area-inset-left));
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: clamp(0.85rem, 1.6vw, 1.15rem) clamp(1rem, 2vw, 1.35rem);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 4px solid #ffb84d;
+  box-shadow:
+    0 0 0 3px rgba(255, 184, 77, 0.35),
+    0 0 24px rgba(236, 72, 153, 0.28),
+    0 12px 28px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.waiting-room-code-label {
+  margin: 0;
+  font-size: clamp(0.72rem, 1.1vw, 0.85rem);
+  font-weight: 800;
+  color: #9333ea;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.waiting-room-code-display {
+  border: none;
+  padding: 0.15rem 0.35rem;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: inset 0 0 0 2px rgba(234, 88, 12, 0.18);
+}
+
+.waiting-room-code-display:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 2px rgba(234, 88, 12, 0.28),
+    0 4px 12px rgba(234, 88, 12, 0.18);
+}
+
+.waiting-room-code-display:active {
+  transform: translateY(0);
+}
+
+.waiting-room-code-digits {
+  display: block;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: clamp(1.85rem, 3.4vw, 2.65rem);
+  font-weight: 900;
+  color: #ea580c;
+  letter-spacing: 0.22em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  padding-left: 0.22em;
+}
+
+.waiting-room-code-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #9ca3af;
+  line-height: 1;
+}
+
 .waiting-timer {
   position: absolute;
   left: max(1.25rem, env(safe-area-inset-left));
@@ -7729,28 +7845,6 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   font-weight: 700;
   color: #9333ea;
   line-height: 1.35;
-}
-
-.waiting-room-code-line {
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #9ca3af;
-}
-
-.waiting-room-code-btn {
-  border: none;
-  padding: 0;
-  background: none;
-  font: inherit;
-  color: #ea580c;
-  cursor: pointer;
-}
-
-.waiting-room-code-btn strong {
-  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  font-size: 0.95rem;
-  letter-spacing: 0.12em;
 }
 
 .waiting-students-count {
@@ -8053,6 +8147,13 @@ body.cms-light .cms-danger:hover:not(:disabled) {
     left: auto;
     padding: max(1rem, env(safe-area-inset-top)) 1rem 0;
     text-align: center;
+  }
+
+  .waiting-room-code-card {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin: 0.65rem auto 0;
   }
 
   .waiting-timer {

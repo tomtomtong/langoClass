@@ -214,7 +214,7 @@ function doJoinRoom() {
         roomParticipant = participant;
 
         $("#room-player-name").textContent = data.displayName;
-        $("#room-id-display").textContent = data.roomId;
+        $("#room-id-display").textContent = formatRoomCode(data.roomId);
         $("#room-waiting-status").textContent =
           data.sessionStatus === "start"
             ? "Class is starting…"
@@ -310,7 +310,7 @@ function initQuizJoin() {
       myPlayerId = res.playerId;
       $("#room-waiting-title").textContent = res.quizTitle || "Waiting Room";
       $("#room-player-name").textContent = nickname;
-      $("#room-id-display").textContent = pin;
+      $("#room-id-display").textContent = formatRoomCode(pin);
       $("#room-waiting-status").textContent = "Waiting for host to start…";
       $("#btn-leave-room").hidden = true;
       showScreen("room-waiting");

@@ -77,6 +77,12 @@ function normalizePin(pin) {
   return String(pin || "").replace(/\D/g, "").slice(0, 6);
 }
 
+function formatRoomCode(roomId) {
+  const digits = normalizePin(roomId);
+  if (digits.length <= 3) return digits;
+  return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+}
+
 let screenTransitionPromise = Promise.resolve();
 let screenTransitionToken = 0;
 

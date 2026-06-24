@@ -123,7 +123,7 @@
 
       case "room-waiting":
         $("#room-player-name").textContent = "Alex (preview)";
-        $("#room-id-display").textContent = "123456";
+        $("#room-id-display").textContent = formatRoomCode("123456");
         $("#room-waiting-status").textContent = "Waiting for the teacher to start…";
         showPreviewScreen("room-waiting");
         break;

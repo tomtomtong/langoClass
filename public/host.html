@@ -294,6 +294,14 @@
 
         <h1 class="waiting-page-title">Waiting Room</h1>
 
+        <div class="waiting-room-code-card" aria-label="Room code">
+          <p class="waiting-room-code-label">Room Code</p>
+          <button type="button" class="waiting-room-code-display" id="btn-copy-room-id" title="Copy room code">
+            <span class="waiting-room-code-digits" id="waiting-room-id" aria-live="polite"></span>
+          </button>
+          <p class="waiting-room-code-hint" id="waiting-room-code-hint">Tap to copy</p>
+        </div>
+
         <div class="waiting-timer" aria-live="polite">
           <div class="waiting-timer-ring">
             <svg class="waiting-timer-watch" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
@@ -313,11 +321,6 @@
             <div class="waiting-students-heading">
               <h2 class="waiting-students-title">Connected Students</h2>
               <p class="waiting-students-subtitle">Waiting For The Class To Assemble...</p>
-              <p class="waiting-room-code-line">
-                Room <button type="button" class="waiting-room-code-btn" id="btn-copy-room-id" title="Copy room code">
-                  <strong id="waiting-room-id"></strong>
-                </button>
-              </p>
             </div>
             <div class="waiting-students-count" aria-label="Students connected">
               <span class="waiting-students-count-current" id="waiting-connected-count">0</span>

@@ -1821,7 +1821,7 @@ async function enterWaitingRoom(roomId, apiResponse) {
   state.sessionStarted = false;
 
   $("#waiting-error").textContent = "";
-  $("#waiting-room-id").textContent = roomId;
+  $("#waiting-room-id").textContent = formatRoomCode(roomId);
   await refreshWaitingClassRoster();
   renderNotificationStats(apiResponse);
 
@@ -2094,15 +2094,18 @@ $("#btn-start-session").addEventListener("click", handleStartSession);
 $("#btn-start-class").addEventListener("click", handleStartClass);
 
 $("#btn-copy-room-id").addEventListener("click", async () => {
-  const roomId = $("#waiting-room-id").textContent.trim();
+  const roomId = normalizePin($("#waiting-room-id").textContent);
   if (!roomId) return;
   try {
     await navigator.clipboard.writeText(roomId);
     const btn = $("#btn-copy-room-id");
+    const hint = $("#waiting-room-code-hint");
     const prevTitle = btn.title;
     btn.title = "Copied!";
+    if (hint) hint.textContent = "Copied!";
     setTimeout(() => {
       btn.title = prevTitle || "Copy room code";
+      if (hint) hint.textContent = "Tap to copy";
     }, 1500);
   } catch {
     $("#waiting-error").textContent = "Could not copy room code.";
