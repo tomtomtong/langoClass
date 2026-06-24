@@ -1816,6 +1816,18 @@ function renderNotificationStats(apiResponse) {
   updateWaitingStudentCount(0, roster.length || state.waitingTotalTarget || 0);
 }
 
+function updateWaitingStartButton() {
+  const startBtn = $("#btn-start-class");
+  if (!startBtn) return;
+  if (state.sessionStarted) {
+    startBtn.disabled = true;
+    startBtn.textContent = "Session started";
+    return;
+  }
+  startBtn.disabled = false;
+  startBtn.textContent = "Start";
+}
+
 async function enterWaitingRoom(roomId, apiResponse) {
   state.activeRoomId = roomId;
   state.sessionStarted = false;
@@ -1825,9 +1837,7 @@ async function enterWaitingRoom(roomId, apiResponse) {
   await refreshWaitingClassRoster();
   renderNotificationStats(apiResponse);
 
-  const startBtn = $("#btn-start-class");
-  startBtn.disabled = !state.selectedExercise;
-  startBtn.textContent = state.selectedExercise ? "Start Session" : "Choose Exercise";
+  updateWaitingStartButton();
 
   renderParticipants([]);
   startWaitingTimer();
@@ -1990,8 +2000,10 @@ async function startSelectedHostExercise({
   }
 }
 
-async function handleStartClass() {
-  await startSelectedHostExercise();
+function handleStartClass() {
+  if (state.sessionStarted) return;
+  playPageNextSound();
+  void enterCourseStep();
 }
 
 function handleLogout() {
@@ -2164,11 +2176,7 @@ function returnHostToWaitingRoom() {
   fadeInHostBgm();
   state.sessionStarted = false;
   state.selectedExercise = null;
-  const startBtn = $("#btn-start-class");
-  if (startBtn) {
-    startBtn.disabled = true;
-    startBtn.textContent = "Choose Exercise";
-  }
+  updateWaitingStartButton();
   refreshNextExerciseUi();
   showScreen("waiting");
   setActiveStep("waiting");

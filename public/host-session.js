@@ -10,19 +10,11 @@ function getHostSessionSocket() {
       }
       if (data.status === "start" && !state.sessionStarted) {
         state.sessionStarted = true;
-        const startBtn = $("#btn-start-class");
-        if (startBtn) {
-          startBtn.disabled = true;
-          startBtn.textContent = "Session started";
-        }
+        if (typeof updateWaitingStartButton === "function") updateWaitingStartButton();
         $("#waiting-participant-status").textContent = "Class in progress.";
       } else if (data.status === "waiting") {
         state.sessionStarted = false;
-        const startBtn = $("#btn-start-class");
-        if (startBtn) {
-          startBtn.disabled = !state.selectedExercise;
-          startBtn.textContent = state.selectedExercise ? "Start Session" : "Choose Exercise";
-        }
+        if (typeof updateWaitingStartButton === "function") updateWaitingStartButton();
       }
     });
     hostSessionSocket.on("session_ended", ({ reason }) => {
