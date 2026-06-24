@@ -56,16 +56,40 @@ function applyTeacherLoginDefaults(usernameInput, passwordInput, savedUsername) 
   }
 }
 
+function hideQuestionImage(imgEl, wrapperEl) {
+  if (wrapperEl) {
+    wrapperEl.hidden = true;
+    wrapperEl.setAttribute("aria-hidden", "true");
+  }
+  if (!imgEl) return;
+  imgEl.hidden = true;
+  imgEl.onload = null;
+  imgEl.onerror = null;
+  imgEl.removeAttribute("src");
+  imgEl.alt = "";
+}
+
 function setQuestionImage(imgEl, wrapperEl, url) {
   const imageUrl = (url || "").trim();
-  if (wrapperEl) wrapperEl.hidden = !imageUrl;
-  if (!imgEl) return;
-  if (imageUrl) {
-    imgEl.src = imageUrl;
-    imgEl.alt = "Question illustration";
-  } else {
-    imgEl.removeAttribute("src");
-    imgEl.alt = "";
+  hideQuestionImage(imgEl, wrapperEl);
+  if (!imageUrl || !imgEl) return;
+
+  const show = () => {
+    imgEl.hidden = false;
+    if (wrapperEl) {
+      wrapperEl.hidden = false;
+      wrapperEl.removeAttribute("aria-hidden");
+    }
+  };
+
+  imgEl.onload = show;
+  imgEl.onerror = () => hideQuestionImage(imgEl, wrapperEl);
+  imgEl.alt = "Question illustration";
+  imgEl.src = imageUrl;
+
+  if (imgEl.complete) {
+    if (imgEl.naturalWidth > 0) show();
+    else hideQuestionImage(imgEl, wrapperEl);
   }
 }
 

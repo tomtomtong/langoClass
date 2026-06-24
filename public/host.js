@@ -1829,7 +1829,7 @@ function updateWaitingStartButton() {
   if (!startBtn) return;
   startBtn.disabled = false;
   const label = startBtn.querySelector("span");
-  if (label) label.textContent = "Courses";
+  if (label) label.textContent = "Start";
 }
 
 async function setupClassSession(roomId, apiResponse) {
@@ -1845,7 +1845,7 @@ async function setupClassSession(roomId, apiResponse) {
   renderParticipants([]);
   void startWaitingPoll();
   void renderRoomJoinLinks(roomId);
-  await enterCourseStep();
+  await showWaitingRoom();
 }
 
 async function showWaitingRoom() {
@@ -2130,15 +2130,15 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-function backFromWaiting() {
+async function backFromWaiting() {
   playPageBackSound();
   stopWaitingTimer();
-  state.quizActive = false;
-  if (state.course?.id) {
-    void enterSectionStep({ resume: true });
-  } else {
-    void enterCourseStep();
-  }
+  await endActiveClassSession();
+  state.classItem = null;
+  state.course = null;
+  state.selectedSection = null;
+  savePrefs();
+  enterClassStep();
 }
 
 $("#btn-back-journey")?.addEventListener("click", backFromWaiting);

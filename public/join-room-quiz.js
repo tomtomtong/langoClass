@@ -504,7 +504,11 @@ function setupRoomPlayerQuiz(socket) {
     showScreen("player-question");
     $("#player-q-meta").textContent =
       `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
-    setQuestionImage($("#player-question-image"), $("#player-question-image-wrap"), null);
+    setQuestionImage(
+      $("#player-question-image"),
+      $("#player-question-image-wrap"),
+      typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
+    );
     $("#player-question-text").textContent = data.text;
     $("#answer-feedback").textContent = "";
 

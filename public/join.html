@@ -72,12 +72,17 @@
         </header>
 
         <main class="player-mcq-main">
-          <section class="player-mcq-timer-card" aria-label="Time remaining">
-            <p class="player-mcq-timer-label">Timer</p>
-            <span class="player-mcq-sparkle" aria-hidden="true"></span>
-            <div class="timer-ring" id="timer-ring">
-              <span id="timer-text">15</span>
+          <section class="player-mcq-timer-card" aria-label="Question">
+            <aside class="player-mcq-countdown" aria-label="Time remaining">
+              <div class="timer-ring" id="timer-ring">
+                <span id="timer-text">15</span>
+              </div>
+            </aside>
+            <p class="q-meta player-mcq-q-meta" id="player-q-meta" hidden></p>
+            <div class="question-image-wrap player-mcq-image-wrap" id="player-question-image-wrap" hidden aria-hidden="true">
+              <img class="question-image" id="player-question-image" alt="" hidden />
             </div>
+            <h2 class="question-text player-mcq-question" id="player-question-text"></h2>
           </section>
 
           <p class="player-mcq-selected-label" id="player-selected-answer-label" hidden>Selected answer</p>
@@ -85,14 +90,6 @@
             <div class="options-grid player-options" id="player-options"></div>
           </div>
           <p class="feedback" id="answer-feedback" aria-live="polite"></p>
-
-          <div class="player-mcq-context">
-            <p class="q-meta" id="player-q-meta"></p>
-            <div class="question-image-wrap" id="player-question-image-wrap" hidden aria-hidden="true">
-              <img class="question-image" id="player-question-image" alt="" hidden />
-            </div>
-            <h2 class="question-text" id="player-question-text"></h2>
-          </div>
         </main>
       </div>
     </section>

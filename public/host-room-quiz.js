@@ -239,7 +239,7 @@ function resultResponseLabel(count) {
   return `${count} Response${count === 1 ? "" : "s"}`;
 }
 
-function renderHostResultDistribution(question, answerCounts) {
+function renderHostResultDistribution(question, answerCounts, correctIndex) {
   const options = question?.options || [];
   const total = answerCounts.reduce((sum, count) => sum + count, 0);
   const donut = $("#host-quiz-results-donut");
@@ -263,10 +263,12 @@ function renderHostResultDistribution(question, answerCounts) {
       const label = HOST_MCQ_OPTION_LABELS[index] || `${index + 1}.`;
       const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
       const count = answerCounts[index] || 0;
-      return `<div class="host-mcq-legend-item">
+      const isCorrect = index === correctIndex;
+      const optionText = `${label} ${escapeHtml(option)}`;
+      return `<div class="host-mcq-legend-item${isCorrect ? " host-mcq-legend-item--correct" : ""}">
         <span class="host-mcq-legend-label">
           <span class="host-mcq-legend-dot" style="--dot-color: ${color}"></span>
-          <span>${label} ${escapeHtml(option)}</span>
+          <span${isCorrect ? ' class="host-mcq-correct-highlight"' : ""}>${optionText}</span>
         </span>
         <strong>${count} <span>Response${count === 1 ? "" : "s"}</span></strong>
       </div>`;
@@ -369,13 +371,16 @@ function setupHostRoomQuizSocket(socket) {
     );
     $("#host-quiz-results-points").textContent = `${points} pts`;
     $("#host-quiz-results-question-text").textContent = q?.text || "";
-    $("#host-quiz-results-correct-answer").textContent =
-      `Correct Answer: ${HOST_MCQ_OPTION_LABELS[correctIndex] || ""} ${correctAnswer}`.trim();
-    $("#host-quiz-results-explanation").textContent = correctAnswer
-      ? `${correctAnswer} is the correct answer for this question.`
-      : "Review the class responses before moving on.";
+    const correctLabel = HOST_MCQ_OPTION_LABELS[correctIndex] || "";
+    const correctAnswerEl = $("#host-quiz-results-correct-answer");
+    if (correctAnswerEl) {
+      const answerText = `${correctLabel} ${correctAnswer}`.trim();
+      correctAnswerEl.innerHTML = answerText
+        ? `Correct Answer: <span class="host-mcq-correct-highlight">${escapeHtml(answerText)}</span>`
+        : "Correct Answer:";
+    }
     $("#host-quiz-results-bars").innerHTML = "";
-    renderHostResultDistribution(q, answerCounts);
+    renderHostResultDistribution(q, answerCounts, correctIndex);
     renderCorrectResponders(results);
     renderLeaderboard($("#host-quiz-leaderboard"), leaderboard);
     const isLast = q && q.questionIndex + 1 >= q.totalQuestions;
