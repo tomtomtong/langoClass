@@ -581,9 +581,8 @@ function setupRoomPlayerQuiz(socket) {
     if (playBtn) playBtn.hidden = true;
   });
 
-  socket.on("game_ended", ({ reason }) => {
+  socket.on("game_ended", () => {
     clearTimer();
-    alert(reason || "Class ended");
     location.href = roomJoinUrl({
       roomId: roomParticipant?.roomId || "",
       token: roomParticipant?.userId || urlToken || "",

@@ -82,8 +82,7 @@ function getRoomSessionSocket() {
       );
     });
 
-    roomSessionSocket.on("session_ended", ({ reason }) => {
-      alert(reason || "Class session ended.");
+    roomSessionSocket.on("session_ended", () => {
       location.href = roomJoinUrl({
         roomId: roomParticipant?.roomId || "",
         token: roomParticipant?.userId || urlToken || "",
@@ -412,9 +411,8 @@ function initQuizJoin() {
     if (playBtn) playBtn.hidden = false;
   });
 
-  socket.on("game_ended", ({ reason }) => {
+  socket.on("game_ended", () => {
     clearTimer();
-    alert(reason || "Game ended");
     location.href = "/join.html";
   });
 
