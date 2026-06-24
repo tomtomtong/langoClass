@@ -1,0 +1,50 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body.aviation-page {
+  font-family: "Nunito", sans-serif;
+  color: #fff;
+  background: #0f172a;
+}
+
+.aviation-app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px;
+}
+
+.aviation-header h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.aviation-player-wrap {
+  width: min(960px, 100%);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+
+.aviation-player {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
