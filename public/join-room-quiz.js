@@ -577,9 +577,7 @@ function setupRoomPlayerQuiz(socket) {
       semesterWrapEl: $("#player-semester-leaderboard-wrap"),
       exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
     });
-    const backBtn = $("#btn-back-room-waiting");
     const playBtn = $("#btn-play-again");
-    if (backBtn) backBtn.hidden = false;
     if (playBtn) playBtn.hidden = true;
   });
 

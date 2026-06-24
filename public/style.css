@@ -3112,6 +3112,15 @@ body:has(#screen-login.active) {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
+.login-version {
+  margin-top: -0.75rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 720px) {
   .login-panel {
     flex-direction: column;

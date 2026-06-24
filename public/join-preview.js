@@ -204,7 +204,6 @@
           semesterWrapEl: $("#player-semester-leaderboard-wrap"),
           exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
         });
-        $("#btn-back-room-waiting").hidden = false;
         $("#btn-play-again").hidden = true;
         break;
 

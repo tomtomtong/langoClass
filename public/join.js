@@ -82,9 +82,7 @@ function getRoomSessionSocket() {
           semesterWrapEl: $("#player-semester-leaderboard-wrap"),
           exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
         });
-        const backBtn = $("#btn-back-room-waiting");
         const playBtn = $("#btn-play-again");
-        if (backBtn) backBtn.hidden = false;
         if (playBtn) playBtn.hidden = true;
         return;
       }
@@ -364,9 +362,7 @@ function initQuizJoin() {
       semesterWrapEl: $("#player-semester-leaderboard-wrap"),
       exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
     });
-    const backBtn = $("#btn-back-room-waiting");
     const playBtn = $("#btn-play-again");
-    if (backBtn) backBtn.hidden = true;
     if (playBtn) playBtn.hidden = false;
   });
 
@@ -390,10 +386,6 @@ if (urlParams.has("preview")) {
   /* Layout preview mode — join-preview.js drives the UI. */
 } else if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
   initRoomJoin();
-  $("#btn-back-room-waiting")?.addEventListener("click", () => {
-    $("#room-waiting-status").textContent = "Please look at the digital whiteboard outside.";
-    showScreen("room-waiting");
-  });
   $("#btn-play-again")?.addEventListener("click", () => {
     location.href = "/join.html";
   });
