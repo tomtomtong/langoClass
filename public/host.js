@@ -50,6 +50,7 @@ let hostBgmAudio = null;
 let hostBgmLastTrack = "";
 let hostBgmStarted = false;
 let hostBgmFadeFrame = null;
+let hostSoundMuted = false;
 
 function fitHostStage() {
   const app = document.querySelector("#app.lango-host");
@@ -69,7 +70,7 @@ function waitForLoginScanCycle(startedAt) {
 }
 
 function playHostSound(src, { volume = 1 } = {}) {
-  if (!src) return;
+  if (!src || hostSoundMuted) return;
   let audio = hostSoundBank.get(src);
   if (!audio) {
     audio = new Audio(src);
@@ -89,7 +90,7 @@ function playHostSound(src, { volume = 1 } = {}) {
 
 function playHostSoundAwait(src, { volume = 1 } = {}) {
   return new Promise((resolve) => {
-    if (!src) {
+    if (!src || hostSoundMuted) {
       resolve();
       return;
     }
@@ -136,7 +137,7 @@ function playNextHostBgm() {
 }
 
 function startHostBgm() {
-  if (hostBgmStarted) return;
+  if (hostSoundMuted || hostBgmStarted) return;
   if (!hostBgmAudio) {
     hostBgmAudio = new Audio();
     hostBgmAudio.volume = HOST_BGM_VOLUME;
@@ -195,6 +196,7 @@ function fadeOutHostBgm() {
 }
 
 function fadeInHostBgm() {
+  if (hostSoundMuted) return;
   if (!hostBgmAudio) startHostBgm();
   if (!hostBgmAudio) return;
 
@@ -202,13 +204,42 @@ function fadeInHostBgm() {
   fadeHostBgmTo(HOST_BGM_VOLUME);
 }
 
-function setupHostBgm() {
-  startHostBgm();
+function setupHostBgm({ autostart = true } = {}) {
   const startFromGesture = () => {
     startHostBgm();
   };
   document.addEventListener("pointerdown", startFromGesture);
   document.addEventListener("keydown", startFromGesture);
+  if (autostart && !hostSoundMuted) startHostBgm();
+}
+
+function updateHostMuteButton() {
+  const btn = $("#btn-host-mute");
+  if (!btn) return;
+  btn.classList.toggle("is-muted", hostSoundMuted);
+  btn.setAttribute("aria-pressed", hostSoundMuted ? "true" : "false");
+  const label = hostSoundMuted ? "Unmute sound" : "Mute sound";
+  btn.setAttribute("aria-label", label);
+  btn.title = label;
+}
+
+function setHostSoundMuted(muted) {
+  hostSoundMuted = Boolean(muted);
+  updateHostMuteButton();
+  if (hostSoundMuted) {
+    fadeOutHostBgm();
+  } else {
+    fadeInHostBgm();
+  }
+  savePrefs();
+}
+
+function setupHostMuteButton() {
+  const btn = $("#btn-host-mute");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    setHostSoundMuted(!hostSoundMuted);
+  });
 }
 
 function playLoginSuccessSound() {
@@ -272,6 +303,7 @@ function playExerciseCountdownVideo() {
     };
 
     video.currentTime = 0;
+    video.muted = hostSoundMuted;
     layer.classList.add("is-playing");
     video.addEventListener("ended", finish, { once: true });
     video.addEventListener("error", finish, { once: true });
@@ -297,7 +329,6 @@ function flashStartSessionArt() {
 window.addEventListener("resize", fitHostStage);
 window.visualViewport?.addEventListener("resize", fitHostStage);
 fitHostStage();
-setupHostBgm();
 
 function loadPrefs() {
   try {
@@ -306,6 +337,7 @@ function loadPrefs() {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data.loginUsername) state.loginUsername = data.loginUsername;
+    if (typeof data.soundMuted === "boolean") hostSoundMuted = data.soundMuted;
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
@@ -326,6 +358,7 @@ function savePrefs() {
       loginUsername: state.loginUsername,
       token: state.token,
       user: state.user,
+      soundMuted: hostSoundMuted,
     })
   );
 }
@@ -2282,6 +2315,9 @@ $("#login-username").addEventListener("change", () => {
 
 loadPrefs();
 applyLoginUsernameToForm();
+setupHostMuteButton();
+updateHostMuteButton();
+setupHostBgm({ autostart: !hostSoundMuted });
 if (state.token && state.user) savePrefs();
 
 const hostLeaderboardPreviewMode =

@@ -8206,6 +8206,82 @@ body:has(#app.lango-host) {
   transform-origin: center center;
 }
 
+#app.lango-host .host-sound-mute-btn {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 120;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 5px 0 rgba(0, 0, 0, 0.18),
+    0 2px 1px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-sound-mute-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 3px 0 rgba(0, 0, 0, 0.18),
+    0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-sound-mute-icon {
+  position: relative;
+  width: 24px;
+  height: 20px;
+  display: block;
+}
+
+#app.lango-host .host-sound-mute-icon::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 9px;
+  height: 12px;
+  border-radius: 3px 0 0 3px;
+  background: #fff;
+  box-shadow: 8px -5px 0 5px #fff;
+  clip-path: polygon(0 20%, 48% 20%, 100% 0, 100% 100%, 48% 80%, 0 80%);
+}
+
+#app.lango-host .host-sound-mute-icon::after {
+  content: "";
+  position: absolute;
+  right: 1px;
+  top: 2px;
+  width: 10px;
+  height: 16px;
+  border: 3px solid #fff;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  border-top-color: transparent;
+  border-radius: 50%;
+}
+
+#app.lango-host .host-sound-mute-btn.is-muted .host-sound-mute-icon::after {
+  right: 0;
+  top: 9px;
+  width: 22px;
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  transform: rotate(-45deg);
+}
+
 #app.lango-host .screen.active {
   width: 100%;
   height: 100%;
