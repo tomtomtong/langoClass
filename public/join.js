@@ -3,6 +3,12 @@ const ROOM_STORAGE_KEY = "lango_join_participant";
 const urlParams = new URLSearchParams(window.location.search);
 const urlRoom = (urlParams.get("room") || urlParams.get("roomId") || "").trim();
 const urlPin = urlParams.get("pin");
+const urlToken = (
+  urlParams.get("token") ||
+  urlParams.get("studentId") ||
+  urlParams.get("userId") ||
+  ""
+).trim();
 const urlNickname = (
   urlParams.get("nickname") ||
   urlParams.get("username") ||
@@ -10,6 +16,19 @@ const urlNickname = (
   urlParams.get("displayName") ||
   ""
 ).trim();
+
+function resolveStudentUserId(roomId, stored) {
+  if (urlToken) return urlToken;
+  if (stored?.roomId === roomId && stored.userId) return stored.userId;
+  return undefined;
+}
+
+function roomJoinUrl({ roomId = "", token = "" } = {}) {
+  const url = new URL("/join.html", window.location.origin);
+  if (roomId) url.searchParams.set("room", roomId);
+  if (token) url.searchParams.set("token", token);
+  return `${url.pathname}${url.search}`;
+}
 
 function loadStoredParticipant() {
   try {
@@ -56,7 +75,10 @@ function getRoomSessionSocket() {
 
     roomSessionSocket.on("session_ended", ({ reason }) => {
       alert(reason || "Class session ended.");
-      location.href = `/join.html?room=${encodeURIComponent(roomParticipant?.roomId || "")}`;
+      location.href = roomJoinUrl({
+        roomId: roomParticipant?.roomId || "",
+        token: roomParticipant?.userId || urlToken || "",
+      });
     });
 
     roomSessionSocket.on("room_exercise_wrap_up", (payload) => {
@@ -109,6 +131,7 @@ function initRoomJoin() {
   const stored = loadStoredParticipant();
   if (stored?.roomId && (urlRoom === stored.roomId || !urlRoom)) {
     roomParticipant = stored;
+    if (urlToken) roomParticipant.userId = urlToken;
   }
 
   if (urlRoom) $("#join-room-id").value = urlRoom;
@@ -159,7 +182,7 @@ function doJoinRoom() {
       {
         roomId,
         displayName,
-        userId: stored?.roomId === roomId ? stored.userId : undefined,
+        userId: resolveStudentUserId(roomId, stored),
       },
       (data) => {
         btn.disabled = false;
@@ -188,6 +211,8 @@ function doJoinRoom() {
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set("room", data.roomId);
         nextUrl.searchParams.delete("roomId");
+        if (data.userId) nextUrl.searchParams.set("token", data.userId);
+        else nextUrl.searchParams.delete("token");
         history.replaceState(null, "", nextUrl);
       }
     );
