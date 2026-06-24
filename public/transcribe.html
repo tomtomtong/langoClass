@@ -14,23 +14,13 @@
       <h1>OpenRouter Audio Transcribe &amp; Pronunciation</h1>
       <p class="transcribe-subtitle">Record audio for transcription and pronunciation feedback</p>
       <p class="transcribe-hint">
-        Get an API key at
-        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>
+        OpenRouter credentials are managed on the
+        <a href="/config.html">Config</a> page.
       </p>
+      <p class="transcribe-config-status" id="transcribe-config-status">Loading OpenRouter config…</p>
     </header>
 
     <form class="transcribe-form" id="transcribe-form" onsubmit="return false;">
-      <label class="transcribe-field">
-        <span>OpenRouter API key</span>
-        <div class="transcribe-key-row">
-          <input type="password" id="transcribe-api-key" autocomplete="off" placeholder="sk-or-…" />
-          <label class="transcribe-show-key">
-            <input type="checkbox" id="transcribe-show-key" />
-            Show
-          </label>
-        </div>
-      </label>
-
       <label class="transcribe-field">
         <span>Model</span>
         <input type="text" id="transcribe-model" list="transcribe-models" />
@@ -53,7 +43,7 @@
       <div class="transcribe-actions">
         <button type="button" class="transcribe-btn primary" id="btn-transcribe">Transcribe</button>
         <button type="button" class="transcribe-btn" id="btn-transcribe-test">Test API</button>
-        <button type="button" class="transcribe-btn" id="btn-transcribe-save">Save settings</button>
+        <button type="button" class="transcribe-btn" id="btn-transcribe-save">Save model</button>
         <button type="button" class="transcribe-btn" id="btn-transcribe-copy">Copy result</button>
         <button type="button" class="transcribe-btn" id="btn-transcribe-clear">Clear</button>
       </div>

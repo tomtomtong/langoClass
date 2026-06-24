@@ -2,10 +2,9 @@ const DEFAULT_MODEL = "mistralai/voxtral-small-24b-2507";
 const STORAGE_KEY = "openrouter_transcribe_config";
 const MAX_RECORD_MS = 60000;
 
-const apiKeyInput = document.getElementById("transcribe-api-key");
-const showKeyCheckbox = document.getElementById("transcribe-show-key");
 const modelInput = document.getElementById("transcribe-model");
 const modelDefaultHint = document.getElementById("transcribe-model-default");
+const configStatusEl = document.getElementById("transcribe-config-status");
 const output = document.getElementById("transcribe-output");
 const statusEl = document.getElementById("transcribe-status");
 const errorSection = document.getElementById("transcribe-error-section");
@@ -40,17 +39,55 @@ function loadSettings() {
 }
 
 function saveSettings() {
-  const apiKey = apiKeyInput.value.trim();
   const model = modelInput.value.trim() || DEFAULT_MODEL;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ api_key: apiKey, model }));
-  setStatus("Settings saved in this browser.");
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ model }));
+  setStatus("Model preference saved in this browser.");
 }
 
 function applySettings() {
   const config = loadSettings();
-  apiKeyInput.value = config.api_key || "";
   modelInput.value = config.model || DEFAULT_MODEL;
-  modelDefaultHint.textContent = `Default: ${DEFAULT_MODEL}`;
+}
+
+async function loadOpenRouterConfig() {
+  try {
+    const res = await fetch("/api/config");
+    const data = await readResponseBody(res);
+    if (!res.ok) {
+      throw new Error(data.message || `Could not load config (${res.status}).`);
+    }
+
+    const configured = !!data.openrouterApiKeyConfigured;
+    const effectiveModel = data.effectiveOpenRouterBuzzinModel || DEFAULT_MODEL;
+
+    if (configStatusEl) {
+      configStatusEl.textContent = configured
+        ? `OpenRouter key is configured (${data.openrouterApiKeyMasked || "active"}).`
+        : "OpenRouter is not configured. Add your API key on the Config page.";
+      configStatusEl.classList.toggle("is-error", !configured);
+    }
+
+    if (!loadSettings().model) {
+      modelInput.value = effectiveModel;
+    }
+    modelDefaultHint.textContent = `Config default: ${effectiveModel}`;
+    return configured;
+  } catch (err) {
+    if (configStatusEl) {
+      configStatusEl.textContent = err.message || "Could not load OpenRouter config.";
+      configStatusEl.classList.add("is-error");
+    }
+    modelDefaultHint.textContent = `Default: ${DEFAULT_MODEL}`;
+    return false;
+  }
+}
+
+function requireOpenRouterConfig(configured) {
+  if (configured) return true;
+  const message = "OpenRouter is not configured. Add your API key on the Config page.";
+  setStatus(message, true);
+  logError("OpenRouter config", message);
+  return false;
 }
 
 function setStatus(message, isError = false) {
@@ -323,22 +360,17 @@ async function postJson(url, body) {
 }
 
 async function testApi() {
-  const apiKey = apiKeyInput.value.trim();
-  const model = modelInput.value.trim() || DEFAULT_MODEL;
+  const configured = await loadOpenRouterConfig();
+  if (!requireOpenRouterConfig(configured)) return;
 
-  if (!apiKey) {
-    const message = "Enter your OpenRouter API key.";
-    setStatus(message, true);
-    logError("Test API", message);
-    return;
-  }
+  const model = modelInput.value.trim() || DEFAULT_MODEL;
 
   setBusy(true);
   setStatus("Testing API with text-only request…");
   output.value = "";
 
   try {
-    const result = await postJson("/api/transcribe/test", { apiKey, model });
+    const result = await postJson("/api/transcribe/test", { model });
     output.value = JSON.stringify(result, null, 2);
     setStatus(`API test succeeded (${result.latencyMs} ms).`);
     saveSettings();
@@ -352,15 +384,10 @@ async function testApi() {
 }
 
 async function transcribeAudio() {
-  const apiKey = apiKeyInput.value.trim();
-  const model = modelInput.value.trim() || DEFAULT_MODEL;
+  const configured = await loadOpenRouterConfig();
+  if (!requireOpenRouterConfig(configured)) return;
 
-  if (!apiKey) {
-    const message = "Enter your OpenRouter API key.";
-    setStatus(message, true);
-    logError("Transcribe", message);
-    return;
-  }
+  const model = modelInput.value.trim() || DEFAULT_MODEL;
 
   if (mediaRecorder?.state === "recording") {
     await stopRecording();
@@ -379,7 +406,6 @@ async function transcribeAudio() {
 
   const formData = new FormData();
   formData.append("audio", selectedFile);
-  formData.append("apiKey", apiKey);
   formData.append("model", model);
 
   try {
@@ -429,10 +455,6 @@ function clearOutput() {
   setStatus("Output cleared.");
 }
 
-showKeyCheckbox.addEventListener("change", () => {
-  apiKeyInput.type = showKeyCheckbox.checked ? "text" : "password";
-});
-
 btnRecord.addEventListener("click", () => {
   void toggleRecording();
 });
@@ -451,3 +473,4 @@ btnClear.addEventListener("click", clearOutput);
 btnClearErrors.addEventListener("click", clearErrorLog);
 
 applySettings();
+void loadOpenRouterConfig();

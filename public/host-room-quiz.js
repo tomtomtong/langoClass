@@ -8,6 +8,8 @@ const HOST_MCQ_OPTION_COLORS = ["#15c4f8", "#45c937", "#f33b3d", "#eab308", "#a8
 let hostBuzzinSocketReady = false;
 let hostBuzzinRoomId = null;
 let hostBuzzinJoinTimer = null;
+const hostBuzzinPlayedAnalysisAudio = new Set();
+let hostBuzzinLastResponses = [];
 
 function stopHostBuzzinJoinTimer() {
   if (hostBuzzinJoinTimer) {
@@ -49,6 +51,8 @@ function updateHostBuzzinTurnUi(payload) {
   const responsesEl = $("#host-buzzin-responses");
   if (!panel || !turnStatus || !responsesEl) return;
 
+  hostBuzzinLastResponses = payload.responses || [];
+
   if (phase === "join") {
     panel.hidden = true;
     return;
@@ -77,6 +81,7 @@ function updateHostBuzzinTurnUi(payload) {
     payload.typingComplete ? null : payload.currentTurn,
     "Waiting for answers…"
   );
+  playNewBuzzinAnalysisAudio(payload.responses, hostBuzzinPlayedAnalysisAudio);
 }
 
 function updateHostBuzzinUi(payload) {
@@ -140,11 +145,26 @@ function ensureHostBuzzinSocket() {
   socket.on("buzzin_response_analyzed", (payload) => {
     updateHostBuzzinUi(payload);
   });
+
+  $("#host-buzzin-responses")?.addEventListener("click", (event) => {
+    const btn = event.target.closest(".buzzin-analysis-play");
+    if (!btn) return;
+    const key = btn.getAttribute("data-buzzin-analysis-key");
+    if (!key) return;
+    const [playerId, atRaw] = key.split(":");
+    const at = Number(atRaw);
+    const item = (hostBuzzinLastResponses || []).find(
+      (response) => response.playerId === playerId && response.at === at
+    );
+    if (item) playBuzzinAnalysisAudio(item);
+  });
 }
 
 function startHostBuzzinRound(roomId) {
   if (!roomId) return Promise.resolve();
   hostBuzzinRoomId = roomId;
+  hostBuzzinPlayedAnalysisAudio.clear();
+  hostBuzzinLastResponses = [];
   ensureHostBuzzinSocket();
   hideHostBuzzinJoinTimer();
   const turnPanel = $("#host-buzzin-turn-panel");

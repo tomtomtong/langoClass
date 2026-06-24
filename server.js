@@ -33,6 +33,8 @@ const ENV_OPENROUTER_BUZZIN_MODEL = String(
   process.env.OPENROUTER_BUZZIN_MODEL || "mistralai/voxtral-small-24b-2507"
 ).trim();
 const INWORLD_API_BASE = "https://api.inworld.ai";
+const INWORLD_BUZZIN_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
+const INWORLD_TTS_MODEL_ID = "inworld-tts-1.5-max";
 const QWEN_API_BASE = String(
   process.env.QWEN_API_BASE || "https://dashscope.aliyuncs.com/compatible-mode/v1"
 ).replace(/\/$/, "");
@@ -223,7 +225,7 @@ const BUZZIN_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
 /** @type {Map<string, BuzzInRound>} */
 const buzzInRounds = new Map();
 
-/** @typedef {{ roundId: number, phase: 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, analysis: string | null, analysisStatus: 'pending' | 'done' | 'error' }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
+/** @typedef {{ roundId: number, phase: 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, analysis: string | null, analysisStatus: 'pending' | 'done' | 'error', analysisAudio: string | null, analysisAudioFormat: string | null }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
 
 function buzzinTopicFromExercise(exercise) {
   if (!exercise) return "";
@@ -278,9 +280,21 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
   if (result.ok) {
     entry.analysis = result.analysis;
     entry.analysisStatus = "done";
+    entry.analysisAudio = null;
+    entry.analysisAudioFormat = null;
+
+    try {
+      const tts = await inworldTtsSynthesize(getInworldApiKey(), result.analysis);
+      entry.analysisAudio = tts.audioContent;
+      entry.analysisAudioFormat = tts.format;
+    } catch {
+      /* Text feedback still shown if TTS fails. */
+    }
   } else {
     entry.analysis = result.error;
     entry.analysisStatus = "error";
+    entry.analysisAudio = null;
+    entry.analysisAudioFormat = null;
   }
 
   broadcastBuzzInUpdate(pin, "buzzin_response_analyzed");
@@ -429,12 +443,14 @@ function audioFormatFromFilename(filename) {
 }
 
 async function transcribeOpenRouterAudio({ apiKey, model, audioBuffer, format, prompt, maxTokens = 1024 }) {
-  const key = String(apiKey || "").trim();
+  const key = String(apiKey || getOpenRouterApiKey() || "").trim();
   if (!key) {
-    throw new Error("Enter your OpenRouter API key.");
+    throw new Error("OpenRouter is not configured. Add an API key in Config.");
   }
 
-  const buzzinModel = String(model || TRANSCRIBE_DEFAULT_MODEL).trim() || TRANSCRIBE_DEFAULT_MODEL;
+  const buzzinModel =
+    String(model || getOpenRouterBuzzinModel() || TRANSCRIBE_DEFAULT_MODEL).trim() ||
+    TRANSCRIBE_DEFAULT_MODEL;
   if (!audioBuffer?.length) {
     throw new Error("The selected audio file is empty.");
   }
@@ -1179,10 +1195,31 @@ function inworldErrorMessage(data, status) {
   return data?.message || data?.error?.message || `Inworld API returned ${status}.`;
 }
 
-async function testInworldTts(apiKey) {
-  const started = Date.now();
-  const res = await fetch(`${INWORLD_API_BASE}/tts/v1/voices?filter=language=en`, {
-    headers: { Authorization: `Basic ${apiKey}` },
+async function inworldTtsSynthesize(apiKey, text, voiceId = INWORLD_BUZZIN_TTS_VOICE_ID) {
+  const key = String(apiKey || "").trim();
+  const trimmed = String(text || "").trim();
+  if (!key) {
+    throw new Error("Inworld API key not configured.");
+  }
+  if (!trimmed) {
+    throw new Error("No text to synthesize.");
+  }
+
+  const res = await fetch(`${INWORLD_API_BASE}/tts/v1/voice`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: trimmed,
+      voiceId: String(voiceId || INWORLD_BUZZIN_TTS_VOICE_ID).trim() || INWORLD_BUZZIN_TTS_VOICE_ID,
+      modelId: INWORLD_TTS_MODEL_ID,
+      audioConfig: {
+        audioEncoding: "MP3",
+        sampleRateHertz: 24000,
+      },
+    }),
   });
   const data = await parseInworldResponse(res);
 
@@ -1190,15 +1227,24 @@ async function testInworldTts(apiKey) {
     throw new Error(`TTS: ${inworldErrorMessage(data, res.status)}`);
   }
 
-  const voices = Array.isArray(data?.voices) ? data.voices : [];
+  const audioContent = String(data?.audioContent || "").trim();
+  if (!audioContent) {
+    throw new Error("TTS: No audio returned.");
+  }
+
+  return { audioContent, format: "mp3" };
+}
+
+async function testInworldTts(apiKey) {
+  const started = Date.now();
+  const sample = await inworldTtsSynthesize(apiKey, "Inworld TTS is working.", INWORLD_BUZZIN_TTS_VOICE_ID);
   return {
     ok: true,
     latencyMs: Date.now() - started,
-    voiceCount: voices.length,
-    sampleVoices: voices.slice(0, 5).map((voice) => ({
-      voiceId: voice.voiceId,
-      displayName: voice.displayName,
-    })),
+    voiceId: INWORLD_BUZZIN_TTS_VOICE_ID,
+    modelId: INWORLD_TTS_MODEL_ID,
+    audioBytes: Buffer.from(sample.audioContent, "base64").length,
+    format: sample.format,
   };
 }
 
@@ -1336,12 +1382,14 @@ async function testQwenApiKey(apiKey, model) {
 }
 
 async function testOpenRouterBuzzinModel(apiKey, model) {
-  const key = String(apiKey || "").trim();
+  const key = String(apiKey || getOpenRouterApiKey() || "").trim();
   if (!key) {
-    throw new Error("No OpenRouter API key to test. Enter a key or set OPENROUTER_API_KEY.");
+    throw new Error("OpenRouter is not configured. Add an API key in Config.");
   }
 
-  const buzzinModel = String(model || getOpenRouterBuzzinModel()).trim() || "mistralai/voxtral-small-24b-2507";
+  const buzzinModel =
+    String(model || getOpenRouterBuzzinModel() || TRANSCRIBE_DEFAULT_MODEL).trim() ||
+    TRANSCRIBE_DEFAULT_MODEL;
   const started = Date.now();
   const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
     method: "POST",
@@ -1503,11 +1551,10 @@ app.post("/api/config/test-openrouter", async (req, res) => {
 });
 
 app.post("/api/transcribe/test", async (req, res) => {
-  const apiKey = String(req.body?.apiKey || "").trim();
   const model = String(req.body?.model || "").trim();
 
   try {
-    const result = await testOpenRouterBuzzinModel(apiKey, model || TRANSCRIBE_DEFAULT_MODEL);
+    const result = await testOpenRouterBuzzinModel(null, model || undefined);
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ message: err.message || "OpenRouter API test failed." });
@@ -1520,7 +1567,6 @@ app.post("/api/transcribe/audio", (req, res) => {
       return res.status(400).json({ message: err.message || "Upload failed." });
     }
 
-    const apiKey = String(req.body?.apiKey || "").trim();
     const model = String(req.body?.model || "").trim();
     const file = req.file;
 
@@ -1531,8 +1577,7 @@ app.post("/api/transcribe/audio", (req, res) => {
     try {
       const format = audioFormatFromFilename(file.originalname);
       const text = await transcribeOpenRouterAudio({
-        apiKey,
-        model: model || TRANSCRIBE_DEFAULT_MODEL,
+        model: model || undefined,
         audioBuffer: file.buffer,
         format,
         prompt: TRANSCRIBE_PROMPT,
@@ -2237,6 +2282,8 @@ io.on("connection", (socket) => {
       at: Date.now(),
       analysis: null,
       analysisStatus: "pending",
+      analysisAudio: null,
+      analysisAudioFormat: null,
     });
 
     advanceBuzzInTurn(meta.pin);

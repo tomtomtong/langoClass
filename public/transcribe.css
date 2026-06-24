@@ -35,9 +35,19 @@ body.transcribe-page {
 }
 
 .transcribe-hint {
-  margin: 0 0 24px;
+  margin: 0 0 8px;
   font-size: 0.9rem;
   color: #6b7280;
+}
+
+.transcribe-config-status {
+  margin: 0 0 24px;
+  font-size: 0.9rem;
+  color: #047857;
+}
+
+.transcribe-config-status.is-error {
+  color: #b91c1c;
 }
 
 .transcribe-hint a {

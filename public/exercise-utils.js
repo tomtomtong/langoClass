@@ -172,9 +172,52 @@ function renderBuzzinAnalysisHtml(item) {
     return `<p class="buzzin-analysis buzzin-analysis--error">${escapeHtml(item.analysis || "Analysis unavailable.")}</p>`;
   }
   if (item.analysis) {
-    return `<p class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}</p>`;
+    const replayBtn = item.analysisAudio
+      ? `<button type="button" class="btn buzzin-analysis-play" data-buzzin-analysis-key="${escapeHtml(buzzinAnalysisAudioKey(item))}">Play feedback</button>`
+      : "";
+    return `<p class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}${replayBtn}</p>`;
   }
   return "";
+}
+
+function buzzinAnalysisAudioKey(item) {
+  return `${item.playerId || ""}:${item.at || 0}`;
+}
+
+let buzzinAnalysisAudioEl = null;
+
+function playBuzzinAnalysisAudio(item) {
+  const base64 = item?.analysisAudio;
+  if (!base64) return;
+
+  const format = String(item.analysisAudioFormat || "mp3").toLowerCase();
+  const mime = format === "wav" ? "audio/wav" : "audio/mpeg";
+  const src = `data:${mime};base64,${base64}`;
+
+  if (!buzzinAnalysisAudioEl) {
+    buzzinAnalysisAudioEl = new Audio();
+  }
+
+  buzzinAnalysisAudioEl.pause();
+  buzzinAnalysisAudioEl.src = src;
+  const playPromise = buzzinAnalysisAudioEl.play();
+  if (playPromise?.catch) {
+    playPromise.catch(() => {
+      /* Autoplay may be blocked until user gesture. */
+    });
+  }
+}
+
+function playNewBuzzinAnalysisAudio(responses, playedKeys) {
+  if (!Array.isArray(responses) || !playedKeys) return;
+
+  for (const item of responses) {
+    if (item.analysisStatus !== "done" || !item.analysisAudio) continue;
+    const key = buzzinAnalysisAudioKey(item);
+    if (playedKeys.has(key)) continue;
+    playedKeys.add(key);
+    playBuzzinAnalysisAudio(item);
+  }
 }
 
 function exerciseMetaLabel(exercise) {
