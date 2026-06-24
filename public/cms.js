@@ -852,6 +852,7 @@ async function uploadQuestionImageFile(file) {
 }
 
 const MAX_MC_OPTIONS = 6;
+let mcQuizEditorInstance = 0;
 
 function updateQuestionImagePreview(block, url) {
   const preview = block?.querySelector(".cms-q-image-preview");
@@ -871,6 +872,7 @@ function updateQuestionImagePreview(block, url) {
 function renderMcQuizBody(container, exercise) {
   const type = exercise.type || "mcquiz";
   const items = exercise.items?.length ? exercise.items : defaultExercise(type).items;
+  const radioGroupPrefix = `correct-${++mcQuizEditorInstance}`;
   container.innerHTML = `<div class="cms-questions-list"></div>
     <button type="button" class="btn secondary small cms-add-question">+ Add question</button>`;
 
@@ -919,7 +921,7 @@ function renderMcQuizBody(container, exercise) {
             ${(item.options || [])
               .map(
                 (opt, oIdx) => `<label class="cms-option-row">
-                  <input type="radio" name="correct-${qIdx}" data-q="${qIdx}" data-o="${oIdx}" ${opt.isCorrect ? "checked" : ""} />
+                  <input type="radio" name="${radioGroupPrefix}-${qIdx}" data-q="${qIdx}" data-o="${oIdx}" ${opt.isCorrect ? "checked" : ""} />
                   <input type="text" class="cms-opt-text" data-q="${qIdx}" data-o="${oIdx}" value="${escapeHtml(opt.text || "")}" placeholder="Option ${oIdx + 1}" />
                   ${(item.options || []).length > 2 ? `<button type="button" class="cms-icon-btn cms-remove-option" data-q="${qIdx}" data-o="${oIdx}" aria-label="Remove option">×</button>` : ""}
                 </label>`
