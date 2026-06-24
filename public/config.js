@@ -167,6 +167,15 @@ function renderConfig(data) {
     data.effectiveOpenRouterBuzzinModel || "—";
   $("#config-openrouter-buzzin-model-env-default").textContent =
     data.openrouterBuzzinModelEnvDefault || "—";
+
+  renderStudentDatabaseStats(data.studentDatabase);
+}
+
+function renderStudentDatabaseStats(stats) {
+  const studentCount = stats?.studentCount ?? 0;
+  const recordCount = stats?.recordCount ?? 0;
+  $("#config-student-db-count").textContent = String(studentCount);
+  $("#config-student-db-records").textContent = String(recordCount);
 }
 
 function clearInworldTestResult() {
@@ -463,6 +472,43 @@ function handleLogout() {
   );
 }
 
+async function clearStudentDatabase() {
+  const stats = {
+    studentCount: Number($("#config-student-db-count").textContent) || 0,
+    recordCount: Number($("#config-student-db-records").textContent) || 0,
+  };
+
+  if (!stats.studentCount && !stats.recordCount) {
+    $("#config-student-db-status").textContent = "Student database is already empty.";
+    $("#config-student-db-error").textContent = "";
+    return;
+  }
+
+  const message =
+    `Delete all ${stats.studentCount} student profile${stats.studentCount === 1 ? "" : "s"} ` +
+    `and ${stats.recordCount} score record${stats.recordCount === 1 ? "" : "s"}? ` +
+    "This cannot be undone.";
+  if (!confirm(message)) return;
+
+  $("#config-student-db-error").textContent = "";
+  $("#config-student-db-status").textContent = "";
+
+  const btn = $("#btn-config-clear-student-db");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config/clear-student-database", { method: "POST" });
+    renderStudentDatabaseStats(data.studentDatabase);
+    const cleared = data.cleared || {};
+    $("#config-student-db-status").textContent =
+      `Cleared ${cleared.students ?? 0} student profile${cleared.students === 1 ? "" : "s"} ` +
+      `and ${cleared.records ?? 0} score record${cleared.records === 1 ? "" : "s"}.`;
+  } catch (err) {
+    $("#config-student-db-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function saveConfig(publicBaseUrl) {
   $("#config-error").textContent = "";
   $("#config-status").textContent = "";
@@ -551,6 +597,7 @@ async function init() {
     $("#config-openrouter-buzzin-model").value = "";
     saveOpenRouterBuzzinModel("");
   });
+  $("#btn-config-clear-student-db").addEventListener("click", clearStudentDatabase);
 
   if (state.token && state.user) {
     showConfigScreen("main");

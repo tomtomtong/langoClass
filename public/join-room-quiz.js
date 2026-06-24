@@ -587,6 +587,7 @@ function setupRoomPlayerQuiz(socket) {
     location.href = roomJoinUrl({
       roomId: roomParticipant?.roomId || "",
       token: roomParticipant?.userId || urlToken || "",
+      name: roomParticipant?.displayName || "",
     });
   });
 }

@@ -23,10 +23,19 @@ function resolveStudentUserId(roomId, stored) {
   return undefined;
 }
 
-function roomJoinUrl({ roomId = "", token = "" } = {}) {
+function resolveDisplayName(roomId, stored) {
+  if (urlNickname) return urlNickname.slice(0, 40);
+  if (stored?.roomId === roomId && stored.displayName) {
+    return String(stored.displayName).trim().slice(0, 40);
+  }
+  return "";
+}
+
+function roomJoinUrl({ roomId = "", token = "", name = "" } = {}) {
   const url = new URL("/join.html", window.location.origin);
   if (roomId) url.searchParams.set("room", roomId);
   if (token) url.searchParams.set("token", token);
+  if (name) url.searchParams.set("name", name);
   return `${url.pathname}${url.search}`;
 }
 
@@ -78,6 +87,7 @@ function getRoomSessionSocket() {
       location.href = roomJoinUrl({
         roomId: roomParticipant?.roomId || "",
         token: roomParticipant?.userId || urlToken || "",
+        name: roomParticipant?.displayName || "",
       });
     });
 
@@ -129,13 +139,15 @@ function initRoomJoin() {
   $("#join-panel-room").hidden = false;
 
   const stored = loadStoredParticipant();
+  const activeRoom = urlRoom || stored?.roomId || "";
   if (stored?.roomId && (urlRoom === stored.roomId || !urlRoom)) {
     roomParticipant = stored;
     if (urlToken) roomParticipant.userId = urlToken;
   }
 
   if (urlRoom) $("#join-room-id").value = urlRoom;
-  if (urlNickname) $("#join-room-name").value = urlNickname.slice(0, 40);
+  const resolvedName = resolveDisplayName(activeRoom, stored);
+  if (resolvedName) $("#join-room-name").value = resolvedName;
 
   $("#btn-join-room").addEventListener("click", doJoinRoom);
   $("#btn-leave-room").addEventListener("click", () => {
@@ -151,14 +163,15 @@ function initRoomJoin() {
     if (e.key === "Enter") doJoinRoom();
   });
 
-  if (urlRoom && urlNickname) {
+  if (urlRoom && resolveDisplayName(urlRoom, stored)) {
     void doJoinRoom();
   }
 }
 
 function doJoinRoom() {
   const roomId = $("#join-room-id").value.trim();
-  const displayName = $("#join-room-name").value.trim();
+  const stored = loadStoredParticipant();
+  const displayName = ($("#join-room-name").value.trim() || resolveDisplayName(roomId, stored));
   $("#join-room-error").textContent = "";
 
   if (!roomId) {
@@ -169,8 +182,8 @@ function doJoinRoom() {
     $("#join-room-error").textContent = "Enter your name.";
     return;
   }
+  $("#join-room-name").value = displayName;
 
-  const stored = loadStoredParticipant();
   const btn = $("#btn-join-room");
   btn.disabled = true;
 
@@ -213,6 +226,11 @@ function doJoinRoom() {
         nextUrl.searchParams.delete("roomId");
         if (data.userId) nextUrl.searchParams.set("token", data.userId);
         else nextUrl.searchParams.delete("token");
+        if (data.displayName) nextUrl.searchParams.set("name", data.displayName);
+        else nextUrl.searchParams.delete("name");
+        nextUrl.searchParams.delete("nickname");
+        nextUrl.searchParams.delete("username");
+        nextUrl.searchParams.delete("displayName");
         history.replaceState(null, "", nextUrl);
       }
     );

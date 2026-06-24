@@ -5,7 +5,7 @@ const fs = require("fs");
 const multer = require("multer");
 const { Server } = require("socket.io");
 const path = require("path");
-const { normalizeClassListResponse } = require("./lib/lango-classes");
+const { normalizeClassListResponse, findStudentById } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
 const scoreStore = require("./lib/score-store");
 const hostProgressStore = require("./lib/host-progress-store");
@@ -680,9 +680,15 @@ function persistExerciseScores(game) {
 
   const scores = [...game.players.values()].map((player) => {
     const participant = participantById?.get(player.id);
+    const rosterName = findStudentById(session?.studentList, player.id)?.fullName || "";
+    const displayName =
+      participant?.displayName ||
+      player.name ||
+      rosterName ||
+      "Student";
     return {
       studentUserId: player.id,
-      displayName: participant?.displayName || player.name,
+      displayName,
       score: player.score,
     };
   });
@@ -1108,6 +1114,16 @@ function teacherDisplayName(user) {
   return user.username || user.email || `User ${user.id}`;
 }
 
+function resolveSessionParticipantName(session, { displayName, nickname, userId } = {}) {
+  const fromClient = String(displayName || nickname || "")
+    .trim()
+    .slice(0, 40);
+  if (fromClient) return fromClient;
+
+  const student = findStudentById(session?.studentList, userId);
+  return String(student?.fullName || "").trim().slice(0, 40);
+}
+
 function buildNotificationData(extra = {}) {
   return {
     ...extra,
@@ -1179,6 +1195,7 @@ function buildConfigResponse() {
       class_name: "Example class",
       teacher_name: "Example teacher",
     }),
+    studentDatabase: scoreStore.getStats(),
   };
 }
 
@@ -1548,6 +1565,18 @@ app.post("/api/config/test-openrouter", async (req, res) => {
   } catch (err) {
     return res.status(400).json({ message: err.message || "OpenRouter API test failed." });
   }
+});
+
+app.post("/api/config/clear-student-database", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const cleared = scoreStore.clearAll();
+  return res.json({
+    ok: true,
+    cleared,
+    studentDatabase: scoreStore.getStats(),
+  });
 });
 
 app.post("/api/transcribe/test", async (req, res) => {
@@ -2026,19 +2055,17 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const name = String(displayName || nickname || "")
-      .trim()
-      .slice(0, 40);
-    if (!name) {
-      callback?.({ ok: false, error: "Enter your name." });
-      return;
-    }
-
     let playerId = String(userId || "")
       .trim()
       .replace(/[^a-zA-Z0-9_-]/g, "")
       .slice(0, 64);
     if (!playerId) playerId = sessionStore.generateParticipantId();
+
+    const name = resolveSessionParticipantName(session, { displayName, nickname, userId: playerId });
+    if (!name) {
+      callback?.({ ok: false, error: "Enter your name." });
+      return;
+    }
 
     const nameTaken = [...session.participants.values()].some(
       (p) => p.userId !== playerId && p.displayName.toLowerCase() === name.toLowerCase()
