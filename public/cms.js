@@ -419,8 +419,24 @@ function applySectionOrderFromDom() {
   renderSectionEditors();
 }
 
+function exerciseSubTitleForType(type) {
+  if (type === "video") return "Video";
+  if (type === "buzzin") return "Buzz In";
+  if (type === "fastmcquiz") return "Fast MC Quiz";
+  return "MC Quiz";
+}
+
+function ensureSingleCorrectOption(options) {
+  if (!Array.isArray(options) || !options.length) return [];
+  const firstCorrectIdx = options.findIndex((o) => o.isCorrect);
+  const correctIdx = firstCorrectIdx >= 0 ? firstCorrectIdx : 0;
+  return options.map((o, i) => ({ ...o, isCorrect: i === correctIdx }));
+}
+
 function collectExerciseFromCard(card) {
-  const type = card.dataset.type || "mcquiz";
+  const typeSelect = card.querySelector(".cms-exercise-type-select");
+  const type = typeSelect?.value || card.dataset.type || "mcquiz";
+  card.dataset.type = type;
   const body = card.querySelector(".cms-exercise-body");
   const items = body?._collectItems ? body._collectItems() : [];
   const exerciseIdRaw = card.dataset.exerciseId;
@@ -918,10 +934,15 @@ function renderMcQuizBody(container, exercise) {
             <span class="hint cms-q-image-status" data-q="${qIdx}"></span>
           </div>
           <div class="cms-options-list" data-q="${qIdx}">
+            <div class="cms-options-head">
+              <span aria-hidden="true"></span>
+              <span class="cms-option-correct-label">Correct</span>
+              <span>Answer option</span>
+            </div>
             ${(item.options || [])
               .map(
                 (opt, oIdx) => `<label class="cms-option-row">
-                  <input type="radio" name="${radioGroupPrefix}-${qIdx}" data-q="${qIdx}" data-o="${oIdx}" ${opt.isCorrect ? "checked" : ""} />
+                  <input type="radio" name="${radioGroupPrefix}-${qIdx}" data-q="${qIdx}" data-o="${oIdx}" ${opt.isCorrect ? "checked" : ""} aria-label="Mark option ${oIdx + 1} as correct" />
                   <input type="text" class="cms-opt-text" data-q="${qIdx}" data-o="${oIdx}" value="${escapeHtml(opt.text || "")}" placeholder="Option ${oIdx + 1}" />
                   ${(item.options || []).length > 2 ? `<button type="button" class="cms-icon-btn cms-remove-option" data-q="${qIdx}" data-o="${oIdx}" aria-label="Remove option">×</button>` : ""}
                 </label>`
@@ -1033,8 +1054,12 @@ function renderMcQuizBody(container, exercise) {
         const isCorrect = row.querySelector('input[type="radio"]')?.checked || false;
         if (text) options.push({ text, isCorrect });
       });
-      if (!options.some((o) => o.isCorrect) && options.length) options[0].isCorrect = true;
-      return { title, image: image || null, options, timeLimit };
+      return {
+        title,
+        image: image || null,
+        options: ensureSingleCorrectOption(options),
+        timeLimit,
+      };
     });
 }
 
@@ -1077,6 +1102,46 @@ function renderExerciseBody(card, exercise) {
   else renderMcQuizBody(body, exercise);
 }
 
+function applyExerciseTypeChange(card, newType) {
+  syncExercisesFromDom();
+
+  const sectionIndex = state.editingSectionIndex;
+  if (sectionIndex == null) return;
+
+  const exerciseIdRaw = card.dataset.exerciseId;
+  const exerciseIndex = Number(card.dataset.exerciseIndex);
+  const exercises = state.sections[sectionIndex]?.exercises || [];
+  const exercise =
+    exerciseIdRaw != null
+      ? exercises.find((entry) => String(entry.id) === exerciseIdRaw)
+      : exercises[exerciseIndex];
+  if (!exercise) return;
+
+  const oldType = exercise.type || "mcquiz";
+  exercise.type = newType;
+  exercise.subTitle = exerciseSubTitleForType(newType);
+
+  const wasMc = isLiveMcQuizExercise({ type: oldType });
+  const isMc = isLiveMcQuizExercise({ type: newType });
+  if (isMc && !wasMc) {
+    exercise.items = defaultExercise(newType).items;
+  } else if (newType === "video" && oldType !== "video") {
+    exercise.items = defaultExercise("video").items;
+  } else if (newType === "buzzin" && oldType !== "buzzin") {
+    exercise.items = defaultExercise("buzzin").items;
+  }
+
+  card.dataset.type = newType;
+  const subTitleInput = card.querySelector('[data-field="subTitle"]');
+  if (subTitleInput) subTitleInput.value = exercise.subTitle;
+  renderExerciseBody(card, exercise);
+
+  const previewLink = card.querySelector(".cms-exercise-preview");
+  if (previewLink) {
+    previewLink.href = joinPreviewUrl(joinPreviewLayoutForExercise(exercise));
+  }
+}
+
 function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesContainer) {
   const tpl = document.getElementById("tpl-exercise-editor");
   const card = tpl.content.firstElementChild.cloneNode(true);
@@ -1086,7 +1151,14 @@ function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesCont
 
   card.querySelector('[data-field="title"]').value = exercise.title || "";
   card.querySelector(".cms-exercise-order").value = String(exercise.order ?? exerciseIndex + 1);
-  card.querySelector('[data-field="subTitle"]').value = exercise.subTitle || "";
+  card.querySelector('[data-field="subTitle"]').value = exercise.subTitle || exerciseSubTitleForType(exercise.type);
+  const typeSelect = card.querySelector(".cms-exercise-type-select");
+  if (typeSelect) {
+    typeSelect.value = exercise.type || "mcquiz";
+    typeSelect.addEventListener("change", () => {
+      applyExerciseTypeChange(card, typeSelect.value);
+    });
+  }
   card.querySelector(".cms-exercise-order").addEventListener("change", () => {
     syncExercisesFromDom();
     renderExerciseEditors();

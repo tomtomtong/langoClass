@@ -10,8 +10,8 @@
   const TOOLBAR_OPEN_KEY = "lango_join_preview_toolbar_open";
 
   const LAYOUTS = [
-    { id: "join-quiz", label: "Join — Quiz PIN" },
-    { id: "join-room", label: "Join — Room code" },
+    { id: "join-quiz", label: "Join — Quiz link" },
+    { id: "join-room", label: "Join — Class link" },
     { id: "room-waiting", label: "Waiting room" },
     { id: "room-passive-waiting", label: "Passive waiting — video" },
     { id: "mc-question", label: "MC Quiz — question" },
@@ -112,18 +112,20 @@
       case "join-quiz":
         $("#join-panel-quiz").hidden = false;
         $("#join-panel-room").hidden = true;
+        $("#join-panel-link-required").hidden = true;
         showPreviewScreen("join");
         break;
 
       case "join-room":
         $("#join-panel-quiz").hidden = true;
         $("#join-panel-room").hidden = false;
+        $("#join-panel-link-required").hidden = true;
+        $("#join-room-status").textContent = "Joining waiting room…";
+        $("#join-room-error").textContent = "";
         showPreviewScreen("join");
         break;
 
       case "room-waiting":
-        $("#room-player-name").textContent = "Alex (preview)";
-        $("#room-id-display").textContent = formatRoomCode("123456");
         $("#room-waiting-status").textContent = "Waiting for the teacher to start…";
         showPreviewScreen("room-waiting");
         break;

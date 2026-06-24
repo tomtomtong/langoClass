@@ -24,13 +24,28 @@ function isBuzzinExercise(exercise) {
   return normalizeExerciseType(exercise?.type) === "buzzin";
 }
 
+function ensureSingleCorrectOption(options) {
+  if (!Array.isArray(options) || !options.length) return [];
+  const firstCorrectIdx = options.findIndex((o) => o.isCorrect);
+  const correctIdx = firstCorrectIdx >= 0 ? firstCorrectIdx : 0;
+  return options.map((o, i) => ({ ...o, isCorrect: i === correctIdx }));
+}
+
 function mcQuizPayloadFromExercise(exercise) {
   if (!exercise || !isLiveMcQuizExercise(exercise)) return null;
 
   const questions = (exercise.items || [])
     .map((item) => {
-      const options = (item.options || []).map((o) => String(o.text || "").trim());
-      const correctIndex = (item.options || []).findIndex((o) => o.isCorrect);
+      const normalizedOptions = ensureSingleCorrectOption(
+        (item.options || [])
+          .map((o) => ({
+            text: String(o.text || "").trim(),
+            isCorrect: !!o.isCorrect,
+          }))
+          .filter((o) => o.text)
+      );
+      const options = normalizedOptions.map((o) => o.text);
+      const correctIndex = normalizedOptions.findIndex((o) => o.isCorrect);
       const image = String(item.image || item.imageUrl || "").trim();
       return {
         text: String(item.title || item.question || "").trim(),

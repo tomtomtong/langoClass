@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const { normalizeClassListResponse, findStudentById } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
+const { isLiveMcQuizExercise, mcQuizPayloadFromExercise } = require("./lib/exercise-quiz");
 const scoreStore = require("./lib/score-store");
 const hostProgressStore = require("./lib/host-progress-store");
 const sessionStore = require("./lib/session-store");
@@ -705,11 +706,30 @@ function persistExerciseScores(game) {
   });
 }
 
+function quizPayloadForRoomGame(pin, clientQuiz) {
+  const session = sessionStore.getSession(pin);
+  if (!session?.courseId || session?.exercise?.id == null || !session?.teacherId) {
+    return clientQuiz;
+  }
+
+  const course = cmsStore.getCourseForTeacher(session.courseId, session.teacherId);
+  if (!course) return clientQuiz;
+
+  const exercise = cmsStore
+    .flattenExercises(course)
+    .find((entry) => entry.id === session.exercise.id);
+  if (!exercise || !isLiveMcQuizExercise(exercise)) return clientQuiz;
+
+  const payload = mcQuizPayloadFromExercise(exercise);
+  return payload?.questions?.length ? payload : clientQuiz;
+}
+
 function createRoomGame(hostSocketId, roomId, quizPayload) {
   const pin = normalizeRoomId(roomId);
   if (!pin) return null;
 
-  const normalized = normalizeClientQuiz(quizPayload);
+  const resolvedQuiz = quizPayloadForRoomGame(pin, quizPayload);
+  const normalized = normalizeClientQuiz(resolvedQuiz);
   if (!normalized.questions.length) return null;
 
   const existing = games.get(pin);

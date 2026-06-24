@@ -15,33 +15,23 @@
       <div id="join-panel-quiz">
         <h2>Join a Game</h2>
         <label class="field">
-          <span>Game PIN</span>
-          <input type="text" id="join-pin" maxlength="6" placeholder="123456" inputmode="numeric" />
-        </label>
-        <label class="field">
           <span>Nickname</span>
           <input type="text" id="join-nickname" maxlength="20" placeholder="Your name" />
         </label>
         <p class="connection-status" id="connection-status">Connecting to server…</p>
         <button class="btn primary" id="btn-join-game" disabled>Join</button>
         <p class="error" id="join-error"></p>
-        <p class="hint join-mode-switch"><a href="/join.html?room=">Join a Lango class with room ID instead</a></p>
+      </div>
+
+      <div id="join-panel-link-required" hidden>
+        <h2>Join class</h2>
+        <p class="connection-status">Open the join link from your teacher's notification.</p>
       </div>
 
       <div id="join-panel-room" hidden>
-        <h2>Join class</h2>
-        <p class="hint">Enter the 6-digit room code from your teacher’s notification or link.</p>
-        <label class="field">
-          <span>Room code</span>
-          <input type="text" id="join-room-id" maxlength="6" placeholder="123456" inputmode="numeric" spellcheck="false" autocapitalize="off" />
-        </label>
-        <label class="field">
-          <span>Your name</span>
-          <input type="text" id="join-room-name" maxlength="40" placeholder="Your name" />
-        </label>
-        <button class="btn primary" id="btn-join-room">Join waiting room</button>
+        <h2>Joining class</h2>
+        <p class="connection-status" id="join-room-status">Connecting…</p>
         <p class="error" id="join-room-error"></p>
-        <p class="hint join-mode-switch"><a href="/join.html">Join a QuizLive game with PIN instead</a></p>
       </div>
     </section>
 
@@ -49,19 +39,11 @@
       <div class="general-waiting-ui__content">
         <header class="general-waiting-ui__header">
           <h1 id="room-waiting-title">Waiting Room</h1>
-          <div class="general-waiting-room-code" aria-label="Room code">
-            <span class="general-waiting-room-code__label">Room</span>
-            <code class="general-waiting-room-code__id" id="room-id-display"></code>
-          </div>
         </header>
 
         <main class="general-waiting-ui__main">
           <div class="general-waiting-ui__message-card">
             <p id="room-waiting-status" aria-live="polite">Please look at the digital whiteboard outside.</p>
-          </div>
-
-          <div class="general-waiting-ui__session-details" hidden aria-hidden="true">
-            <span id="room-player-name"></span>
           </div>
         </main>
       </div>

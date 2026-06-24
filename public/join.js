@@ -139,53 +139,60 @@ function initRoomJoin() {
   $("#join-panel-room").hidden = false;
 
   const stored = loadStoredParticipant();
-  const activeRoom = urlRoom || stored?.roomId || "";
+  const activeRoom = normalizePin(urlRoom || stored?.roomId || "");
   if (stored?.roomId && (urlRoom === stored.roomId || !urlRoom)) {
     roomParticipant = stored;
     if (urlToken) roomParticipant.userId = urlToken;
   }
 
-  if (urlRoom) $("#join-room-id").value = urlRoom;
-  const resolvedName = resolveDisplayName(activeRoom, stored);
-  if (resolvedName) $("#join-room-name").value = resolvedName;
-
-  $("#btn-join-room").addEventListener("click", doJoinRoom);
   $("#btn-leave-room").addEventListener("click", () => {
     stopRoomStatusPoll();
     stopRoomQuizJoinRetry();
     if (roomSessionSocket) roomSessionSocket.disconnect();
     roomSessionSocket = null;
     clearStoredParticipant();
-    location.href = "/join.html?room=";
+    location.href = roomJoinUrl({
+      roomId: roomParticipant?.roomId || urlRoom || "",
+      token: roomParticipant?.userId || urlToken || "",
+      name: roomParticipant?.displayName || urlNickname || "",
+    });
   });
 
-  $("#join-room-name").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doJoinRoom();
-  });
-
-  if (urlRoom && resolveDisplayName(urlRoom, stored)) {
-    void doJoinRoom();
+  if (!activeRoom) {
+    $("#join-room-status").textContent = "";
+    $("#join-room-error").textContent =
+      "Open the join link from your teacher's notification.";
+    return;
   }
+
+  const displayName = resolveDisplayName(activeRoom, stored);
+  if (!displayName) {
+    $("#join-room-status").textContent = "";
+    $("#join-room-error").textContent =
+      "Your name is missing from the join link. Ask your teacher for a new link.";
+    return;
+  }
+
+  void doJoinRoom(activeRoom, displayName);
 }
 
-function doJoinRoom() {
-  const roomId = $("#join-room-id").value.trim();
+function doJoinRoom(roomId, displayNameOverride) {
   const stored = loadStoredParticipant();
-  const displayName = ($("#join-room-name").value.trim() || resolveDisplayName(roomId, stored));
+  const displayName = (displayNameOverride || resolveDisplayName(roomId, stored)).trim();
   $("#join-room-error").textContent = "";
+  $("#join-room-status").textContent = "Joining waiting room…";
 
   if (!roomId) {
-    $("#join-room-error").textContent = "Enter the 6-digit room code from your teacher.";
+    $("#join-room-status").textContent = "";
+    $("#join-room-error").textContent =
+      "Open the join link from your teacher's notification.";
     return;
   }
   if (!displayName) {
-    $("#join-room-error").textContent = "Enter your name.";
+    $("#join-room-status").textContent = "";
+    $("#join-room-error").textContent = "Your name is missing from the join link.";
     return;
   }
-  $("#join-room-name").value = displayName;
-
-  const btn = $("#btn-join-room");
-  btn.disabled = true;
 
   const socket = getRoomSessionSocket();
 
@@ -198,9 +205,8 @@ function doJoinRoom() {
         userId: resolveStudentUserId(roomId, stored),
       },
       (data) => {
-        btn.disabled = false;
-
         if (!data?.ok) {
+          $("#join-room-status").textContent = "";
           $("#join-room-error").textContent = data?.error || "Failed to join room.";
           return;
         }
@@ -213,8 +219,6 @@ function doJoinRoom() {
         saveStoredParticipant(participant);
         roomParticipant = participant;
 
-        $("#room-player-name").textContent = data.displayName;
-        $("#room-id-display").textContent = formatRoomCode(data.roomId);
         $("#room-waiting-status").textContent =
           data.sessionStatus === "start"
             ? "Class is starting…"
@@ -240,13 +244,20 @@ function doJoinRoom() {
   else {
     socket.once("connect", attemptJoin);
     socket.once("connect_error", () => {
-      btn.disabled = false;
+      $("#join-room-status").textContent = "";
       $("#join-room-error").textContent = "Could not connect to class server.";
     });
   }
 }
 
 function initQuizJoin() {
+  const pin = normalizePin(urlPin || "");
+  if (pin.length !== 6) {
+    $("#join-panel-quiz").hidden = true;
+    $("#join-panel-link-required").hidden = false;
+    return;
+  }
+
   const socket = io({ transports: ["websocket", "polling"] });
   let myPlayerId = null;
   let currentQuestion = null;
@@ -265,7 +276,7 @@ function initQuizJoin() {
   }
 
   socket.on("connect", () => {
-    setConnectionStatus("Connected — enter PIN and join", "ok");
+    setConnectionStatus("Connected — enter your nickname", "ok");
     updateJoinButton();
   });
 
@@ -280,15 +291,8 @@ function initQuizJoin() {
   });
 
   function doJoin() {
-    const pin = normalizePin($("#join-pin").value);
     const nickname = $("#join-nickname").value.trim();
     $("#join-error").textContent = "";
-    $("#join-pin").value = pin;
-
-    if (pin.length !== 6) {
-      $("#join-error").textContent = "Enter the 6-digit game PIN.";
-      return;
-    }
 
     if (!nickname) {
       $("#join-error").textContent = "Enter a nickname.";
@@ -309,8 +313,6 @@ function initQuizJoin() {
 
       myPlayerId = res.playerId;
       $("#room-waiting-title").textContent = res.quizTitle || "Waiting Room";
-      $("#room-player-name").textContent = nickname;
-      $("#room-id-display").textContent = formatRoomCode(pin);
       $("#room-waiting-status").textContent = "Waiting for host to start…";
       $("#btn-leave-room").hidden = true;
       showScreen("room-waiting");
@@ -415,7 +417,6 @@ function initQuizJoin() {
     location.href = "/join.html";
   });
 
-  if (urlPin) $("#join-pin").value = normalizePin(urlPin);
   if (urlNickname) $("#join-nickname").value = urlNickname.slice(0, 20);
 
   $("#btn-play-again")?.addEventListener("click", () => {
@@ -423,15 +424,26 @@ function initQuizJoin() {
   });
 
   updateJoinButton();
+
+  if (urlNickname && socket.connected) doJoin();
+  else if (urlNickname) socket.once("connect", doJoin);
+}
+
+function initJoinLinkRequired() {
+  $("#join-panel-quiz").hidden = true;
+  $("#join-panel-room").hidden = true;
+  $("#join-panel-link-required").hidden = false;
 }
 
 if (urlParams.has("preview")) {
   /* Layout preview mode — join-preview.js drives the UI. */
-} else if (urlRoom || urlParams.has("room") || urlParams.has("roomId")) {
+} else if (urlPin) {
+  initQuizJoin();
+} else if (urlRoom || loadStoredParticipant()?.roomId || urlToken || urlNickname) {
   initRoomJoin();
   $("#btn-play-again")?.addEventListener("click", () => {
     location.href = "/join.html";
   });
 } else {
-  initQuizJoin();
+  initJoinLinkRequired();
 }
