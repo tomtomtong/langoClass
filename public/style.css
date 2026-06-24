@@ -8705,6 +8705,15 @@ body:has(#app.lango-host) {
     0 2px 12px rgba(255, 105, 180, 0.45),
     inset 0 0 10px rgba(255, 255, 255, 0.35);
   backdrop-filter: blur(10px);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+#app.lango-host .host-video-screen.is-playing:not(.controls-visible) .host-video-controls {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
 }
 
 #app.lango-host .host-video-control-btn {

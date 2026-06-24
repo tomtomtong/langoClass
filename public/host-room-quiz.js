@@ -393,6 +393,26 @@ function setupHostRoomQuizSocket(socket) {
 
 let hostVideoControlsReady = false;
 let hostVideoScrubbing = false;
+let hostVideoControlsHideTimer = null;
+
+function setHostVideoControlsVisible(visible, { autoHide = false } = {}) {
+  const screen = $("#screen-host-video");
+  const video = $("#host-video-player");
+  if (!screen || !video) return;
+
+  if (hostVideoControlsHideTimer) {
+    clearTimeout(hostVideoControlsHideTimer);
+    hostVideoControlsHideTimer = null;
+  }
+
+  screen.classList.toggle("controls-visible", visible);
+  if (visible && autoHide && !video.paused && !video.ended && !hostVideoScrubbing) {
+    hostVideoControlsHideTimer = setTimeout(() => {
+      screen.classList.remove("controls-visible");
+      hostVideoControlsHideTimer = null;
+    }, 1200);
+  }
+}
 
 function formatHostVideoTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -444,7 +464,8 @@ function setupHostVideoControls() {
   const play = $("#host-video-play");
   const scrubber = $("#host-video-scrubber");
   const mute = $("#host-video-mute");
-  if (!video || !play || !scrubber || !mute) return;
+  const frame = document.querySelector("#screen-host-video .host-video-frame");
+  if (!video || !play || !scrubber || !mute || !frame) return;
 
   hostVideoControlsReady = true;
 
@@ -473,14 +494,29 @@ function setupHostVideoControls() {
 
   video.addEventListener("play", () => {
     if (typeof fadeOutHostBgm === "function") fadeOutHostBgm();
+    setHostVideoControlsVisible(true, { autoHide: true });
   });
+
+  video.addEventListener("pause", () => setHostVideoControlsVisible(true));
 
   video.addEventListener("ended", () => {
     if (typeof fadeInHostBgm === "function") fadeInHostBgm();
+    setHostVideoControlsVisible(true);
+  });
+
+  frame.addEventListener("pointermove", () => {
+    setHostVideoControlsVisible(true, { autoHide: true });
+  });
+
+  frame.addEventListener("pointerleave", () => {
+    if (!video.paused && !video.ended && !hostVideoScrubbing) {
+      setHostVideoControlsVisible(false);
+    }
   });
 
   scrubber.addEventListener("input", () => {
     hostVideoScrubbing = true;
+    setHostVideoControlsVisible(true);
     seekHostVideoFromScrubber();
   });
 
@@ -488,11 +524,13 @@ function setupHostVideoControls() {
     seekHostVideoFromScrubber();
     hostVideoScrubbing = false;
     updateHostVideoControls();
+    setHostVideoControlsVisible(true, { autoHide: true });
   });
 
   scrubber.addEventListener("pointerup", () => {
     hostVideoScrubbing = false;
     updateHostVideoControls();
+    setHostVideoControlsVisible(true, { autoHide: true });
   });
 
   ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "ended", "volumechange"].forEach((eventName) => {
@@ -507,6 +545,7 @@ function resetHostVideoControls() {
     scrubber.value = "0";
     scrubber.style.setProperty("--host-video-progress", "0%");
   }
+  setHostVideoControlsVisible(true);
   updateHostVideoControls();
 }
 

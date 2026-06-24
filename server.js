@@ -1801,9 +1801,9 @@ app.post("/api/session/start", async (req, res) => {
   if (!token) return res.status(401).json({ message: "Missing auth token." });
 
   const { class: classItem, course, exercise, user } = req.body || {};
-  if (!classItem?.id || !course?.id || !user?.id) {
+  if (!classItem?.id || !user?.id) {
     return res.status(400).json({
-      message: "class, course, and user with id are required.",
+      message: "class and user with id are required.",
     });
   }
 
@@ -1812,7 +1812,7 @@ app.post("/api/session/start", async (req, res) => {
     roomId: sessionId,
     teacherId: user.id,
     classId: classItem.id,
-    courseId: course.id,
+    courseId: course?.id || null,
     exercise,
     classItem,
     course,
@@ -1821,7 +1821,7 @@ app.post("/api/session/start", async (req, res) => {
 
   const notifyBody = {
     class_id: classItem.id,
-    title: courseDisplayName(course),
+    title: course?.id ? courseDisplayName(course) : classItem.name || "Class session",
     body: "Class will start soon",
     data: buildNotificationData({
       session_id: sessionId,
@@ -1837,11 +1837,12 @@ app.post("/api/session/start", async (req, res) => {
   });
 
   if (!ok) {
-    return res.status(status).json({
-      message: data?.message || "sendNotification failed after session was created.",
+    return res.status(201).json({
       sessionId,
       roomId: sessionId,
-      notifyPayload: notifyBody,
+      notification: notifyBody,
+      notificationSent: false,
+      notificationWarning: data?.message || "Waiting room created, but the notification failed.",
       apiResponse: data,
     });
   }
@@ -2061,7 +2062,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("select_session_exercise", ({ roomId, exercise }, callback) => {
+  socket.on("select_session_exercise", ({ roomId, exercise, course }, callback) => {
     const meta = socketMeta.get(socket.id);
     const pin = normalizeRoomId(roomId) || meta?.pin;
     if (!meta || meta.role !== "host" || !pin) {
@@ -2080,7 +2081,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (!sessionStore.updateExercise(session, exercise)) {
+    if (!sessionStore.updateExercise(session, exercise, course)) {
       callback?.({ ok: false, error: "Select a valid exercise." });
       return;
     }
@@ -2280,12 +2281,24 @@ io.on("connection", (socket) => {
     }
 
     const payload = buildExerciseFinishedPayload(pin);
+    if (session.status === "waiting") {
+      callback?.({ ok: true, ...payload });
+      return;
+    }
+    const game = games.get(pin);
+    if (game) {
+      clearQuestionTimer(game);
+      games.delete(pin);
+    }
+    clearBuzzInRound(pin);
+    sessionStore.waitSession(session);
     io.to(pin).emit("room_exercise_wrap_up", payload);
+    broadcastSessionLobby(session);
     void sendExerciseEndNotification(session);
     callback?.({ ok: true, ...payload });
   });
 
-  socket.on("start_next_exercise", ({ roomId, exercise }, callback) => {
+  socket.on("start_next_exercise", ({ roomId, exercise, course }, callback) => {
     const meta = socketMeta.get(socket.id);
     const pin = normalizeRoomId(roomId) || meta?.pin;
     if (!meta || meta.role !== "host" || !pin) {
@@ -2304,7 +2317,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (!sessionStore.updateExercise(session, exercise)) {
+    if (!sessionStore.updateExercise(session, exercise, course)) {
       callback?.({ ok: false, error: "Could not update exercise." });
       return;
     }

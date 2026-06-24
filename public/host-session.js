@@ -16,6 +16,13 @@ function getHostSessionSocket() {
           startBtn.textContent = "Session started";
         }
         $("#waiting-participant-status").textContent = "Class in progress.";
+      } else if (data.status === "waiting") {
+        state.sessionStarted = false;
+        const startBtn = $("#btn-start-class");
+        if (startBtn) {
+          startBtn.disabled = !state.selectedExercise;
+          startBtn.textContent = state.selectedExercise ? "Start Session" : "Choose Exercise";
+        }
       }
     });
     hostSessionSocket.on("session_ended", ({ reason }) => {
@@ -66,12 +73,12 @@ function startSessionViaSocket(roomId) {
   });
 }
 
-function selectSessionExerciseViaSocket(roomId, exercise) {
+function selectSessionExerciseViaSocket(roomId, exercise, course) {
   const socket = getHostSessionSocket();
 
   return new Promise((resolve, reject) => {
     const run = () => {
-      socket.emit("select_session_exercise", { roomId, exercise }, (res) => {
+      socket.emit("select_session_exercise", { roomId, exercise, course }, (res) => {
         if (!res?.ok) reject(new Error(res?.error || "Could not select exercise."));
         else resolve(res);
       });
@@ -82,12 +89,12 @@ function selectSessionExerciseViaSocket(roomId, exercise) {
   });
 }
 
-function startNextExerciseViaSocket(roomId, exercise) {
+function startNextExerciseViaSocket(roomId, exercise, course) {
   const socket = getHostSessionSocket();
 
   return new Promise((resolve, reject) => {
     const run = () => {
-      socket.emit("start_next_exercise", { roomId, exercise }, (res) => {
+      socket.emit("start_next_exercise", { roomId, exercise, course }, (res) => {
         if (!res?.ok) reject(new Error(res?.error || "Could not start next exercise."));
         else resolve(res);
       });

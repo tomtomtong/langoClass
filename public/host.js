@@ -25,7 +25,7 @@ const state = {
 
 let hostSessionConnected = false;
 let waitingTimerInterval = null;
-let courseSessionCreating = false;
+let classSessionCreating = false;
 const WAITING_TIMER_SECONDS = 300;
 const LOGIN_SCAN_CYCLE_MS = 3600;
 const HOST_SOUND_EFFECTS = {
@@ -46,6 +46,7 @@ const HOST_BGM_TRACKS = [
 ];
 const HOST_BGM_VOLUME = 0.3;
 const HOST_BGM_FADE_MS = 700;
+const hostSoundBank = new Map();
 let hostBgmAudio = null;
 let hostBgmLastTrack = "";
 let hostBgmStarted = false;
@@ -70,7 +71,14 @@ function waitForLoginScanCycle(startedAt) {
 
 function playHostSound(src, { volume = 1 } = {}) {
   if (!src) return;
-  const audio = new Audio(src);
+  let audio = hostSoundBank.get(src);
+  if (!audio) {
+    audio = new Audio(src);
+    audio.preload = "auto";
+    hostSoundBank.set(src, audio);
+  }
+  audio.pause();
+  audio.currentTime = 0;
   audio.volume = volume;
   const playPromise = audio.play();
   if (playPromise?.catch) {
@@ -1246,10 +1254,8 @@ async function enterClassStep({ resume = false } = {}) {
       if (savedClass) {
         state.classItem = savedClass;
         savePrefs();
-        if (state.course?.id) {
-          await enterCourseStep({ resume: true });
-          return;
-        }
+        await createWaitingRoomForClass();
+        return;
       } else {
         state.classItem = null;
         state.course = null;
@@ -1280,7 +1286,7 @@ async function enterClassStep({ resume = false } = {}) {
         selectedId: state.classItem?.id,
         onSelect: handleClassSelect,
       });
-      if (state.classItem) enterCourseStep();
+      if (state.classItem) void createWaitingRoomForClass();
     }
 
     renderClassGrid($("#class-sections"), classes, {
@@ -1359,7 +1365,6 @@ function renderCourseSections() {
   updateCourseCountBadge(state.courses.length);
 
   function handleCourseSelect(id) {
-    if (courseSessionCreating) return;
     const next = findCourseInList(id);
     if (state.course?.id !== next?.id) {
       state.selectedSection = null;
@@ -1372,7 +1377,7 @@ function renderCourseSections() {
       selectedId: state.course?.id,
       onSelect: handleCourseSelect,
     });
-    if (state.course) void createWaitingRoomForCourse();
+    if (state.course) void enterSectionStep();
   }
 
   renderCourseGrid($("#course-sections"), state.courses, {
@@ -1830,12 +1835,12 @@ async function enterWaitingRoom(roomId, apiResponse) {
   void startWaitingPoll();
 }
 
-async function createWaitingRoomForCourse() {
-  if (!state.classItem?.id || !state.course?.id || !state.user?.id || courseSessionCreating) return;
+async function createWaitingRoomForClass() {
+  if (!state.classItem?.id || !state.user?.id || classSessionCreating) return;
 
-  courseSessionCreating = true;
-  $("#course-error").textContent = "";
-  $("#course-status").textContent = "Creating waiting room…";
+  classSessionCreating = true;
+  $("#class-error").textContent = "";
+  $("#class-status").textContent = "Creating waiting room…";
 
   stopWaitingPoll();
   disconnectHostSession();
@@ -1848,7 +1853,6 @@ async function createWaitingRoomForCourse() {
       method: "POST",
       body: {
         class: state.classItem,
-        course: state.course,
         user: state.user,
       },
     });
@@ -1861,10 +1865,10 @@ async function createWaitingRoomForCourse() {
 
     await enterWaitingRoom(roomId, result.apiResponse);
   } catch (err) {
-    $("#course-error").textContent = err.message;
+    $("#class-error").textContent = err.message;
   } finally {
-    courseSessionCreating = false;
-    $("#course-status").textContent = "";
+    classSessionCreating = false;
+    $("#class-status").textContent = "";
   }
 }
 
@@ -1879,13 +1883,17 @@ async function handleStartSession() {
   btn.textContent = "Selecting exercise…";
 
   try {
-    await selectSessionExerciseViaSocket(state.activeRoomId, state.selectedExercise);
-    await enterWaitingRoom(state.activeRoomId);
+    await selectSessionExerciseViaSocket(state.activeRoomId, state.selectedExercise, state.course);
+    btn.textContent = "Starting exercise…";
+    await startSelectedHostExercise({
+      button: btn,
+      errorElement: $("#journey-error"),
+      idleText: "Start exercise",
+    });
   } catch (err) {
     $("#journey-error").textContent = err.message;
-  } finally {
     btn.disabled = !state.selectedExercise;
-    btn.textContent = "Continue to waiting room";
+    btn.textContent = "Start exercise";
   }
 }
 
@@ -1923,7 +1931,7 @@ async function handleStartNextExercise() {
   }
 
   try {
-    await startNextExerciseViaSocket(state.activeRoomId, next);
+    await startNextExerciseViaSocket(state.activeRoomId, next, state.course);
     state.sessionStarted = true;
     $("#waiting-participant-status").textContent = "Loading next exercise…";
     await runHostExercise(state.activeRoomId, next);
@@ -1938,14 +1946,19 @@ async function handleStartNextExercise() {
   }
 }
 
-async function handleStartClass() {
+async function startSelectedHostExercise({
+  button = $("#btn-start-class"),
+  errorElement = $("#waiting-error"),
+  idleText = "Start class",
+} = {}) {
   if (!state.activeRoomId || state.sessionStarted) return;
 
-  flashStartSessionArt();
-  $("#waiting-error").textContent = "";
-  const btn = $("#btn-start-class");
-  btn.disabled = true;
-  btn.textContent = "Starting…";
+  if ($("#screen-waiting")?.classList.contains("active")) flashStartSessionArt();
+  if (errorElement) errorElement.textContent = "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Starting…";
+  }
 
   try {
     await playStartSessionSound();
@@ -1960,19 +1973,25 @@ async function handleStartClass() {
       exerciseType === "mcquiz" || exerciseType === "fastmcquiz"
         ? "Class started — quiz loading…"
         : "Class started — loading exercise…";
-    btn.textContent = "Class started";
+    if (button) button.textContent = "Class started";
 
     await runHostExercise(state.activeRoomId, state.selectedExercise);
   } catch (err) {
     state.quizActive = false;
-    $("#waiting-error").textContent = err.message;
-    btn.disabled = false;
-    btn.textContent = "Start class";
+    if (errorElement) errorElement.textContent = err.message;
+    if (button) {
+      button.disabled = false;
+      button.textContent = idleText;
+    }
     if (state.sessionStarted) {
       showScreen("waiting");
       setActiveStep("waiting");
     }
   }
+}
+
+async function handleStartClass() {
+  await startSelectedHostExercise();
 }
 
 function handleLogout() {
@@ -1997,7 +2016,10 @@ $("#login-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleLogin();
 });
 
-$("#btn-back-login")?.addEventListener("click", handleLogout);
+$("#btn-back-login")?.addEventListener("click", () => {
+  playPageBackSound();
+  handleLogout();
+});
 
 document.querySelectorAll(
   "#btn-logout-course, #btn-logout-section, #btn-logout-waiting, #btn-logout-quiz, #btn-logout-results, #btn-logout-finished, #btn-logout-video, #btn-logout-buzzin"
@@ -2034,9 +2056,12 @@ document.addEventListener("keydown", (e) => {
 
 function backFromWaiting() {
   playPageBackSound();
-  stopWaitingPoll();
   state.quizActive = false;
-  void enterSectionStep({ resume: true });
+  if (state.course?.id) {
+    void enterSectionStep({ resume: true });
+  } else {
+    void enterCourseStep();
+  }
 }
 
 $("#btn-back-journey")?.addEventListener("click", backFromWaiting);
@@ -2085,8 +2110,6 @@ $("#btn-copy-room-id").addEventListener("click", async () => {
 });
 
 function resetSessionAndGoToJourney() {
-  stopWaitingPoll();
-  state.activeRoomId = null;
   state.sessionStarted = false;
   state.quizActive = false;
   state.selectedExercise = null;
@@ -2136,6 +2159,13 @@ function wrapUpRoomExercise(callback) {
 function returnHostToWaitingRoom() {
   if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   fadeInHostBgm();
+  state.sessionStarted = false;
+  state.selectedExercise = null;
+  const startBtn = $("#btn-start-class");
+  if (startBtn) {
+    startBtn.disabled = true;
+    startBtn.textContent = "Choose Exercise";
+  }
   refreshNextExerciseUi();
   showScreen("waiting");
   setActiveStep("waiting");
@@ -2172,11 +2202,11 @@ $("#btn-host-fast-results-done")?.addEventListener("click", () => {
 });
 
 $("#btn-host-video-done")?.addEventListener("click", () => {
-  playPageBackSound();
+  playPageNextSound();
   backToWaitingFromExercise();
 });
 $("#btn-host-buzzin-done")?.addEventListener("click", () => {
-  playPageBackSound();
+  playPageNextSound();
   backToWaitingFromExercise();
 });
 $("#btn-start-another-video")?.addEventListener("click", () => {
