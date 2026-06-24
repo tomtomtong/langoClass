@@ -18,7 +18,6 @@ const state = {
   hostProgress: null,
   hostProgressSaving: false,
   activeRoomId: null,
-  sessionStarted: false,
   quizActive: false,
   waitingTotalTarget: 0,
 };
@@ -1795,30 +1794,84 @@ function renderNotificationStats(apiResponse) {
 function updateWaitingStartButton() {
   const startBtn = $("#btn-start-class");
   if (!startBtn) return;
-  if (state.sessionStarted) {
-    startBtn.disabled = true;
-    startBtn.textContent = "Session started";
-    return;
-  }
   startBtn.disabled = false;
-  startBtn.textContent = "Start";
+  const label = startBtn.querySelector("span");
+  if (label) label.textContent = "Courses";
 }
 
-async function enterWaitingRoom(roomId, apiResponse) {
+async function setupClassSession(roomId, apiResponse) {
   state.activeRoomId = roomId;
-  state.sessionStarted = false;
+  state.quizActive = false;
 
   $("#waiting-error").textContent = "";
   $("#waiting-room-id").textContent = formatRoomCode(roomId);
   await refreshWaitingClassRoster();
   renderNotificationStats(apiResponse);
-
   updateWaitingStartButton();
 
   renderParticipants([]);
+  void startWaitingPoll();
+  void renderRoomJoinLinks(roomId);
+  await enterCourseStep();
+}
+
+async function showWaitingRoom() {
+  if (!state.activeRoomId) return;
+
+  $("#waiting-error").textContent = "";
+  $("#waiting-room-id").textContent = formatRoomCode(state.activeRoomId);
+  await refreshWaitingClassRoster();
+  const roster = getWaitingClassRoster();
+  updateWaitingStudentCount(0, roster.length || state.waitingTotalTarget || 0);
+  updateWaitingStartButton();
   startWaitingTimer();
   goTo("waiting", "waiting");
-  void startWaitingPoll();
+
+  if (!hostSessionConnected) void startWaitingPoll();
+  void renderRoomJoinLinks(state.activeRoomId);
+}
+
+async function enterWaitingRoom(roomId, apiResponse) {
+  await setupClassSession(roomId, apiResponse);
+}
+
+async function endActiveClassSession() {
+  if (!state.activeRoomId) return;
+
+  if (state.quizActive) {
+    try {
+      await wrapUpRoomExercisePromise();
+    } catch {
+      /* best effort */
+    }
+  }
+
+  try {
+    await api("/api/session/end", {
+      method: "POST",
+      body: {
+        roomId: state.activeRoomId,
+        class: state.classItem,
+        user: state.user,
+      },
+    });
+  } catch {
+    /* session may already be gone */
+  }
+
+  stopWaitingPoll();
+  disconnectHostSession();
+  state.activeRoomId = null;
+  state.quizActive = false;
+}
+
+async function leaveCourseForClassMenu() {
+  playPageBackSound();
+  await endActiveClassSession();
+  state.course = null;
+  state.selectedSection = null;
+  savePrefs();
+  enterClassStep();
 }
 
 async function createWaitingRoomForClass() {
@@ -1831,7 +1884,6 @@ async function createWaitingRoomForClass() {
   stopWaitingPoll();
   disconnectHostSession();
   state.activeRoomId = null;
-  state.sessionStarted = false;
   state.quizActive = false;
 
   try {
@@ -1849,7 +1901,7 @@ async function createWaitingRoomForClass() {
       result.notification?.data?.session_id ||
       "";
 
-    await enterWaitingRoom(roomId, result.apiResponse);
+    await setupClassSession(roomId, result.apiResponse);
   } catch (err) {
     $("#class-error").textContent = err.message;
   } finally {
@@ -1858,28 +1910,73 @@ async function createWaitingRoomForClass() {
   }
 }
 
+function wrapUpRoomExercisePromise() {
+  return new Promise((resolve) => {
+    wrapUpRoomExercise((res) => resolve(res));
+  });
+}
+
+async function launchHostExercise(exercise, {
+  button = null,
+  errorElement = $("#journey-error"),
+  idleText = "Start exercise",
+  playIntro = true,
+} = {}) {
+  if (!exercise?.id || !state.activeRoomId) return;
+
+  if (errorElement) errorElement.textContent = "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Starting…";
+  }
+
+  try {
+    if (state.quizActive) {
+      await wrapUpRoomExercisePromise();
+    }
+
+    if (playIntro) {
+      await playStartSessionSound();
+      if (shouldPlayHostMcQuizCountdown(exercise)) {
+        await playExerciseCountdownVideo();
+      }
+    }
+
+    await startNextExerciseViaSocket(state.activeRoomId, exercise, state.course);
+    state.selectedExercise = exercise;
+    state.quizActive = true;
+    await runHostExercise(state.activeRoomId, exercise);
+  } catch (err) {
+    state.quizActive = false;
+    if (errorElement) errorElement.textContent = err.message;
+    if (button) {
+      button.disabled = !exercise;
+      button.textContent = idleText;
+    }
+    throw err;
+  } finally {
+    if (button) {
+      button.disabled = !exercise;
+      button.textContent = idleText;
+    }
+  }
+}
+
 async function handleStartSession() {
   if (!state.selectedExercise || !state.activeRoomId) return;
 
   playPageNextSound();
-  $("#journey-error").textContent = "";
   void markHostExerciseSelected(state.selectedExercise.id);
   const btn = $("#btn-start-session");
-  btn.disabled = true;
-  btn.textContent = "Selecting exercise…";
 
   try {
-    await selectSessionExerciseViaSocket(state.activeRoomId, state.selectedExercise, state.course);
-    btn.textContent = "Starting exercise…";
-    await startSelectedHostExercise({
+    await launchHostExercise(state.selectedExercise, {
       button: btn,
       errorElement: $("#journey-error"),
       idleText: "Start exercise",
     });
-  } catch (err) {
-    $("#journey-error").textContent = err.message;
-    btn.disabled = !state.selectedExercise;
-    btn.textContent = "Start exercise";
+  } catch {
+    /* error shown in launchHostExercise */
   }
 }
 
@@ -1917,10 +2014,11 @@ async function handleStartNextExercise() {
   }
 
   try {
-    await startNextExerciseViaSocket(state.activeRoomId, next, state.course);
-    state.sessionStarted = true;
-    $("#waiting-participant-status").textContent = "Loading next exercise…";
-    await runHostExercise(state.activeRoomId, next);
+    await launchHostExercise(next, {
+      errorElement: $("#waiting-error"),
+      idleText: "Next exercise",
+      playIntro: false,
+    });
   } catch (err) {
     $("#waiting-error").textContent = err.message;
     refreshNextExerciseUi();
@@ -1932,53 +2030,14 @@ async function handleStartNextExercise() {
   }
 }
 
-async function startSelectedHostExercise({
-  button = $("#btn-start-class"),
-  errorElement = $("#waiting-error"),
-  idleText = "Start class",
-} = {}) {
-  if (!state.activeRoomId || state.sessionStarted) return;
-
-  if ($("#screen-waiting")?.classList.contains("active")) flashStartSessionArt();
-  if (errorElement) errorElement.textContent = "";
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Starting…";
-  }
-
-  try {
-    await playStartSessionSound();
-    if (shouldPlayHostMcQuizCountdown(state.selectedExercise)) {
-      await playExerciseCountdownVideo();
-    }
-    await startSessionViaSocket(state.activeRoomId);
-    state.sessionStarted = true;
-    stopWaitingPoll();
-    const exerciseType = normalizeExerciseType(state.selectedExercise?.type);
-    $("#waiting-participant-status").textContent =
-      exerciseType === "mcquiz" || exerciseType === "fastmcquiz"
-        ? "Class started — quiz loading…"
-        : "Class started — loading exercise…";
-    if (button) button.textContent = "Class started";
-
-    await runHostExercise(state.activeRoomId, state.selectedExercise);
-  } catch (err) {
-    state.quizActive = false;
-    if (errorElement) errorElement.textContent = err.message;
-    if (button) {
-      button.disabled = false;
-      button.textContent = idleText;
-    }
-    if (state.sessionStarted) {
-      returnHostToJourney();
-    }
-  }
-}
-
 function handleStartClass() {
-  if (state.sessionStarted) return;
   playPageNextSound();
-  void enterCourseStep();
+  stopWaitingTimer();
+  if (state.course?.id) {
+    void enterSectionStep({ resume: true });
+    return;
+  }
+  void enterCourseStep({ keepCourse: true });
 }
 
 function handleLogout() {
@@ -1987,7 +2046,6 @@ function handleLogout() {
   stopWaitingPoll();
   disconnectHostSession();
   state.activeRoomId = null;
-  state.sessionStarted = false;
   state.quizActive = false;
   clearAuth();
   state.classItem = null;
@@ -2015,11 +2073,7 @@ document.querySelectorAll(
 ).forEach((btn) => btn.addEventListener("click", handleLogout));
 
 $("#btn-back-class").addEventListener("click", () => {
-  playPageBackSound();
-  state.course = null;
-  state.selectedSection = null;
-  savePrefs();
-  enterClassStep();
+  void leaveCourseForClassMenu();
 });
 
 $("#btn-back-course-from-section").addEventListener("click", () => {
@@ -2045,6 +2099,7 @@ document.addEventListener("keydown", (e) => {
 
 function backFromWaiting() {
   playPageBackSound();
+  stopWaitingTimer();
   state.quizActive = false;
   if (state.course?.id) {
     void enterSectionStep({ resume: true });
@@ -2081,6 +2136,15 @@ document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin").f
 $("#btn-start-session").addEventListener("click", handleStartSession);
 
 $("#btn-start-class").addEventListener("click", handleStartClass);
+
+$("#btn-open-waiting-course")?.addEventListener("click", () => {
+  playPageNextSound();
+  void showWaitingRoom();
+});
+$("#btn-open-waiting-section")?.addEventListener("click", () => {
+  playPageNextSound();
+  void showWaitingRoom();
+});
 
 $("#btn-copy-room-id").addEventListener("click", async () => {
   const roomId = normalizePin($("#waiting-room-id").textContent);
@@ -2146,7 +2210,6 @@ function wrapUpRoomExercise(callback) {
 function returnHostToJourney() {
   if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   fadeInHostBgm();
-  state.sessionStarted = false;
   state.quizActive = false;
   state.selectedExercise = null;
   updateWaitingStartButton();

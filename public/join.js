@@ -119,7 +119,8 @@ function getRoomSessionSocket() {
         return;
       }
 
-      $("#room-waiting-status").textContent = "Please look at the digital whiteboard outside.";
+      $("#room-waiting-status").textContent =
+        "You're in class — your teacher will start the next activity when ready.";
       showScreen("room-waiting");
     });
   }
@@ -221,8 +222,8 @@ function doJoinRoom(roomId, displayNameOverride) {
 
         $("#room-waiting-status").textContent =
           data.sessionStatus === "start"
-            ? "Class is starting…"
-            : "Please look at the digital whiteboard outside.";
+            ? "Class is starting — get ready!"
+            : "You're in class — your teacher will start an activity when ready.";
         showScreen("room-waiting");
 
         const nextUrl = new URL(window.location.href);

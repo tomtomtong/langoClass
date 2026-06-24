@@ -8,14 +8,6 @@ function getHostSessionSocket() {
       if (typeof renderParticipants === "function") {
         renderParticipants(data.participants || []);
       }
-      if (data.status === "start" && !state.sessionStarted) {
-        state.sessionStarted = true;
-        if (typeof updateWaitingStartButton === "function") updateWaitingStartButton();
-        $("#waiting-participant-status").textContent = "Class in progress.";
-      } else if (data.status === "waiting") {
-        state.sessionStarted = false;
-        if (typeof updateWaitingStartButton === "function") updateWaitingStartButton();
-      }
     });
     hostSessionSocket.on("session_ended", ({ reason }) => {
       $("#waiting-error").textContent = reason || "Session ended.";

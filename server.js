@@ -1919,6 +1919,62 @@ app.post("/api/session/start", async (req, res) => {
   });
 });
 
+app.post("/api/session/end", async (req, res) => {
+  const token = pickToken(req);
+  if (!token) return res.status(401).json({ message: "Missing auth token." });
+
+  const { roomId, class: classItem, user } = req.body || {};
+  const pin = normalizeRoomId(roomId);
+  if (!pin) {
+    return res.status(400).json({ message: "roomId is required." });
+  }
+
+  const session = sessionStore.getSession(pin);
+  if (!session) {
+    return res.status(404).json({ message: "Session not found." });
+  }
+
+  if (user?.id && session.teacherId !== user.id) {
+    return res.status(403).json({ message: "Not allowed to end this session." });
+  }
+
+  const classId = classItem?.id || session.classId;
+  const className = session.className || classItem?.name || `Class ${classId}`;
+  const notifyBody = {
+    class_id: classId,
+    title: className,
+    body: "End",
+    data: buildNotificationData({
+      session_id: pin,
+      class_name: className,
+      teacher_name: teacherDisplayName(user || { id: session.teacherId }),
+      event: "end",
+    }),
+  };
+
+  const { ok, data } = await langoRequest("POST", "/whiteboard/sendNotification", {
+    token: session.authToken || token,
+    body: notifyBody,
+  });
+
+  const game = games.get(pin);
+  if (game) {
+    clearQuestionTimer(game);
+    games.delete(pin);
+  }
+  clearBuzzInRound(pin);
+  endSession(pin, "Class session ended");
+
+  return res.json({
+    ok: true,
+    roomId: pin,
+    notification: notifyBody,
+    notificationSent: ok,
+    notificationWarning: ok ? undefined : data?.message || "Session ended, but the notification failed.",
+    apiResponse: data,
+  });
+});
+
 app.get("/api/host/progress", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
@@ -2135,11 +2191,6 @@ io.on("connection", (socket) => {
     const session = sessionStore.getSession(pin);
     if (!session) {
       callback?.({ ok: false, error: "Room not found." });
-      return;
-    }
-
-    if (session.status !== "waiting") {
-      callback?.({ ok: false, error: "The class has already started." });
       return;
     }
 
@@ -2385,6 +2436,11 @@ io.on("connection", (socket) => {
       return;
     }
 
+    const activeGame = games.get(pin);
+    if (activeGame) {
+      clearQuestionTimer(activeGame);
+      games.delete(pin);
+    }
     clearBuzzInRound(pin);
 
     if (session.status !== "start") {
