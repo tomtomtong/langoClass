@@ -189,10 +189,31 @@
           "banner": "/uploads/sections/section--1-4-1781695102180.png",
           "order": 4,
           "exercises": []
+        },
+        {
+          "id": 5,
+          "title": "Section 5",
+          "banner": "",
+          "order": 5,
+          "exercises": []
+        },
+        {
+          "id": 6,
+          "title": "Section 6",
+          "banner": "",
+          "order": 6,
+          "exercises": []
+        },
+        {
+          "id": 7,
+          "title": "Section 7",
+          "banner": "",
+          "order": 7,
+          "exercises": []
         }
       ],
       "createdAt": "2026-06-15T02:57:28.201Z",
-      "updatedAt": "2026-06-23T09:40:48.460Z",
+      "updatedAt": "2026-06-25T05:36:07.940Z",
       "classIds": [
         2913
       ]

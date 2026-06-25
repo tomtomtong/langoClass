@@ -2817,11 +2817,11 @@ body:has(#screen-login.active) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  width: min(540px, calc(100% - 2rem));
-  padding: 8rem 2.35rem 1.2rem;
-  border-radius: 28px;
-  border: 10px solid rgba(255, 255, 255, 0.2);
+  gap: 1.25rem;
+  width: min(720px, calc(100% - 2rem));
+  padding: 11rem 3rem 1.8rem;
+  border-radius: 38px;
+  border: 12px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(
     155deg,
     rgba(162, 89, 255, 0.6) 0%,
@@ -2838,7 +2838,7 @@ body:has(#screen-login.active) {
   left: 50%;
   top: 0;
   z-index: 2;
-  width: 250px;
+  width: 340px;
   max-width: 100%;
   transform: translate(-50%, -54%);
   pointer-events: none;
@@ -2857,13 +2857,13 @@ body:has(#screen-login.active) {
 }
 
 .login-title {
-  font-size: 1.35rem;
+  font-size: 1.8rem;
   font-weight: 900;
   color: #fff;
   text-align: center;
   letter-spacing: 0.9px;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-  margin: 0 0 1rem;
+  margin: 0 0 1.25rem;
   line-height: 1.1;
   white-space: nowrap;
 }
@@ -2871,7 +2871,7 @@ body:has(#screen-login.active) {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1.35rem;
 }
 
 .login-field {
@@ -2880,13 +2880,13 @@ body:has(#screen-login.active) {
 
 .login-field input {
   width: 100%;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.8rem;
   border: none;
-  border-radius: 20px;
+  border-radius: 26px;
   background: #fff;
   color: #333;
   font-family: inherit;
-  font-size: 1.0625rem;
+  font-size: 1.25rem;
   font-weight: 400;
   box-shadow: 0 8px 16px rgba(108, 106, 171, 0.02);
 }
@@ -2908,15 +2908,15 @@ body:has(#screen-login.active) {
   justify-content: center;
   width: 100%;
   min-width: 86px;
-  height: 80px;
+  height: 98px;
   margin-top: 0.25rem;
   padding: 0;
   border: none;
-  border-radius: 40px;
+  border-radius: 49px;
   background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
   color: #fff;
   font-family: inherit;
-  font-size: 1.35rem;
+  font-size: 1.6rem;
   font-weight: 900;
   letter-spacing: 0.48px;
   text-transform: uppercase;
@@ -3201,15 +3201,31 @@ body:has(#screen-login.active) {
 
 @media (max-width: 720px) {
   .login-panel {
-    gap: 0.9rem;
-    width: min(440px, calc(100% - 1.5rem));
-    padding: 7rem 1.8rem 1.5rem;
-    border-radius: 28px;
-    border-width: 6px;
+    gap: 1rem;
+    width: min(520px, calc(100% - 1.5rem));
+    padding: 8.8rem 2rem 1.5rem;
+    border-radius: 34px;
+    border-width: 8px;
   }
 
   .login-logo {
-    width: 220px;
+    width: 280px;
+  }
+
+  .login-title {
+    font-size: 1.55rem;
+  }
+
+  .login-field input {
+    padding: 1.1rem 1.5rem;
+    border-radius: 24px;
+    font-size: 1.1rem;
+  }
+
+  .login-btn {
+    height: 86px;
+    border-radius: 43px;
+    font-size: 1.4rem;
   }
 }
 
@@ -8260,12 +8276,19 @@ body.cms-light .cms-danger:hover:not(:disabled) {
 
 /* Host app fixed 16:9 stage
    The host view is authored at 1920x1080 and scaled to fit any device. */
+html:has(#app.lango-host),
+body:has(#app.lango-host) {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body:has(#app.lango-host) {
   width: 100vw;
   height: 100vh;
   height: 100dvh;
   min-height: 0;
-  overflow: hidden;
   background: #111827;
   background-image: none;
 }
@@ -8284,6 +8307,7 @@ body:has(#app.lango-host) {
   overflow: hidden;
   transform: translate(-50%, -50%) scale(var(--host-stage-scale));
   transform-origin: center center;
+  contain: layout paint size;
 }
 
 #app.lango-host .host-sound-mute-btn {
@@ -9982,8 +10006,7 @@ body:has(#app.lango-host) {
 #app.lango-host #screen-section .course-grid-scroll {
   top: 0;
   bottom: 105px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
 }
 
 #app.lango-host .section-current-progress {
@@ -10173,7 +10196,14 @@ body:has(#app.lango-host) {
   inset: 0;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
   padding: 260px 120px 300px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#app.lango-host .section-road-shell::-webkit-scrollbar {
+  display: none;
 }
 
 #app.lango-host .section-road-heading {
@@ -10709,7 +10739,7 @@ body:has(#app.lango-host) {
 #app.lango-host .section-exercise-panel .exercise-item {
   width: 690px;
   min-height: 111px;
-  padding: 15px;
+  padding: 15px 52px 15px 15px;
   border: 3px solid #c4c3dd;
   border-radius: 30px;
   gap: 18px;
@@ -10789,6 +10819,8 @@ body:has(#app.lango-host) {
 #app.lango-host .section-exercise-panel .exercise-item-pts {
   color: #ff9f43;
   align-self: center;
+  min-width: 140px;
+  text-align: center;
   text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
 }
 
