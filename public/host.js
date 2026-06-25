@@ -1224,10 +1224,14 @@ function renderExercises() {
 async function handleLogin() {
   const btn = $("#btn-login");
   if (btn.disabled) return;
+  const btnText = btn.querySelector(".login-btn-text");
 
   const username = $("#login-username").value.trim().toLowerCase();
   const password = $("#login-password").value;
   $("#login-error").textContent = "";
+  btn.classList.remove("is-success", "is-fail");
+  if (btnText) btnText.textContent = "Login";
+  btn.setAttribute("aria-label", "Login");
 
   if (!username || !password) {
     $("#login-error").textContent = "Enter username and password.";
@@ -1250,9 +1254,18 @@ async function handleLogin() {
     state.loginUsername = username;
     savePrefs();
     await waitForLoginScanCycle(scanStartedAt);
+    btn.classList.remove("is-scanning");
+    btn.classList.add("is-success");
+    if (btnText) btnText.textContent = "Success";
+    btn.setAttribute("aria-label", "Login success");
     playLoginSuccessSound();
     await enterClassStep();
   } catch (err) {
+    await waitForLoginScanCycle(scanStartedAt);
+    btn.classList.remove("is-scanning", "is-success");
+    btn.classList.add("is-fail");
+    if (btnText) btnText.textContent = "Login fail";
+    btn.setAttribute("aria-label", "Login failed");
     playLoginFailSound();
     $("#login-error").textContent = err.message;
   } finally {

@@ -565,22 +565,31 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
 
   if (isCorrect) {
     msg.textContent = "You answered it correctly";
+    msg.dataset.text = msg.textContent;
     msg.className = "result-msg correct";
     icon.textContent = "✅";
     points.textContent = `${mine?.points || 0} pts`;
+    points.dataset.text = points.textContent;
     encouragement.textContent = "Keep going";
+    encouragement.dataset.text = encouragement.textContent;
   } else if (hasAnswer) {
     msg.textContent = "You were so close !";
+    msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
     icon.textContent = "💪";
     points.textContent = "0 pts";
+    points.dataset.text = points.textContent;
     encouragement.textContent = "Keep it up for next time.";
+    encouragement.dataset.text = encouragement.textContent;
   } else {
     msg.textContent = "Time's up";
+    msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
     icon.textContent = "⏰";
     points.textContent = "0 pts";
+    points.dataset.text = points.textContent;
     encouragement.textContent = "Try the next one";
+    encouragement.dataset.text = encouragement.textContent;
   }
 
   const totalScore = scoreRow?.score || 0;

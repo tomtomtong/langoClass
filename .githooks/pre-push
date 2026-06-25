@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eu
+
+remote_name="${1:-origin}"
+
+if [ "${LANGO_SKIP_VERSION_BUMP:-}" = "1" ]; then
+  exit 0
+fi
+
+current_branch="$(git symbolic-ref --quiet --short HEAD || true)"
+if [ -z "$current_branch" ]; then
+  exit 0
+fi
+
+should_bump=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_ref" = "refs/heads/$current_branch" ] && [ "$local_sha" != "0000000000000000000000000000000000000000" ]; then
+    should_bump=1
+  fi
+done
+
+if [ "$should_bump" != "1" ]; then
+  exit 0
+fi
+
+if ! git diff --quiet -- public/host.html || ! git diff --cached --quiet -- public/host.html; then
+  echo "pre-push: public/host.html has uncommitted changes."
+  echo "pre-push: commit or stash them first so the login version bump stays clean."
+  exit 1
+fi
+
+version="$(node scripts/update-host-login-version.js)"
+git add public/host.html
+git commit -m "Update host login version to $version" -- public/host.html
+
+LANGO_SKIP_VERSION_BUMP=1 git push --no-verify "$remote_name" "HEAD:$current_branch"
+
+echo "pre-push: updated host login version to $version and pushed $current_branch."
+echo "pre-push: stopping the original stale push; the remote already has the version commit."
+exit 1
