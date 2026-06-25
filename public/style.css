@@ -8831,6 +8831,7 @@ body:has(#app.lango-host) {
 #app.lango-host .host-video-header {
   width: 100%;
   min-height: 58px;
+  margin-bottom: 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8887,18 +8888,11 @@ body:has(#app.lango-host) {
     0 0 25px rgba(255, 105, 180, 0.5),
     inset 0 0 10px rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(6px);
+  transform: translateY(-36px);
 }
 
 #app.lango-host .host-video-sparkle {
-  position: absolute;
-  top: -16px;
-  right: -16px;
-  width: 48px;
-  height: 48px;
-  border-radius: 999px;
-  background: #fde047;
-  opacity: 0.7;
-  filter: blur(2px);
+  display: none;
 }
 
 #app.lango-host .host-video-frame {
@@ -10438,12 +10432,12 @@ body:has(#app.lango-host) {
 }
 
 .exercise-item--completed:not(.active) {
-  border-color: rgba(46, 204, 113, 0.55);
+  border-color: #c4c3dd;
 }
 
 .exercise-item--completed .exercise-item-pts {
-  color: #27ae60;
-  font-weight: 800;
+  color: #f9c47a;
+  font-weight: 900;
 }
 
 #app.lango-host .section-road-thumb {
@@ -10750,7 +10744,34 @@ body:has(#app.lango-host) {
 
 #app.lango-host .section-exercise-panel .exercise-list--section .exercise-item--completed:not(.active),
 #app.lango-host .section-exercise-panel .exercise-item--completed:not(.active) {
-  background: linear-gradient(101deg, #d21bc8 0%, #7c3aed 100%);
+  opacity: 1;
+  background: linear-gradient(to right, #b19cd9, #dda0dd);
+  border-color: #c4c3dd;
+}
+
+#app.lango-host .section-exercise-panel .exercise-item--completed .exercise-item-num {
+  color: #fff;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+
+#app.lango-host .section-exercise-panel .exercise-item--completed .exercise-item-title {
+  color: #9b6fb3;
+  -webkit-text-fill-color: #9b6fb3;
+  -webkit-text-stroke: 4px #fff;
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+#app.lango-host .section-exercise-panel .exercise-item--completed .exercise-item-sub {
+  color: rgba(155, 111, 179, 0.92);
+  -webkit-text-stroke: 2px #fff;
+  paint-order: stroke fill;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .section-exercise-panel .exercise-item--completed .exercise-item-pts {
+  opacity: 0.88;
 }
 
 #app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active,
@@ -10817,15 +10838,47 @@ body:has(#app.lango-host) {
 
 #app.lango-host .section-exercise-panel .exercise-list--section .exercise-item-pts,
 #app.lango-host .section-exercise-panel .exercise-item-pts {
-  color: #ff9f43;
+  position: relative;
+  isolation: isolate;
+  display: inline-block;
   align-self: center;
   min-width: 140px;
   text-align: center;
-  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: #ff9f43;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 2px #fff;
+  paint-order: stroke fill;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.28));
 }
 
-#app.lango-host .section-exercise-panel .exercise-list--section .exercise-item.active .exercise-item-pts {
-  color: #feca57;
+#app.lango-host .section-exercise-panel .exercise-item--locked .exercise-item-pts {
+  background: none;
+  -webkit-text-fill-color: var(--muted);
+  color: var(--muted);
+  -webkit-text-stroke: 0;
+  filter: none;
+  opacity: 0.72;
+}
+
+#app.lango-host .section-exercise-panel .exercise-item--video .exercise-item-main,
+#app.lango-host .section-exercise-panel .exercise-item--buzzin .exercise-item-main {
+  align-items: center;
+}
+
+#app.lango-host .section-exercise-panel .exercise-item-lottie {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  margin-right: 12px;
+  pointer-events: none;
+}
+
+#app.lango-host .section-exercise-panel .exercise-item-lottie svg {
+  width: 100%;
+  height: 100%;
 }
 
 #app.lango-host .section-exercise-panel .exercise-panel-footer {

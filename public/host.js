@@ -25,6 +25,7 @@ const state = {
 let hostSessionConnected = false;
 let waitingTimerInterval = null;
 let classSessionCreating = false;
+let exerciseLottieInstances = [];
 const WAITING_TIMER_SECONDS = 300;
 const LOGIN_SCAN_CYCLE_MS = 3600;
 const HOST_SOUND_EFFECTS = {
@@ -1137,7 +1138,7 @@ function exerciseSubtitle(exercise) {
   const subtitle = String(exercise?.subTitle || "").trim();
   if (subtitle) return subtitle;
   if (isVideoExercise(exercise)) return "Watch the lesson video.";
-  if (isBuzzinExercise(exercise)) return "Buzz in, then answer in turn order.";
+  if (isBuzzinExercise(exercise)) return "First to buzz in answers.";
   if (isFastMcQuizExercise(exercise)) return "Answer quickly — results at the end.";
   if (isMcQuizExercise(exercise)) {
     const questionCount = (exercise.items || []).length;
@@ -1160,16 +1161,54 @@ function updateExerciseContextLabel() {
   $("#section-label").textContent = sectionTitle(state.selectedSection);
 }
 
+function destroyExerciseLotties() {
+  exerciseLottieInstances.forEach((anim) => {
+    try {
+      anim.destroy();
+    } catch (_) {}
+  });
+  exerciseLottieInstances = [];
+}
+
+function initExerciseLotties() {
+  destroyExerciseLotties();
+  if (typeof lottie === "undefined") return;
+
+  document
+    .querySelectorAll("#exercise-list .exercise-item-lottie[data-lottie-path]")
+    .forEach((el) => {
+      const anim = lottie.loadAnimation({
+        container: el,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        path: el.dataset.lottiePath,
+      });
+      exerciseLottieInstances.push(anim);
+    });
+}
+
 function renderExerciseItem(exercise, index, selectedId, { locked = false, completed = false } = {}) {
   const active = exercise.id === selectedId;
   const title = exercise.title || `Exercise ${exercise.id}`;
   const subtitle = exerciseSubtitle(exercise);
   const points = exercisePointsValue(exercise);
-  const statusLabel = completed ? "Done" : locked ? "Locked" : `${points} pts`;
+  const statusLabel = locked ? "Locked" : `${points} pts`;
+  const videoClass = isVideoExercise(exercise) ? " exercise-item--video" : "";
+  const buzzinClass = isBuzzinExercise(exercise) ? " exercise-item--buzzin" : "";
+  const lottiePath = isVideoExercise(exercise)
+    ? "/assets/lottie/video-player.json"
+    : isBuzzinExercise(exercise)
+      ? "/assets/lottie/buzz_in_logo.json"
+      : "";
+  const lottieHtml = lottiePath
+    ? `<span class="exercise-item-lottie" data-lottie-path="${escapeHtml(lottiePath)}" aria-hidden="true"></span>`
+    : "";
 
-  return `<button type="button" class="exercise-item${active ? " active" : ""}${locked ? " exercise-item--locked" : ""}${completed ? " exercise-item--completed" : ""}" data-id="${exercise.id}" data-locked="${locked ? "true" : "false"}" role="option" aria-selected="${active ? "true" : "false"}" ${locked ? "disabled" : ""}>
+  return `<button type="button" class="exercise-item${videoClass}${buzzinClass}${active ? " active" : ""}${locked ? " exercise-item--locked" : ""}${completed ? " exercise-item--completed" : ""}" data-id="${exercise.id}" data-locked="${locked ? "true" : "false"}" role="option" aria-selected="${active ? "true" : "false"}" ${locked ? "disabled" : ""}>
     <span class="exercise-item-main">
       <span class="exercise-item-num">${index + 1}.</span>
+      ${lottieHtml}
       <span class="exercise-item-text">
         <span class="exercise-item-title">${escapeHtml(title)}</span>
         ${subtitle ? `<span class="exercise-item-sub">${escapeHtml(subtitle)}</span>` : ""}
@@ -1219,6 +1258,8 @@ function renderExercises() {
       (exercise, index) =>
         exercise.id === state.selectedExercise?.id && isHostExerciseUnlocked(exercise, index, exercises)
     );
+
+  initExerciseLotties();
 }
 
 async function handleLogin() {
@@ -1430,6 +1471,7 @@ async function enterSectionStep({ resume = false } = {}) {
   }
   updateSectionCountBadge(0);
   updateSectionProgressCard([]);
+  destroyExerciseLotties();
   $("#exercise-list").innerHTML = "";
   $("#journey-error").textContent = "";
   $("#journey-status").textContent = "";
@@ -1519,6 +1561,7 @@ async function showSectionExercises() {
   updateExerciseContextLabel();
   $("#journey-error").textContent = "";
   $("#journey-status").textContent = "Loading exercises…";
+  destroyExerciseLotties();
   $("#exercise-list").innerHTML = "";
   $("#btn-start-session").disabled = true;
   setSectionExercisePanelVisible(true);
@@ -2333,11 +2376,10 @@ updateHostMuteButton();
 setupHostBgm({ autostart: !hostSoundMuted });
 if (state.token && state.user) savePrefs();
 
-const hostLeaderboardPreviewMode =
-  new URLSearchParams(window.location.search).get("preview") === "leaderboard";
+const hostPreviewMode = new URLSearchParams(window.location.search).has("preview");
 
-if (hostLeaderboardPreviewMode) {
-  /* host-preview.js renders the standalone leaderboard fixture. */
+if (hostPreviewMode) {
+  /* host-preview.js drives the UI — no login or socket session. */
 } else if (state.token && state.user) {
   enterClassStep();
 } else {

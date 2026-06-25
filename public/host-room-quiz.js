@@ -68,11 +68,11 @@ function updateHostBuzzinTurnUi(payload) {
   }
 
   if (payload.typingComplete) {
-    turnStatus.textContent = "All students have answered.";
+    turnStatus.textContent = "Student has answered.";
   } else if (payload.currentTurn) {
-    turnStatus.textContent = `Waiting for ${payload.currentTurn.displayName} (#${payload.currentTurn.rank}) to record their answer…`;
+    turnStatus.textContent = `Waiting for ${payload.currentTurn.displayName} to record their answer…`;
   } else {
-    turnStatus.textContent = "Students answer in buzz order.";
+    turnStatus.textContent = "Waiting for the student to answer…";
   }
 
   renderBuzzinResponsesList(
@@ -99,17 +99,16 @@ function updateHostBuzzinUi(payload) {
   if (countEl) {
     const total = payload.totalBuzzes || 0;
     if (phase === "join") {
-      countEl.textContent = total
-        ? `${total} student${total === 1 ? "" : "s"} buzzed in — ${payload.joinSecondsRemaining ?? 20}s left`
-        : `Students have ${payload.joinSeconds ?? 20} seconds to buzz in.`;
+      const winner = payload.winners?.[0] || payload.buzzes?.[0];
+      countEl.textContent = winner
+        ? `${winner.displayName} buzzed in first!`
+        : `First student to buzz in wins — ${payload.joinSecondsRemaining ?? 20}s left`;
     } else if (phase === "typing") {
       countEl.textContent = total
-        ? `${total} student${total === 1 ? "" : "s"} answer in buzz order.`
-        : "Buzz window closed — no buzzes.";
+        ? "Waiting for the student to answer…"
+        : "Buzz window closed — no one buzzed in.";
     } else {
-      countEl.textContent = total
-        ? `${total} student${total === 1 ? "" : "s"} finished answering.`
-        : "Buzz round complete.";
+      countEl.textContent = total ? "Student finished answering." : "Buzz round complete.";
     }
   }
 
@@ -174,7 +173,7 @@ function startHostBuzzinRound(roomId) {
 
   renderBuzzinWinnersList($("#host-buzzin-winners"), [], "Waiting for students to buzz in…");
   const countEl = $("#host-buzzin-buzz-count");
-  if (countEl) countEl.textContent = "Students have 20 seconds to buzz in.";
+  if (countEl) countEl.textContent = "First student to buzz in wins — 20 seconds.";
 
   const socket = getHostSessionSocket();
 

@@ -270,7 +270,7 @@ function updateStudentBuzzinTurnUi(payload) {
   hideRoomBuzzinJoinTimer();
 
   if (!myBuzz) {
-    turnStatus.textContent = "Buzz in closed. You did not buzz in time.";
+    turnStatus.textContent = "Someone else buzzed in first.";
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) recordBtn.hidden = true;
     if (submitted) submitted.hidden = true;
@@ -278,7 +278,7 @@ function updateStudentBuzzinTurnUi(payload) {
   }
 
   if (myResponse) {
-    turnStatus.textContent = `You answered (#${myResponse.rank}). Waiting for others…`;
+    turnStatus.textContent = "Your answer was submitted.";
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) recordBtn.hidden = true;
     if (submitted) {
@@ -289,14 +289,14 @@ function updateStudentBuzzinTurnUi(payload) {
   }
 
   if (payload.typingComplete) {
-    turnStatus.textContent = "All answers submitted.";
+    turnStatus.textContent = "Buzz round complete.";
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) recordBtn.hidden = true;
     return;
   }
 
   if (currentTurn?.playerId === playerId) {
-    turnStatus.textContent = `You're #${myBuzz.rank} — tap Record and speak your answer.`;
+    turnStatus.textContent = "You buzzed in first — tap Record and speak your answer.";
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) {
       recordBtn.hidden = false;
@@ -306,8 +306,8 @@ function updateStudentBuzzinTurnUi(payload) {
     return;
   }
 
-  const waitingFor = currentTurn?.displayName || "another student";
-  turnStatus.textContent = `You're #${myBuzz.rank}. Waiting for ${waitingFor} (#${currentTurn?.rank || "?"})…`;
+  const waitingFor = currentTurn?.displayName || "the student";
+  turnStatus.textContent = `Waiting for ${waitingFor} to answer…`;
   const recordBtn = $("#btn-room-buzzin-record");
   if (recordBtn) recordBtn.hidden = true;
   if (submitted) submitted.hidden = true;
@@ -335,14 +335,14 @@ function updateStudentBuzzinUi(payload) {
   if (myBuzz) {
     btn.disabled = true;
     result.hidden = false;
-    result.textContent = `You buzzed in #${myBuzz.rank}.`;
+    result.textContent = "You buzzed in first!";
     result.className = "buzzin-result buzzin-result--selected";
     if (joinClosed) {
-      status.textContent = joinClosed && phase === "typing"
-        ? "Buzz in closed — answer in turn order."
+      status.textContent = phase === "typing"
+        ? "You buzzed in first — tap Record when ready."
         : "Buzz in closed.";
     } else {
-      status.textContent = `You're in at #${myBuzz.rank}. Keep waiting…`;
+      status.textContent = "You buzzed in first!";
     }
     return;
   }
@@ -351,13 +351,13 @@ function updateStudentBuzzinUi(payload) {
     btn.disabled = true;
     status.textContent = phase === "done"
       ? "Buzz round complete."
-      : "Buzz in closed — you did not buzz in time.";
+      : "Someone else buzzed in first.";
     result.hidden = true;
     return;
   }
 
   btn.disabled = false;
-  status.textContent = "Tap BUZZ IN before time runs out!";
+  status.textContent = "Tap BUZZ IN — first to buzz wins!";
   result.hidden = true;
 }
 
@@ -420,11 +420,11 @@ function ensureRoomBuzzinSocket() {
       const status = $("#room-buzzin-status");
       if (result) {
         result.hidden = false;
-        result.textContent = `You buzzed in #${res.rank}!`;
+        result.textContent = "You buzzed in first!";
         result.className = "buzzin-result buzzin-result--selected";
       }
       if (status) {
-        status.textContent = `You're in at #${res.rank}! Wait for the buzz window to close…`;
+        status.textContent = "You buzzed in first! Get ready to answer…";
       }
     });
   });

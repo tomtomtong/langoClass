@@ -218,7 +218,7 @@ const games = new Map();
 /** @type {Map<string, { pin: string, role: 'host' | 'player' | 'session_player', playerId?: string }>} */
 const socketMeta = new Map();
 
-const BUZZIN_WINNER_COUNT = 3;
+const BUZZIN_WINNER_COUNT = 1;
 const BUZZIN_JOIN_SECONDS = 20;
 const BUZZIN_RESPONSE_MAX_LEN = 500;
 const BUZZIN_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
@@ -2251,6 +2251,11 @@ io.on("connection", (socket) => {
       return;
     }
 
+    if (round.buzzes.length >= BUZZIN_WINNER_COUNT) {
+      callback?.({ ok: false, error: "Someone already buzzed in." });
+      return;
+    }
+
     const session = sessionStore.getSession(meta.pin);
     const participant = session?.participants.get(meta.playerId);
     const displayName = participant?.displayName || "Student";
@@ -2263,7 +2268,12 @@ io.on("connection", (socket) => {
       at: Date.now(),
     });
 
-    broadcastBuzzInUpdate(meta.pin);
+    if (round.buzzes.length >= BUZZIN_WINNER_COUNT) {
+      closeBuzzInJoinWindow(meta.pin);
+    } else {
+      broadcastBuzzInUpdate(meta.pin);
+    }
+
     callback?.({
       ok: true,
       rank,

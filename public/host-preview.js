@@ -1,33 +1,481 @@
-(function initHostLeaderboardPreview() {
+/**
+ * Host page layout preview — enable with ?preview=1 on host.html
+ * Switch between host screens with sample data for design/dev.
+ * Legacy: ?preview=leaderboard opens the leaderboard layout directly.
+ */
+(function initHostLayoutPreview() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("preview") !== "leaderboard") return;
+  if (!params.has("preview")) return;
 
-  const currentSession = [
-    { id: "sophia", name: "Sophia Patel", score: 10850 },
-    { id: "liam", name: "Liam Chen", score: 10240 },
-    { id: "ava", name: "Ava Williams", score: 9780 },
-    { id: "emma", name: "Emma Smith", score: 9450 },
-    { id: "noah", name: "Noah Brown", score: 8875 },
-    { id: "olivia", name: "Olivia Davis", score: 8200 },
-    { id: "james", name: "James Miller", score: 7750 },
-    { id: "isabella", name: "Isabella Garcia", score: 7100 },
+  const STORAGE_KEY = "lango_host_preview_layout";
+  const TOOLBAR_OPEN_KEY = "lango_host_preview_toolbar_open";
+
+  const LAYOUTS = [
+    { id: "login", label: "Login" },
+    { id: "class", label: "Class selection" },
+    { id: "course", label: "Course selection" },
+    { id: "section", label: "Section road" },
+    { id: "section-exercises", label: "Section — exercise panel" },
+    { id: "waiting", label: "Waiting room" },
+    { id: "mc-question", label: "MC Quiz — question" },
+    { id: "mc-fast", label: "MC Quiz — fast mode" },
+    { id: "mc-results", label: "MC Quiz — results" },
+    { id: "fast-results", label: "MC Quiz — fast accuracy" },
+    { id: "leaderboard", label: "Leaderboard — session" },
+    { id: "leaderboard-overall", label: "Leaderboard — overall" },
+    { id: "video", label: "Video exercise" },
+    { id: "buzzin-join", label: "Buzz In — buzz window" },
+    { id: "buzzin-responses", label: "Buzz In — answers & feedback" },
   ];
 
-  const overall = currentSession.map((row, index) => ({
-    ...row,
-    score: row.score + (8 - index) * 10000,
-  }));
+  const SAMPLE = {
+    question: "What is the process by which plants make their own food?",
+    options: ["Photosynthesis", "Cellular Respiration", "Decomposition", "Transpiration"],
+    image:
+      "https://images.unsplash.com/photo-1558642452-9d2b7bef6b22?w=640&h=360&fit=crop",
+    buzzTopic: "Name an animal that lives in the ocean and say why you like it.",
+    classItem: { id: 1, name: "Explorer Class A", class_name: "Explorer Class A", student_count: 18 },
+    classes: [
+      { id: 1, name: "Explorer Class A", class_name: "Explorer Class A", student_count: 18, level: "Beginner" },
+      { id: 2, name: "Explorer Class B", class_name: "Explorer Class B", student_count: 16, level: "Beginner" },
+      { id: 3, name: "Adventure Class A", class_name: "Adventure Class A", student_count: 14, level: "Intermediate" },
+      { id: 4, name: "Adventure Class B", class_name: "Adventure Class B", student_count: 12, level: "Intermediate" },
+    ],
+    course: {
+      id: 1,
+      title: "Ocean Adventures",
+      description: "Explore marine life, habitats, and conservation.",
+      exerciseCount: 5,
+      banner: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=640&h=360&fit=crop",
+    },
+    courses: [
+      {
+        id: 1,
+        title: "Ocean Adventures",
+        description: "Explore marine life, habitats, and conservation.",
+        exerciseCount: 5,
+        banner: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=640&h=360&fit=crop",
+      },
+      {
+        id: 2,
+        title: "Space Explorers",
+        description: "Planets, stars, and the science of the cosmos.",
+        exerciseCount: 4,
+        banner: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=640&h=360&fit=crop",
+      },
+      {
+        id: 3,
+        title: "World Cultures",
+        description: "Traditions, food, and festivals around the globe.",
+        exerciseCount: 6,
+      },
+    ],
+    sections: [
+      {
+        id: 1,
+        title: "In the Sea",
+        order: 1,
+        banner: "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=480&h=320&fit=crop",
+        exercises: [
+          { id: 101, title: "Ocean MC Quiz", type: "mcquiz", order: 1, subTitle: "Choose the correct answer.", items: [{}, {}, {}] },
+          { id: 102, title: "Coral Reef Video", type: "video", order: 2, subTitle: "Watch the lesson video.", videoUrl: "" },
+          { id: 103, title: "Marine Buzz In", type: "buzzin", order: 3, subTitle: "First to buzz in answers." },
+        ],
+      },
+      {
+        id: 2,
+        title: "Deep Dive",
+        order: 2,
+        banner: "https://images.unsplash.com/photo-1583212292454-1fe622960057?w=480&h=320&fit=crop",
+        exercises: [
+          { id: 201, title: "Fast Facts Quiz", type: "fastmcquiz", order: 1, subTitle: "Answer quickly — results at the end.", items: [{}, {}, {}, {}, {}] },
+        ],
+      },
+      {
+        id: 3,
+        title: "Conservation",
+        order: 3,
+        exercises: [
+          { id: 301, title: "Protect the Ocean", type: "mcquiz", order: 1, items: [{}, {}] },
+        ],
+      },
+    ],
+    participants: [
+      { id: "p1", userId: "s1", displayName: "Sophia Patel" },
+      { id: "p2", userId: "s2", displayName: "Liam Chen" },
+      { id: "p3", userId: "s3", displayName: "Ava Williams" },
+      { id: "p4", userId: "s4", displayName: "Emma Smith" },
+      { id: "p5", userId: "s5", displayName: "Noah Brown" },
+    ],
+    roster: [
+      { id: "s1", fullName: "Sophia Patel" },
+      { id: "s2", fullName: "Liam Chen" },
+      { id: "s3", fullName: "Ava Williams" },
+      { id: "s4", fullName: "Emma Smith" },
+      { id: "s5", fullName: "Noah Brown" },
+      { id: "s6", fullName: "Olivia Davis" },
+    ],
+    leaderboard: [
+      { id: "sophia", name: "Sophia Patel", score: 10850 },
+      { id: "liam", name: "Liam Chen", score: 10240 },
+      { id: "ava", name: "Ava Williams", score: 9780 },
+      { id: "emma", name: "Emma Smith", score: 9450 },
+      { id: "noah", name: "Noah Brown", score: 8875 },
+      { id: "olivia", name: "Olivia Davis", score: 8200 },
+      { id: "james", name: "James Miller", score: 7750 },
+      { id: "isabella", name: "Isabella Garcia", score: 7100 },
+    ],
+    quizResults: [
+      { name: "Sophia Patel", correct: true },
+      { name: "Liam Chen", correct: true },
+      { name: "Ava Williams", correct: true },
+      { name: "Emma Smith", correct: false },
+      { name: "Noah Brown", correct: false },
+    ],
+    fastResults: [
+      { name: "Sophia Patel", correctAnswers: 5 },
+      { name: "Liam Chen", correctAnswers: 4 },
+      { name: "Ava Williams", correctAnswers: 4 },
+      { name: "Emma Smith", correctAnswers: 3 },
+      { name: "Noah Brown", correctAnswers: 2 },
+      { name: "Olivia Davis", correctAnswers: 1 },
+    ],
+    buzzes: [
+      { rank: 1, displayName: "Sophia Patel", playerId: "p1" },
+      { rank: 2, displayName: "Liam Chen", playerId: "p2" },
+      { rank: 3, displayName: "Ava Williams", playerId: "p3" },
+    ],
+    buzzResponses: [
+      {
+        rank: 1,
+        playerId: "p1",
+        displayName: "Sophia Patel",
+        text: "I like dolphins because they are smart and playful.",
+        analysis: "Great answer! You used a clear reason and good vocabulary.",
+        analysisStatus: "done",
+      },
+      {
+        rank: 2,
+        playerId: "p2",
+        displayName: "Liam Chen",
+        text: "Sea turtles are calm and they travel very far in the ocean.",
+        analysis: "Nice detail about migration. Try adding one more descriptive word.",
+        analysisStatus: "done",
+      },
+      {
+        rank: 3,
+        playerId: "p3",
+        displayName: "Ava Williams",
+        text: "",
+        pending: true,
+      },
+    ],
+  };
 
-  showExerciseLeaderboards({
-    exerciseLeaderboard: currentSession,
-    semesterLeaderboard: overall,
-    exerciseListEl: document.querySelector("#host-quiz-final-leaderboard"),
-    semesterListEl: document.querySelector("#host-semester-leaderboard"),
-    semesterWrapEl: document.querySelector("#host-semester-leaderboard-wrap"),
-    exerciseWrapEl: document.querySelector("#host-exercise-leaderboard-wrap"),
-  });
+  SAMPLE.sections[0].exercises[2].topic = SAMPLE.buzzTopic;
 
-  document.querySelectorAll(".screen").forEach((screen) => screen.classList.remove("active"));
-  document.querySelector("#screen-host-quiz-finished")?.classList.add("active");
-  document.querySelector("#btn-host-quiz-next-exercise")?.setAttribute("hidden", "");
+  function seedPreviewState() {
+    state.classItem = { ...SAMPLE.classItem, studentList: SAMPLE.roster };
+    state.course = SAMPLE.course;
+    state.courses = SAMPLE.courses;
+    state.sections = SAMPLE.sections;
+    state.selectedSection = SAMPLE.sections[0];
+    state.selectedExercise = SAMPLE.sections[0].exercises[0];
+    state.user = { name: "Preview Teacher", username: "preview" };
+    state.hostProgress = { completedExerciseIds: [101], lastSectionId: 1, lastExerciseId: 101 };
+    state.waitingTotalTarget = SAMPLE.roster.length;
+  }
+
+  function showHostPreviewScreen(screenId, stepId) {
+    if (typeof clearTimer === "function") clearTimer();
+    if (screenId !== "section" || stepId !== "journey") {
+      if (typeof setSectionExercisePanelVisible === "function") {
+        setSectionExercisePanelVisible(false);
+      }
+    }
+    if (typeof activateScreen === "function") activateScreen(screenId);
+    else showScreen(screenId);
+    if (typeof setActiveStep === "function") setActiveStep(stepId);
+  }
+
+  function buildToolbar() {
+    const bar = document.createElement("div");
+    bar.className = "join-preview-toolbar";
+    bar.innerHTML = `
+      <p class="join-preview-title">Host layout preview</p>
+      <label class="join-preview-field">
+        <span>Screen</span>
+        <select id="host-layout-select"></select>
+      </label>
+      <p class="join-preview-hint">Add <code>?preview=1</code> to the URL. Login and socket sessions are disabled in preview mode.</p>
+      <button type="button" class="btn secondary small" id="host-preview-exit">Exit preview</button>
+    `;
+    document.body.appendChild(bar);
+
+    const toggle = document.createElement("button");
+    toggle.className = "join-preview-toggle";
+    toggle.type = "button";
+    toggle.setAttribute("aria-controls", "host-preview-toolbar");
+    toggle.setAttribute("aria-label", "Toggle host layout preview controls");
+    document.body.appendChild(toggle);
+    bar.id = "host-preview-toolbar";
+
+    const setToolbarOpen = (open) => {
+      bar.classList.toggle("is-hidden", !open);
+      document.body.classList.toggle("join-preview-toolbar-open", open);
+      toggle.classList.toggle("is-open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.textContent = open ? "Hide preview" : "Show preview";
+      localStorage.setItem(TOOLBAR_OPEN_KEY, open ? "1" : "0");
+    };
+
+    toggle.addEventListener("click", () => {
+      setToolbarOpen(!document.body.classList.contains("join-preview-toolbar-open"));
+    });
+
+    setToolbarOpen(localStorage.getItem(TOOLBAR_OPEN_KEY) === "1");
+
+    const layoutSelect = bar.querySelector("#host-layout-select");
+    LAYOUTS.forEach(({ id, label }) => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = label;
+      layoutSelect.appendChild(opt);
+    });
+
+    layoutSelect.addEventListener("change", () => {
+      localStorage.setItem(STORAGE_KEY, layoutSelect.value);
+      applyLayout(layoutSelect.value);
+    });
+
+    bar.querySelector("#host-preview-exit").addEventListener("click", () => {
+      const next = new URL(window.location.href);
+      next.searchParams.delete("preview");
+      next.searchParams.delete("layout");
+      window.location.href = next.pathname + next.search;
+    });
+
+    return { layoutSelect };
+  }
+
+  function renderPreviewLeaderboard(view = "current") {
+    const overall = SAMPLE.leaderboard.map((row, index) => ({
+      ...row,
+      score: row.score + (8 - index) * 10000,
+    }));
+
+    showExerciseLeaderboards({
+      exerciseLeaderboard: SAMPLE.leaderboard,
+      semesterLeaderboard: overall,
+      exerciseListEl: $("#host-quiz-final-leaderboard"),
+      semesterListEl: $("#host-semester-leaderboard"),
+      semesterWrapEl: $("#host-semester-leaderboard-wrap"),
+      exerciseWrapEl: $("#host-exercise-leaderboard-wrap"),
+    });
+
+    $("#btn-host-quiz-next-exercise")?.setAttribute("hidden", "");
+
+    if (view === "overall") {
+      $("#host-leaderboard-overall-tab")?.click();
+    }
+  }
+
+  function applyLayout(layoutId) {
+    seedPreviewState();
+
+    switch (layoutId) {
+      case "login":
+        showHostPreviewScreen("login", "login");
+        break;
+
+      case "class":
+        renderClassGrid($("#class-sections"), SAMPLE.classes, { selectedId: 1, onSelect: () => {} });
+        $("#class-status").textContent = "";
+        $("#class-error").textContent = "";
+        $("#teacher-label-wrap").hidden = false;
+        $("#teacher-label").textContent = "Preview Teacher";
+        showHostPreviewScreen("class", "class");
+        break;
+
+      case "course":
+        renderCourseGrid($("#course-sections"), SAMPLE.courses, { selectedId: 1, onSelect: () => {} });
+        $("#course-status").textContent = "";
+        $("#course-error").textContent = "";
+        $("#class-label").textContent = SAMPLE.classItem.name;
+        updateCourseCountBadge(SAMPLE.courses.length);
+        showHostPreviewScreen("course", "course");
+        break;
+
+      case "section":
+        renderSectionPicker();
+        showHostPreviewScreen("section", "section");
+        break;
+
+      case "section-exercises": {
+        renderSectionPicker();
+        const exercises = SAMPLE.sections[0].exercises;
+        state.selectedExercise = exercises[1];
+        setSectionExercisePanelVisible(true);
+        $("#journey-status").textContent = "";
+        $("#journey-error").textContent = "";
+        $("#exercise-list").innerHTML = exercises
+          .map((exercise, index) =>
+            renderExerciseItem(exercise, index, state.selectedExercise.id, {
+              locked: index > 2,
+              completed: index === 0,
+            })
+          )
+          .join("");
+        $("#btn-start-session").disabled = false;
+        initExerciseLotties();
+        showHostPreviewScreen("section", "journey");
+        break;
+      }
+
+      case "waiting":
+        $("#waiting-room-id").textContent = "482916";
+        $("#waiting-timer-value").textContent = "03 : 45";
+        renderParticipants(SAMPLE.participants);
+        $("#waiting-error").textContent = "";
+        showHostPreviewScreen("waiting", "waiting");
+        break;
+
+      case "mc-question":
+        renderHostQuizQuestion(
+          {
+            questionIndex: 0,
+            totalQuestions: 3,
+            text: SAMPLE.question,
+            options: SAMPLE.options,
+            image: SAMPLE.image,
+            points: 300,
+            timeLimit: 15,
+            endsAt: Date.now() + 15000,
+          },
+          { preparing: false }
+        );
+        setActiveStep("quiz");
+        break;
+
+      case "mc-fast":
+        renderHostQuizQuestion({
+          questionIndex: 1,
+          totalQuestions: 5,
+          text: SAMPLE.question,
+          options: SAMPLE.options,
+          image: "",
+          points: 500,
+          fastMode: true,
+          timeLimit: 8,
+          endsAt: Date.now() + 8000,
+        });
+        setActiveStep("quiz");
+        break;
+
+      case "mc-results": {
+        roomQuizCurrentQuestion = {
+          questionIndex: 0,
+          totalQuestions: 3,
+          text: SAMPLE.question,
+          options: SAMPLE.options,
+          image: SAMPLE.image,
+          points: 300,
+        };
+        showHostPreviewScreen("host-quiz-results", "quiz");
+        setQuestionImage(
+          $("#host-quiz-results-image"),
+          $("#host-quiz-results-image-wrap"),
+          SAMPLE.image
+        );
+        $("#host-quiz-results-points").textContent = "300 pts";
+        $("#host-quiz-results-question-text").textContent = SAMPLE.question;
+        const correctAnswerEl = $("#host-quiz-results-correct-answer");
+        if (correctAnswerEl) {
+          correctAnswerEl.innerHTML =
+            'Correct Answer: <span class="host-mcq-correct-highlight">A. Photosynthesis</span>';
+        }
+        renderHostResultDistribution(roomQuizCurrentQuestion, [3, 1, 1, 0], 0);
+        renderCorrectResponders(SAMPLE.quizResults);
+        renderLeaderboard($("#host-quiz-leaderboard"), SAMPLE.leaderboard.slice(0, 5));
+        $("#btn-host-quiz-next").textContent = "Next question";
+        break;
+      }
+
+      case "fast-results":
+        renderFastAccuracyLeaderboard(SAMPLE.fastResults);
+        showHostPreviewScreen("host-fast-results", "quiz");
+        break;
+
+      case "leaderboard":
+        renderPreviewLeaderboard("current");
+        showHostPreviewScreen("host-quiz-finished", "quiz");
+        break;
+
+      case "leaderboard-overall":
+        renderPreviewLeaderboard("overall");
+        showHostPreviewScreen("host-quiz-finished", "quiz");
+        break;
+
+      case "video":
+        $("#host-video-title").textContent = "Coral Reef Video";
+        $("#host-video-subtitle").textContent = "Watch the lesson video.";
+        $("#host-video-current").textContent = "1:24";
+        $("#host-video-duration").textContent = "4:30";
+        $("#host-video-scrubber")?.style.setProperty("--host-video-progress", "31%");
+        $("#screen-host-video")?.classList.add("has-subtitle");
+        $("#screen-host-video")?.classList.remove("has-video");
+        showHostPreviewScreen("host-video", "quiz");
+        break;
+
+      case "buzzin-join":
+        showHostPreviewScreen("host-buzzin", "quiz");
+        $("#host-buzzin-topic").textContent = SAMPLE.buzzTopic;
+        $("#host-buzzin-points").textContent = "300 pts";
+        updateHostBuzzinUi({
+          phase: "join",
+          joinSeconds: 20,
+          joinSecondsRemaining: 14,
+          joinEndsAt: Date.now() + 14000,
+          totalBuzzes: 0,
+          buzzes: [],
+        });
+        break;
+
+      case "buzzin-responses":
+        showHostPreviewScreen("host-buzzin", "quiz");
+        $("#host-buzzin-topic").textContent = SAMPLE.buzzTopic;
+        $("#host-buzzin-points").textContent = "300 pts";
+        updateHostBuzzinUi({
+          phase: "typing",
+          totalBuzzes: 1,
+          buzzes: SAMPLE.buzzes.slice(0, 1),
+          winners: SAMPLE.buzzes.slice(0, 1),
+        });
+        updateHostBuzzinTurnUi({
+          phase: "typing",
+          buzzes: SAMPLE.buzzes.slice(0, 1),
+          responses: [],
+          currentTurn: SAMPLE.buzzes[0],
+          typingComplete: false,
+        });
+        $("#host-buzzin-activity").hidden = false;
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  document.body.classList.add("join-preview-mode");
+
+  const { layoutSelect } = buildToolbar();
+
+  const previewParam = params.get("preview");
+  const initial =
+    params.get("layout") ||
+    localStorage.getItem(STORAGE_KEY) ||
+    (previewParam === "leaderboard" ? "leaderboard" : "mc-question");
+  const valid = LAYOUTS.some((layout) => layout.id === initial);
+  layoutSelect.value = valid ? initial : "mc-question";
+  applyLayout(layoutSelect.value);
 })();
