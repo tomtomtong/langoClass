@@ -42,6 +42,7 @@ const QWEN_API_BASE = String(
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
 const TRANSCRIBE_DEFAULT_MODEL = "mistralai/voxtral-small-24b-2507";
 const TRANSCRIBE_MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+const QUESTION_PREVIEW_SECONDS = 5;
 const TRANSCRIBE_PROMPT =
   "Listen to this audio and respond with exactly two sections:\n\n" +
   "Transcript:\n" +
@@ -760,6 +761,7 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
     players: roomPlayers,
     currentQuestionIndex: -1,
     questionStartedAt: null,
+    previewEndsAt: null,
     answers: new Map(),
     questionTimer: null,
     isRoomGame: true,
@@ -776,6 +778,20 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
 function emitCurrentQuestion(socket, game) {
   const question = game.quiz.questions[game.currentQuestionIndex];
   if (!question) return;
+  if (game.status === "preview") {
+    socket.emit("question_preview", {
+      questionIndex: game.currentQuestionIndex,
+      totalQuestions: game.quiz.questions.length,
+      text: question.text,
+      previewSeconds: QUESTION_PREVIEW_SECONDS,
+      previewEndsAt: game.previewEndsAt || Date.now() + QUESTION_PREVIEW_SECONDS * 1000,
+      points: game.fastMode ? 500 : 300,
+      image: question.image || null,
+      fastMode: game.fastMode,
+    });
+    return;
+  }
+
   const timeLimitSeconds = question.timeLimit || 15;
 
   socket.emit("question_start", {
@@ -806,6 +822,7 @@ function createGame(hostSocketId, quizPayload) {
     players: new Map(),
     currentQuestionIndex: -1,
     questionStartedAt: null,
+    previewEndsAt: null,
     answers: new Map(),
     questionTimer: null,
     fastMode: !!normalized.fastMode,
@@ -966,26 +983,56 @@ function startQuestion(game) {
   }
 
   game.currentQuestionIndex = nextIndex;
-  game.status = "question";
+  game.status = game.fastMode ? "question" : "preview";
   game.answers.clear();
-  game.questionStartedAt = Date.now();
+  game.questionStartedAt = null;
+  game.previewEndsAt = null;
 
   const question = game.quiz.questions[nextIndex];
   const timeLimit = (question.timeLimit || 15) * 1000;
 
-  io.to(game.pin).emit("question_start", {
-    questionIndex: nextIndex,
-    totalQuestions: game.quiz.questions.length,
-    text: question.text,
-    options: question.options,
-    timeLimit: question.timeLimit || 15,
-    endsAt: game.questionStartedAt + timeLimit,
-    points: game.fastMode ? 500 : 300,
-    image: question.image || null,
-  });
+  const emitQuestionStart = () => {
+    if (game.status !== "preview" && game.status !== "question") return;
 
-  clearQuestionTimer(game);
-  game.questionTimer = setTimeout(() => endQuestion(game), timeLimit);
+    game.status = "question";
+    game.questionStartedAt = Date.now();
+    game.previewEndsAt = null;
+
+    io.to(game.pin).emit("question_start", {
+      questionIndex: nextIndex,
+      totalQuestions: game.quiz.questions.length,
+      text: question.text,
+      options: question.options,
+      timeLimit: question.timeLimit || 15,
+      endsAt: game.questionStartedAt + timeLimit,
+      points: game.fastMode ? 500 : 300,
+      image: question.image || null,
+      fastMode: game.fastMode,
+    });
+
+    clearQuestionTimer(game);
+    game.questionTimer = setTimeout(() => endQuestion(game), timeLimit);
+  };
+
+  if (!game.fastMode) {
+    game.previewEndsAt = Date.now() + QUESTION_PREVIEW_SECONDS * 1000;
+    io.to(game.pin).emit("question_preview", {
+      questionIndex: nextIndex,
+      totalQuestions: game.quiz.questions.length,
+      text: question.text,
+      previewSeconds: QUESTION_PREVIEW_SECONDS,
+      previewEndsAt: game.previewEndsAt,
+      points: 300,
+      image: question.image || null,
+      fastMode: false,
+    });
+
+    clearQuestionTimer(game);
+    game.questionTimer = setTimeout(emitQuestionStart, QUESTION_PREVIEW_SECONDS * 1000);
+    return;
+  }
+
+  emitQuestionStart();
 }
 
 function removePlayerFromGame(socketId) {
@@ -2552,7 +2599,7 @@ io.on("connection", (socket) => {
       fastMode: !!game.fastMode,
     });
 
-    setTimeout(() => startQuestion(game), 2000);
+    setTimeout(() => startQuestion(game), game.fastMode ? 2000 : 0);
   }
 
   socket.on("start_game", hostStartGame);
@@ -2666,7 +2713,7 @@ io.on("connection", (socket) => {
 
     if (game.status === "lobby") {
       broadcastLobby(game);
-    } else if (game.status === "question") {
+    } else if (game.status === "preview" || game.status === "question") {
       socket.emit("game_starting", { totalQuestions: game.quiz.questions.length });
       emitCurrentQuestion(socket, game);
     }
@@ -2691,7 +2738,9 @@ io.on("connection", (socket) => {
     if (game.answers.has(meta.playerId)) return;
 
     const idx = Number(answerIndex);
-    if (!Number.isInteger(idx) || idx < 0 || idx > 3) return;
+    const question = game.quiz.questions[game.currentQuestionIndex];
+    const optionCount = question?.options?.length || 0;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= optionCount) return;
 
     game.answers.set(meta.playerId, {
       answerIndex: idx,

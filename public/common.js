@@ -600,7 +600,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
 
 function resetPlayerMcqAnsweredState() {
   const screen = $("#screen-player-question");
-  screen?.classList.remove("is-answered");
+  screen?.classList.remove("is-answered", "is-previewing");
   const title = $("#player-mcq-title");
   const label = $("#player-selected-answer-label");
   if (title) title.textContent = "MCQ Question";

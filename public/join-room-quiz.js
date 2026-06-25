@@ -55,7 +55,7 @@ function resetRoomBuzzinRecordingUi() {
   const recordStatus = $("#room-buzzin-record-status");
   if (recordBtn) {
     recordBtn.disabled = false;
-    recordBtn.textContent = "Record answer";
+    recordBtn.textContent = "Record";
     recordBtn.classList.remove("is-recording");
   }
   if (recordStatus) {
@@ -159,7 +159,7 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
   }
 
   if (recordBtn) {
-    recordBtn.textContent = "Record answer";
+    recordBtn.textContent = "Record";
     recordBtn.classList.remove("is-recording");
     recordBtn.disabled = true;
   }
@@ -325,9 +325,11 @@ function updateStudentBuzzinUi(payload) {
   const joinClosed = phase !== "join";
 
   if (phase === "join") {
+    btn.hidden = false;
     startRoomBuzzinJoinTimer(payload.joinEndsAt);
     resetRoomBuzzinTurnUi();
   } else {
+    btn.hidden = true;
     hideRoomBuzzinJoinTimer();
     updateStudentBuzzinTurnUi(payload);
   }
@@ -368,7 +370,10 @@ function resetStudentBuzzinUi() {
   const btn = $("#btn-room-buzz-in");
   const status = $("#room-buzzin-status");
   const result = $("#room-buzzin-result");
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.hidden = false;
+    btn.disabled = true;
+  }
   if (status) status.textContent = "Get ready to buzz in…";
   if (result) {
     result.hidden = true;
@@ -495,6 +500,37 @@ function setupRoomPlayerQuiz(socket) {
     $("#room-waiting-status").textContent = "Get ready…";
   });
 
+  socket.on("question_preview", (data) => {
+    stopRoomStatusPoll();
+    stopRoomQuizJoinRetry();
+    roomQuizCurrentQuestion = data;
+    clearTimer();
+    resetPlayerMcqAnsweredState();
+    showScreen("player-question");
+
+    const screen = $("#screen-player-question");
+    screen?.classList.add("is-previewing");
+    $("#player-mcq-title").textContent = `Question ${data.questionIndex + 1}`;
+    $("#player-q-meta").textContent = "Read the question";
+    setQuestionImage(
+      $("#player-question-image"),
+      $("#player-question-image-wrap"),
+      typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
+    );
+    $("#player-question-text").textContent = data.text || "";
+    $("#player-options").innerHTML = "";
+    $("#answer-feedback").textContent = "Get ready to answer…";
+
+    startDeadlineTimer(
+      data.previewEndsAt,
+      data.previewSeconds || 5,
+      (remaining) => {
+        $("#timer-text").textContent = remaining;
+        $("#timer-ring").classList.toggle("urgent", remaining <= 1);
+      }
+    );
+  });
+
   socket.on("question_start", (data) => {
     stopRoomStatusPoll();
     stopRoomQuizJoinRetry();
@@ -502,6 +538,8 @@ function setupRoomPlayerQuiz(socket) {
     clearTimer();
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
+    $("#screen-player-question")?.classList.remove("is-previewing");
+    $("#player-mcq-title").textContent = "MCQ Question";
     $("#player-q-meta").textContent =
       `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
     setQuestionImage(

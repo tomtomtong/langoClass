@@ -153,24 +153,38 @@
       </div>
     </section>
 
-    <section id="screen-room-buzzin" class="screen">
-      <p class="buzzin-topic" id="room-buzzin-topic"></p>
-      <div class="buzzin-play-area">
-        <p id="room-buzzin-status" class="buzzin-status">Get ready to buzz in…</p>
-        <div class="buzzin-join-timer" id="room-buzzin-timer-wrap" hidden>
-          <span class="buzzin-join-timer-label">Buzz in</span>
-          <span id="room-buzzin-timer" class="buzzin-join-timer-value">20</span>
-        </div>
-        <button class="btn buzzin-btn" id="btn-room-buzz-in" type="button" disabled>BUZZ IN!</button>
-        <p id="room-buzzin-result" class="buzzin-result" hidden></p>
-        <div class="buzzin-turn-area" id="room-buzzin-turn" hidden>
-          <p id="room-buzzin-turn-status" class="buzzin-turn-status"></p>
-          <div class="buzzin-record-controls">
-            <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button">Record answer</button>
-            <span id="room-buzzin-record-status" class="buzzin-record-status" hidden></span>
-          </div>
-          <p id="room-buzzin-submitted" class="buzzin-submitted" hidden></p>
-        </div>
+    <section id="screen-room-buzzin" class="screen buzzin-interaction-screen" aria-labelledby="room-buzzin-screen-title">
+      <div class="buzzin-interaction-stage">
+        <header class="buzzin-interaction-header">
+          <h1 class="buzzin-interaction-title" id="room-buzzin-screen-title">Buzz in Question</h1>
+        </header>
+
+        <main class="buzzin-interaction-main">
+          <section class="buzzin-play-area" aria-label="Buzz in interaction">
+            <div class="buzzin-card-title">
+              <h2>Record your voice</h2>
+              <p class="buzzin-topic" id="room-buzzin-topic"></p>
+              <p id="room-buzzin-status" class="buzzin-status">Get ready to buzz in…</p>
+            </div>
+
+            <div class="buzzin-join-timer" id="room-buzzin-timer-wrap" hidden>
+              <span class="buzzin-join-timer-label">Buzz in</span>
+              <span id="room-buzzin-timer" class="buzzin-join-timer-value">20</span>
+            </div>
+
+            <button class="btn buzzin-btn" id="btn-room-buzz-in" type="button" disabled>BUZZ IN!</button>
+            <p id="room-buzzin-result" class="buzzin-result" hidden></p>
+
+            <div class="buzzin-turn-area" id="room-buzzin-turn" hidden>
+              <p id="room-buzzin-turn-status" class="buzzin-turn-status"></p>
+              <div class="buzzin-record-controls">
+                <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button">Record</button>
+                <span id="room-buzzin-record-status" class="buzzin-record-status" hidden></span>
+              </div>
+              <p id="room-buzzin-submitted" class="buzzin-submitted" hidden></p>
+            </div>
+          </section>
+        </main>
       </div>
     </section>
   </div>

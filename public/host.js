@@ -2199,7 +2199,7 @@ async function backFromWaiting() {
 
 $("#btn-back-journey")?.addEventListener("click", backFromWaiting);
 
-document.querySelectorAll("#btn-back-waiting-quiz, #btn-back-waiting-results").forEach((btn) =>
+document.querySelectorAll("#btn-back-waiting-preview, #btn-back-waiting-quiz, #btn-back-waiting-results").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
     returnHostToJourney();

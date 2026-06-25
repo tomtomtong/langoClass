@@ -268,7 +268,10 @@
     }
 
     const btn = $("#btn-room-buzz-in");
-    if (btn) btn.disabled = !btnEnabled;
+    if (btn) {
+      btn.hidden = phase !== "join";
+      btn.disabled = !btnEnabled;
+    }
 
     const result = $("#room-buzzin-result");
     if (result) {

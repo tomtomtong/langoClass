@@ -202,6 +202,29 @@ function getRoomQuizSocket() {
   return roomQuizSocket;
 }
 
+function renderHostQuizPreview(data) {
+  roomQuizCurrentQuestion = data;
+  clearTimer();
+  showScreen("host-quiz-preview");
+
+  const points = data.points || 300;
+  $("#host-quiz-preview-title").textContent = `Question ${data.questionIndex + 1}`;
+  $("#host-quiz-preview-points").textContent = `${points} pts`;
+  $("#host-quiz-preview-question-text").textContent = data.text || "";
+  setQuestionImage(
+    $("#host-quiz-preview-image"),
+    $("#host-quiz-preview-image-wrap"),
+    resolvedMediaUrl(data.image)
+  );
+
+  const progress = $("#host-quiz-preview-progress");
+  startDeadlineTimer(data.previewEndsAt, data.previewSeconds || 5, (remaining) => {
+    const total = Math.max(1, Number(data.previewSeconds) || 5);
+    const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
+    progress.style.width = `${pct}%`;
+  });
+}
+
 function renderHostQuizQuestion(data, { preparing = false } = {}) {
   const screen = $("#screen-host-quiz-question");
   const isFastMode = !!data.fastMode;
@@ -339,6 +362,11 @@ function renderFastAccuracyLeaderboard(results) {
 function setupHostRoomQuizSocket(socket) {
   socket.on("game_starting", ({ fastMode } = {}) => {
     roomQuizFastMode = !!fastMode;
+  });
+
+  socket.on("question_preview", (data) => {
+    roomQuizFastMode = !!data.fastMode;
+    renderHostQuizPreview(data);
   });
 
   socket.on("question_start", (data) => {
@@ -659,12 +687,19 @@ function startHostRoomQuiz(roomId, exercise) {
             questionIndex: 0,
             totalQuestions: quiz.questions.length,
             text: firstQuestion.text,
-            options: firstQuestion.options,
-            timeLimit: firstQuestion.timeLimit || 5,
+            previewSeconds: 5,
+            previewEndsAt: Date.now() + 5000,
             fastMode: quiz.fastMode,
+            points: quiz.fastMode ? 500 : 300,
             image: resolvedMediaUrl(firstQuestion.image) || null,
           };
-          renderHostQuizQuestion(roomQuizCurrentQuestion, { preparing: true });
+          if (quiz.fastMode) {
+            renderHostQuizQuestion({
+              ...roomQuizCurrentQuestion,
+              options: firstQuestion.options,
+              timeLimit: firstQuestion.timeLimit || 5,
+            }, { preparing: true });
+          }
           resolve();
         }
       );

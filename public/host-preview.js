@@ -17,6 +17,7 @@
     { id: "section", label: "Section road" },
     { id: "section-exercises", label: "Section — exercise panel" },
     { id: "waiting", label: "Waiting room" },
+    { id: "mc-preview", label: "MC Quiz — preview" },
     { id: "mc-question", label: "MC Quiz — question" },
     { id: "mc-fast", label: "MC Quiz — fast mode" },
     { id: "mc-results", label: "MC Quiz — results" },
@@ -340,6 +341,19 @@
         showHostPreviewScreen("waiting", "waiting");
         break;
 
+      case "mc-preview":
+        renderHostQuizPreview({
+          questionIndex: 0,
+          totalQuestions: 3,
+          text: SAMPLE.question,
+          image: SAMPLE.image,
+          points: 300,
+          previewSeconds: 5,
+          previewEndsAt: Date.now() + 5000,
+        });
+        setActiveStep("quiz");
+        break;
+
       case "mc-question":
         renderHostQuizQuestion(
           {
@@ -473,8 +487,8 @@
   const previewParam = params.get("preview");
   const initial =
     params.get("layout") ||
-    localStorage.getItem(STORAGE_KEY) ||
-    (previewParam === "leaderboard" ? "leaderboard" : "mc-question");
+    (previewParam === "1" ? "mc-preview" : localStorage.getItem(STORAGE_KEY)) ||
+    (previewParam === "leaderboard" ? "leaderboard" : "mc-preview");
   const valid = LAYOUTS.some((layout) => layout.id === initial);
   layoutSelect.value = valid ? initial : "mc-question";
   applyLayout(layoutSelect.value);

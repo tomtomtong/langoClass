@@ -396,3 +396,12 @@
     animation: none;
   }
 }
+
+.join-page #screen-room-buzzin .buzzin-play-area::after,
+.join-page #screen-room-buzzin .buzzin-join-timer::after,
+.join-page #screen-room-buzzin .buzzin-turn-area::after,
+.join-page #screen-room-buzzin .buzzin-btn::after,
+.join-page #screen-room-buzzin .buzzin-record-btn::after {
+  content: none;
+  display: none !important;
+}
