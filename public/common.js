@@ -169,6 +169,7 @@ function selectJoinTransitionCharacter(layer) {
 function activateScreen(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   document.querySelector(`#screen-${id}`)?.classList.add("active");
+  window.dispatchEvent(new CustomEvent("lango:screen-change", { detail: { screenId: id } }));
 }
 
 function wait(ms) {

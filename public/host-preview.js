@@ -188,6 +188,7 @@
     state.user = { name: "Preview Teacher", username: "preview" };
     state.hostProgress = { completedExerciseIds: [101], lastSectionId: 1, lastExerciseId: 101 };
     state.waitingTotalTarget = SAMPLE.roster.length;
+    state.activeRoomId = "482916";
   }
 
   function showHostPreviewScreen(screenId, stepId) {
@@ -342,6 +343,7 @@
         renderParticipants(SAMPLE.participants);
         $("#waiting-error").textContent = "";
         showHostPreviewScreen("waiting", "waiting");
+        initWaitingClockLottie();
         break;
 
       case "mc-preview":

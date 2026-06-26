@@ -22,6 +22,19 @@
       <span class="host-sound-mute-icon" aria-hidden="true"></span>
     </button>
 
+    <div class="host-persistent-room-code" id="host-persistent-room-code" aria-label="Room code" aria-hidden="true">
+      <p class="host-persistent-room-code__label">Room Code</p>
+      <button
+        type="button"
+        class="host-persistent-room-code__display"
+        id="btn-copy-persistent-room-id"
+        title="Copy room code"
+      >
+        <span id="persistent-room-id" aria-live="polite"></span>
+      </button>
+      <p class="host-persistent-room-code__hint" id="persistent-room-code-hint">Tap to copy</p>
+    </div>
+
     <nav class="flow-steps" id="flow-steps" aria-label="Progress">
       <span class="step" data-step="login">1 Login</span>
       <span class="step" data-step="class">2 Class</span>
@@ -112,7 +125,7 @@
                 </svg>
               </button>
               <p class="login-error" id="login-error" role="alert"></p>
-              <p class="login-version">Version 2026.06.26.161000.160</p>
+              <p class="login-version">Version 2026.06.26.170536.326</p>
             </div>
           </div>
         </div>
@@ -305,13 +318,7 @@
 
         <div class="waiting-timer" aria-live="polite">
           <div class="waiting-timer-ring">
-            <svg class="waiting-timer-watch" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
-              <circle cx="24" cy="26" r="16" fill="#feca57" stroke="#d97706" stroke-width="2"/>
-              <rect x="20" y="8" width="8" height="6" rx="2" fill="#d97706"/>
-              <circle cx="24" cy="26" r="2" fill="#7c2d12"/>
-              <line x1="24" y1="26" x2="24" y2="18" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
-              <line x1="24" y1="26" x2="30" y2="30" stroke="#7c2d12" stroke-width="2" stroke-linecap="round"/>
-            </svg>
+            <div class="waiting-timer-watch" id="waiting-timer-watch-lottie" data-lottie-path="/assets/lottie/clock.json" aria-hidden="true"></div>
             <p class="waiting-timer-label">Start In</p>
             <p class="waiting-timer-value" id="waiting-timer-value">05 : 00</p>
           </div>

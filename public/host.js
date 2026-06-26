@@ -26,6 +26,7 @@ let hostSessionConnected = false;
 let waitingTimerInterval = null;
 let classSessionCreating = false;
 let exerciseLottieInstances = [];
+let waitingClockLottieInstance = null;
 const WAITING_TIMER_SECONDS = 300;
 const LOGIN_SCAN_CYCLE_MS = 3600;
 const HOST_SOUND_EFFECTS = {
@@ -696,9 +697,70 @@ function setActiveStep(stepId) {
   });
 }
 
+function getVisibleRoomCode() {
+  return normalizePin(state.activeRoomId || $("#waiting-room-id")?.textContent || "");
+}
+
+function updatePersistentRoomCode(screenId) {
+  const card = $("#host-persistent-room-code");
+  const value = $("#persistent-room-id");
+  if (!card || !value) return;
+
+  const roomScreenIds = [
+    "host-quiz-preview",
+    "host-quiz-question",
+    "host-quiz-results",
+    "host-fast-results",
+    "host-quiz-finished",
+    "host-video",
+    "host-buzzin",
+  ];
+  const roomCode = getVisibleRoomCode();
+  const shouldShow = Boolean(roomCode && roomScreenIds.includes(screenId));
+  card.classList.toggle("is-visible", shouldShow);
+  card.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+  if (shouldShow) {
+    value.textContent = formatRoomCode(roomCode);
+  }
+}
+
+function getActiveHostScreenId() {
+  const active = document.querySelector("#app.lango-host .screen.active");
+  return active?.id?.replace(/^screen-/, "") || "";
+}
+
+function syncPersistentRoomCode() {
+  updatePersistentRoomCode(getActiveHostScreenId());
+}
+
+function initPersistentRoomCodeSync() {
+  syncPersistentRoomCode();
+
+  const waitingRoomId = $("#waiting-room-id");
+  if (waitingRoomId) {
+    new MutationObserver(syncPersistentRoomCode).observe(waitingRoomId, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+  }
+
+  document.querySelectorAll("#app.lango-host .screen").forEach((screen) => {
+    new MutationObserver(syncPersistentRoomCode).observe(screen, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+  });
+}
+
+window.addEventListener("lango:screen-change", (event) => {
+  updatePersistentRoomCode(event.detail?.screenId);
+});
+
 function goTo(screenId, stepId) {
   showScreen(screenId);
   setActiveStep(stepId);
+  updatePersistentRoomCode(screenId);
 }
 
 function renderClassCard(classItem, { selectedId, onSelect }) {
@@ -1194,6 +1256,18 @@ function initExerciseLotties() {
       });
       exerciseLottieInstances.push(anim);
     });
+}
+
+function initWaitingClockLottie() {
+  const el = $("#waiting-timer-watch-lottie");
+  if (!el || waitingClockLottieInstance || typeof lottie === "undefined") return;
+  waitingClockLottieInstance = lottie.loadAnimation({
+    container: el,
+    renderer: "svg",
+    loop: true,
+    autoplay: true,
+    path: el.dataset.lottiePath || "/assets/lottie/clock.json",
+  });
 }
 
 function renderExerciseItem(exercise, index, selectedId, { locked = false, completed = false } = {}) {
@@ -1935,6 +2009,7 @@ async function showWaitingRoom() {
   updateWaitingStartButton();
   startWaitingTimer();
   goTo("waiting", "waiting");
+  initWaitingClockLottie();
 
   if (!hostSessionConnected) void startWaitingPoll();
   void renderRoomJoinLinks(state.activeRoomId);
@@ -2054,7 +2129,9 @@ async function launchHostExercise(exercise, {
     await startNextExerciseViaSocket(state.activeRoomId, exercise, state.course);
     state.selectedExercise = exercise;
     state.quizActive = true;
+    syncPersistentRoomCode();
     await runHostExercise(state.activeRoomId, exercise);
+    syncPersistentRoomCode();
   } catch (err) {
     state.quizActive = false;
     if (errorElement) errorElement.textContent = err.message;
@@ -2255,23 +2332,43 @@ $("#btn-open-waiting-section")?.addEventListener("click", () => {
   void showWaitingRoom();
 });
 
-$("#btn-copy-room-id").addEventListener("click", async () => {
-  const roomId = normalizePin($("#waiting-room-id").textContent);
+async function copyRoomCode({ sourceId, buttonId, hintId, errorId }) {
+  const source = sourceId ? $(`#${sourceId}`) : null;
+  const roomId = normalizePin(source?.textContent || state.activeRoomId);
   if (!roomId) return;
   try {
     await navigator.clipboard.writeText(roomId);
-    const btn = $("#btn-copy-room-id");
-    const hint = $("#waiting-room-code-hint");
-    const prevTitle = btn.title;
-    btn.title = "Copied!";
+    const btn = buttonId ? $(`#${buttonId}`) : null;
+    const hint = hintId ? $(`#${hintId}`) : null;
+    const prevTitle = btn?.title;
+    if (btn) btn.title = "Copied!";
     if (hint) hint.textContent = "Copied!";
     setTimeout(() => {
-      btn.title = prevTitle || "Copy room code";
+      if (btn) btn.title = prevTitle || "Copy room code";
       if (hint) hint.textContent = "Tap to copy";
     }, 1500);
   } catch {
-    $("#waiting-error").textContent = "Could not copy room code.";
+    const errorEl = errorId ? $(`#${errorId}`) : $("#waiting-error");
+    if (errorEl) errorEl.textContent = "Could not copy room code.";
   }
+}
+
+$("#btn-copy-room-id").addEventListener("click", () => {
+  void copyRoomCode({
+    sourceId: "waiting-room-id",
+    buttonId: "btn-copy-room-id",
+    hintId: "waiting-room-code-hint",
+    errorId: "waiting-error",
+  });
+});
+
+$("#btn-copy-persistent-room-id")?.addEventListener("click", () => {
+  void copyRoomCode({
+    sourceId: "persistent-room-id",
+    buttonId: "btn-copy-persistent-room-id",
+    hintId: "persistent-room-code-hint",
+    errorId: "waiting-error",
+  });
 });
 
 function resetSessionAndGoToJourney() {
@@ -2399,6 +2496,7 @@ applyLoginUsernameToForm();
 setupHostMuteButton();
 updateHostMuteButton();
 setupHostBgm({ autostart: !hostSoundMuted });
+initPersistentRoomCodeSync();
 if (state.token && state.user) savePrefs();
 
 const hostPreviewMode = new URLSearchParams(window.location.search).has("preview");

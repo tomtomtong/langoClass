@@ -38,6 +38,93 @@ body {
     radial-gradient(ellipse at 80% 100%, rgba(15, 52, 96, 0.4), transparent 50%);
 }
 
+#app.lango-host .host-persistent-room-code {
+  position: fixed;
+  top: 30px;
+  left: max(20px, env(safe-area-inset-left));
+  z-index: 130;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 142px;
+  padding: 12px 14px 10px;
+  border: 3px solid #ffb84d;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 0 0 3px rgba(255, 184, 77, 0.26),
+    0 12px 28px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#app.lango-host .host-persistent-room-code.is-visible {
+  display: flex;
+}
+
+#app.lango-host:has(#screen-waiting.active) .host-persistent-room-code {
+  left: 30px;
+  top: calc(30px + 96px + 24px);
+}
+
+.host-persistent-room-code__label {
+  color: #9333ea;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.host-persistent-room-code__display {
+  border: 0;
+  border-radius: 12px;
+  padding: 3px 8px;
+  color: #b11980;
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  cursor: pointer;
+  font: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.host-persistent-room-code__display:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(177, 25, 128, 0.18);
+}
+
+.host-persistent-room-code__display span {
+  display: block;
+  min-width: 96px;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-align: center;
+}
+
+.host-persistent-room-code__hint {
+  color: #743c9b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+@media (max-width: 760px) {
+  #app.lango-host .host-persistent-room-code {
+    top: 12px;
+    left: max(12px, env(safe-area-inset-left));
+    min-width: 112px;
+    padding: 9px 10px 8px;
+    border-radius: 14px;
+  }
+
+  .host-persistent-room-code__display span {
+    min-width: 78px;
+    font-size: 20px;
+  }
+}
+
 body.join-page {
   position: relative;
   width: 100%;
@@ -8567,6 +8654,11 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   top: -18px;
   right: -8px;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+}
+
+.waiting-timer-watch svg {
+  width: 100%;
+  height: 100%;
 }
 
 .waiting-timer-label {
