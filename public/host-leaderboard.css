@@ -12,7 +12,11 @@
 }
 
 .lango-host #screen-host-quiz-finished.host-leaderboard.active {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
   width: 100vw;
+  width: 100dvw;
   max-width: none;
   height: 100vh;
   height: 100dvh;

@@ -162,7 +162,7 @@
         <main class="buzzin-interaction-main">
           <section class="buzzin-play-area" aria-label="Buzz in interaction">
             <div class="buzzin-card-title">
-              <h2>Record your voice</h2>
+              <h2 id="room-buzzin-card-title">Record your voice</h2>
               <p class="buzzin-topic" id="room-buzzin-topic"></p>
               <p id="room-buzzin-status" class="buzzin-status">Get ready to buzz in…</p>
             </div>
@@ -178,6 +178,16 @@
             <div class="buzzin-turn-area" id="room-buzzin-turn" hidden>
               <p id="room-buzzin-turn-status" class="buzzin-turn-status"></p>
               <div class="buzzin-record-controls">
+                <div class="buzzin-recording-panel" id="room-buzzin-recording-panel" hidden aria-live="polite">
+                  <div class="buzzin-recording-waveform" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                  </div>
+                  <span class="buzzin-recording-time" id="room-buzzin-recording-time">00 : 30 s</span>
+                </div>
                 <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button">Record</button>
                 <span id="room-buzzin-record-status" class="buzzin-record-status" hidden></span>
               </div>

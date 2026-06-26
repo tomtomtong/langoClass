@@ -11,14 +11,18 @@ function normalize(entries = []) {
   }));
 }
 
+function topHalf(rows) {
+  return rows.slice(0, Math.ceil(rows.length / 2));
+}
+
 function ordinal(rank) {
   if (rank % 100 >= 11 && rank % 100 <= 13) return `${rank}th`;
   return `${rank}${rank % 10 === 1 ? "st" : rank % 10 === 2 ? "nd" : rank % 10 === 3 ? "rd" : "th"}`;
 }
 
 export default function HostLeaderboard({ currentSession = [], overall = [], sessionNumber = 1, onDashboard, onNextExercise }) {
-  const currentRows = useMemo(() => normalize(currentSession), [currentSession]);
-  const overallRows = useMemo(() => normalize(overall), [overall]);
+  const currentRows = useMemo(() => topHalf(normalize(currentSession)), [currentSession]);
+  const overallRows = useMemo(() => topHalf(normalize(overall)), [overall]);
   const [view, setView] = useState("current");
   const rows = view === "overall" ? overallRows : currentRows;
 

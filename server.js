@@ -7,7 +7,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const { normalizeClassListResponse, findStudentById } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
-const { isLiveMcQuizExercise, mcQuizPayloadFromExercise } = require("./lib/exercise-quiz");
+const { isLiveMcQuizExercise, isVideoExercise, mcQuizPayloadFromExercise } = require("./lib/exercise-quiz");
 const scoreStore = require("./lib/score-store");
 const hostProgressStore = require("./lib/host-progress-store");
 const sessionStore = require("./lib/session-store");
@@ -212,6 +212,7 @@ function deleteSectionBanners(sections) {
 const QUESTION_TIME_MS = 15000;
 const BASE_POINTS = 1000;
 const MAX_TIME_BONUS = 500;
+const VIDEO_EXERCISE_POINTS = 200;
 
 /** @type {Map<string, Game>} */
 const games = new Map();
@@ -705,6 +706,65 @@ function persistExerciseScores(game) {
     roomId: game.pin,
     scores,
   });
+}
+
+function resolveFinishedExercise(session, { exerciseId, exerciseType } = {}) {
+  const normalizedId = Number(exerciseId);
+  if (
+    Number.isFinite(normalizedId) &&
+    session?.exercise?.id != null &&
+    Number(session.exercise.id) === normalizedId
+  ) {
+    return session.exercise;
+  }
+
+  if (isVideoExercise({ type: exerciseType }) && Number.isFinite(normalizedId)) {
+    return {
+      id: normalizedId,
+      type: exerciseType,
+      title: session?.exercise?.title || "",
+      subTitle: session?.exercise?.subTitle || "",
+    };
+  }
+
+  return session?.exercise || null;
+}
+
+function persistVideoExerciseScores(session, exercise = session?.exercise) {
+  if (
+    !session?.teacherId ||
+    !session?.classId ||
+    !exercise?.id ||
+    !isVideoExercise(exercise)
+  ) {
+    return null;
+  }
+
+  const scores = [...session.participants.values()].map((participant) => ({
+    studentUserId: participant.userId,
+    displayName: participant.displayName || "Student",
+    score: VIDEO_EXERCISE_POINTS,
+  }));
+
+  return scoreStore.saveExerciseScores({
+    teacherId: session.teacherId,
+    classId: session.classId,
+    courseId: session.courseId,
+    exerciseId: exercise.id,
+    exerciseTitle: exercise.title || exercise.subTitle || "",
+    exerciseType: exercise.type || "video",
+    roomId: session.roomId,
+    scores,
+  });
+}
+
+function getVideoExerciseLeaderboard(session, exercise = session?.exercise) {
+  if (!session || !isVideoExercise(exercise)) return null;
+  return [...session.participants.values()].map((participant) => ({
+    id: participant.userId,
+    name: participant.displayName || "Student",
+    score: VIDEO_EXERCISE_POINTS,
+  }));
 }
 
 function quizPayloadForRoomGame(pin, clientQuiz) {
@@ -2438,7 +2498,7 @@ io.on("connection", (socket) => {
     callback?.({ ok: true, active: true, ...buzzInPublicPayload(round) });
   });
 
-  socket.on("end_room_exercise", ({ roomId }, callback) => {
+  socket.on("end_room_exercise", ({ roomId, exerciseId, exerciseType }, callback) => {
     const meta = socketMeta.get(socket.id);
     const pin = normalizeRoomId(roomId) || meta?.pin;
     if (!meta || meta.role !== "host" || !pin) {
@@ -2452,11 +2512,24 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const payload = buildExerciseFinishedPayload(pin);
+    const finishedExercise = resolveFinishedExercise(session, { exerciseId, exerciseType });
+    let exerciseLeaderboard = null;
+    if (isVideoExercise(finishedExercise)) {
+      const result = persistVideoExerciseScores(session, finishedExercise);
+      exerciseLeaderboard = getVideoExerciseLeaderboard(session, finishedExercise);
+      if (result?.saved > 0) {
+        console.log(
+          `[scores] Saved ${result.saved} video score(s) for class ${session.classId} exercise ${finishedExercise.id} (room ${pin})`
+        );
+      }
+    }
+
+    const payload = buildExerciseFinishedPayload(pin, { exerciseLeaderboard });
     if (session.status === "waiting") {
       callback?.({ ok: true, ...payload });
       return;
     }
+
     const game = games.get(pin);
     if (game) {
       clearQuestionTimer(game);

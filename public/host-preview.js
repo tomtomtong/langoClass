@@ -81,6 +81,9 @@
           { id: 101, title: "Ocean MC Quiz", type: "mcquiz", order: 1, subTitle: "Choose the correct answer.", items: [{}, {}, {}] },
           { id: 102, title: "Coral Reef Video", type: "video", order: 2, subTitle: "Watch the lesson video.", videoUrl: "" },
           { id: 103, title: "Marine Buzz In", type: "buzzin", order: 3, subTitle: "First to buzz in answers." },
+          { id: 104, title: "Fast MC", type: "fastmcquiz", order: 4, subTitle: "Answer quickly — results at the end.", items: [{}, {}, {}, {}, {}] },
+          { id: 105, title: "Image Assignment", type: "imageassignment", order: 5, subTitle: "Match words to images." },
+          { id: 106, title: "Voice Assignment", type: "voiceassignment", order: 6, subTitle: "Speak and check pronunciation." },
         ],
       },
       {
@@ -322,7 +325,7 @@
         $("#exercise-list").innerHTML = exercises
           .map((exercise, index) =>
             renderExerciseItem(exercise, index, state.selectedExercise.id, {
-              locked: index > 2,
+              locked: false,
               completed: index === 0,
             })
           )
@@ -355,6 +358,7 @@
         break;
 
       case "mc-question":
+        const fromMcPreview = $("#screen-host-quiz-preview")?.classList.contains("active");
         renderHostQuizQuestion(
           {
             questionIndex: 0,
@@ -366,7 +370,7 @@
             timeLimit: 15,
             endsAt: Date.now() + 15000,
           },
-          { preparing: false }
+          { preparing: false, transition: !fromMcPreview }
         );
         setActiveStep("quiz");
         break;

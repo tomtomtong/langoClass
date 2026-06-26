@@ -53,6 +53,14 @@ let hostBgmStarted = false;
 let hostBgmFadeFrame = null;
 let hostSoundMuted = false;
 
+function isImageAssignmentExercise(exercise) {
+  return normalizeExerciseType(exercise?.type) === "imageassignment";
+}
+
+function isVoiceAssignmentExercise(exercise) {
+  return normalizeExerciseType(exercise?.type) === "voiceassignment";
+}
+
 function fitHostStage() {
   const app = document.querySelector("#app.lango-host");
   if (!app) return;
@@ -1194,18 +1202,30 @@ function renderExerciseItem(exercise, index, selectedId, { locked = false, compl
   const subtitle = exerciseSubtitle(exercise);
   const points = exercisePointsValue(exercise);
   const statusLabel = locked ? "Locked" : `${points} pts`;
+  const mcClass = isMcQuizExercise(exercise) ? " exercise-item--mc" : "";
   const videoClass = isVideoExercise(exercise) ? " exercise-item--video" : "";
   const buzzinClass = isBuzzinExercise(exercise) ? " exercise-item--buzzin" : "";
+  const fastMcClass = isFastMcQuizExercise(exercise) ? " exercise-item--fastmc" : "";
+  const imageAssignmentClass = isImageAssignmentExercise(exercise) ? " exercise-item--image-assignment" : "";
+  const voiceAssignmentClass = isVoiceAssignmentExercise(exercise) ? " exercise-item--voice-assignment" : "";
   const lottiePath = isVideoExercise(exercise)
     ? "/assets/lottie/video-player.json"
     : isBuzzinExercise(exercise)
       ? "/assets/lottie/buzz_in_logo.json"
+      : isFastMcQuizExercise(exercise)
+        ? "/assets/lottie/FastMC_logo.json"
+        : isMcQuizExercise(exercise)
+          ? "/assets/lottie/MC_logo.json"
+          : isImageAssignmentExercise(exercise)
+            ? "/assets/lottie/image_assignment_logo.json"
+            : isVoiceAssignmentExercise(exercise)
+              ? "/assets/lottie/voice_assignment_logo.json"
       : "";
   const lottieHtml = lottiePath
     ? `<span class="exercise-item-lottie" data-lottie-path="${escapeHtml(lottiePath)}" aria-hidden="true"></span>`
     : "";
 
-  return `<button type="button" class="exercise-item${videoClass}${buzzinClass}${active ? " active" : ""}${locked ? " exercise-item--locked" : ""}${completed ? " exercise-item--completed" : ""}" data-id="${exercise.id}" data-locked="${locked ? "true" : "false"}" role="option" aria-selected="${active ? "true" : "false"}" ${locked ? "disabled" : ""}>
+  return `<button type="button" class="exercise-item${mcClass}${videoClass}${buzzinClass}${fastMcClass}${imageAssignmentClass}${voiceAssignmentClass}${active ? " active" : ""}${locked ? " exercise-item--locked" : ""}${completed ? " exercise-item--completed" : ""}" data-id="${exercise.id}" data-locked="${locked ? "true" : "false"}" role="option" aria-selected="${active ? "true" : "false"}" ${locked ? "disabled" : ""}>
     <span class="exercise-item-main">
       <span class="exercise-item-num">${index + 1}.</span>
       ${lottieHtml}
@@ -2291,7 +2311,12 @@ function wrapUpRoomExercise(callback) {
     return;
   }
 
-  getHostSessionSocket().emit("end_room_exercise", { roomId }, (res) => {
+  const exercise = state.selectedExercise;
+  getHostSessionSocket().emit("end_room_exercise", {
+    roomId,
+    exerciseId: exercise?.id,
+    exerciseType: exercise?.type,
+  }, (res) => {
     callback?.(res);
   });
 }

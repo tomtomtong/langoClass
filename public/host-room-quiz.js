@@ -225,11 +225,11 @@ function renderHostQuizPreview(data) {
   });
 }
 
-function renderHostQuizQuestion(data, { preparing = false } = {}) {
+function renderHostQuizQuestion(data, { preparing = false, transition = true } = {}) {
   const screen = $("#screen-host-quiz-question");
   const isFastMode = !!data.fastMode;
   screen?.classList.toggle("fast-mode", isFastMode);
-  showScreen("host-quiz-question");
+  showScreen("host-quiz-question", { transition });
   const pct = ((data.questionIndex + 1) / data.totalQuestions) * 100;
   const points = data.points || (data.fastMode ? 500 : 300);
   $("#host-quiz-progress").style.width = `${pct}%`;
@@ -371,7 +371,8 @@ function setupHostRoomQuizSocket(socket) {
 
   socket.on("question_start", (data) => {
     roomQuizCurrentQuestion = data;
-    renderHostQuizQuestion(data);
+    const fromPreview = $("#screen-host-quiz-preview")?.classList.contains("active");
+    renderHostQuizQuestion(data, { transition: !fromPreview });
   });
 
   socket.on("question_between", ({ isLast } = {}) => {

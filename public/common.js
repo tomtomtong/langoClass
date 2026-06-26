@@ -7,7 +7,7 @@ const PLAYER_SOUND_EFFECTS = Object.freeze({
 });
 
 const playerSoundBank = new Map();
-const playerSoundEffectsMuted = document.body?.classList.contains("join-page");
+const playerSoundEffectsMuted = false;
 
 function playPlayerSound(name, volume = 0.8) {
   if (playerSoundEffectsMuted) return;
@@ -175,11 +175,19 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function showScreen(id) {
+function showScreen(id, { transition = true } = {}) {
   const next = document.querySelector(`#screen-${id}`);
   if (!next) return Promise.resolve();
 
   const current = document.querySelector(".screen.active");
+
+  if (!transition) {
+    screenTransitionToken++;
+    document.querySelector(".host-page-transition")?.classList.remove("is-playing");
+    activateScreen(id);
+    return Promise.resolve();
+  }
+
   const layer = getScreenTransitionLayer();
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
@@ -247,6 +255,7 @@ function showExerciseLeaderboards({
       name: String(p.name ?? p.displayName ?? "Player"),
       score: p.score ?? p.totalScore ?? 0,
     }));
+  const topHalfRows = (rows) => rows.slice(0, Math.ceil(rows.length / 2));
 
   const exerciseRows = normalizeRows(exerciseLeaderboard);
   const semesterRows = normalizeRows(semesterLeaderboard);
@@ -326,8 +335,8 @@ function showExerciseLeaderboards({
       });
     };
 
-    renderHostBoard(exerciseListEl, exerciseRows, false);
-    renderHostBoard(semesterListEl, semesterRows, true);
+    renderHostBoard(exerciseListEl, topHalfRows(exerciseRows), false);
+    renderHostBoard(semesterListEl, topHalfRows(semesterRows), true);
     tabs.forEach((tab) => {
       tab.hidden = tab.dataset.hostLeaderboardView === "overall" && !hasSemester;
       tab.onclick = () => setHostView(tab.dataset.hostLeaderboardView);

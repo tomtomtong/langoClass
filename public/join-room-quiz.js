@@ -12,7 +12,59 @@ let roomBuzzinAudioChunks = [];
 let roomBuzzinRecordedBlob = null;
 let roomBuzzinRecordedFormat = "webm";
 let roomBuzzinRecordStream = null;
-const ROOM_BUZZIN_MAX_RECORD_MS = 60000;
+let roomBuzzinRecordTimer = null;
+let roomBuzzinRecordEndsAt = 0;
+const ROOM_BUZZIN_MAX_RECORD_MS = 30000;
+
+function formatRoomBuzzinRecordTime(ms) {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  return `00 : ${String(seconds).padStart(2, "0")} s`;
+}
+
+function stopRoomBuzzinRecordTimer() {
+  if (roomBuzzinRecordTimer) {
+    clearInterval(roomBuzzinRecordTimer);
+    roomBuzzinRecordTimer = null;
+  }
+}
+
+function setRoomBuzzinRecordingMode(active) {
+  const screen = $("#screen-room-buzzin");
+  const panel = $("#room-buzzin-recording-panel");
+  const timeEl = $("#room-buzzin-recording-time");
+  const turnStatus = $("#room-buzzin-turn-status");
+  const title = $("#room-buzzin-card-title");
+
+  if (screen) screen.classList.toggle("is-recording", !!active);
+  if (panel) panel.hidden = !active;
+  if (turnStatus) turnStatus.hidden = !!active;
+  if (title) title.textContent = active ? "Recording your voice" : "Record your voice";
+  if (timeEl && active) {
+    timeEl.textContent = formatRoomBuzzinRecordTime(
+      roomBuzzinRecordEndsAt ? roomBuzzinRecordEndsAt - Date.now() : ROOM_BUZZIN_MAX_RECORD_MS
+    );
+  }
+}
+
+function setRoomBuzzinMissedMode(active) {
+  const screen = $("#screen-room-buzzin");
+  if (screen) screen.classList.toggle("is-missed", !!active);
+}
+
+function startRoomBuzzinRecordTimer() {
+  stopRoomBuzzinRecordTimer();
+  roomBuzzinRecordEndsAt = Date.now() + ROOM_BUZZIN_MAX_RECORD_MS;
+  const timeEl = $("#room-buzzin-recording-time");
+
+  const tick = () => {
+    const remaining = roomBuzzinRecordEndsAt - Date.now();
+    if (timeEl) timeEl.textContent = formatRoomBuzzinRecordTime(remaining);
+    if (remaining <= 0) stopRoomBuzzinRecordTimer();
+  };
+
+  tick();
+  roomBuzzinRecordTimer = setInterval(tick, 250);
+}
 
 function stopRoomBuzzinRecording() {
   if (roomBuzzinMediaRecorder && roomBuzzinMediaRecorder.state !== "inactive") {
@@ -47,17 +99,23 @@ function waitForRoomBuzzinRecordedBlob(timeoutMs = 3000) {
 
 function resetRoomBuzzinRecordingUi() {
   stopRoomBuzzinRecording();
+  stopRoomBuzzinRecordTimer();
+  roomBuzzinRecordEndsAt = 0;
   roomBuzzinAudioChunks = [];
   roomBuzzinRecordedBlob = null;
   roomBuzzinRecordedFormat = "webm";
+  setRoomBuzzinRecordingMode(false);
+  setRoomBuzzinMissedMode(false);
 
   const recordBtn = $("#btn-room-buzzin-record");
   const recordStatus = $("#room-buzzin-record-status");
+  const turnStatus = $("#room-buzzin-turn-status");
   if (recordBtn) {
     recordBtn.disabled = false;
     recordBtn.textContent = "Record";
     recordBtn.classList.remove("is-recording");
   }
+  if (turnStatus) turnStatus.hidden = false;
   if (recordStatus) {
     recordStatus.hidden = true;
     recordStatus.textContent = "";
@@ -69,6 +127,32 @@ function setRoomBuzzinRecordStatus(message, visible = true) {
   if (!recordStatus) return;
   recordStatus.hidden = !visible;
   recordStatus.textContent = message || "";
+}
+
+function setRoomBuzzinMissedUi() {
+  const topic = $("#room-buzzin-topic");
+  const title = $("#room-buzzin-card-title");
+  const status = $("#room-buzzin-status");
+  const result = $("#room-buzzin-result");
+  const recordBtn = $("#btn-room-buzzin-record");
+  const submitted = $("#room-buzzin-submitted");
+  const turnStatus = $("#room-buzzin-turn-status");
+
+  setRoomBuzzinRecordingMode(false);
+  setRoomBuzzinMissedMode(true);
+  if (topic) topic.textContent = "";
+  if (title) title.textContent = "Too late!";
+  if (status) status.textContent = "Another student buzzed in first. Please watch the teacher's screen.";
+  if (result) {
+    result.hidden = true;
+    result.textContent = "";
+  }
+  if (recordBtn) recordBtn.hidden = true;
+  if (submitted) submitted.hidden = true;
+  if (turnStatus) {
+    turnStatus.hidden = false;
+    turnStatus.textContent = "Another student buzzed in first. Please watch the teacher's screen.";
+  }
 }
 
 function blobToBase64(blob) {
@@ -90,6 +174,7 @@ async function startRoomBuzzinRecording() {
   }
 
   resetRoomBuzzinRecordingUi();
+  setRoomBuzzinMissedMode(false);
   roomBuzzinRecordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   roomBuzzinAudioChunks = [];
   roomBuzzinRecordedBlob = null;
@@ -135,12 +220,14 @@ async function startRoomBuzzinRecording() {
   });
 
   roomBuzzinMediaRecorder.start();
+  startRoomBuzzinRecordTimer();
+  setRoomBuzzinRecordingMode(true);
   const recordBtn = $("#btn-room-buzzin-record");
   if (recordBtn) {
-    recordBtn.textContent = "Stop recording";
+    recordBtn.textContent = "Stop";
     recordBtn.classList.add("is-recording");
   }
-  setRoomBuzzinRecordStatus("Recording… tap Stop when finished.");
+  setRoomBuzzinRecordStatus("", false);
 
   setTimeout(() => {
     if (roomBuzzinMediaRecorder?.state === "recording") {
@@ -157,6 +244,10 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
   if (roomBuzzinMediaRecorder?.state === "recording") {
     stopRoomBuzzinRecording();
   }
+
+  stopRoomBuzzinRecordTimer();
+  roomBuzzinRecordEndsAt = 0;
+  setRoomBuzzinRecordingMode(false);
 
   if (recordBtn) {
     recordBtn.textContent = "Record";
@@ -235,8 +326,10 @@ function resetRoomBuzzinTurnUi() {
   const turnArea = $("#room-buzzin-turn");
   const submitted = $("#room-buzzin-submitted");
   const turnStatus = $("#room-buzzin-turn-status");
+  const title = $("#room-buzzin-card-title");
 
   resetRoomBuzzinRecordingUi();
+  if (title) title.textContent = "Record your voice";
   const recordBtn = $("#btn-room-buzzin-record");
   if (turnArea) turnArea.hidden = true;
   if (recordBtn) {
@@ -259,6 +352,10 @@ function updateStudentBuzzinTurnUi(payload) {
   const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
   const myResponse = (payload.responses || []).find((r) => r.playerId === playerId);
   const currentTurn = payload.currentTurn || null;
+  const firstBuzz = (payload.buzzes || [])[0] || null;
+  const isMyAnswerTurn =
+    currentTurn?.playerId === playerId ||
+    (!currentTurn && firstBuzz?.playerId === playerId);
 
   if (phase === "join") {
     resetRoomBuzzinTurnUi();
@@ -270,10 +367,7 @@ function updateStudentBuzzinTurnUi(payload) {
   hideRoomBuzzinJoinTimer();
 
   if (!myBuzz) {
-    turnStatus.textContent = "Someone else buzzed in first.";
-    const recordBtn = $("#btn-room-buzzin-record");
-    if (recordBtn) recordBtn.hidden = true;
-    if (submitted) submitted.hidden = true;
+    setRoomBuzzinMissedUi();
     return;
   }
 
@@ -295,8 +389,8 @@ function updateStudentBuzzinTurnUi(payload) {
     return;
   }
 
-  if (currentTurn?.playerId === playerId) {
-    turnStatus.textContent = "You buzzed in first — tap Record and speak your answer.";
+  if (isMyAnswerTurn) {
+    turnStatus.textContent = "You buzzed in — tap Record and speak your answer.";
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) {
       recordBtn.hidden = false;
@@ -306,11 +400,7 @@ function updateStudentBuzzinTurnUi(payload) {
     return;
   }
 
-  const waitingFor = currentTurn?.displayName || "the student";
-  turnStatus.textContent = `Waiting for ${waitingFor} to answer…`;
-  const recordBtn = $("#btn-room-buzzin-record");
-  if (recordBtn) recordBtn.hidden = true;
-  if (submitted) submitted.hidden = true;
+  setRoomBuzzinMissedUi();
 }
 
 function updateStudentBuzzinUi(payload) {
@@ -322,6 +412,11 @@ function updateStudentBuzzinUi(payload) {
   const phase = payload.phase || (payload.status === "full" ? "join" : payload.status === "closed" ? "typing" : "join");
   const playerId = roomParticipant?.userId;
   const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
+  const currentTurn = payload.currentTurn || null;
+  const firstBuzz = (payload.buzzes || [])[0] || null;
+  const isMyAnswerTurn =
+    currentTurn?.playerId === playerId ||
+    (!currentTurn && firstBuzz?.playerId === playerId);
   const joinClosed = phase !== "join";
 
   if (phase === "join") {
@@ -334,27 +429,35 @@ function updateStudentBuzzinUi(payload) {
     updateStudentBuzzinTurnUi(payload);
   }
 
-  if (myBuzz) {
+  if (myBuzz && isMyAnswerTurn) {
     btn.disabled = true;
     result.hidden = false;
-    result.textContent = "You buzzed in first!";
+    result.textContent = "You buzzed in!";
     result.className = "buzzin-result buzzin-result--selected";
     if (joinClosed) {
       status.textContent = phase === "typing"
-        ? "You buzzed in first — tap Record when ready."
+        ? "You buzzed in — tap Record when ready."
         : "Buzz in closed.";
     } else {
-      status.textContent = "You buzzed in first!";
+      status.textContent = "You buzzed in!";
     }
+    return;
+  }
+
+  if (myBuzz && !isMyAnswerTurn) {
+    btn.disabled = true;
+    setRoomBuzzinMissedUi();
     return;
   }
 
   if (joinClosed) {
     btn.disabled = true;
-    status.textContent = phase === "done"
-      ? "Buzz round complete."
-      : "Someone else buzzed in first.";
-    result.hidden = true;
+    if (phase === "done") {
+      status.textContent = "Buzz round complete.";
+      result.hidden = true;
+    } else {
+      setRoomBuzzinMissedUi();
+    }
     return;
   }
 
@@ -374,6 +477,8 @@ function resetStudentBuzzinUi() {
     btn.hidden = false;
     btn.disabled = true;
   }
+  const title = $("#room-buzzin-card-title");
+  if (title) title.textContent = "Record your voice";
   if (status) status.textContent = "Get ready to buzz in…";
   if (result) {
     result.hidden = true;
@@ -425,11 +530,11 @@ function ensureRoomBuzzinSocket() {
       const status = $("#room-buzzin-status");
       if (result) {
         result.hidden = false;
-        result.textContent = "You buzzed in first!";
+        result.textContent = "You buzzed in!";
         result.className = "buzzin-result buzzin-result--selected";
       }
       if (status) {
-        status.textContent = "You buzzed in first! Get ready to answer…";
+        status.textContent = "You buzzed in! Get ready to answer…";
       }
     });
   });

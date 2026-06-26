@@ -5789,7 +5789,7 @@ body:has(#screen-host-quiz-question.active) {
   margin: 0;
   padding: 40px;
   border: 10px solid rgba(162, 89, 255, 0.6);
-  border-radius: 70px;
+  border-radius: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -5984,6 +5984,122 @@ body:has(#screen-host-quiz-question.active) {
   gap: 16px;
 }
 
+.join-page #screen-room-buzzin.is-recording .buzzin-play-area {
+  gap: 30px;
+}
+
+.join-page #screen-room-buzzin.is-recording .buzzin-card-title {
+  gap: 0;
+}
+
+.join-page #screen-room-buzzin.is-recording .buzzin-topic,
+.join-page #screen-room-buzzin.is-recording .buzzin-status,
+.join-page #screen-room-buzzin.is-recording .buzzin-turn-status,
+.join-page #screen-room-buzzin.is-recording .buzzin-result,
+.join-page #screen-room-buzzin.is-recording .buzzin-record-status {
+  display: none !important;
+}
+
+.join-page #screen-room-buzzin.is-missed .buzzin-play-area {
+  width: min(100%, 700px);
+  min-height: 430px;
+  padding: 64px 52px;
+  gap: 36px;
+}
+
+.join-page #screen-room-buzzin.is-missed .buzzin-card-title {
+  gap: 28px;
+}
+
+.join-page #screen-room-buzzin.is-missed .buzzin-card-title h2 {
+  font-size: 56px;
+  line-height: 1.02;
+  letter-spacing: 0.9px;
+  -webkit-text-stroke-width: 5px;
+}
+
+.join-page #screen-room-buzzin.is-missed .buzzin-status {
+  display: block;
+  max-width: 560px;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.16;
+  letter-spacing: 0.48px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  -webkit-text-stroke: 3px #d17bea;
+  paint-order: stroke fill;
+}
+
+.join-page #screen-room-buzzin .buzzin-recording-panel {
+  width: min(100%, 494px);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+}
+
+.join-page #screen-room-buzzin .buzzin-recording-waveform {
+  width: min(100%, 353px);
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.join-page #screen-room-buzzin .buzzin-recording-waveform span {
+  width: 5px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #c88bf1 0%, #f28cb2 100%);
+  box-shadow: 0 0 8px rgba(255, 177, 237, 0.45);
+  animation: buzzinWavePulse 0.88s ease-in-out infinite;
+}
+
+.join-page #screen-room-buzzin .buzzin-recording-waveform span:nth-child(3n + 1) {
+  height: 26px;
+  animation-delay: -0.46s;
+}
+
+.join-page #screen-room-buzzin .buzzin-recording-waveform span:nth-child(3n + 2) {
+  height: 34px;
+  animation-delay: -0.22s;
+}
+
+.join-page #screen-room-buzzin .buzzin-recording-waveform span:nth-child(5n) {
+  height: 42px;
+  animation-delay: -0.68s;
+}
+
+.join-page #screen-room-buzzin .buzzin-recording-time {
+  flex: 0 0 auto;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: normal;
+  letter-spacing: 0.9px;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  -webkit-text-stroke: 3px #d17bea;
+  paint-order: stroke fill;
+  white-space: nowrap;
+}
+
+@keyframes buzzinWavePulse {
+  0%,
+  100% {
+    transform: scaleY(0.58);
+    opacity: 0.76;
+  }
+
+  50% {
+    transform: scaleY(1.18);
+    opacity: 1;
+  }
+}
+
 .join-page #screen-room-buzzin .buzzin-submitted {
   width: 100%;
   padding: 14px 18px;
@@ -6033,6 +6149,43 @@ body:has(#screen-host-quiz-question.active) {
 
   .join-page #screen-room-buzzin .buzzin-join-timer {
     max-width: 100%;
+  }
+
+  .join-page #screen-room-buzzin.is-missed .buzzin-play-area {
+    min-height: 360px;
+    padding: 48px 28px;
+    gap: 28px;
+  }
+
+  .join-page #screen-room-buzzin.is-missed .buzzin-card-title h2 {
+    font-size: 40px;
+    -webkit-text-stroke-width: 4px;
+  }
+
+  .join-page #screen-room-buzzin.is-missed .buzzin-status {
+    font-size: 24px;
+    line-height: 1.18;
+    -webkit-text-stroke-width: 2px;
+  }
+
+  .join-page #screen-room-buzzin .buzzin-recording-panel {
+    width: 100%;
+    gap: 14px;
+  }
+
+  .join-page #screen-room-buzzin .buzzin-recording-waveform {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .join-page #screen-room-buzzin .buzzin-recording-waveform span {
+    width: 4px;
+  }
+
+  .join-page #screen-room-buzzin .buzzin-recording-time {
+    font-size: 24px;
+    -webkit-text-stroke-width: 2px;
   }
 }
 
@@ -11314,7 +11467,7 @@ body:has(#app.lango-host) {
   height: 818px;
   flex: 0 0 auto;
   margin: 0;
-  padding: 0;
+  padding: 0 0 210px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -11461,8 +11614,12 @@ body:has(#app.lango-host) {
   opacity: 0.72;
 }
 
+#app.lango-host .section-exercise-panel .exercise-item--mc .exercise-item-main,
 #app.lango-host .section-exercise-panel .exercise-item--video .exercise-item-main,
-#app.lango-host .section-exercise-panel .exercise-item--buzzin .exercise-item-main {
+#app.lango-host .section-exercise-panel .exercise-item--buzzin .exercise-item-main,
+#app.lango-host .section-exercise-panel .exercise-item--fastmc .exercise-item-main,
+#app.lango-host .section-exercise-panel .exercise-item--image-assignment .exercise-item-main,
+#app.lango-host .section-exercise-panel .exercise-item--voice-assignment .exercise-item-main {
   align-items: center;
 }
 
@@ -11472,6 +11629,11 @@ body:has(#app.lango-host) {
   height: 90px;
   margin-right: 12px;
   pointer-events: none;
+}
+
+#app.lango-host .section-exercise-panel .exercise-item--mc .exercise-item-lottie {
+  transform: scale(1.28);
+  transform-origin: center;
 }
 
 #app.lango-host .section-exercise-panel .exercise-item-lottie svg {

@@ -21,7 +21,8 @@
     { id: "finished", label: "Leaderboard" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
     { id: "buzzin-turn", label: "Buzz In — your turn" },
-    { id: "buzzin-wait", label: "Buzz In — waiting turn" },
+    { id: "buzzin-recording", label: "Buzz In — recording" },
+    { id: "buzzin-missed", label: "Buzz In — missed" },
   ];
 
   const SAMPLE = {
@@ -223,19 +224,27 @@
         showBuzzinLayout({
           topic: "Name an animal that lives in the ocean and say why you like it.",
           phase: "turn",
-          rank: 2,
-          status: "You're #2 — tap Record and speak your answer.",
+          status: "You buzzed in — tap Record and speak your answer.",
           showTurn: true,
         });
         break;
 
-      case "buzzin-wait":
+      case "buzzin-recording":
         showBuzzinLayout({
           topic: "Name an animal that lives in the ocean and say why you like it.",
-          phase: "wait",
-          rank: 3,
-          status: "You're #3. Waiting for Casey (#2)…",
-          buzzed: true,
+          phase: "recording",
+          status: "Recording your voice",
+          showTurn: true,
+          recording: true,
+        });
+        break;
+
+      case "buzzin-missed":
+        showBuzzinLayout({
+          topic: "",
+          phase: "missed",
+          cardTitle: "Too late!",
+          status: "Another student buzzed in first. Please watch the teacher's screen.",
         });
         break;
 
@@ -247,16 +256,26 @@
   function showBuzzinLayout({
     topic,
     phase,
+    cardTitle,
     timer,
     btnEnabled,
     status,
-    rank,
     showTurn,
-    buzzed,
+    recording,
   }) {
     showPreviewScreen("room-buzzin");
     $("#room-buzzin-topic").textContent = topic;
     $("#room-buzzin-status").textContent = status;
+    $("#screen-room-buzzin")?.classList.toggle("is-recording", !!recording);
+    $("#screen-room-buzzin")?.classList.toggle("is-missed", phase === "missed");
+    const cardTitleEl = $("#room-buzzin-card-title");
+    if (cardTitleEl) {
+      cardTitleEl.textContent = recording ? "Recording your voice" : cardTitle || "Record your voice";
+    }
+    const recordingPanel = $("#room-buzzin-recording-panel");
+    if (recordingPanel) recordingPanel.hidden = !recording;
+    const recordingTime = $("#room-buzzin-recording-time");
+    if (recordingTime) recordingTime.textContent = "00 : 30 s";
 
     const timerWrap = $("#room-buzzin-timer-wrap");
     const timerEl = $("#room-buzzin-timer");
@@ -275,14 +294,8 @@
 
     const result = $("#room-buzzin-result");
     if (result) {
-      if (buzzed && rank) {
-        result.hidden = false;
-        result.textContent = `You buzzed in #${rank}.`;
-        result.className = "buzzin-result buzzin-result--selected";
-      } else {
-        result.hidden = true;
-        result.textContent = "";
-      }
+      result.hidden = true;
+      result.textContent = "";
     }
 
     const turnArea = $("#room-buzzin-turn");
@@ -292,15 +305,21 @@
 
     if (showTurn && turnArea) {
       turnArea.hidden = false;
-      if (turnStatus) turnStatus.textContent = status;
+      if (turnStatus) {
+        turnStatus.textContent = status;
+        turnStatus.hidden = !!recording;
+      }
       if (recordBtn) {
         recordBtn.hidden = false;
         recordBtn.disabled = false;
+        recordBtn.textContent = recording ? "Stop" : "Record";
+        recordBtn.classList.toggle("is-recording", !!recording);
       }
       if (submitted) submitted.hidden = true;
     } else if (turnArea) {
       turnArea.hidden = true;
       if (recordBtn) recordBtn.hidden = true;
+      if (recordBtn) recordBtn.classList.remove("is-recording");
       if (submitted) submitted.hidden = true;
     }
   }
