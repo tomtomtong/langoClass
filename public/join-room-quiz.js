@@ -462,7 +462,7 @@ function updateStudentBuzzinUi(payload) {
   }
 
   btn.disabled = false;
-  status.textContent = "Tap BUZZ IN — first to buzz wins!";
+  status.textContent = "Tap BUZZ IN — one student can answer!";
   result.hidden = true;
 }
 

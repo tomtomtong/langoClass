@@ -137,6 +137,149 @@ function buzzinFromExercise(exercise) {
   return { topic };
 }
 
+function buzzinSelectedStudent(payload) {
+  return payload?.winners?.[0] || payload?.buzzes?.[0] || null;
+}
+
+function buzzinResponsesForDisplay(payload) {
+  const student = buzzinSelectedStudent(payload);
+  if (!student) return [];
+  return (payload?.responses || [])
+    .filter((response) => response.playerId === student.playerId)
+    .slice(0, 1);
+}
+
+function buzzinCurrentTurnForDisplay(payload) {
+  if (payload?.typingComplete) return null;
+  const student = buzzinSelectedStudent(payload);
+  if (!student) return null;
+  const hasResponse = (payload?.responses || []).some(
+    (response) => response.playerId === student.playerId
+  );
+  return hasResponse ? null : student;
+}
+
+function buzzinAvatarInitials(name) {
+  const parts = String(name || "Student").trim().split(/\s+/).filter(Boolean);
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
+}
+
+function buzzinBuzzElapsedSeconds(buzz, payload) {
+  if (!buzz?.at) return null;
+  const joinSeconds = payload?.joinSeconds || 20;
+  const joinEndsAt = payload?.joinEndsAt;
+  const startAt = joinEndsAt ? joinEndsAt - joinSeconds * 1000 : null;
+  if (!startAt) return null;
+  return Math.max(0, (buzz.at - startAt) / 1000);
+}
+
+function formatBuzzinBuzzTime(seconds) {
+  if (seconds == null || !Number.isFinite(seconds)) return "—";
+  return `${seconds.toFixed(1)}s`;
+}
+
+function buzzinPointsFromAnalysis(analysis, maxPoints = 300) {
+  const cap = Math.max(0, Number(maxPoints) || 0);
+  if (!analysis || cap === 0) return 0;
+  const match = String(analysis).match(/(\d{1,3})\s*points?/i);
+  if (match) return Math.min(cap, parseInt(match[1], 10));
+  return cap;
+}
+
+function splitBuzzinNameLines(name) {
+  const parts = String(name || "Student").trim().split(/\s+/).filter(Boolean);
+  return {
+    line1: parts[0] || "Student",
+    line2: parts.slice(1).join(" "),
+  };
+}
+
+function renderHostBuzzinWinnerCard(container, student, payload, { isLive = false } = {}) {
+  if (!container) return;
+  if (!student) {
+    container.innerHTML = `<p class="host-buzzin-winner-empty">No one buzzed in.</p>`;
+    return;
+  }
+
+  const { line1, line2 } = splitBuzzinNameLines(student.displayName);
+  const buzzTime = formatBuzzinBuzzTime(buzzinBuzzElapsedSeconds(student, payload));
+  const initials = buzzinAvatarInitials(student.displayName);
+
+  container.innerHTML = `<article class="host-buzzin-winner-card${isLive ? " is-live" : ""}">
+    ${isLive ? `<span class="host-buzzin-winner-live"><span class="host-buzzin-winner-live-icon" aria-hidden="true"></span>LIVE</span>` : ""}
+    <span class="host-buzzin-winner-medal" aria-hidden="true">1st</span>
+    <div class="host-buzzin-chat-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
+    <div class="host-buzzin-winner-copy">
+      <p class="host-buzzin-winner-name">${escapeHtml(line1)}${line2 ? `<br />${escapeHtml(line2)}` : ""}</p>
+      <p class="host-buzzin-winner-time">${escapeHtml(buzzTime)}</p>
+    </div>
+  </article>`;
+}
+
+function renderHostBuzzinFeedbackChat(container, {
+  topic = "",
+  student = null,
+  response = null,
+  currentTurn = null,
+  emptyText = "Waiting for answer…",
+} = {}) {
+  if (!container) return;
+
+  const topicText = String(topic || "").trim();
+  const studentName = student?.displayName || currentTurn?.displayName || "Student";
+  const initials = buzzinAvatarInitials(studentName);
+  const isPending = Boolean(currentTurn && !response?.text);
+  const answerText = response?.pending || isPending
+    ? "Speaking…"
+    : String(response?.text || "").trim();
+
+  let feedbackHtml = "";
+  if (response && !response.pending && response.text) {
+    if (response.analysisStatus === "pending") {
+      feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher">
+        <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>Analyzing response…</p></div>
+      </div>`;
+    } else if (response.analysisStatus === "error") {
+      feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher">
+        <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || "Analysis unavailable.")}</p></div>
+      </div>`;
+    } else if (response.analysis) {
+      const replayBtn = response.analysisAudio
+        ? `<button type="button" class="buzzin-analysis-play" data-buzzin-analysis-key="${escapeHtml(buzzinAnalysisAudioKey(response))}">Play feedback</button>`
+        : "";
+      feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher">
+        <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+        <div class="host-buzzin-chat-feedback-group">
+          <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback">
+            <p>${escapeHtml(response.analysis)}</p>
+            ${replayBtn}
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
+  if (!topicText && !student && !answerText) {
+    container.innerHTML = `<p class="host-buzzin-winner-empty">${escapeHtml(emptyText)}</p>`;
+    return;
+  }
+
+  container.innerHTML = `
+    ${topicText ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher">
+      <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--question"><p>${escapeHtml(topicText)}</p></div>
+    </div>` : ""}
+    ${student || currentTurn ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--student">
+      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--answer${isPending ? " host-buzzin-chat-bubble--pending" : ""}">
+        <p>${answerText ? escapeHtml(answerText) : escapeHtml(emptyText)}</p>
+      </div>
+      <div class="host-buzzin-chat-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
+    </div>` : ""}
+    ${feedbackHtml}`;
+}
+
 function renderBuzzinWinnersList(listEl, winners, emptyText) {
   if (!listEl) return;
   listEl.innerHTML = winners.length

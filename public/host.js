@@ -561,7 +561,6 @@ function refreshNextExerciseUi() {
     "btn-host-quiz-next-exercise",
     "btn-host-fast-results-next-exercise",
     "btn-host-video-next-exercise",
-    "btn-host-buzzin-next-exercise",
   ]) {
     const btn = $("#" + id);
     if (!btn) continue;
@@ -717,6 +716,7 @@ function updatePersistentRoomCode(screenId) {
     "host-quiz-finished",
     "host-video",
     "host-buzzin",
+    "host-buzzin-feedback",
   ];
   const roomCode = getVisibleRoomCode();
   const shouldShow = Boolean(roomCode && roomScreenIds.includes(screenId));
@@ -2220,7 +2220,6 @@ async function handleStartNextExercise() {
   const buttons = [
     "#btn-host-quiz-next-exercise",
     "#btn-host-video-next-exercise",
-    "#btn-host-buzzin-next-exercise",
   ];
   for (const sel of buttons) {
     const btn = $(sel);
@@ -2286,7 +2285,7 @@ $("#btn-back-login")?.addEventListener("click", () => {
 });
 
 document.querySelectorAll(
-  "#btn-logout-course, #btn-logout-section, #btn-logout-waiting, #btn-logout-quiz, #btn-logout-results, #btn-logout-finished, #btn-logout-video, #btn-logout-buzzin"
+  "#btn-logout-course, #btn-logout-section, #btn-logout-waiting, #btn-logout-quiz, #btn-logout-results, #btn-logout-finished, #btn-logout-video"
 ).forEach((btn) => btn.addEventListener("click", handleLogout));
 
 $("#btn-back-class").addEventListener("click", () => {
@@ -2343,7 +2342,7 @@ document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
   })
 );
 
-document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin").forEach((btn) =>
+document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin, #btn-back-waiting-buzzin-feedback").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
     finishVideoOrBuzzinExercise();
@@ -2504,17 +2503,17 @@ $("#btn-host-buzzin-done")?.addEventListener("click", () => {
   playPageNextSound();
   backToWaitingFromExercise();
 });
-$("#btn-start-another-video")?.addEventListener("click", () => {
+$("#btn-host-buzzin-feedback-done")?.addEventListener("click", () => {
   playPageNextSound();
-  resetSessionAndGoToJourney();
+  backToWaitingFromExercise();
 });
-$("#btn-start-another-buzzin")?.addEventListener("click", () => {
+$("#btn-start-another-video")?.addEventListener("click", () => {
   playPageNextSound();
   resetSessionAndGoToJourney();
 });
 
 document.querySelectorAll(
-  "#btn-host-quiz-next-exercise, #btn-host-fast-results-next-exercise, #btn-host-video-next-exercise, #btn-host-buzzin-next-exercise"
+  "#btn-host-quiz-next-exercise, #btn-host-fast-results-next-exercise, #btn-host-video-next-exercise"
 ).forEach((btn) => btn.addEventListener("click", () => void handleStartNextExercise()));
 
 $("#login-username").addEventListener("change", () => {

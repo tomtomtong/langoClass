@@ -125,7 +125,7 @@
                 </svg>
               </button>
               <p class="login-error" id="login-error" role="alert"></p>
-              <p class="login-version">Version 2026.06.27.131214.171</p>
+              <p class="login-version">Version 2026.06.27.140752.606</p>
             </div>
           </div>
         </div>
@@ -630,25 +630,7 @@
           </section>
 
           <div class="host-buzzin-prompt" aria-live="polite">Buzz In Now</div>
-
-          <aside class="host-buzzin-activity" id="host-buzzin-activity" hidden>
-            <div class="buzzin-winners-panel">
-              <h3 class="section-heading">First to buzz</h3>
-              <ol id="host-buzzin-winners" class="buzzin-winners"></ol>
-              <p id="host-buzzin-buzz-count" class="hint"></p>
-            </div>
-            <div class="buzzin-turn-panel" id="host-buzzin-turn-panel" hidden>
-              <h3 class="section-heading">Student answers &amp; AI feedback</h3>
-              <p id="host-buzzin-turn-status" class="hint"></p>
-              <ol id="host-buzzin-responses" class="buzzin-responses"></ol>
-            </div>
-            <div class="host-buzzin-actions">
-              <button class="btn secondary" id="btn-host-buzzin-reset" type="button">New buzz round</button>
-              <button class="btn primary large" id="btn-host-buzzin-next-exercise" type="button" hidden>Next exercise</button>
-              <button class="btn secondary" id="btn-start-another-buzzin" type="button">Start another session</button>
-              <button class="btn secondary small" id="btn-logout-buzzin" type="button">Log out</button>
-            </div>
-          </aside>
+          <p class="host-buzzin-join-status hint" id="host-buzzin-join-status" aria-live="polite"></p>
         </main>
       </div>
 
@@ -658,6 +640,59 @@
           <span>Dashboard</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-done">
+          <span>Next</span>
+          <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+        </button>
+      </footer>
+    </section>
+
+    <section id="screen-host-buzzin-feedback" class="screen host-buzzin-feedback-screen">
+      <img class="host-buzzin-bg" src="/assets/course/courseBG.png" alt="" />
+
+      <div class="host-buzzin-feedback-stage">
+        <header class="host-buzzin-feedback-header">
+          <h1 class="host-buzzin-feedback-title">Buzz in question</h1>
+        </header>
+
+        <div class="host-buzzin-feedback-layout">
+          <aside class="host-buzzin-feedback-realtime" aria-label="Real time discussion">
+            <div class="host-buzzin-feedback-realtime-header">
+              <span>Real Time</span>
+            </div>
+            <div class="host-buzzin-feedback-chat" id="host-buzzin-feedback-chat" aria-live="polite"></div>
+          </aside>
+
+          <section class="host-buzzin-feedback-leaderboard" aria-label="Buzz in winner">
+            <div class="host-buzzin-feedback-leaderboard-head">
+              <div class="host-buzzin-feedback-leaderboard-titles">
+                <h2 class="host-buzzin-feedback-leaderboard-title">Fastest Student</h2>
+                <p class="host-buzzin-feedback-leaderboard-sub">Buzz In Winner</p>
+              </div>
+              <div class="host-buzzin-feedback-score-badge" id="host-buzzin-feedback-score" aria-label="Points awarded">
+                <span class="host-buzzin-feedback-score-current" id="host-buzzin-feedback-score-current">0</span>
+                <span class="host-buzzin-feedback-score-sep">/</span>
+                <span class="host-buzzin-feedback-score-total" id="host-buzzin-feedback-score-total">300</span>
+              </div>
+            </div>
+            <div class="host-buzzin-feedback-winner-wrap">
+              <div id="host-buzzin-winner-card"></div>
+            </div>
+          </section>
+        </div>
+
+        <p id="host-buzzin-turn-status" class="host-buzzin-feedback-status visually-hidden" aria-live="polite"></p>
+        <p id="host-buzzin-feedback-topic" class="visually-hidden" aria-hidden="true"></p>
+      </div>
+
+      <footer class="host-buzzin-footer host-buzzin-footer--feedback">
+        <button type="button" class="host-buzzin-footer-btn" id="btn-back-waiting-buzzin-feedback">
+          <img src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--random" id="btn-host-buzzin-random">
+          <span>Random</span>
+        </button>
+        <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-feedback-done">
           <span>Next</span>
           <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
         </button>

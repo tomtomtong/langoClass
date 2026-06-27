@@ -26,7 +26,7 @@
     { id: "leaderboard-overall", label: "Leaderboard — overall" },
     { id: "video", label: "Video exercise" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
-    { id: "buzzin-responses", label: "Buzz In — answers & feedback" },
+    { id: "buzzin-responses", label: "Buzz In — answer & feedback" },
   ];
 
   const SAMPLE = {
@@ -204,34 +204,15 @@
       { name: "Noah Brown", correctAnswers: 2 },
       { name: "Olivia Davis", correctAnswers: 1 },
     ],
-    buzzes: [
-      { rank: 1, displayName: "Sophia Patel", playerId: "p1" },
-      { rank: 2, displayName: "Liam Chen", playerId: "p2" },
-      { rank: 3, displayName: "Ava Williams", playerId: "p3" },
-    ],
+    buzzes: [{ rank: 1, displayName: "Sophia Patel", playerId: "p1", at: Date.now() - 1700 }],
     buzzResponses: [
       {
         rank: 1,
         playerId: "p1",
         displayName: "Sophia Patel",
         text: "I like dolphins because they are smart and playful.",
-        analysis: "Great answer! You used a clear reason and good vocabulary.",
+        analysis: "Great answer, Sophia! I would give you 285 points! 🎉",
         analysisStatus: "done",
-      },
-      {
-        rank: 2,
-        playerId: "p2",
-        displayName: "Liam Chen",
-        text: "Sea turtles are calm and they travel very far in the ocean.",
-        analysis: "Nice detail about migration. Try adding one more descriptive word.",
-        analysisStatus: "done",
-      },
-      {
-        rank: 3,
-        playerId: "p3",
-        displayName: "Ava Williams",
-        text: "",
-        pending: true,
       },
     ],
   };
@@ -509,7 +490,7 @@
 
       case "buzzin-join":
         showHostPreviewScreen("host-buzzin", "quiz");
-        $("#host-buzzin-topic").textContent = SAMPLE.buzzTopic;
+        syncHostBuzzinTopic(SAMPLE.buzzTopic);
         $("#host-buzzin-points").textContent = "300 pts";
         updateHostBuzzinUi({
           phase: "join",
@@ -522,23 +503,20 @@
         break;
 
       case "buzzin-responses":
-        showHostPreviewScreen("host-buzzin", "quiz");
-        $("#host-buzzin-topic").textContent = SAMPLE.buzzTopic;
+        showHostPreviewScreen("host-buzzin-feedback", "quiz");
+        syncHostBuzzinTopic(SAMPLE.buzzTopic);
         $("#host-buzzin-points").textContent = "300 pts";
         updateHostBuzzinUi({
-          phase: "typing",
+          phase: "done",
+          topic: SAMPLE.buzzTopic,
+          joinSeconds: 20,
+          joinEndsAt: Date.now() + 5000,
           totalBuzzes: 1,
-          buzzes: SAMPLE.buzzes.slice(0, 1),
-          winners: SAMPLE.buzzes.slice(0, 1),
+          buzzes: SAMPLE.buzzes,
+          winners: SAMPLE.buzzes,
+          responses: SAMPLE.buzzResponses,
+          typingComplete: true,
         });
-        updateHostBuzzinTurnUi({
-          phase: "typing",
-          buzzes: SAMPLE.buzzes.slice(0, 1),
-          responses: [],
-          currentTurn: SAMPLE.buzzes[0],
-          typingComplete: false,
-        });
-        $("#host-buzzin-activity").hidden = false;
         break;
 
       default:
