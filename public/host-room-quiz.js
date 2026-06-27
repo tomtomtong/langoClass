@@ -102,6 +102,11 @@ function syncHostBuzzinTopic(topic) {
   if (feedbackTopic) feedbackTopic.textContent = text;
 }
 
+function hostBuzzinShowFeedbackPhase(payload) {
+  const phase = payload?.phase || "join";
+  return phase !== "join" || Boolean(buzzinSelectedStudent(payload));
+}
+
 function showHostBuzzinScreenForPhase(phase) {
   const normalized = phase === "join" ? "join" : "feedback";
   if (hostBuzzinActiveScreenPhase === normalized) return;
@@ -153,7 +158,6 @@ function hideHostBuzzinJoinTimer() {
 }
 
 function updateHostBuzzinTurnUi(payload) {
-  const phase = payload.phase || "join";
   const turnStatus = $("#host-buzzin-turn-status");
   const chatEl = $("#host-buzzin-feedback-chat");
   const winnerEl = $("#host-buzzin-winner-card");
@@ -161,7 +165,7 @@ function updateHostBuzzinTurnUi(payload) {
 
   hostBuzzinLastResponses = buzzinResponsesForDisplay(payload);
 
-  if (phase === "join") {
+  if (!hostBuzzinShowFeedbackPhase(payload)) {
     return;
   }
 
@@ -219,26 +223,22 @@ function updateHostBuzzinTurnUi(payload) {
 }
 
 function updateHostBuzzinUi(payload) {
-  const phase = payload.phase || "join";
+  const showFeedback = hostBuzzinShowFeedbackPhase(payload);
   if (payload.topic) syncHostBuzzinTopic(payload.topic);
 
   const joinStatus = $("#host-buzzin-join-status");
   if (joinStatus) {
-    if (phase !== "join") {
-      joinStatus.textContent = "";
-    } else {
-      const winner = buzzinSelectedStudent(payload);
-      joinStatus.textContent = winner
-        ? `${winner.displayName} buzzed in!`
-        : `One student can buzz in — ${payload.joinSecondsRemaining ?? 20}s left`;
-    }
+    joinStatus.textContent = showFeedback
+      ? ""
+      : `One student can buzz in — ${payload.joinSecondsRemaining ?? 20}s left`;
   }
 
-  if (phase === "join") {
-    startHostBuzzinJoinTimer(payload.joinEndsAt);
-  } else {
+  if (showFeedback) {
     hideHostBuzzinJoinTimer();
-    showHostBuzzinScreenForPhase(phase);
+    showHostBuzzinScreenForPhase("feedback");
+  } else {
+    startHostBuzzinJoinTimer(payload.joinEndsAt);
+    showHostBuzzinScreenForPhase("join");
   }
   updateHostBuzzinTurnUi(payload);
 }

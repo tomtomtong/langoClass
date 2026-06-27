@@ -217,6 +217,34 @@ function renderHostBuzzinWinnerCard(container, student, payload, { isLive = fals
   </article>`;
 }
 
+function buzzinTypingIndicatorHtml() {
+  return `<span class="host-buzzin-chat-typing" aria-label="Speaking"><span></span><span></span><span></span></span>`;
+}
+
+function renderHostBuzzinAnswerBubbleContent({ response, currentTurn, emptyText }) {
+  if (response?.pending) {
+    return buzzinTypingIndicatorHtml();
+  }
+
+  const text = String(response?.text || "").trim();
+  if (text) {
+    return `<p>${escapeHtml(text)}</p>`;
+  }
+
+  if (currentTurn) {
+    return `<p>Buzzed in!</p>`;
+  }
+
+  return `<p>${escapeHtml(emptyText)}</p>`;
+}
+
+function scrollHostBuzzinChatToBottom(container) {
+  if (!container) return;
+  requestAnimationFrame(() => {
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  });
+}
+
 function renderHostBuzzinFeedbackChat(container, {
   topic = "",
   student = null,
@@ -230,10 +258,9 @@ function renderHostBuzzinFeedbackChat(container, {
   const topicText = String(topic || "").trim();
   const studentName = student?.displayName || currentTurn?.displayName || "Student";
   const initials = buzzinAvatarInitials(studentName);
-  const isPending = Boolean(currentTurn && !response?.text);
-  const answerText = response?.pending || isPending
-    ? "Speaking…"
-    : String(response?.text || "").trim();
+  const isRecording = Boolean(response?.pending);
+  const isWaitingToAnswer = Boolean(currentTurn && !response?.text && !isRecording);
+  const pendingClass = isRecording || isWaitingToAnswer ? " host-buzzin-chat-bubble--pending" : "";
 
   let feedbackHtml = "";
   if (response && !response.pending && response.text) {
@@ -265,9 +292,8 @@ function renderHostBuzzinFeedbackChat(container, {
 
   const topicEnter = animate.topic ? " host-buzzin-chat-row--enter" : "";
   const answerEnter = animate.answer ? " host-buzzin-chat-row--enter" : "";
-  const pendingClass = isPending ? " host-buzzin-chat-bubble--pending" : "";
 
-  if (!topicText && !student && !answerText) {
+  if (!topicText && !student && !currentTurn) {
     container.innerHTML = `<p class="host-buzzin-winner-empty">${escapeHtml(emptyText)}</p>`;
     return;
   }
@@ -279,11 +305,13 @@ function renderHostBuzzinFeedbackChat(container, {
     </div>` : ""}
     ${student || currentTurn ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--student${answerEnter}">
       <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--answer${pendingClass}">
-        <p>${answerText ? escapeHtml(answerText) : escapeHtml(emptyText)}</p>
+        ${renderHostBuzzinAnswerBubbleContent({ response, currentTurn, emptyText })}
       </div>
       <div class="host-buzzin-chat-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
     </div>` : ""}
     ${feedbackHtml}`;
+
+  scrollHostBuzzinChatToBottom(container);
 }
 
 function renderBuzzinWinnersList(listEl, winners, emptyText) {

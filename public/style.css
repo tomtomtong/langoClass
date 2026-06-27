@@ -9544,6 +9544,7 @@ body:has(#app.lango-host) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  scroll-behavior: smooth;
 }
 
 #app.lango-host .host-buzzin-chat-row {
@@ -9619,8 +9620,44 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .host-buzzin-chat-bubble--pending {
-  font-style: italic;
-  opacity: 0.92;
+  opacity: 0.96;
+}
+
+#app.lango-host .host-buzzin-chat-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+}
+
+#app.lango-host .host-buzzin-chat-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  animation: hostBuzzinTypingDot 1.2s ease-in-out infinite;
+}
+
+#app.lango-host .host-buzzin-chat-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+#app.lango-host .host-buzzin-chat-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes hostBuzzinTypingDot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  35% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
 }
 
 #app.lango-host .host-buzzin-chat-feedback-group {
