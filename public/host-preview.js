@@ -503,7 +503,9 @@
         break;
 
       case "buzzin-responses":
+        resetHostBuzzinFeedbackAnim();
         showHostPreviewScreen("host-buzzin-feedback", "quiz");
+        triggerHostBuzzinFeedbackEnter();
         syncHostBuzzinTopic(SAMPLE.buzzTopic);
         $("#host-buzzin-points").textContent = "300 pts";
         updateHostBuzzinUi({

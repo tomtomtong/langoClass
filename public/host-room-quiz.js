@@ -12,33 +12,86 @@ const hostBuzzinPlayedAnalysisAudio = new Set();
 let hostBuzzinLastResponses = [];
 let hostBuzzinActiveScreenPhase = null;
 let hostBuzzinExercisePoints = 300;
+const hostBuzzinFeedbackAnim = {
+  topic: "",
+  answerKey: "",
+  feedbackKey: "",
+  winnerKey: "",
+  scoreValue: null,
+};
+
+function resetHostBuzzinFeedbackAnim() {
+  hostBuzzinFeedbackAnim.topic = "";
+  hostBuzzinFeedbackAnim.answerKey = "";
+  hostBuzzinFeedbackAnim.feedbackKey = "";
+  hostBuzzinFeedbackAnim.winnerKey = "";
+  hostBuzzinFeedbackAnim.scoreValue = null;
+}
+
+function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, response) {
+  const topic = String(payload?.topic || "").trim();
+  const answerKey = response?.text
+    ? `text:${response.text}`
+    : currentTurn
+      ? "pending"
+      : "";
+  const feedbackKey = response
+    ? `${response.analysisStatus || "none"}:${response.analysis || ""}`
+    : "";
+
+  const flags = {
+    topic: Boolean(topic && topic !== hostBuzzinFeedbackAnim.topic),
+    answer: Boolean(answerKey && answerKey !== hostBuzzinFeedbackAnim.answerKey),
+    feedback: Boolean(feedbackKey && feedbackKey !== hostBuzzinFeedbackAnim.feedbackKey),
+    winner: Boolean(
+      selectedStudent?.playerId &&
+        selectedStudent.playerId !== hostBuzzinFeedbackAnim.winnerKey
+    ),
+  };
+
+  hostBuzzinFeedbackAnim.topic = topic;
+  hostBuzzinFeedbackAnim.answerKey = answerKey;
+  hostBuzzinFeedbackAnim.feedbackKey = feedbackKey;
+  if (selectedStudent?.playerId) {
+    hostBuzzinFeedbackAnim.winnerKey = selectedStudent.playerId;
+  }
+
+  return flags;
+}
 
 function updateHostBuzzinScoreBadge(payload, response) {
   const scoreCurrentEl = $("#host-buzzin-feedback-score-current");
   const scoreTotalEl = $("#host-buzzin-feedback-score-total");
+  const scoreBadge = $("#host-buzzin-feedback-score");
   if (!scoreCurrentEl || !scoreTotalEl) return;
 
   const maxPoints = hostBuzzinExercisePoints || 300;
   scoreTotalEl.textContent = String(maxPoints);
 
-  if (!response?.text || response.pending) {
-    scoreCurrentEl.textContent = "0";
-    return;
+  let nextScore = "0";
+  if (response?.text && !response.pending) {
+    if (response.analysisStatus === "pending") {
+      nextScore = "…";
+    } else if (response.analysisStatus === "error") {
+      nextScore = "0";
+    } else {
+      nextScore = String(buzzinPointsFromAnalysis(response.analysis, maxPoints));
+    }
   }
 
-  if (response.analysisStatus === "pending") {
-    scoreCurrentEl.textContent = "…";
-    return;
-  }
+  scoreCurrentEl.textContent = nextScore;
 
-  if (response.analysisStatus === "error") {
-    scoreCurrentEl.textContent = "0";
-    return;
+  if (
+    scoreBadge &&
+    nextScore !== hostBuzzinFeedbackAnim.scoreValue &&
+    nextScore !== "0" &&
+    nextScore !== "…"
+  ) {
+    scoreBadge.classList.remove("host-buzzin-feedback-score-badge--pop");
+    void scoreBadge.offsetWidth;
+    scoreBadge.classList.add("host-buzzin-feedback-score-badge--pop");
   }
-
-  scoreCurrentEl.textContent = String(
-    buzzinPointsFromAnalysis(response.analysis, maxPoints)
-  );
+  hostBuzzinFeedbackAnim.scoreValue = nextScore;
 }
 
 function syncHostBuzzinTopic(topic) {
@@ -55,6 +108,15 @@ function showHostBuzzinScreenForPhase(phase) {
   hostBuzzinActiveScreenPhase = normalized;
   if (typeof showScreen !== "function") return;
   showScreen(normalized === "join" ? "host-buzzin" : "host-buzzin-feedback");
+  if (normalized === "feedback") triggerHostBuzzinFeedbackEnter();
+}
+
+function triggerHostBuzzinFeedbackEnter() {
+  const screen = $("#screen-host-buzzin-feedback");
+  if (!screen) return;
+  screen.classList.remove("host-buzzin-feedback-screen--enter");
+  void screen.offsetWidth;
+  screen.classList.add("host-buzzin-feedback-screen--enter");
 }
 
 function stopHostBuzzinJoinTimer() {
@@ -110,6 +172,12 @@ function updateHostBuzzinTurnUi(payload) {
   const responses = buzzinResponsesForDisplay(payload);
   const response = responses[0] || null;
   const isLive = Boolean(currentTurn && !payload.typingComplete);
+  const animate = hostBuzzinFeedbackAnimateFlags(
+    payload,
+    selectedStudent,
+    currentTurn,
+    response
+  );
 
   updateHostBuzzinScoreBadge(payload, response);
 
@@ -131,13 +199,21 @@ function updateHostBuzzinTurnUi(payload) {
     if (turnStatus) turnStatus.textContent = `Waiting for ${selectedStudent.displayName} to answer…`;
   }
 
-  renderHostBuzzinWinnerCard(winnerEl, selectedStudent, payload, { isLive });
+  renderHostBuzzinWinnerCard(winnerEl, selectedStudent, payload, {
+    isLive,
+    animate: animate.winner,
+  });
   renderHostBuzzinFeedbackChat(chatEl, {
     topic: payload.topic,
     student: selectedStudent,
     response,
     currentTurn,
     emptyText: "Waiting for answer…",
+    animate: {
+      topic: animate.topic,
+      answer: animate.answer,
+      feedback: animate.feedback,
+    },
   });
   playNewBuzzinAnalysisAudio(responses, hostBuzzinPlayedAnalysisAudio);
 }
@@ -212,6 +288,7 @@ function startHostBuzzinRound(roomId) {
   hostBuzzinPlayedAnalysisAudio.clear();
   hostBuzzinLastResponses = [];
   hostBuzzinActiveScreenPhase = null;
+  resetHostBuzzinFeedbackAnim();
   ensureHostBuzzinSocket();
   hideHostBuzzinJoinTimer();
   showHostBuzzinScreenForPhase("join");
