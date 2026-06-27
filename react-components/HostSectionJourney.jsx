@@ -50,7 +50,7 @@ export default function HostSectionJourney({
       <img className="hostSectionJourney__bg" src="/assets/class/bg.jpg" alt="" />
       <div className="hostSectionJourney__shade" aria-hidden="true" />
 
-      <p className="hostSectionJourney__cornerTitle">Create new journey</p>
+      <p className="hostSectionJourney__cornerTitle">Continue journey</p>
       <p className="hostSectionJourney__course">{courseTitle}</p>
 
       <header className="hostSectionJourney__heading">

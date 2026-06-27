@@ -68,6 +68,10 @@ body {
   top: calc(30px + 96px + 24px);
 }
 
+#app.lango-host:has(#screen-section.active) .host-persistent-room-code {
+  top: 150px;
+}
+
 .host-persistent-room-code__label {
   color: #9333ea;
   font-size: 11px;
@@ -7534,6 +7538,18 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   pointer-events: auto;
 }
 
+.section-exercise-overlay.is-closing {
+  pointer-events: none;
+}
+
+.section-exercise-overlay.is-closing .section-exercise-backdrop {
+  animation: section-backdrop-out 0.26s ease forwards;
+}
+
+.section-exercise-overlay.is-closing .section-exercise-panel {
+  animation: section-panel-slide-out 0.26s ease forwards;
+}
+
 .section-scene--exercises-open .course-page,
 .section-scene--exercises-open .course-toolbar {
   pointer-events: none;
@@ -7581,6 +7597,15 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   }
 }
 
+@keyframes section-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes section-panel-slide-in {
   from {
     opacity: 0;
@@ -7589,6 +7614,17 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes section-panel-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(28px);
   }
 }
 
@@ -9570,13 +9606,35 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-question-box {
-  width: 800px;
-  height: 546px;
-  min-height: 0;
+  width: clamp(560px, 54vw, 800px);
+  height: auto;
+  min-height: 286px;
+  max-height: min(58vh, 546px);
   padding: 36px;
   gap: 12px;
   justify-content: center;
   background: linear-gradient(91.39deg, rgba(177, 25, 128, 0.8) 10.96%, rgba(116, 60, 155, 0.8) 97.2%);
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode.text-short:not(.has-image) .host-mcq-question-box {
+  width: clamp(520px, 44vw, 660px);
+  min-height: 250px;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode.text-medium:not(.has-image) .host-mcq-question-box {
+  width: clamp(620px, 50vw, 760px);
+  min-height: 318px;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode.text-long:not(.has-image) .host-mcq-question-box {
+  width: clamp(700px, 58vw, 880px);
+  min-height: 390px;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode.has-image .host-mcq-question-box {
+  width: clamp(700px, 54vw, 800px);
+  min-height: 500px;
+  max-height: min(62vh, 560px);
 }
 
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-points {
@@ -9597,17 +9655,31 @@ body:has(#app.lango-host) {
   font-size: 30px;
   font-weight: 700;
   line-height: 36px;
+  overflow-wrap: anywhere;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode.text-short:not(.has-image) .host-mcq-question {
+  font-size: clamp(34px, 2.7vw, 46px);
+  line-height: 1.13;
+}
+
+#app.lango-host #screen-host-quiz-question.fast-mode.text-long .host-mcq-question {
+  font-size: clamp(24px, 2vw, 30px);
+  line-height: 1.2;
 }
 
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-image-wrap {
-  width: 448px;
-  height: 283px;
+  width: min(448px, 100%);
+  height: auto;
+  max-height: 283px;
   flex: 0 0 auto;
 }
 
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-image {
-  width: 448px;
-  height: 283px;
+  width: min(448px, 100%);
+  height: auto;
+  max-height: 283px;
+  aspect-ratio: 448 / 283;
   border-radius: 20px;
   object-fit: cover;
 }
@@ -10274,11 +10346,11 @@ body:has(#app.lango-host) {
 
 #app.lango-host .waiting-students-grid {
   width: 100%;
-  padding: 0;
+  padding: 6px 0 0;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 30px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 #app.lango-host .waiting-student {
@@ -10308,8 +10380,11 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .waiting-student-photo {
+  width: 86%;
+  height: 86%;
   border-radius: 999px;
   object-fit: contain;
+  object-position: center bottom;
 }
 
 #app.lango-host .waiting-student.pending {
@@ -10474,7 +10549,7 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .course-panel-header::before {
-  content: "Create new journey";
+  content: "Continue journey";
   position: absolute;
   left: 0;
   top: 0;
@@ -10798,6 +10873,27 @@ body:has(#app.lango-host) {
   height: 36px;
 }
 
+#app.lango-host:has(#screen-section.active) .course-toolbar {
+  width: 430px;
+  height: 88px;
+  top: 992px;
+  padding: 0 24px;
+  border-radius: 0 26px 26px 0;
+}
+
+#app.lango-host:has(#screen-section.active) .course-toolbar-back {
+  min-height: 54px;
+  padding: 10px 16px 15px;
+  gap: 10px;
+  font-size: 24px;
+  line-height: 28px;
+}
+
+#app.lango-host:has(#screen-section.active) .course-toolbar-back .class-back-icon {
+  width: 32px;
+  height: 32px;
+}
+
 #app.lango-host #host-quiz-results-bars {
   display: none !important;
 }
@@ -10830,7 +10926,7 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host #screen-section .course-panel-header::before {
-  content: "Create new journey";
+  content: "Continue journey";
 }
 
 #app.lango-host #screen-section .course-step,
@@ -11037,6 +11133,20 @@ body:has(#app.lango-host) {
   padding: 260px 120px 300px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 110px,
+    #000 calc(100% - 110px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 110px,
+    #000 calc(100% - 110px),
+    transparent 100%
+  );
 }
 
 #app.lango-host .section-road-shell::-webkit-scrollbar {
@@ -11501,6 +11611,14 @@ body:has(#app.lango-host) {
   padding: 0;
   align-items: stretch;
   animation: section-panel-slide-in 260ms ease;
+}
+
+#app.lango-host .section-exercise-overlay.is-closing .section-exercise-backdrop {
+  animation: section-backdrop-out 260ms ease forwards;
+}
+
+#app.lango-host .section-exercise-overlay.is-closing .section-exercise-panel {
+  animation: section-panel-slide-out 260ms ease forwards;
 }
 
 #app.lango-host .section-exercise-panel-card,

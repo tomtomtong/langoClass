@@ -228,7 +228,14 @@ function renderHostQuizPreview(data) {
 function renderHostQuizQuestion(data, { preparing = false, transition = true } = {}) {
   const screen = $("#screen-host-quiz-question");
   const isFastMode = !!data.fastMode;
+  const questionText = data.text || "";
+  const questionImageUrl = resolvedMediaUrl(data.image);
+  const hasQuestionImage = !!questionImageUrl;
   screen?.classList.toggle("fast-mode", isFastMode);
+  screen?.classList.toggle("has-image", hasQuestionImage);
+  screen?.classList.toggle("text-short", questionText.length <= 70);
+  screen?.classList.toggle("text-medium", questionText.length > 70 && questionText.length <= 150);
+  screen?.classList.toggle("text-long", questionText.length > 150);
   showScreen("host-quiz-question", { transition });
   const pct = ((data.questionIndex + 1) / data.totalQuestions) * 100;
   const points = data.points || (data.fastMode ? 500 : 300);
@@ -240,9 +247,9 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
   setQuestionImage(
     $("#host-quiz-question-image"),
     $("#host-quiz-question-image-wrap"),
-    resolvedMediaUrl(data.image)
+    questionImageUrl
   );
-  $("#host-quiz-question-text").textContent = data.text || "";
+  $("#host-quiz-question-text").textContent = questionText;
   renderOptions($("#host-quiz-options"), data.options || [], {
     clickable: false,
     optionLabels: HOST_MCQ_OPTION_LABELS,

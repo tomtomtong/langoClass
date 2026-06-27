@@ -27,7 +27,9 @@ let waitingTimerInterval = null;
 let classSessionCreating = false;
 let exerciseLottieInstances = [];
 let waitingClockLottieInstance = null;
+let sectionExerciseCloseTimer = null;
 const WAITING_TIMER_SECONDS = 300;
+const SECTION_EXERCISE_CLOSE_MS = 260;
 const LOGIN_SCAN_CYCLE_MS = 3600;
 const HOST_SOUND_EFFECTS = {
   loginSuccess: "/assets/soundeffect/login_success.mp3",
@@ -707,6 +709,7 @@ function updatePersistentRoomCode(screenId) {
   if (!card || !value) return;
 
   const roomScreenIds = [
+    "section",
     "host-quiz-preview",
     "host-quiz-question",
     "host-quiz-results",
@@ -854,8 +857,36 @@ function updateSectionProgressCard(sections, selectedId = state.selectedSection?
 function setSectionExercisePanelVisible(visible) {
   const overlay = $("#section-exercise-overlay");
   const scene = document.querySelector("#screen-section .section-scene");
-  if (overlay) overlay.hidden = !visible;
-  if (scene) scene.classList.toggle("section-scene--exercises-open", visible);
+  if (!overlay) {
+    if (scene) scene.classList.toggle("section-scene--exercises-open", visible);
+    return;
+  }
+
+  if (sectionExerciseCloseTimer) {
+    clearTimeout(sectionExerciseCloseTimer);
+    sectionExerciseCloseTimer = null;
+  }
+
+  if (visible) {
+    overlay.hidden = false;
+    overlay.classList.remove("is-closing");
+    if (scene) scene.classList.add("section-scene--exercises-open");
+    return;
+  }
+
+  if (overlay.hidden) {
+    overlay.classList.remove("is-closing");
+    if (scene) scene.classList.remove("section-scene--exercises-open");
+    return;
+  }
+
+  overlay.classList.add("is-closing");
+  if (scene) scene.classList.remove("section-scene--exercises-open");
+  sectionExerciseCloseTimer = setTimeout(() => {
+    overlay.hidden = true;
+    overlay.classList.remove("is-closing");
+    sectionExerciseCloseTimer = null;
+  }, SECTION_EXERCISE_CLOSE_MS);
 }
 
 function closeSectionExercises() {

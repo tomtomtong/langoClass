@@ -103,6 +103,66 @@
           { id: 301, title: "Protect the Ocean", type: "mcquiz", order: 1, items: [{}, {}] },
         ],
       },
+      {
+        id: 4,
+        title: "Tide Pools",
+        order: 4,
+        banner: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=480&h=320&fit=crop",
+        exercises: [
+          { id: 401, title: "Tiny Habitats", type: "video", order: 1, subTitle: "Explore life near the shore.", videoUrl: "" },
+        ],
+      },
+      {
+        id: 5,
+        title: "Ocean Food Chain",
+        order: 5,
+        exercises: [
+          { id: 501, title: "Who Eats What?", type: "mcquiz", order: 1, subTitle: "Choose the right food chain.", items: [{}, {}, {}] },
+        ],
+      },
+      {
+        id: 6,
+        title: "Sea Creatures",
+        order: 6,
+        banner: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=480&h=320&fit=crop",
+        exercises: [
+          { id: 601, title: "Creature Buzz", type: "buzzin", order: 1, subTitle: "Name a creature and describe it." },
+        ],
+      },
+      {
+        id: 7,
+        title: "Ocean Sounds",
+        order: 7,
+        exercises: [
+          { id: 701, title: "Listen and Speak", type: "voiceassignment", order: 1, subTitle: "Practice ocean vocabulary." },
+        ],
+      },
+      {
+        id: 8,
+        title: "Ships and Navigation",
+        order: 8,
+        banner: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=480&h=320&fit=crop",
+        exercises: [
+          { id: 801, title: "Map the Route", type: "imageassignment", order: 1, subTitle: "Match images to directions." },
+        ],
+      },
+      {
+        id: 9,
+        title: "Blue Planet Review",
+        order: 9,
+        exercises: [
+          { id: 901, title: "Speed Review", type: "fastmcquiz", order: 1, subTitle: "Quick review challenge.", items: [{}, {}, {}, {}] },
+        ],
+      },
+      {
+        id: 10,
+        title: "Ocean Mission",
+        order: 10,
+        banner: "https://images.unsplash.com/photo-1439405326854-014607f694d7?w=480&h=320&fit=crop",
+        exercises: [
+          { id: 1001, title: "Final Mission", type: "mcquiz", order: 1, subTitle: "Complete the journey.", items: [{}, {}, {}, {}] },
+        ],
+      },
     ],
     participants: [
       { id: "p1", userId: "s1", displayName: "Sophia Patel" },
