@@ -1,5 +1,19 @@
 /** Host waiting room — live updates via Socket.IO. */
 let hostSessionSocket = null;
+let hostSessionRoomId = null;
+
+function emitHostSessionJoin(socket, roomId, { resolve, reject } = {}) {
+  socket.emit("host_session", { roomId }, (res) => {
+    if (!res?.ok) {
+      reject?.(new Error(res?.error || "Could not connect to waiting room."));
+      return;
+    }
+    if (typeof renderParticipants === "function") {
+      renderParticipants(res.participants || []);
+    }
+    resolve?.(res);
+  });
+}
 
 function getHostSessionSocket() {
   if (!hostSessionSocket) {
@@ -12,23 +26,21 @@ function getHostSessionSocket() {
     hostSessionSocket.on("session_ended", ({ reason }) => {
       $("#waiting-error").textContent = reason || "Session ended.";
     });
+    hostSessionSocket.io.on("reconnect", () => {
+      if (!hostSessionRoomId) return;
+      emitHostSessionJoin(hostSessionSocket, hostSessionRoomId);
+    });
   }
   return hostSessionSocket;
 }
 
 function connectHostSession(roomId) {
+  hostSessionRoomId = normalizePin(roomId) || String(roomId || "").trim();
   const socket = getHostSessionSocket();
 
   return new Promise((resolve, reject) => {
     const attach = () => {
-      socket.emit("host_session", { roomId }, (res) => {
-        if (!res?.ok) {
-          reject(new Error(res?.error || "Could not connect to waiting room."));
-          return;
-        }
-        renderParticipants(res.participants || []);
-        resolve(res);
-      });
+      emitHostSessionJoin(socket, hostSessionRoomId, { resolve, reject });
     };
 
     if (socket.connected) attach();
@@ -90,6 +102,7 @@ function startNextExerciseViaSocket(roomId, exercise, course) {
 }
 
 function disconnectHostSession() {
+  hostSessionRoomId = null;
   if (hostSessionSocket) {
     hostSessionSocket.disconnect();
     hostSessionSocket = null;

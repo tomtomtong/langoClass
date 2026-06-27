@@ -2331,6 +2331,7 @@ io.on("connection", (socket) => {
     const topic = buzzinTopicFromExercise(session.exercise);
     const round = createBuzzInRound(pin, topic);
     const payload = buzzInPublicPayload(round);
+    socket.join(pin);
     io.to(pin).emit("buzzin_round_started", payload);
     callback?.({ ok: true, ...payload });
   });
