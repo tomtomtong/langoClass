@@ -27,6 +27,8 @@ const ENV_PUBLIC_BASE_URL = (
 ).replace(/\/$/, "");
 const ENV_INWORLD_API_KEY = String(process.env.INWORLD_API_KEY || "").trim();
 const ENV_INWORLD_LLM_MODEL = String(process.env.INWORLD_LLM_MODEL || "auto").trim();
+const ENV_INWORLD_STT_MODEL = String(process.env.INWORLD_STT_MODEL || "inworld/inworld-stt-1").trim();
+const ENV_INWORLD_STT_LANGUAGE = String(process.env.INWORLD_STT_LANGUAGE || "en").trim();
 const ENV_QWEN_API_KEY = String(process.env.QWEN_API_KEY || "").trim();
 const ENV_QWEN_MODEL = String(process.env.QWEN_MODEL || "qwen-plus").trim();
 const ENV_OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
@@ -65,6 +67,16 @@ function getInworldApiKey() {
 function getInworldLlmModel() {
   const saved = settingsStore.readSettings().inworldLlmModel;
   return saved || ENV_INWORLD_LLM_MODEL || "auto";
+}
+
+function getInworldSttModel() {
+  const saved = settingsStore.readSettings().inworldSttModel;
+  return saved || ENV_INWORLD_STT_MODEL || "inworld/inworld-stt-1";
+}
+
+function getInworldSttLanguage() {
+  const saved = settingsStore.readSettings().inworldSttLanguage;
+  return saved || ENV_INWORLD_STT_LANGUAGE || "en";
 }
 
 function getQwenApiKey() {
@@ -369,6 +381,70 @@ function openRouterErrorMessage(data, status) {
     parts.push(`code: ${data.error.code}`);
   }
   return parts.join(" — ") || `OpenRouter API returned ${status}.`;
+}
+
+function inworldSttAudioEncoding(format) {
+  const normalized = String(format || "wav").trim().toLowerCase().replace(/^\./, "");
+  const map = {
+    wav: "AUTO_DETECT",
+    webm: "AUTO_DETECT",
+    mp3: "MP3",
+    m4a: "MP3",
+    ogg: "OGG_OPUS",
+    flac: "FLAC",
+  };
+  return map[normalized] || "AUTO_DETECT";
+}
+
+async function transcribeBuzzinAudioWithInworld(audioBase64, format, apiKeyOverride) {
+  const apiKey = String(apiKeyOverride || getInworldApiKey() || "").trim();
+  if (!apiKey) {
+    throw new Error("Inworld is not configured. Add an API key in Config.");
+  }
+
+  const modelId = getInworldSttModel();
+  const language = getInworldSttLanguage();
+  const { audioFormat, base64Data } = parseBuzzinAudioPayload(audioBase64, format);
+  const audioEncoding = inworldSttAudioEncoding(audioFormat);
+
+  const res = await fetch(`${INWORLD_API_BASE}/stt/v1/transcribe`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      transcribeConfig: {
+        modelId,
+        audioEncoding,
+        language,
+      },
+      audioData: {
+        content: base64Data,
+      },
+    }),
+  });
+
+  const data = await parseInworldResponse(res);
+  if (!res.ok) {
+    throw new Error(`Transcription (${modelId}): ${inworldErrorMessage(data, res.status)}`);
+  }
+
+  const text = data?.transcription?.transcript?.trim?.() || "";
+  if (!text) {
+    throw new Error("Could not transcribe your recording. Try again.");
+  }
+  return text;
+}
+
+async function transcribeBuzzinAudio(audioBase64, format) {
+  if (getInworldApiKey()) {
+    return transcribeBuzzinAudioWithInworld(audioBase64, format);
+  }
+  if (getOpenRouterApiKey()) {
+    return transcribeBuzzinAudioWithOpenRouter(audioBase64, format);
+  }
+  throw new Error("Inworld is not configured. Add an API key in Config.");
 }
 
 async function transcribeBuzzinAudioWithOpenRouter(audioBase64, format) {
@@ -1273,6 +1349,12 @@ function buildConfigResponse() {
     inworldLlmModelSaved: settings.inworldLlmModel || "",
     inworldLlmModelEnvDefault: ENV_INWORLD_LLM_MODEL,
     effectiveInworldLlmModel,
+    inworldSttModelSaved: settings.inworldSttModel || "",
+    inworldSttModelEnvDefault: ENV_INWORLD_STT_MODEL,
+    effectiveInworldSttModel: getInworldSttModel(),
+    inworldSttLanguageSaved: settings.inworldSttLanguage || "",
+    inworldSttLanguageEnvDefault: ENV_INWORLD_STT_LANGUAGE,
+    effectiveInworldSttLanguage: getInworldSttLanguage(),
     qwenApiKeySaved: !!settings.qwenApiKey,
     qwenEnvDefaultConfigured: !!ENV_QWEN_API_KEY,
     qwenApiKeyConfigured: !!getQwenApiKey(),
@@ -1362,6 +1444,25 @@ async function testInworldTts(apiKey) {
   };
 }
 
+async function testInworldStt(apiKey) {
+  const modelId = getInworldSttModel();
+  const language = getInworldSttLanguage();
+  const started = Date.now();
+  const tts = await inworldTtsSynthesize(apiKey, "Buzz In speech to text test.");
+  const transcript = await transcribeBuzzinAudioWithInworld(
+    tts.audioContent,
+    tts.format,
+    apiKey
+  );
+  return {
+    ok: true,
+    modelId,
+    language,
+    latencyMs: Date.now() - started,
+    transcript: transcript.slice(0, 200),
+  };
+}
+
 async function inworldLlmComplete(apiKey, model, messages, maxTokens = 256) {
   const llmModel = String(model || "auto").trim() || "auto";
   const res = await fetch(`${INWORLD_API_BASE}/v1/chat/completions`, {
@@ -1410,9 +1511,10 @@ async function testInworldApiKey(apiKey, llmModel) {
   }
 
   const started = Date.now();
-  const [tts, llm] = await Promise.all([
+  const [tts, llm, stt] = await Promise.all([
     testInworldTts(key),
     testInworldLlm(key, llmModel),
+    testInworldStt(key),
   ]);
 
   return {
@@ -1420,6 +1522,7 @@ async function testInworldApiKey(apiKey, llmModel) {
     latencyMs: Date.now() - started,
     tts,
     llm,
+    stt,
   };
 }
 
@@ -1545,6 +1648,8 @@ app.put("/api/config", async (req, res) => {
     publicBaseUrl,
     inworldApiKey,
     inworldLlmModel,
+    inworldSttModel,
+    inworldSttLanguage,
     qwenApiKey,
     qwenModel,
     openrouterApiKey,
@@ -1569,6 +1674,14 @@ app.put("/api/config", async (req, res) => {
 
   if (inworldLlmModel !== undefined) {
     updates.inworldLlmModel = String(inworldLlmModel || "").trim();
+  }
+
+  if (inworldSttModel !== undefined) {
+    updates.inworldSttModel = String(inworldSttModel || "").trim();
+  }
+
+  if (inworldSttLanguage !== undefined) {
+    updates.inworldSttLanguage = String(inworldSttLanguage || "").trim();
   }
 
   if (qwenApiKey !== undefined) {
@@ -2410,7 +2523,7 @@ io.on("connection", (socket) => {
     }
 
     try {
-      const text = await transcribeBuzzinAudioWithOpenRouter(audioBase64, format);
+      const text = await transcribeBuzzinAudio(audioBase64, format);
       callback?.({ ok: true, text });
     } catch (err) {
       callback?.({ ok: false, error: err.message || "Transcription failed." });
@@ -2444,7 +2557,7 @@ io.on("connection", (socket) => {
     let trimmed = String(text || "").trim();
     if (!trimmed && audioBase64) {
       try {
-        trimmed = await transcribeBuzzinAudioWithOpenRouter(audioBase64, format);
+        trimmed = await transcribeBuzzinAudio(audioBase64, format);
       } catch (err) {
         callback?.({ ok: false, error: err.message || "Transcription failed." });
         return;

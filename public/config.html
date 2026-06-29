@@ -85,8 +85,8 @@
         <p class="hint">
           Paste the <strong>Basic (Base64)</strong> credential from
           <a href="https://platform.inworld.ai/api-keys" target="_blank" rel="noopener">Inworld Portal</a>.
-          The key is stored on this server and used for Buzz In AI feedback (LLM + TTS voice
-          <code>uncle_tommy</code>).
+          The key is stored on this server and used for Buzz In: speech-to-text, AI feedback (LLM),
+          and TTS voice <code>uncle_tommy</code>.
         </p>
 
         <label class="field">
@@ -136,12 +136,60 @@
           <p><strong>Environment default:</strong> <span id="config-inworld-llm-env-default">—</span></p>
         </div>
 
+        <label class="field">
+          <span>STT model</span>
+          <input
+            type="text"
+            id="config-inworld-stt-model"
+            list="config-inworld-stt-models"
+            placeholder="inworld/inworld-stt-1"
+            autocomplete="off"
+          />
+          <datalist id="config-inworld-stt-models">
+            <option value="inworld/inworld-stt-1"></option>
+            <option value="groq/whisper-large-v3"></option>
+          </datalist>
+          <p class="hint">
+            Buzz In speech-to-text model. Default is <code>inworld/inworld-stt-1</code> (30 languages).
+          </p>
+        </label>
+
+        <label class="field">
+          <span>STT language hint</span>
+          <input
+            type="text"
+            id="config-inworld-stt-language"
+            list="config-inworld-stt-languages"
+            placeholder="en"
+            autocomplete="off"
+          />
+          <datalist id="config-inworld-stt-languages">
+            <option value="en"></option>
+            <option value="yue"></option>
+            <option value="zh"></option>
+            <option value="ja"></option>
+            <option value="ko"></option>
+          </datalist>
+          <p class="hint">
+            ISO 639 language code (e.g. <code>en</code>, <code>yue</code>). Biases recognition; the model may still auto-detect.
+          </p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Active STT model:</strong> <span id="config-inworld-stt-model-effective">—</span></p>
+          <p><strong>STT model env default:</strong> <span id="config-inworld-stt-model-env-default">—</span></p>
+          <p><strong>Active STT language:</strong> <span id="config-inworld-stt-language-effective">—</span></p>
+          <p><strong>STT language env default:</strong> <span id="config-inworld-stt-language-env-default">—</span></p>
+        </div>
+
         <div class="config-actions">
           <button type="button" class="btn primary" id="btn-config-save-inworld">Save key</button>
-          <button type="button" class="btn primary" id="btn-config-save-inworld-model">Save model</button>
+          <button type="button" class="btn primary" id="btn-config-save-inworld-model">Save LLM model</button>
+          <button type="button" class="btn primary" id="btn-config-save-inworld-stt">Save STT settings</button>
           <button type="button" class="btn secondary" id="btn-config-test-inworld">Test API</button>
           <button type="button" class="btn secondary" id="btn-config-clear-inworld">Clear saved key</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-inworld-model">Reset model to env default</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-inworld-model">Reset LLM model to env default</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-inworld-stt">Reset STT settings to env default</button>
         </div>
 
         <div class="config-preview config-inworld-test-preview" id="config-inworld-test-wrap" hidden>
@@ -224,12 +272,12 @@
       </div>
 
       <div class="cms-panel config-panel config-section-spaced">
-        <h2>OpenRouter (Buzz In transcription)</h2>
+        <h2>OpenRouter (standalone transcribe tool)</h2>
         <p class="hint">
           Paste your OpenRouter API key from
           <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>.
-          Used to transcribe student voice answers in Buzz In exercises via
-          <code>xiaomi/mimo-v2.5</code>.
+          Used by the standalone <a href="/transcribe.html">Transcribe</a> page only.
+          Buzz In uses Inworld STT when an Inworld key is configured; OpenRouter is a fallback if not.
         </p>
 
         <label class="field">
@@ -252,19 +300,20 @@
         </div>
 
         <label class="field">
-          <span>Buzz In transcription model</span>
+          <span>Transcription model</span>
           <input
             type="text"
             id="config-openrouter-buzzin-model"
             list="config-openrouter-buzzin-models"
-            placeholder="xiaomi/mimo-v2.5"
+            placeholder="mistralai/voxtral-small-24b-2507"
             autocomplete="off"
           />
           <datalist id="config-openrouter-buzzin-models">
+            <option value="mistralai/voxtral-small-24b-2507"></option>
             <option value="xiaomi/mimo-v2.5"></option>
           </datalist>
           <p class="hint">
-            OpenRouter model slug for speech-to-text. Default is <code>xiaomi/mimo-v2.5</code>.
+            OpenRouter model slug for the standalone transcribe page and Buzz In fallback.
           </p>
         </label>
 

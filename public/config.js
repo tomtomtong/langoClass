@@ -129,6 +129,13 @@ function renderConfig(data) {
   $("#config-inworld-llm-effective").textContent = data.effectiveInworldLlmModel || "—";
   $("#config-inworld-llm-env-default").textContent = data.inworldLlmModelEnvDefault || "—";
 
+  $("#config-inworld-stt-model").value = data.inworldSttModelSaved || "";
+  $("#config-inworld-stt-model-effective").textContent = data.effectiveInworldSttModel || "—";
+  $("#config-inworld-stt-model-env-default").textContent = data.inworldSttModelEnvDefault || "—";
+  $("#config-inworld-stt-language").value = data.inworldSttLanguageSaved || "";
+  $("#config-inworld-stt-language-effective").textContent = data.effectiveInworldSttLanguage || "—";
+  $("#config-inworld-stt-language-env-default").textContent = data.inworldSttLanguageEnvDefault || "—";
+
   const qwenConfigured = !!data.qwenApiKeyConfigured;
   const qwenSaved = !!data.qwenApiKeySaved;
   $("#config-qwen-status-label").textContent = qwenConfigured ? "Configured" : "Not configured";
@@ -208,7 +215,29 @@ async function saveInworldLlmModel(inworldLlmModel) {
     renderConfig(data);
     $("#config-inworld-save-status").textContent = inworldLlmModel
       ? `LLM model saved: ${data.effectiveInworldLlmModel}`
-      : "Saved model cleared. Using environment default.";
+      : "Saved LLM model cleared. Using environment default.";
+  } catch (err) {
+    $("#config-inworld-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveInworldSttSettings(inworldSttModel, inworldSttLanguage) {
+  $("#config-inworld-error").textContent = "";
+  $("#config-inworld-save-status").textContent = "";
+  clearInworldTestResult();
+
+  const btn = $("#btn-config-save-inworld-stt");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { inworldSttModel, inworldSttLanguage },
+    });
+    renderConfig(data);
+    $("#config-inworld-save-status").textContent =
+      `STT settings saved: ${data.effectiveInworldSttModel} (${data.effectiveInworldSttLanguage})`;
   } catch (err) {
     $("#config-inworld-error").textContent = err.message;
   } finally {
@@ -261,8 +290,9 @@ async function testInworldKey() {
     $("#config-inworld-test-result").textContent = JSON.stringify(data, null, 2);
     const ttsMs = data.tts?.latencyMs ?? "—";
     const llmMs = data.llm?.latencyMs ?? "—";
+    const sttMs = data.stt?.latencyMs ?? "—";
     $("#config-inworld-save-status").textContent =
-      `API test succeeded (TTS ${ttsMs} ms, LLM ${llmMs} ms).`;
+      `API test succeeded (TTS ${ttsMs} ms, STT ${sttMs} ms, LLM ${llmMs} ms).`;
   } catch (err) {
     $("#config-inworld-error").textContent = err.message;
   } finally {
@@ -558,6 +588,12 @@ async function init() {
   $("#btn-config-save-inworld-model").addEventListener("click", () => {
     saveInworldLlmModel($("#config-inworld-llm-model").value.trim());
   });
+  $("#btn-config-save-inworld-stt").addEventListener("click", () => {
+    saveInworldSttSettings(
+      $("#config-inworld-stt-model").value.trim(),
+      $("#config-inworld-stt-language").value.trim()
+    );
+  });
   $("#btn-config-test-inworld").addEventListener("click", testInworldKey);
   $("#btn-config-clear-inworld").addEventListener("click", () => {
     $("#config-inworld-key").value = "";
@@ -566,6 +602,11 @@ async function init() {
   $("#btn-config-reset-inworld-model").addEventListener("click", () => {
     $("#config-inworld-llm-model").value = "";
     saveInworldLlmModel("");
+  });
+  $("#btn-config-reset-inworld-stt").addEventListener("click", () => {
+    $("#config-inworld-stt-model").value = "";
+    $("#config-inworld-stt-language").value = "";
+    saveInworldSttSettings("", "");
   });
   $("#btn-config-save-qwen").addEventListener("click", () => {
     saveQwenKey($("#config-qwen-key").value.trim());
