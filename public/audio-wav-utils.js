@@ -1,4 +1,51 @@
-/** Convert browser MediaRecorder blobs (webm/ogg/m4a) to WAV for APIs that require mp3/wav. */
+/** Convert browser MediaRecorder blobs (webm/ogg/m4a) to 16 kHz mono WAV for STT APIs. */
+
+const STT_TARGET_SAMPLE_RATE = 16000;
+
+function audioBufferToMonoFloat32(audioBuffer) {
+  const channels = audioBuffer.numberOfChannels;
+  const length = audioBuffer.length;
+  if (channels === 1) {
+    return audioBuffer.getChannelData(0).slice();
+  }
+
+  const mono = new Float32Array(length);
+  for (let ch = 0; ch < channels; ch += 1) {
+    const data = audioBuffer.getChannelData(ch);
+    for (let i = 0; i < length; i += 1) {
+      mono[i] += data[i] / channels;
+    }
+  }
+  return mono;
+}
+
+function resampleMonoFloat32(input, inputRate, outputRate) {
+  if (inputRate === outputRate) return input;
+  const ratio = inputRate / outputRate;
+  const outLength = Math.max(1, Math.round(input.length / ratio));
+  const output = new Float32Array(outLength);
+  for (let i = 0; i < outLength; i += 1) {
+    const srcIndex = i * ratio;
+    const idx = Math.floor(srcIndex);
+    const frac = srcIndex - idx;
+    const s0 = input[idx] ?? 0;
+    const s1 = input[idx + 1] ?? s0;
+    output[i] = s0 + (s1 - s0) * frac;
+  }
+  return output;
+}
+
+function float32MonoToAudioBuffer(audioContext, samples, sampleRate) {
+  const buffer = audioContext.createBuffer(1, samples.length, sampleRate);
+  buffer.copyToChannel(samples, 0);
+  return buffer;
+}
+
+function prepareAudioBufferForStt(audioBuffer, audioContext, sampleRate = STT_TARGET_SAMPLE_RATE) {
+  const mono = audioBufferToMonoFloat32(audioBuffer);
+  const resampled = resampleMonoFloat32(mono, audioBuffer.sampleRate, sampleRate);
+  return float32MonoToAudioBuffer(audioContext, resampled, sampleRate);
+}
 
 function audioBufferToWavArrayBuffer(audioBuffer) {
   const numChannels = audioBuffer.numberOfChannels;
@@ -48,7 +95,7 @@ function audioBufferToWavArrayBuffer(audioBuffer) {
   return buffer;
 }
 
-async function blobToWavBlob(blob) {
+async function blobToWavBlob(blob, { sampleRate = STT_TARGET_SAMPLE_RATE } = {}) {
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextCtor) {
     throw new Error("This browser cannot convert audio to WAV.");
@@ -57,8 +104,9 @@ async function blobToWavBlob(blob) {
   const audioContext = new AudioContextCtor();
   try {
     const arrayBuffer = await blob.arrayBuffer();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-    const wavBuffer = audioBufferToWavArrayBuffer(audioBuffer);
+    const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const prepared = prepareAudioBufferForStt(decoded, audioContext, sampleRate);
+    const wavBuffer = audioBufferToWavArrayBuffer(prepared);
     return new Blob([wavBuffer], { type: "audio/wav" });
   } finally {
     await audioContext.close();

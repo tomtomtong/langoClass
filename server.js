@@ -236,11 +236,31 @@ const BUZZIN_WINNER_COUNT = 1;
 const BUZZIN_JOIN_SECONDS = 20;
 const BUZZIN_RESPONSE_MAX_LEN = 500;
 const BUZZIN_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
+const BUZZIN_STT_SAMPLE_RATE = 16000;
 
 /** @type {Map<string, BuzzInRound>} */
 const buzzInRounds = new Map();
 
-/** @typedef {{ roundId: number, phase: 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, analysis: string | null, analysisStatus: 'pending' | 'done' | 'error', analysisAudio: string | null, analysisAudioFormat: string | null }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
+/** @typedef {{ roundId: number, phase: 'ready' | 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, sttLanguage: string, buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, analysis: string | null, analysisStatus: 'pending' | 'done' | 'error', analysisAudio: string | null, analysisAudioFormat: string | null }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
+
+function normalizeBuzzinSttLanguage(value, fallback) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .split("-")[0];
+  if (/^[a-z]{2,3}$/.test(normalized)) return normalized;
+  const nextFallback = String(fallback || getInworldSttLanguage() || "en")
+    .trim()
+    .toLowerCase()
+    .split("-")[0];
+  return /^[a-z]{2,3}$/.test(nextFallback) ? nextFallback : "en";
+}
+
+function buzzinSttLanguageFromExercise(exercise) {
+  if (!exercise) return getInworldSttLanguage();
+  const item = Array.isArray(exercise.items) ? exercise.items[0] || {} : {};
+  return normalizeBuzzinSttLanguage(item.sttLanguage, getInworldSttLanguage());
+}
 
 function buzzinTopicFromExercise(exercise) {
   if (!exercise) return "";
@@ -385,8 +405,8 @@ function openRouterErrorMessage(data, status) {
 
 function inworldSttAudioEncoding(format) {
   const normalized = String(format || "wav").trim().toLowerCase().replace(/^\./, "");
+  if (normalized === "wav") return "LINEAR16";
   const map = {
-    wav: "AUTO_DETECT",
     webm: "AUTO_DETECT",
     mp3: "MP3",
     m4a: "MP3",
@@ -396,16 +416,29 @@ function inworldSttAudioEncoding(format) {
   return map[normalized] || "AUTO_DETECT";
 }
 
-async function transcribeBuzzinAudioWithInworld(audioBase64, format, apiKeyOverride) {
+function inworldSttTranscribeConfig(modelId, audioFormat, language) {
+  const audioEncoding = inworldSttAudioEncoding(audioFormat);
+  const config = {
+    modelId,
+    audioEncoding,
+    language: normalizeBuzzinSttLanguage(language),
+  };
+  if (audioEncoding === "LINEAR16") {
+    config.sampleRateHertz = BUZZIN_STT_SAMPLE_RATE;
+    config.numberOfChannels = 1;
+  }
+  return config;
+}
+
+async function transcribeBuzzinAudioWithInworld(audioBase64, format, apiKeyOverride, languageOverride) {
   const apiKey = String(apiKeyOverride || getInworldApiKey() || "").trim();
   if (!apiKey) {
     throw new Error("Inworld is not configured. Add an API key in Config.");
   }
 
   const modelId = getInworldSttModel();
-  const language = getInworldSttLanguage();
+  const language = normalizeBuzzinSttLanguage(languageOverride, getInworldSttLanguage());
   const { audioFormat, base64Data } = parseBuzzinAudioPayload(audioBase64, format);
-  const audioEncoding = inworldSttAudioEncoding(audioFormat);
 
   const res = await fetch(`${INWORLD_API_BASE}/stt/v1/transcribe`, {
     method: "POST",
@@ -414,11 +447,7 @@ async function transcribeBuzzinAudioWithInworld(audioBase64, format, apiKeyOverr
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      transcribeConfig: {
-        modelId,
-        audioEncoding,
-        language,
-      },
+      transcribeConfig: inworldSttTranscribeConfig(modelId, audioFormat, language),
       audioData: {
         content: base64Data,
       },
@@ -437,9 +466,12 @@ async function transcribeBuzzinAudioWithInworld(audioBase64, format, apiKeyOverr
   return text;
 }
 
-async function transcribeBuzzinAudio(audioBase64, format) {
+async function transcribeBuzzinAudio(audioBase64, format, { pin, language } = {}) {
+  const roundLanguage = pin ? buzzInRounds.get(pin)?.sttLanguage : "";
+  const resolvedLanguage = normalizeBuzzinSttLanguage(language || roundLanguage, getInworldSttLanguage());
+
   if (getInworldApiKey()) {
-    return transcribeBuzzinAudioWithInworld(audioBase64, format);
+    return transcribeBuzzinAudioWithInworld(audioBase64, format, undefined, resolvedLanguage);
   }
   if (getOpenRouterApiKey()) {
     return transcribeBuzzinAudioWithOpenRouter(audioBase64, format);
@@ -648,24 +680,36 @@ function advanceBuzzInTurn(pin) {
   broadcastBuzzInUpdate(pin);
 }
 
-function createBuzzInRound(pin, topic = "") {
+function createBuzzInRound(pin, topic = "", sttLanguage = "") {
   const existing = buzzInRounds.get(pin);
   if (existing) clearBuzzInJoinTimer(existing);
 
-  const joinEndsAt = Date.now() + BUZZIN_JOIN_SECONDS * 1000;
   const round = {
     roundId: Date.now(),
-    phase: "join",
-    status: "open",
+    phase: "ready",
+    status: "closed",
     topic: String(topic || "").trim(),
+    sttLanguage: normalizeBuzzinSttLanguage(sttLanguage, getInworldSttLanguage()),
     buzzes: [],
     responses: [],
     turnIndex: 0,
-    joinEndsAt,
-    joinTimer: setTimeout(() => closeBuzzInJoinWindow(pin), BUZZIN_JOIN_SECONDS * 1000),
+    joinEndsAt: 0,
+    joinTimer: null,
   };
   buzzInRounds.set(pin, round);
   return round;
+}
+
+function openBuzzInJoinWindow(pin) {
+  const round = buzzInRounds.get(pin);
+  if (!round || round.phase !== "ready") return false;
+
+  const joinEndsAt = Date.now() + BUZZIN_JOIN_SECONDS * 1000;
+  round.phase = "join";
+  round.status = "open";
+  round.joinEndsAt = joinEndsAt;
+  round.joinTimer = setTimeout(() => closeBuzzInJoinWindow(pin), BUZZIN_JOIN_SECONDS * 1000);
+  return true;
 }
 
 function clearBuzzInRound(pin) {
@@ -2442,10 +2486,39 @@ io.on("connection", (socket) => {
     }
 
     const topic = buzzinTopicFromExercise(session.exercise);
-    const round = createBuzzInRound(pin, topic);
+    const sttLanguage = buzzinSttLanguageFromExercise(session.exercise);
+    const round = createBuzzInRound(pin, topic, sttLanguage);
     const payload = buzzInPublicPayload(round);
     socket.join(pin);
     io.to(pin).emit("buzzin_round_started", payload);
+    callback?.({ ok: true, ...payload });
+  });
+
+  socket.on("open_buzzin_join", ({ roomId }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can open the buzz-in window." });
+      return;
+    }
+
+    const round = buzzInRounds.get(pin);
+    if (!round) {
+      callback?.({ ok: false, error: "Buzz-in round not prepared." });
+      return;
+    }
+    if (round.phase !== "ready") {
+      callback?.({ ok: false, error: "Buzz in already started." });
+      return;
+    }
+
+    if (!openBuzzInJoinWindow(pin)) {
+      callback?.({ ok: false, error: "Could not open buzz in." });
+      return;
+    }
+
+    const payload = buzzInPublicPayload(round);
+    io.to(pin).emit("buzzin_join_opened", payload);
     callback?.({ ok: true, ...payload });
   });
 
@@ -2523,7 +2596,7 @@ io.on("connection", (socket) => {
     }
 
     try {
-      const text = await transcribeBuzzinAudio(audioBase64, format);
+      const text = await transcribeBuzzinAudio(audioBase64, format, { pin: meta.pin });
       callback?.({ ok: true, text });
     } catch (err) {
       callback?.({ ok: false, error: err.message || "Transcription failed." });
@@ -2557,7 +2630,7 @@ io.on("connection", (socket) => {
     let trimmed = String(text || "").trim();
     if (!trimmed && audioBase64) {
       try {
-        trimmed = await transcribeBuzzinAudio(audioBase64, format);
+        trimmed = await transcribeBuzzinAudio(audioBase64, format, { pin: meta.pin });
       } catch (err) {
         callback?.({ ok: false, error: err.message || "Transcription failed." });
         return;

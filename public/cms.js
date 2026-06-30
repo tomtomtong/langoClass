@@ -1079,15 +1079,30 @@ function renderBuzzinBody(container, exercise) {
   const item = exercise.items?.[0] || {};
   const topic =
     item.topic || collectBuzzinQuestions(exercise)[0] || item.title || exercise.title || "";
+  const sttLanguage = String(item.sttLanguage || "").trim().toLowerCase();
   container.innerHTML = `
     <label class="field">
       <span>Topic</span>
       <input type="text" class="cms-buzzin-topic" value="${escapeHtml(topic)}" placeholder="What should students discuss?" />
+    </label>
+    <label class="field">
+      <span>Speech language</span>
+      <select class="cms-buzzin-stt-language">
+        <option value=""${sttLanguage ? "" : " selected"}>Server default</option>
+        <option value="en"${sttLanguage === "en" ? " selected" : ""}>English (en)</option>
+        <option value="yue"${sttLanguage === "yue" ? " selected" : ""}>Cantonese (yue)</option>
+        <option value="zh"${sttLanguage === "zh" ? " selected" : ""}>Chinese (zh)</option>
+        <option value="ja"${sttLanguage === "ja" ? " selected" : ""}>Japanese (ja)</option>
+        <option value="ko"${sttLanguage === "ko" ? " selected" : ""}>Korean (ko)</option>
+      </select>
+      <p class="hint">STT language hint for this Buzz In. Leave as server default unless students answer in another language.</p>
     </label>`;
 
   container._collectItems = () => {
     const nextTopic = container.querySelector(".cms-buzzin-topic")?.value.trim() || "";
-    return nextTopic ? [{ topic: nextTopic }] : [];
+    const nextLanguage = container.querySelector(".cms-buzzin-stt-language")?.value.trim() || "";
+    if (!nextTopic) return [];
+    return [{ topic: nextTopic, ...(nextLanguage ? { sttLanguage: nextLanguage } : {}) }];
   };
 }
 

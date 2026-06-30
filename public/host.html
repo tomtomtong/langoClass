@@ -11,16 +11,29 @@
 </head>
 <body>
   <div id="app" class="lango-host">
-    <button
-      type="button"
-      class="host-sound-mute-btn"
-      id="btn-host-mute"
-      aria-label="Mute sound"
-      aria-pressed="false"
-      title="Mute sound"
-    >
-      <span class="host-sound-mute-icon" aria-hidden="true"></span>
-    </button>
+    <div class="host-sound-controls" id="host-sound-controls">
+      <button
+        type="button"
+        class="host-sound-mute-btn"
+        id="btn-host-mute"
+        aria-label="Sound settings"
+        aria-expanded="false"
+        aria-haspopup="true"
+        title="Sound settings"
+      >
+        <span class="host-sound-mute-icon" aria-hidden="true"></span>
+      </button>
+      <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true">
+        <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
+          <span class="host-sound-menu-label">Background Music</span>
+          <span class="host-sound-menu-state" id="host-bgm-state">On</span>
+        </button>
+        <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
+          <span class="host-sound-menu-label">Sound Effects</span>
+          <span class="host-sound-menu-state" id="host-effects-state">On</span>
+        </button>
+      </div>
+    </div>
 
     <div class="host-persistent-room-code" id="host-persistent-room-code" aria-label="Room code" aria-hidden="true">
       <p class="host-persistent-room-code__label">Room Code</p>
@@ -125,7 +138,7 @@
                 </svg>
               </button>
               <p class="login-error" id="login-error" role="alert"></p>
-              <p class="login-version">Version 2026.06.29.164455.603</p>
+              <p class="login-version">Version 2026.06.30.111832.011</p>
             </div>
           </div>
         </div>
@@ -638,6 +651,9 @@
         <button type="button" class="host-buzzin-footer-btn" id="btn-back-waiting-buzzin">
           <img src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
           <span>Dashboard</span>
+        </button>
+        <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--start" id="btn-host-buzzin-start" hidden>
+          <span>Start Buzz</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-done">
           <span>Next</span>

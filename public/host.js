@@ -54,7 +54,9 @@ let hostBgmAudio = null;
 let hostBgmLastTrack = "";
 let hostBgmStarted = false;
 let hostBgmFadeFrame = null;
-let hostSoundMuted = false;
+let hostBgmMuted = false;
+let hostSoundEffectsMuted = false;
+let hostSoundMenuOpen = false;
 
 function isImageAssignmentExercise(exercise) {
   return normalizeExerciseType(exercise?.type) === "imageassignment";
@@ -82,7 +84,7 @@ function waitForLoginScanCycle(startedAt) {
 }
 
 function playHostSound(src, { volume = 1 } = {}) {
-  if (!src || hostSoundMuted) return;
+  if (!src || hostSoundEffectsMuted) return;
   let audio = hostSoundBank.get(src);
   if (!audio) {
     audio = new Audio(src);
@@ -102,7 +104,7 @@ function playHostSound(src, { volume = 1 } = {}) {
 
 function playHostSoundAwait(src, { volume = 1 } = {}) {
   return new Promise((resolve) => {
-    if (!src || hostSoundMuted) {
+    if (!src || hostSoundEffectsMuted) {
       resolve();
       return;
     }
@@ -149,7 +151,7 @@ function playNextHostBgm() {
 }
 
 function startHostBgm() {
-  if (hostSoundMuted || hostBgmStarted) return;
+  if (hostBgmMuted || hostBgmStarted) return;
   if (!hostBgmAudio) {
     hostBgmAudio = new Audio();
     hostBgmAudio.volume = HOST_BGM_VOLUME;
@@ -208,7 +210,7 @@ function fadeOutHostBgm() {
 }
 
 function fadeInHostBgm() {
-  if (hostSoundMuted) return;
+  if (hostBgmMuted) return;
   if (!hostBgmAudio) startHostBgm();
   if (!hostBgmAudio) return;
 
@@ -222,35 +224,136 @@ function setupHostBgm({ autostart = true } = {}) {
   };
   document.addEventListener("pointerdown", startFromGesture);
   document.addEventListener("keydown", startFromGesture);
-  if (autostart && !hostSoundMuted) startHostBgm();
+  if (autostart && !hostBgmMuted) startHostBgm();
 }
 
-function updateHostMuteButton() {
-  const btn = $("#btn-host-mute");
-  if (!btn) return;
-  btn.classList.toggle("is-muted", hostSoundMuted);
-  btn.setAttribute("aria-pressed", hostSoundMuted ? "true" : "false");
-  const label = hostSoundMuted ? "Unmute sound" : "Mute sound";
-  btn.setAttribute("aria-label", label);
-  btn.title = label;
-}
-
-function setHostSoundMuted(muted) {
-  hostSoundMuted = Boolean(muted);
-  updateHostMuteButton();
-  if (hostSoundMuted) {
+function setHostBgmMuted(muted) {
+  hostBgmMuted = Boolean(muted);
+  if (hostBgmMuted) {
     fadeOutHostBgm();
   } else {
     fadeInHostBgm();
   }
+}
+
+function setHostSoundEffectsMuted(muted) {
+  hostSoundEffectsMuted = Boolean(muted);
+}
+
+function updateHostSoundControls() {
+  const btn = $("#btn-host-mute");
+  const bgmState = $("#host-bgm-state");
+  const effectsState = $("#host-effects-state");
+  const bgmBtn = $("#btn-host-toggle-bgm");
+  const effectsBtn = $("#btn-host-toggle-effects");
+
+  if (btn) {
+    const bothMuted = hostBgmMuted && hostSoundEffectsMuted;
+    const anyMuted = hostBgmMuted || hostSoundEffectsMuted;
+    btn.classList.toggle("is-muted", bothMuted);
+    btn.classList.toggle("is-partial-muted", anyMuted && !bothMuted);
+    btn.setAttribute("aria-expanded", hostSoundMenuOpen ? "true" : "false");
+    const label = bothMuted ? "Sound settings (all muted)" : "Sound settings";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+  }
+
+  if (bgmState) {
+    bgmState.textContent = hostBgmMuted ? "Muted" : "On";
+  }
+  if (effectsState) {
+    effectsState.textContent = hostSoundEffectsMuted ? "Muted" : "On";
+  }
+  if (bgmBtn) {
+    bgmBtn.classList.toggle("is-muted", hostBgmMuted);
+    bgmBtn.setAttribute("aria-pressed", hostBgmMuted ? "true" : "false");
+  }
+  if (effectsBtn) {
+    effectsBtn.classList.toggle("is-muted", hostSoundEffectsMuted);
+    effectsBtn.setAttribute("aria-pressed", hostSoundEffectsMuted ? "true" : "false");
+  }
+
+  const wrap = $("#host-sound-controls");
+  const menu = $("#host-sound-menu");
+
+  if (wrap) wrap.classList.toggle("is-menu-open", hostSoundMenuOpen);
+  if (menu) menu.setAttribute("aria-hidden", hostSoundMenuOpen ? "false" : "true");
+}
+
+function openHostSoundMenu() {
+  hostSoundMenuOpen = true;
+  updateHostSoundControls();
+}
+
+function closeHostSoundMenu() {
+  hostSoundMenuOpen = false;
+  updateHostSoundControls();
+}
+
+function toggleHostSoundMenu() {
+  if (hostSoundMenuOpen) closeHostSoundMenu();
+  else openHostSoundMenu();
+}
+
+function setHostBgmMutedPersisted(muted) {
+  setHostBgmMuted(muted);
+  updateHostSoundControls();
+  savePrefs();
+}
+
+function setHostSoundEffectsMutedPersisted(muted) {
+  setHostSoundEffectsMuted(muted);
+  updateHostSoundControls();
+  savePrefs();
+}
+
+function updateHostMuteButton() {
+  updateHostSoundControls();
+}
+
+function setHostSoundMuted(muted) {
+  const shouldMute = Boolean(muted);
+  setHostBgmMuted(shouldMute);
+  setHostSoundEffectsMuted(shouldMute);
+  updateHostSoundControls();
   savePrefs();
 }
 
 function setupHostMuteButton() {
   const btn = $("#btn-host-mute");
-  if (!btn) return;
-  btn.addEventListener("click", () => {
-    setHostSoundMuted(!hostSoundMuted);
+  const bgmBtn = $("#btn-host-toggle-bgm");
+  const effectsBtn = $("#btn-host-toggle-effects");
+  const wrap = $("#host-sound-controls");
+
+  if (btn) {
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleHostSoundMenu();
+    });
+  }
+
+  if (bgmBtn) {
+    bgmBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setHostBgmMutedPersisted(!hostBgmMuted);
+    });
+  }
+
+  if (effectsBtn) {
+    effectsBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setHostSoundEffectsMutedPersisted(!hostSoundEffectsMuted);
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (!hostSoundMenuOpen) return;
+    if (wrap?.contains(event.target)) return;
+    closeHostSoundMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && hostSoundMenuOpen) closeHostSoundMenu();
   });
 }
 
@@ -315,7 +418,7 @@ function playExerciseCountdownVideo() {
     };
 
     video.currentTime = 0;
-    video.muted = hostSoundMuted;
+    video.muted = hostSoundEffectsMuted;
     layer.classList.add("is-playing");
     video.addEventListener("ended", finish, { once: true });
     video.addEventListener("error", finish, { once: true });
@@ -349,7 +452,12 @@ function loadPrefs() {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data.loginUsername) state.loginUsername = data.loginUsername;
-    if (typeof data.soundMuted === "boolean") hostSoundMuted = data.soundMuted;
+    if (typeof data.soundMuted === "boolean") {
+      hostBgmMuted = data.soundMuted;
+      hostSoundEffectsMuted = data.soundMuted;
+    }
+    if (typeof data.bgmMuted === "boolean") hostBgmMuted = data.bgmMuted;
+    if (typeof data.soundEffectsMuted === "boolean") hostSoundEffectsMuted = data.soundEffectsMuted;
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
@@ -370,7 +478,9 @@ function savePrefs() {
       loginUsername: state.loginUsername,
       token: state.token,
       user: state.user,
-      soundMuted: hostSoundMuted,
+      bgmMuted: hostBgmMuted,
+      soundEffectsMuted: hostSoundEffectsMuted,
+      soundMuted: hostBgmMuted && hostSoundEffectsMuted,
     })
   );
 }
@@ -1921,6 +2031,34 @@ function updateWaitingStudentCount(connected, totalOverride) {
   if (totalEl) totalEl.textContent = String(total);
 }
 
+function updateWaitingGridLayout(slotCount) {
+  const panel = document.querySelector(".waiting-students-panel");
+  if (!panel) return;
+
+  const count = Math.max(1, Number(slotCount) || 1);
+  const columns = 6;
+  const rows = Math.ceil(count / columns);
+  const maxAvatar = 112;
+  const minAvatar = 52;
+  const gapMax = 30;
+  const gapMin = 10;
+  const nameLine = 26;
+  const gridMaxHeight = 380;
+
+  let avatar = Math.floor((gridMaxHeight - (rows - 1) * gapMax - rows * nameLine) / rows);
+  avatar = Math.max(minAvatar, Math.min(maxAvatar, avatar));
+
+  const gap = Math.max(gapMin, Math.min(gapMax, Math.round(avatar * 0.27)));
+  const nameSize = Math.max(14, Math.min(22, Math.round(avatar * 0.2)));
+  const photoPadding = Math.max(6, Math.round(avatar * 0.11));
+
+  panel.style.setProperty("--waiting-grid-cols", String(columns));
+  panel.style.setProperty("--waiting-avatar-size", `${avatar}px`);
+  panel.style.setProperty("--waiting-avatar-padding", `${photoPadding}px`);
+  panel.style.setProperty("--waiting-grid-gap", `${gap}px`);
+  panel.style.setProperty("--waiting-name-size", `${nameSize}px`);
+}
+
 function renderParticipants(participants) {
   const list = $("#waiting-participants");
   const statusEl = $("#waiting-participant-status");
@@ -1928,8 +2066,11 @@ function renderParticipants(participants) {
 
   if (!list) return;
 
+  let displaySlots = 0;
+
   if (roster.length) {
     const connectedCount = countConnectedRosterStudents(participants, roster);
+    displaySlots = roster.length;
     updateWaitingStudentCount(connectedCount, roster.length);
 
     list.innerHTML = roster
@@ -1944,6 +2085,7 @@ function renderParticipants(participants) {
     const connected = participants.length;
     const total = Math.max(state.waitingTotalTarget || 0, connected, 1);
     const pendingCount = Math.max(0, total - connected);
+    displaySlots = total;
 
     updateWaitingStudentCount(connected);
 
@@ -1959,6 +2101,8 @@ function renderParticipants(participants) {
 
     list.innerHTML = connectedMarkup + pendingMarkup;
   }
+
+  updateWaitingGridLayout(displaySlots);
 
   if (statusEl) {
     const connected = roster.length
@@ -2003,6 +2147,7 @@ function renderNotificationStats(apiResponse) {
         : 0;
 
   updateWaitingStudentCount(0, roster.length || state.waitingTotalTarget || 0);
+  updateWaitingGridLayout(roster.length || state.waitingTotalTarget || 1);
 }
 
 function updateWaitingStartButton() {
@@ -2037,6 +2182,7 @@ async function showWaitingRoom() {
   await refreshWaitingClassRoster();
   const roster = getWaitingClassRoster();
   updateWaitingStudentCount(0, roster.length || state.waitingTotalTarget || 0);
+  updateWaitingGridLayout(roster.length || state.waitingTotalTarget || 1);
   updateWaitingStartButton();
   startWaitingTimer();
   goTo("waiting", "waiting");
@@ -2525,7 +2671,7 @@ loadPrefs();
 applyLoginUsernameToForm();
 setupHostMuteButton();
 updateHostMuteButton();
-setupHostBgm({ autostart: !hostSoundMuted });
+setupHostBgm({ autostart: !hostBgmMuted });
 initPersistentRoomCodeSync();
 if (state.token && state.user) savePrefs();
 

@@ -15,6 +15,33 @@ let roomBuzzinRecordStream = null;
 let roomBuzzinRecordTimer = null;
 let roomBuzzinRecordEndsAt = 0;
 const ROOM_BUZZIN_MAX_RECORD_MS = 30000;
+const ROOM_BUZZIN_AUDIO_CONSTRAINTS = {
+  channelCount: 1,
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  sampleRate: 16000,
+};
+
+async function getRoomBuzzinAudioStream() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error("Microphone recording is not supported in this browser.");
+  }
+
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: ROOM_BUZZIN_AUDIO_CONSTRAINTS,
+    });
+  } catch {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+  }
+}
 
 function formatRoomBuzzinRecordTime(ms) {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -169,13 +196,9 @@ function blobToBase64(blob) {
 }
 
 async function startRoomBuzzinRecording() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error("Microphone recording is not supported in this browser.");
-  }
-
   resetRoomBuzzinRecordingUi();
   setRoomBuzzinMissedMode(false);
-  roomBuzzinRecordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  roomBuzzinRecordStream = await getRoomBuzzinAudioStream();
   roomBuzzinAudioChunks = [];
   roomBuzzinRecordedBlob = null;
 
@@ -357,7 +380,7 @@ function updateStudentBuzzinTurnUi(payload) {
     currentTurn?.playerId === playerId ||
     (!currentTurn && firstBuzz?.playerId === playerId);
 
-  if (phase === "join") {
+  if (phase === "ready" || phase === "join") {
     resetRoomBuzzinTurnUi();
     return;
   }
@@ -417,7 +440,17 @@ function updateStudentBuzzinUi(payload) {
   const isMyAnswerTurn =
     currentTurn?.playerId === playerId ||
     (!currentTurn && firstBuzz?.playerId === playerId);
-  const joinClosed = phase !== "join";
+  const joinClosed = phase !== "join" && phase !== "ready";
+
+  if (phase === "ready") {
+    btn.hidden = false;
+    btn.disabled = true;
+    hideRoomBuzzinJoinTimer();
+    resetRoomBuzzinTurnUi();
+    status.textContent = "Waiting for teacher to start…";
+    result.hidden = true;
+    return;
+  }
 
   if (phase === "join") {
     btn.hidden = false;
@@ -479,7 +512,7 @@ function resetStudentBuzzinUi() {
   }
   const title = $("#room-buzzin-card-title");
   if (title) title.textContent = "Record your voice";
-  if (status) status.textContent = "Get ready to buzz in…";
+  if (status) status.textContent = "Waiting for teacher to start…";
   if (result) {
     result.hidden = true;
     result.textContent = "";
@@ -496,6 +529,11 @@ function ensureRoomBuzzinSocket() {
   socket.on("buzzin_round_started", (payload) => {
     roomBuzzinRoundId = payload.roundId;
     resetStudentBuzzinUi();
+    updateStudentBuzzinUi(payload);
+  });
+
+  socket.on("buzzin_join_opened", (payload) => {
+    if (payload.roundId != null) roomBuzzinRoundId = payload.roundId;
     updateStudentBuzzinUi(payload);
   });
 

@@ -25,6 +25,7 @@
     { id: "leaderboard", label: "Leaderboard — session" },
     { id: "leaderboard-overall", label: "Leaderboard — overall" },
     { id: "video", label: "Video exercise" },
+    { id: "buzzin-ready", label: "Buzz In — waiting to start" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
     { id: "buzzin-responses", label: "Buzz In — answer & feedback" },
   ];
@@ -486,6 +487,19 @@
         $("#screen-host-video")?.classList.add("has-subtitle");
         $("#screen-host-video")?.classList.remove("has-video");
         showHostPreviewScreen("host-video", "quiz");
+        break;
+
+      case "buzzin-ready":
+        showHostPreviewScreen("host-buzzin", "quiz");
+        syncHostBuzzinTopic(SAMPLE.buzzTopic);
+        $("#host-buzzin-points").textContent = "300 pts";
+        updateHostBuzzinUi({
+          phase: "ready",
+          topic: SAMPLE.buzzTopic,
+          joinSeconds: 20,
+          totalBuzzes: 0,
+          buzzes: [],
+        });
         break;
 
       case "buzzin-join":

@@ -9175,11 +9175,15 @@ body:has(#app.lango-host) {
   contain: layout paint size;
 }
 
-#app.lango-host .host-sound-mute-btn {
+#app.lango-host .host-sound-controls {
   position: absolute;
   top: 24px;
   right: 24px;
   z-index: 120;
+}
+
+#app.lango-host .host-sound-mute-btn {
+  position: relative;
   width: 52px;
   height: 52px;
   border: 0;
@@ -9195,6 +9199,22 @@ body:has(#app.lango-host) {
     inset 0 0 0 3px rgba(255, 255, 255, 0.5),
     0 5px 0 rgba(0, 0, 0, 0.18),
     0 2px 1px rgba(0, 0, 0, 0.25);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+#app.lango-host .host-sound-controls.is-menu-open .host-sound-mute-btn {
+  transform: scale(1.06);
+  box-shadow:
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 7px 0 rgba(0, 0, 0, 0.16),
+    0 4px 12px rgba(255, 159, 67, 0.35);
+}
+
+#app.lango-host .host-sound-mute-btn.is-partial-muted {
+  background: linear-gradient(180deg, #fbbf77 0%, #f59a5a 100%);
 }
 
 #app.lango-host .host-sound-mute-btn:active {
@@ -9204,6 +9224,135 @@ body:has(#app.lango-host) {
     inset 0 0 0 3px rgba(255, 255, 255, 0.5),
     0 3px 0 rgba(0, 0, 0, 0.18),
     0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-sound-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 220px;
+  padding: 10px;
+  border-radius: 18px;
+  border: 3px solid rgba(162, 89, 255, 0.45);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.7) inset,
+    0 10px 28px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transform-origin: top right;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px) scale(0.94);
+  pointer-events: none;
+  transition:
+    opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 240ms;
+}
+
+#app.lango-host .host-sound-controls.is-menu-open .host-sound-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+#app.lango-host .host-sound-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(236, 72, 153, 0.08);
+  color: #1f2937;
+  cursor: pointer;
+  font-family: "DM Sans", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition-delay: 0ms;
+  transition:
+    background 160ms ease,
+    opacity 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#app.lango-host .host-sound-controls.is-menu-open .host-sound-menu-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#app.lango-host .host-sound-controls.is-menu-open .host-sound-menu-item:nth-child(1) {
+  transition-delay: 60ms;
+}
+
+#app.lango-host .host-sound-controls.is-menu-open .host-sound-menu-item:nth-child(2) {
+  transition-delay: 110ms;
+}
+
+#app.lango-host .host-sound-menu-item:hover {
+  background: rgba(236, 72, 153, 0.14);
+}
+
+#app.lango-host .host-sound-menu-item.is-muted {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+#app.lango-host .host-sound-menu-label {
+  flex: 1;
+  min-width: 0;
+}
+
+#app.lango-host .host-sound-menu-state {
+  flex-shrink: 0;
+  min-width: 52px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(180deg, #34d399 0%, #10b981 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+
+#app.lango-host .host-sound-menu-item.is-muted .host-sound-menu-state {
+  background: linear-gradient(180deg, #f87171 0%, #ef4444 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app.lango-host .host-sound-mute-btn,
+  #app.lango-host .host-sound-menu,
+  #app.lango-host .host-sound-menu-item {
+    transition: none;
+  }
+
+  #app.lango-host .host-sound-controls.is-menu-open .host-sound-mute-btn {
+    transform: none;
+  }
+
+  #app.lango-host .host-sound-menu {
+    opacity: 1;
+    visibility: hidden;
+    transform: none;
+  }
+
+  #app.lango-host .host-sound-controls.is-menu-open .host-sound-menu {
+    visibility: visible;
+  }
+
+  #app.lango-host .host-sound-menu-item {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 #app.lango-host .host-sound-mute-icon {
@@ -10111,6 +10260,11 @@ body:has(#app.lango-host) {
   background: linear-gradient(180deg, #ff4346 0%, #fe57c9 100%);
 }
 
+#app.lango-host .host-buzzin-footer-btn--start {
+  background: linear-gradient(180deg, #15c4f8 0%, #45c937 100%);
+  min-width: 9rem;
+}
+
 #app.lango-host .host-buzzin-footer-icon--next {
   transform: rotate(180deg);
 }
@@ -10940,22 +11094,34 @@ body:has(#app.lango-host) {
 #app.lango-host .waiting-students-grid {
   width: 100%;
   padding: 6px 0 0;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 30px;
-  overflow: visible;
+  grid-template-columns: repeat(var(--waiting-grid-cols, 6), minmax(0, 1fr));
+  grid-auto-rows: auto;
+  gap: var(--waiting-grid-gap, 30px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+  min-height: 0;
+  justify-items: center;
 }
 
 #app.lango-host .waiting-student {
   gap: 12px;
   justify-content: center;
+  min-width: 0;
+  min-height: 0;
 }
 
 #app.lango-host .waiting-student-avatar {
-  width: 112px;
-  height: 112px;
-  padding: 12px;
+  width: var(--waiting-avatar-size, 112px);
+  height: var(--waiting-avatar-size, 112px);
+  max-width: 100%;
+  padding: var(--waiting-avatar-padding, 12px);
   border: 4px solid #96e5dd;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.65), #5da7ff);
   box-shadow: none;
   transition: transform 180ms ease, box-shadow 180ms ease;
@@ -10977,7 +11143,9 @@ body:has(#app.lango-host) {
   height: 86%;
   border-radius: 999px;
   object-fit: contain;
-  object-position: center bottom;
+  object-position: center center;
+  display: block;
+  margin: 0;
 }
 
 #app.lango-host .waiting-student.pending {
@@ -10986,11 +11154,15 @@ body:has(#app.lango-host) {
 
 #app.lango-host .waiting-student-name {
   font-family: "DM Sans", sans-serif;
-  font-size: 22px;
+  font-size: var(--waiting-name-size, 22px);
   font-weight: 500;
   line-height: 1.18;
   color: #000;
-  white-space: normal;
+  max-width: var(--waiting-avatar-size, 112px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 }
 
 #app.lango-host .waiting-footer {

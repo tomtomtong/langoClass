@@ -105,7 +105,8 @@ function syncHostBuzzinTopic(topic) {
 
 function hostBuzzinShowFeedbackPhase(payload) {
   const phase = payload?.phase || "join";
-  return phase !== "join" || Boolean(buzzinSelectedStudent(payload));
+  if (phase === "ready" || phase === "join") return false;
+  return true;
 }
 
 function showHostBuzzinScreenForPhase(phase, { force = false } = {}) {
@@ -225,11 +226,37 @@ function updateHostBuzzinTurnUi(payload) {
   playNewBuzzinAnalysisAudio(responses, hostBuzzinPlayedAnalysisAudio);
 }
 
+function setHostBuzzinPrompt(text) {
+  const prompt = document.querySelector("#screen-host-buzzin .host-buzzin-prompt");
+  if (prompt) prompt.textContent = text;
+}
+
+function setHostBuzzinStartButtonVisible(visible) {
+  const startBtn = $("#btn-host-buzzin-start");
+  if (!startBtn) return;
+  startBtn.hidden = !visible;
+  startBtn.disabled = !visible;
+}
+
 function updateHostBuzzinUi(payload) {
+  const phase = payload.phase || "join";
   const showFeedback = hostBuzzinShowFeedbackPhase(payload);
   if (payload.topic) syncHostBuzzinTopic(payload.topic);
 
   const joinStatus = $("#host-buzzin-join-status");
+
+  if (phase === "ready") {
+    hideHostBuzzinJoinTimer();
+    setHostBuzzinStartButtonVisible(true);
+    setHostBuzzinPrompt("Get ready");
+    if (joinStatus) joinStatus.textContent = "Tap Start Buzz when students are ready.";
+    showHostBuzzinScreenForPhase("join", { force: true });
+    updateHostBuzzinTurnUi(payload);
+    return;
+  }
+
+  setHostBuzzinStartButtonVisible(false);
+
   if (joinStatus) {
     joinStatus.textContent = showFeedback
       ? ""
@@ -238,8 +265,10 @@ function updateHostBuzzinUi(payload) {
 
   if (showFeedback) {
     hideHostBuzzinJoinTimer();
+    setHostBuzzinPrompt("Buzz In Now");
     showHostBuzzinScreenForPhase("feedback", { force: true });
   } else {
+    setHostBuzzinPrompt("Buzz In Now");
     startHostBuzzinJoinTimer(payload.joinEndsAt);
     showHostBuzzinScreenForPhase("join");
   }
@@ -256,6 +285,7 @@ function bindHostBuzzinSocketHandlers(socket) {
   };
 
   socket.on("buzzin_round_started", applyBuzzinPayload);
+  socket.on("buzzin_join_opened", applyBuzzinPayload);
   socket.on("buzzin_update", applyBuzzinPayload);
   socket.on("buzzin_join_closed", applyBuzzinPayload);
   socket.on("buzzin_response_analyzed", applyBuzzinPayload);
@@ -292,10 +322,12 @@ function startHostBuzzinRound(roomId) {
   resetHostBuzzinFeedbackAnim();
   ensureHostBuzzinSocket();
   hideHostBuzzinJoinTimer();
+  setHostBuzzinStartButtonVisible(true);
+  setHostBuzzinPrompt("Get ready");
   showHostBuzzinScreenForPhase("join", { force: true });
 
   const joinStatus = $("#host-buzzin-join-status");
-  if (joinStatus) joinStatus.textContent = "One student can buzz in — 20 seconds.";
+  if (joinStatus) joinStatus.textContent = "Tap Start Buzz when students are ready.";
 
   const socket = getHostSessionSocket();
 
@@ -312,7 +344,7 @@ function startHostBuzzinRound(roomId) {
 
       socket.emit("start_buzzin_round", { roomId }, (res) => {
         if (!res?.ok) {
-          reject(new Error(res?.error || "Could not start buzz-in round."));
+          reject(new Error(res?.error || "Could not prepare buzz-in round."));
           return;
         }
         updateHostBuzzinUi(res);
@@ -322,6 +354,40 @@ function startHostBuzzinRound(roomId) {
 
     if (socket.connected) void run();
     else socket.once("connect", () => void run());
+  });
+}
+
+async function openHostBuzzinJoin() {
+  if (!hostBuzzinRoomId) return;
+
+  const socket = getHostSessionSocket();
+  const startBtn = $("#btn-host-buzzin-start");
+  const joinStatus = $("#host-buzzin-join-status");
+  if (startBtn) startBtn.disabled = true;
+  if (joinStatus) joinStatus.textContent = "Starting…";
+
+  if (typeof playExerciseCountdownVideo === "function") {
+    await playExerciseCountdownVideo();
+  }
+
+  if (!socket.connected) {
+    await new Promise((resolve, reject) => {
+      socket.once("connect", resolve);
+      socket.once("connect_error", () => reject(new Error("Could not connect to room.")));
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    socket.emit("open_buzzin_join", { roomId: hostBuzzinRoomId }, (res) => {
+      if (!res?.ok) {
+        if (startBtn) startBtn.disabled = false;
+        if (joinStatus) joinStatus.textContent = res?.error || "Could not start buzz in.";
+        reject(new Error(res?.error || "Could not start buzz in."));
+        return;
+      }
+      updateHostBuzzinUi(res);
+      resolve();
+    });
   });
 }
 
@@ -862,6 +928,13 @@ function initHostRoomQuizUi() {
   $("#btn-host-quiz-next")?.addEventListener("click", () => {
     if (typeof playPageNextSound === "function") playPageNextSound();
     getRoomQuizSocket().emit("next_question");
+  });
+
+  $("#btn-host-buzzin-start")?.addEventListener("click", () => {
+    if (typeof playPageNextSound === "function") playPageNextSound();
+    void openHostBuzzinJoin().catch((err) => {
+      console.warn(err?.message || "Could not start buzz in.");
+    });
   });
 
   $("#btn-host-buzzin-random")?.addEventListener("click", () => {

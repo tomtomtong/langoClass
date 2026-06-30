@@ -17,6 +17,7 @@ export default function PlayerBuzzInInteraction({
   onRecord,
 }) {
   const showTimer = phase === "join";
+  const showBuzzButton = phase === "join" || phase === "ready";
   const showTurn = phase === "turn";
   const waveformBars = Array.from({ length: 30 });
 
@@ -42,7 +43,7 @@ export default function PlayerBuzzInInteraction({
               </div>
             ) : null}
 
-            {phase === "join" ? (
+            {showBuzzButton ? (
               <button className="playerBuzzIn__button" type="button" disabled={!isBuzzEnabled} onClick={onBuzz}>
                 Buzz In!
               </button>
