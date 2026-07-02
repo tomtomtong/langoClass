@@ -602,6 +602,7 @@ function setupRoomPlayerQuiz(socket) {
     stopRoomStatusPoll();
     stopRoomQuizJoinRetry();
     roomQuizCurrentQuestion = data;
+    if (data?.fastMode != null) roomQuizFastMode = !!data.fastMode;
     clearTimer();
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
@@ -663,16 +664,20 @@ function setupRoomPlayerQuiz(socket) {
     renderPlayerMcqResult(mine, leaderboard, roomQuizPlayerId);
   });
 
-  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
+  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard, answerReview, answerHistory }) => {
     const wasFastMode = roomQuizFastMode;
     roomQuizFastMode = false;
     clearTimer();
     if (wasFastMode) {
       window.roomFastQuizCompleted = true;
-      if (typeof showPlayerPassiveWaiting === "function") {
-        showPlayerPassiveWaiting();
-      } else {
-        showScreen("room-passive-waiting");
+      showScreen("player-fast-results");
+      if (typeof renderPlayerFastMcResult === "function") {
+        renderPlayerFastMcResult({
+          answerReview,
+          answerHistory,
+          leaderboard: exerciseLeaderboard || leaderboard,
+          playerId: roomQuizPlayerId,
+        });
       }
       return;
     }

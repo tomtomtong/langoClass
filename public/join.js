@@ -57,6 +57,8 @@ function clearStoredParticipant() {
 
 let roomSessionSocket = null;
 
+const FAST_RESULT_OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
+
 function showPlayerPassiveWaiting({
   title = "Exercise complete",
   message = "No action is needed. Please watch the teacher's screen.",
@@ -64,6 +66,63 @@ function showPlayerPassiveWaiting({
   $("#room-passive-waiting-title").textContent = title;
   $("#room-passive-waiting-status").textContent = message;
   showScreen("room-passive-waiting");
+}
+
+function answerHistoryForPlayer(answerHistory, playerId) {
+  return (answerHistory || []).map((questionAnswers) =>
+    (questionAnswers || []).find((entry) => entry.playerId === playerId) || null
+  );
+}
+
+function renderPlayerFastMcResult({
+  answerReview = [],
+  answerHistory = [],
+  leaderboard = [],
+  playerId,
+} = {}) {
+  const rows = Array.isArray(answerReview) ? answerReview : [];
+  const mineByQuestion = answerHistoryForPlayer(answerHistory, playerId);
+  const correctCount = mineByQuestion.filter((entry) => entry?.correct).length;
+  const scoreRow = (leaderboard || []).find((row) => row.id === playerId || row.playerId === playerId);
+
+  $("#player-fast-correct-score").textContent = `${correctCount} / ${rows.length}`;
+  $("#player-fast-current-points").textContent = `${scoreRow?.score || 0} pts`;
+
+  const list = $("#player-fast-answer-list");
+  if (!list) return;
+
+  if (!rows.length) {
+    list.innerHTML = '<li class="player-leaderboard__empty">No answer review yet</li>';
+    return;
+  }
+
+  list.innerHTML = rows
+    .map((question, index) => {
+      const correctIndex = Number(question.correctIndex);
+      const correctLabel = FAST_RESULT_OPTION_LABELS[correctIndex] || "";
+      const mine = mineByQuestion[index];
+      const answerIndex = mine?.answerIndex;
+      const answerLabel =
+        answerIndex == null ? "-" : FAST_RESULT_OPTION_LABELS[Number(answerIndex)] || "-";
+      const answerText =
+        question.correctAnswer ||
+        (Array.isArray(question.options) ? question.options[correctIndex] : "") ||
+        "Correct answer";
+      const icon = mine?.correct ? "✅" : answerIndex == null ? "–" : "💪";
+
+      return `<li class="player-fast-result__answer">
+        <span class="player-fast-result__answer-main">
+          <span class="player-fast-result__answer-number">${index + 1}.</span>
+          <span class="player-fast-result__answer-letter">${escapeHtml(correctLabel)}.</span>
+          <span class="player-fast-result__answer-text">${escapeHtml(answerText)}</span>
+        </span>
+        <span class="player-fast-result__answer-status" aria-label="Your answer ${escapeHtml(answerLabel)}">
+          <span class="player-fast-result__answer-choice">${escapeHtml(answerLabel)}</span>
+          <span aria-hidden="true">${icon}</span>
+        </span>
+      </li>`;
+    })
+    .join("");
 }
 
 function getRoomSessionSocket() {
@@ -94,6 +153,7 @@ function getRoomSessionSocket() {
       if (!roomParticipant) return;
 
       if (window.roomFastQuizCompleted) {
+        if ($("#screen-player-fast-results")?.classList.contains("active")) return;
         showPlayerPassiveWaiting();
         return;
       }
@@ -335,6 +395,7 @@ function initQuizJoin() {
 
   socket.on("question_start", (data) => {
     currentQuestion = data;
+    if (data?.fastMode != null) quizFastMode = !!data.fastMode;
     clearTimer();
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
@@ -393,12 +454,18 @@ function initQuizJoin() {
     renderPlayerMcqResult(mine, leaderboard, myPlayerId);
   });
 
-  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
+  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard, answerReview, answerHistory }) => {
     const wasFastMode = quizFastMode;
     quizFastMode = false;
     clearTimer();
     if (wasFastMode) {
-      showPlayerPassiveWaiting();
+      showScreen("player-fast-results");
+      renderPlayerFastMcResult({
+        answerReview,
+        answerHistory,
+        leaderboard: exerciseLeaderboard || leaderboard,
+        playerId: myPlayerId,
+      });
       return;
     }
     showScreen("player-finished");

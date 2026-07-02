@@ -18,6 +18,7 @@
     { id: "mc-answered", label: "MC Quiz — answered" },
     { id: "mc-results", label: "MC Quiz — correct result" },
     { id: "mc-wrong", label: "MC Quiz — wrong result" },
+    { id: "fast-results", label: "Fast MC Quiz — final result" },
     { id: "finished", label: "Leaderboard" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
     { id: "buzzin-turn", label: "Buzz In — your turn" },
@@ -191,6 +192,24 @@
           SAMPLE.leaderboard.map((row) => row.id === "me" ? { ...row, score: 15356 } : row),
           "me"
         );
+        break;
+
+      case "fast-results":
+        showPreviewScreen("player-fast-results");
+        renderPlayerFastMcResult({
+          answerReview: Array.from({ length: 10 }, (_, index) => ({
+            correctIndex: 1,
+            correctAnswer: index % 2 ? "Mitochondria" : "Cellular Respiration",
+            options: SAMPLE.options,
+          })),
+          answerHistory: Array.from({ length: 10 }, (_, index) => [
+            { playerId: "me", answerIndex: index % 2 ? 0 : 1, correct: index % 2 === 0 },
+          ]),
+          leaderboard: SAMPLE.leaderboard.map((row) =>
+            row.id === "me" ? { ...row, score: 9850 } : row
+          ),
+          playerId: "me",
+        });
         break;
 
       case "finished":

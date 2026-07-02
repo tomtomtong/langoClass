@@ -943,6 +943,7 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
     questionStartedAt: null,
     previewEndsAt: null,
     answers: new Map(),
+    answerHistory: [],
     questionTimer: null,
     isRoomGame: true,
     sessionContext: null,
@@ -1004,6 +1005,7 @@ function createGame(hostSocketId, quizPayload) {
     questionStartedAt: null,
     previewEndsAt: null,
     answers: new Map(),
+    answerHistory: [],
     questionTimer: null,
     fastMode: !!normalized.fastMode,
   };
@@ -1026,6 +1028,16 @@ function getAccuracyLeaderboard(game) {
       correctAnswers: p.correctAnswers || 0,
     }))
     .sort((a, b) => b.correctAnswers - a.correctAnswers || a.name.localeCompare(b.name));
+}
+
+function getFastAnswerReview(game) {
+  return game.quiz.questions.map((question, questionIndex) => ({
+    questionIndex,
+    text: question.text,
+    options: question.options,
+    correctIndex: question.correctIndex,
+    correctAnswer: question.options?.[question.correctIndex] || "",
+  }));
 }
 
 function getSemesterLeaderboardForRoom(pin) {
@@ -1120,6 +1132,14 @@ function endQuestion(game) {
   }
 
   if (game.fastMode) {
+    game.answerHistory[game.currentQuestionIndex] = results.map((result) => ({
+      playerId: result.playerId,
+      answerIndex: result.answerIndex,
+      correct: result.correct,
+    }));
+  }
+
+  if (game.fastMode) {
     const isLast = game.currentQuestionIndex + 1 >= game.quiz.questions.length;
     io.to(game.pin).emit("question_between", {
       questionIndex: game.currentQuestionIndex,
@@ -1157,6 +1177,8 @@ function startQuestion(game) {
     io.to(game.pin).emit("game_finished", {
       leaderboard: exerciseLeaderboard,
       accuracyLeaderboard: getAccuracyLeaderboard(game),
+      answerReview: getFastAnswerReview(game),
+      answerHistory: game.answerHistory,
       ...buildExerciseFinishedPayload(game.pin, { exerciseLeaderboard }),
     });
     return;
@@ -2974,7 +2996,10 @@ io.on("connection", (socket) => {
     if (game.status === "lobby") {
       broadcastLobby(game);
     } else if (game.status === "preview" || game.status === "question") {
-      socket.emit("game_starting", { totalQuestions: game.quiz.questions.length });
+      socket.emit("game_starting", {
+        totalQuestions: game.quiz.questions.length,
+        fastMode: game.fastMode,
+      });
       emitCurrentQuestion(socket, game);
     }
   });

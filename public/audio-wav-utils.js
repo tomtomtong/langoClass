@@ -2,6 +2,59 @@
 
 const STT_TARGET_SAMPLE_RATE = 16000;
 const BUZZIN_PCM_BUFFER_SIZE = 4096;
+const BUZZIN_WORKLET_NAME = "buzzin-pcm-capture";
+
+// Captures mic PCM on the audio rendering thread so recording is not
+// interrupted when the main thread is busy (timers, socket events, renders).
+const BUZZIN_WORKLET_SOURCE = `
+class BuzzinPcmCaptureProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.stopped = false;
+    this.port.onmessage = (event) => {
+      if (event.data === "flush") {
+        this.stopped = true;
+        this.port.postMessage("flushed");
+      }
+    };
+  }
+
+  process(inputs) {
+    if (this.stopped) return false;
+    const channels = inputs[0];
+    if (!channels || !channels.length || !channels[0].length) return true;
+    const length = channels[0].length;
+    const mono = new Float32Array(length);
+    if (channels.length === 1) {
+      mono.set(channels[0]);
+    } else {
+      for (let ch = 0; ch < channels.length; ch += 1) {
+        const data = channels[ch];
+        for (let i = 0; i < length; i += 1) {
+          mono[i] += data[i] / channels.length;
+        }
+      }
+    }
+    this.port.postMessage(mono, [mono.buffer]);
+    return true;
+  }
+}
+registerProcessor("${BUZZIN_WORKLET_NAME}", BuzzinPcmCaptureProcessor);
+`;
+
+let buzzinWorkletModuleUrl = null;
+
+async function loadBuzzinWorkletModule(audioContext) {
+  if (!audioContext.audioWorklet || typeof AudioWorkletNode === "undefined") {
+    throw new Error("AudioWorklet is not supported in this browser.");
+  }
+  if (!buzzinWorkletModuleUrl) {
+    buzzinWorkletModuleUrl = URL.createObjectURL(
+      new Blob([BUZZIN_WORKLET_SOURCE], { type: "application/javascript" })
+    );
+  }
+  await audioContext.audioWorklet.addModule(buzzinWorkletModuleUrl);
+}
 
 function mergeFloat32Arrays(chunks) {
   if (!chunks.length) return new Float32Array(0);
@@ -45,10 +98,59 @@ function createBuzzinPcmRecorder() {
   let stream = null;
   let audioContext = null;
   let source = null;
+  let workletNode = null;
   let processor = null;
   let silentGain = null;
   let chunks = [];
   let recording = false;
+
+  function handleChunk(mono) {
+    if (recording && mono?.length) {
+      chunks.push(mono);
+    }
+  }
+
+  async function setupWorkletCapture() {
+    await loadBuzzinWorkletModule(audioContext);
+    workletNode = new AudioWorkletNode(audioContext, BUZZIN_WORKLET_NAME, {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    workletNode.port.onmessage = (event) => {
+      if (event.data instanceof Float32Array) {
+        handleChunk(event.data);
+      }
+    };
+    source.connect(workletNode);
+    workletNode.connect(silentGain);
+  }
+
+  // Legacy fallback for browsers without AudioWorklet. Runs on the main
+  // thread, so chunks can be dropped when the page is busy.
+  function setupScriptProcessorCapture() {
+    const inputChannels = Math.min(2, source.channelCount || 1);
+    processor = audioContext.createScriptProcessor(BUZZIN_PCM_BUFFER_SIZE, inputChannels, 1);
+    processor.onaudioprocess = (event) => {
+      const input = event.inputBuffer;
+      const length = input.length;
+      const mono = new Float32Array(length);
+      if (input.numberOfChannels === 1) {
+        mono.set(input.getChannelData(0));
+      } else {
+        for (let i = 0; i < length; i += 1) {
+          let sum = 0;
+          for (let ch = 0; ch < input.numberOfChannels; ch += 1) {
+            sum += input.getChannelData(ch)[i];
+          }
+          mono[i] = sum / input.numberOfChannels;
+        }
+      }
+      handleChunk(mono);
+    };
+    source.connect(processor);
+    processor.connect(silentGain);
+  }
 
   async function start() {
     stopTracks();
@@ -66,35 +168,37 @@ function createBuzzinPcmRecorder() {
     }
 
     source = audioContext.createMediaStreamSource(stream);
-    const inputChannels = Math.min(2, source.channelCount || 1);
-    processor = audioContext.createScriptProcessor(BUZZIN_PCM_BUFFER_SIZE, inputChannels, 1);
     silentGain = audioContext.createGain();
     silentGain.gain.value = 0;
+    silentGain.connect(audioContext.destination);
     chunks = [];
     recording = true;
 
-    processor.onaudioprocess = (event) => {
-      if (!recording) return;
-      const input = event.inputBuffer;
-      const length = input.length;
-      const mono = new Float32Array(length);
-      if (input.numberOfChannels === 1) {
-        mono.set(input.getChannelData(0));
-      } else {
-        for (let i = 0; i < length; i += 1) {
-          let sum = 0;
-          for (let ch = 0; ch < input.numberOfChannels; ch += 1) {
-            sum += input.getChannelData(ch)[i];
-          }
-          mono[i] = sum / input.numberOfChannels;
-        }
-      }
-      chunks.push(mono);
-    };
+    try {
+      await setupWorkletCapture();
+    } catch {
+      workletNode = null;
+      setupScriptProcessorCapture();
+    }
+  }
 
-    source.connect(processor);
-    processor.connect(silentGain);
-    silentGain.connect(audioContext.destination);
+  // Waits for the worklet to hand over PCM still buffered on the audio
+  // thread, so the tail of the recording is not cut off.
+  function flushWorklet(timeoutMs = 500) {
+    if (!workletNode) return Promise.resolve();
+    return new Promise((resolve) => {
+      const port = workletNode.port;
+      const timer = setTimeout(resolve, timeoutMs);
+      port.onmessage = (event) => {
+        if (event.data instanceof Float32Array) {
+          if (event.data.length) chunks.push(event.data);
+        } else if (event.data === "flushed") {
+          clearTimeout(timer);
+          resolve();
+        }
+      };
+      port.postMessage("flush");
+    });
   }
 
   function stopTracks() {
@@ -106,6 +210,11 @@ function createBuzzinPcmRecorder() {
 
   function closeAudioGraph() {
     recording = false;
+    if (workletNode) {
+      workletNode.port.onmessage = null;
+      workletNode.disconnect();
+      workletNode = null;
+    }
     if (processor) {
       processor.onaudioprocess = null;
       processor.disconnect();
@@ -132,6 +241,7 @@ function createBuzzinPcmRecorder() {
 
     recording = false;
     const captureRate = audioContext.sampleRate;
+    await flushWorklet();
     const merged = mergeFloat32Arrays(chunks);
     chunks = [];
     closeAudioGraph();
@@ -187,17 +297,63 @@ function audioBufferToMonoFloat32(audioBuffer) {
   return mono;
 }
 
+// Hamming-windowed sinc FIR with unity DC gain. `cutoff` is normalized to
+// the sampling rate (0..0.5).
+function designLowPassFirTaps(cutoff, tapCount) {
+  const taps = new Float64Array(tapCount);
+  const mid = (tapCount - 1) / 2;
+  let sum = 0;
+  for (let n = 0; n < tapCount; n += 1) {
+    const x = n - mid;
+    const sinc =
+      x === 0 ? 2 * cutoff : Math.sin(2 * Math.PI * cutoff * x) / (Math.PI * x);
+    const window = 0.54 - 0.46 * Math.cos((2 * Math.PI * n) / (tapCount - 1));
+    taps[n] = sinc * window;
+    sum += taps[n];
+  }
+  for (let n = 0; n < tapCount; n += 1) taps[n] /= sum;
+  return taps;
+}
+
+function applyFirFilter(input, taps) {
+  const output = new Float32Array(input.length);
+  const tapCount = taps.length;
+  const mid = (tapCount - 1) >> 1;
+  const length = input.length;
+  for (let i = 0; i < length; i += 1) {
+    let acc = 0;
+    const base = i - mid;
+    for (let t = 0; t < tapCount; t += 1) {
+      const idx = base + t;
+      if (idx >= 0 && idx < length) {
+        acc += input[idx] * taps[t];
+      }
+    }
+    output[i] = acc;
+  }
+  return output;
+}
+
 function resampleMonoFloat32(input, inputRate, outputRate) {
   if (inputRate === outputRate) return input;
   const ratio = inputRate / outputRate;
+
+  // When downsampling, low-pass below the output Nyquist first so that
+  // high-frequency content does not alias into the speech band.
+  let source = input;
+  if (ratio > 1) {
+    const cutoff = (0.5 / ratio) * 0.9;
+    source = applyFirFilter(input, designLowPassFirTaps(cutoff, 33));
+  }
+
   const outLength = Math.max(1, Math.round(input.length / ratio));
   const output = new Float32Array(outLength);
   for (let i = 0; i < outLength; i += 1) {
     const srcIndex = i * ratio;
     const idx = Math.floor(srcIndex);
     const frac = srcIndex - idx;
-    const s0 = input[idx] ?? 0;
-    const s1 = input[idx + 1] ?? s0;
+    const s0 = source[idx] ?? 0;
+    const s1 = source[idx + 1] ?? s0;
     output[i] = s0 + (s1 - s0) * frac;
   }
   return output;
