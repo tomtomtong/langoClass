@@ -7,41 +7,12 @@ let roomQuizFastMode = false;
 let roomBuzzinSocketReady = false;
 let roomBuzzinRoundId = null;
 let roomBuzzinJoinTimer = null;
-let roomBuzzinMediaRecorder = null;
-let roomBuzzinAudioChunks = [];
-let roomBuzzinRecordedBlob = null;
-let roomBuzzinRecordedFormat = "webm";
-let roomBuzzinRecordStream = null;
+let roomBuzzinPcmRecorder = null;
 let roomBuzzinRecordTimer = null;
 let roomBuzzinRecordEndsAt = 0;
+let roomBuzzinRecordStartedAt = 0;
 const ROOM_BUZZIN_MAX_RECORD_MS = 30000;
-const ROOM_BUZZIN_AUDIO_CONSTRAINTS = {
-  channelCount: 1,
-  echoCancellation: true,
-  noiseSuppression: true,
-  autoGainControl: true,
-  sampleRate: 16000,
-};
-
-async function getRoomBuzzinAudioStream() {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error("Microphone recording is not supported in this browser.");
-  }
-
-  try {
-    return await navigator.mediaDevices.getUserMedia({
-      audio: ROOM_BUZZIN_AUDIO_CONSTRAINTS,
-    });
-  } catch {
-    return await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-  }
-}
+const ROOM_BUZZIN_MIN_RECORD_MS = 600;
 
 function formatRoomBuzzinRecordTime(ms) {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -93,44 +64,18 @@ function startRoomBuzzinRecordTimer() {
   roomBuzzinRecordTimer = setInterval(tick, 250);
 }
 
-function stopRoomBuzzinRecording() {
-  if (roomBuzzinMediaRecorder && roomBuzzinMediaRecorder.state !== "inactive") {
-    roomBuzzinMediaRecorder.stop();
-  } else if (roomBuzzinRecordStream) {
-    roomBuzzinRecordStream.getTracks().forEach((track) => track.stop());
-    roomBuzzinRecordStream = null;
+function cancelRoomBuzzinRecording() {
+  roomBuzzinRecordStartedAt = 0;
+  if (roomBuzzinPcmRecorder?.cancel) {
+    roomBuzzinPcmRecorder.cancel();
   }
-}
-
-function waitForRoomBuzzinRecordedBlob(timeoutMs = 3000) {
-  if (roomBuzzinRecordedBlob?.size) {
-    return Promise.resolve(roomBuzzinRecordedBlob);
-  }
-
-  return new Promise((resolve, reject) => {
-    const started = Date.now();
-    const tick = () => {
-      if (roomBuzzinRecordedBlob?.size) {
-        resolve(roomBuzzinRecordedBlob);
-        return;
-      }
-      if (Date.now() - started >= timeoutMs) {
-        reject(new Error("No audio captured. Try recording again."));
-        return;
-      }
-      setTimeout(tick, 50);
-    };
-    tick();
-  });
+  roomBuzzinPcmRecorder = null;
 }
 
 function resetRoomBuzzinRecordingUi() {
-  stopRoomBuzzinRecording();
+  cancelRoomBuzzinRecording();
   stopRoomBuzzinRecordTimer();
   roomBuzzinRecordEndsAt = 0;
-  roomBuzzinAudioChunks = [];
-  roomBuzzinRecordedBlob = null;
-  roomBuzzinRecordedFormat = "webm";
   setRoomBuzzinRecordingMode(false);
   setRoomBuzzinMissedMode(false);
 
@@ -198,53 +143,13 @@ function blobToBase64(blob) {
 async function startRoomBuzzinRecording() {
   resetRoomBuzzinRecordingUi();
   setRoomBuzzinMissedMode(false);
-  roomBuzzinRecordStream = await getRoomBuzzinAudioStream();
-  roomBuzzinAudioChunks = [];
-  roomBuzzinRecordedBlob = null;
 
-  const preferredTypes = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/ogg;codecs=opus",
-  ];
-  const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type)) || "";
-  roomBuzzinRecordedFormat = mimeType.includes("mp4")
-    ? "m4a"
-    : mimeType.includes("ogg")
-      ? "ogg"
-      : "webm";
-
-  roomBuzzinMediaRecorder = mimeType
-    ? new MediaRecorder(roomBuzzinRecordStream, { mimeType })
-    : new MediaRecorder(roomBuzzinRecordStream);
-
-  roomBuzzinMediaRecorder.addEventListener("dataavailable", (event) => {
-    if (event.data?.size) roomBuzzinAudioChunks.push(event.data);
-  });
-
-  roomBuzzinMediaRecorder.addEventListener("stop", () => {
-    if (roomBuzzinRecordStream) {
-      roomBuzzinRecordStream.getTracks().forEach((track) => track.stop());
-      roomBuzzinRecordStream = null;
-    }
-
-    if (!roomBuzzinAudioChunks.length) {
-      roomBuzzinMediaRecorder = null;
-      return;
-    }
-
-    const blobType = mimeType || "audio/webm";
-    roomBuzzinRecordedBlob = new Blob(roomBuzzinAudioChunks, {
-      type: blobType,
-    });
-    roomBuzzinAudioChunks = [];
-    roomBuzzinMediaRecorder = null;
-  });
-
-  roomBuzzinMediaRecorder.start();
+  roomBuzzinPcmRecorder = createBuzzinPcmRecorder();
+  await roomBuzzinPcmRecorder.start();
+  roomBuzzinRecordStartedAt = Date.now();
   startRoomBuzzinRecordTimer();
   setRoomBuzzinRecordingMode(true);
+
   const recordBtn = $("#btn-room-buzzin-record");
   if (recordBtn) {
     recordBtn.textContent = "Stop";
@@ -253,7 +158,7 @@ async function startRoomBuzzinRecording() {
   setRoomBuzzinRecordStatus("", false);
 
   setTimeout(() => {
-    if (roomBuzzinMediaRecorder?.state === "recording") {
+    if (roomBuzzinPcmRecorder?.isRecording()) {
       void finishRoomBuzzinRecordingAndSubmit({ timedOut: true });
     }
   }, ROOM_BUZZIN_MAX_RECORD_MS);
@@ -263,10 +168,7 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
   const socket = getRoomSessionSocket();
   const recordBtn = $("#btn-room-buzzin-record");
   const turnStatus = $("#room-buzzin-turn-status");
-
-  if (roomBuzzinMediaRecorder?.state === "recording") {
-    stopRoomBuzzinRecording();
-  }
+  const recorder = roomBuzzinPcmRecorder;
 
   stopRoomBuzzinRecordTimer();
   roomBuzzinRecordEndsAt = 0;
@@ -276,6 +178,24 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
     recordBtn.textContent = "Record";
     recordBtn.classList.remove("is-recording");
     recordBtn.disabled = true;
+  }
+
+  if (!recorder?.isRecording()) {
+    setRoomBuzzinRecordStatus("No audio captured. Try recording again.");
+    if (turnStatus) turnStatus.textContent = "No audio captured. Try recording again.";
+    if (recordBtn) recordBtn.disabled = false;
+    return;
+  }
+
+  const elapsed = Date.now() - (roomBuzzinRecordStartedAt || Date.now());
+  if (elapsed < ROOM_BUZZIN_MIN_RECORD_MS) {
+    recorder.cancel();
+    roomBuzzinPcmRecorder = null;
+    roomBuzzinRecordStartedAt = 0;
+    setRoomBuzzinRecordStatus("Hold Record a little longer, then try again.");
+    if (turnStatus) turnStatus.textContent = "Hold Record a little longer, then try again.";
+    if (recordBtn) recordBtn.disabled = false;
+    return;
   }
 
   setRoomBuzzinRecordStatus(
@@ -288,9 +208,11 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
   }
 
   try {
-    const blob = await waitForRoomBuzzinRecordedBlob();
-    setRoomBuzzinRecordStatus("Converting recording to WAV…");
-    const audioBase64 = await blobToWavBase64(blob);
+    const wavBlob = await recorder.stop();
+    roomBuzzinPcmRecorder = null;
+    roomBuzzinRecordStartedAt = 0;
+    setRoomBuzzinRecordStatus("Uploading your answer…");
+    const audioBase64 = await blobToWavBase64(wavBlob);
     socket.emit(
       "submit_buzzin_response",
       { audioBase64, format: "wav" },
@@ -306,6 +228,8 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
       }
     );
   } catch (err) {
+    roomBuzzinPcmRecorder = null;
+    roomBuzzinRecordStartedAt = 0;
     if (recordBtn) recordBtn.disabled = false;
     setRoomBuzzinRecordStatus(err.message || "Could not submit answer.");
     if (turnStatus) turnStatus.textContent = err.message || "Could not submit answer.";
@@ -582,7 +506,7 @@ function ensureRoomBuzzinSocket() {
     const turnStatus = $("#room-buzzin-turn-status");
     if (!recordBtn || recordBtn.disabled) return;
 
-    if (roomBuzzinMediaRecorder?.state === "recording") {
+    if (roomBuzzinPcmRecorder?.isRecording()) {
       await finishRoomBuzzinRecordingAndSubmit();
       return;
     }
