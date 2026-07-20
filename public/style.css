@@ -8587,29 +8587,6 @@ body.cms-light .cms-danger:hover:not(:disabled) {
     0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
-.waiting-user-name {
-  position: absolute;
-  top: max(1.25rem, env(safe-area-inset-top));
-  right: max(1.25rem, env(safe-area-inset-right));
-  z-index: 5;
-  margin: 0;
-  padding: 0.65rem 1rem;
-  border: 3px solid rgba(255, 255, 255, 0.75);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 8px 22px rgba(76, 29, 149, 0.2);
-  color: #6b21a8;
-  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
-  line-height: 1.2;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.waiting-user-name strong {
-  color: #86198f;
-  font-weight: 900;
-}
-
 .waiting-room-code-card {
   position: absolute;
   top: calc(max(1.25rem, env(safe-area-inset-top)) + clamp(2.75rem, 5vw, 3.75rem));
@@ -9103,14 +9080,6 @@ body.cms-light .cms-danger:hover:not(:disabled) {
     left: auto;
     padding: max(1rem, env(safe-area-inset-top)) 1rem 0;
     text-align: center;
-  }
-
-  .waiting-user-name {
-    position: relative;
-    top: auto;
-    right: auto;
-    width: fit-content;
-    margin: 0.75rem auto 0;
   }
 
   .waiting-room-code-card {
@@ -11045,19 +11014,6 @@ body:has(#app.lango-host) {
   animation: waiting-title-float 5s ease-in-out infinite;
 }
 
-#app.lango-host .waiting-user-name {
-  top: 42px;
-  right: 30px;
-  max-width: 760px;
-  padding: 18px 30px;
-  border-width: 4px;
-  font-family: "DM Sans", sans-serif;
-  font-size: 30px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 #app.lango-host .waiting-room-code-card {
   left: 30px;
   top: calc(30px + 96px + 24px);
@@ -11293,10 +11249,14 @@ body:has(#app.lango-host) {
   font-weight: 500;
   line-height: 1.18;
   color: #000;
-  max-width: var(--waiting-avatar-size, 112px);
+  width: 100%;
+  max-width: calc(var(--waiting-avatar-size, 112px) + 44px);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 

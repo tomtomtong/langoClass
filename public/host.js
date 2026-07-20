@@ -686,22 +686,10 @@ function refreshNextExerciseUi() {
 function teacherDisplayName() {
   if (!state.user) return "";
   const u = state.user;
-  const firstName = u.firstName || u.first_name || u.givenName || u.given_name;
-  const lastName = u.lastName || u.last_name || u.familyName || u.family_name;
-  if (firstName || lastName) {
-    return [firstName, lastName].filter(Boolean).join(" ");
+  if (u.firstName || u.lastName) {
+    return [u.firstName, u.lastName].filter(Boolean).join(" ");
   }
-  return u.fullName || u.full_name || u.name || u.username || u.email || (u.id ? `User #${u.id}` : "");
-}
-
-function updateWaitingUserName() {
-  const name = teacherDisplayName();
-  const nameEl = $("#waiting-user-name");
-  const wrap = $("#waiting-user-name-wrap");
-  if (!nameEl || !wrap) return;
-
-  nameEl.textContent = name;
-  wrap.hidden = !name;
+  return u.username || u.email || `User #${u.id}`;
 }
 
 function courseBanner(course) {
@@ -1995,35 +1983,32 @@ async function refreshWaitingClassRoster() {
   }
 }
 
-function studentFirstName(student) {
-  const first = String(student?.firstName || "").trim();
-  if (first) return first;
-  const full = String(student?.fullName || "").trim();
-  if (!full) return "Student";
-  return full.split(/\s+/)[0];
+function studentDisplayName(student) {
+  return String(student?.fullName || student?.firstName || "Student").trim() || "Student";
 }
 
-function participantFirstName(participant) {
-  const name = String(participant?.displayName || "").trim();
-  if (!name) return "Student";
-  return name.split(/\s+/)[0];
+function participantDisplayName(participant) {
+  return String(participant?.displayName || "Student").trim() || "Student";
 }
 
-function renderWaitingStudentCard(student, connected) {
+function renderWaitingStudentCard(student, participant) {
+  const connected = Boolean(participant);
+  const name = connected ? participantDisplayName(participant) : studentDisplayName(student);
   return `<li class="waiting-student${connected ? " connected" : " pending"}">
     <div class="waiting-student-avatar">
       <img class="waiting-student-photo" src="/assets/waiting/avatar.png" alt="" width="68" height="68" />
     </div>
-    <span class="waiting-student-name">${escapeHtml(studentFirstName(student))}</span>
+    <span class="waiting-student-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
   </li>`;
 }
 
 function renderJoinedStudentCard(participant) {
+  const name = participantDisplayName(participant);
   return `<li class="waiting-student connected">
     <div class="waiting-student-avatar">
       <img class="waiting-student-photo" src="/assets/waiting/avatar.png" alt="" width="68" height="68" />
     </div>
-    <span class="waiting-student-name">${escapeHtml(participantFirstName(participant))}</span>
+    <span class="waiting-student-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
   </li>`;
 }
 
@@ -2054,7 +2039,7 @@ function updateWaitingGridLayout(slotCount) {
   const minAvatar = 52;
   const gapMax = 30;
   const gapMin = 10;
-  const nameLine = 26;
+  const nameLine = 52;
   const gridMaxHeight = 380;
 
   let avatar = Math.floor((gridMaxHeight - (rows - 1) * gapMax - rows * nameLine) / rows);
@@ -2087,10 +2072,10 @@ function renderParticipants(participants) {
 
     list.innerHTML = roster
       .map((student) => {
-        const connected = participants.some((participant) =>
+        const participant = participants.find((participant) =>
           participantMatchesStudent(participant, student)
         );
-        return renderWaitingStudentCard(student, connected);
+        return renderWaitingStudentCard(student, participant);
       })
       .join("");
   } else {
@@ -2189,7 +2174,6 @@ async function setupClassSession(roomId, apiResponse) {
 async function showWaitingRoom() {
   if (!state.activeRoomId) return;
 
-  updateWaitingUserName();
   $("#waiting-error").textContent = "";
   $("#waiting-room-id").textContent = formatRoomCode(state.activeRoomId);
   await refreshWaitingClassRoster();

@@ -380,7 +380,6 @@
       }
 
       case "waiting":
-        updateWaitingUserName();
         $("#waiting-room-id").textContent = "482916";
         $("#waiting-timer-value").textContent = "03 : 45";
         renderParticipants(SAMPLE.participants);
