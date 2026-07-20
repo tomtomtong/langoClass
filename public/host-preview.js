@@ -380,6 +380,7 @@
       }
 
       case "waiting":
+        updateWaitingUserName();
         $("#waiting-room-id").textContent = "482916";
         $("#waiting-timer-value").textContent = "03 : 45";
         renderParticipants(SAMPLE.participants);
@@ -464,7 +465,7 @@
       }
 
       case "fast-results":
-        renderFastAccuracyLeaderboard(SAMPLE.fastResults);
+        renderFastAccuracyLeaderboard(SAMPLE.fastResults, 5);
         showHostPreviewScreen("host-fast-results", "quiz");
         break;
 

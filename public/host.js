@@ -686,10 +686,22 @@ function refreshNextExerciseUi() {
 function teacherDisplayName() {
   if (!state.user) return "";
   const u = state.user;
-  if (u.firstName || u.lastName) {
-    return [u.firstName, u.lastName].filter(Boolean).join(" ");
+  const firstName = u.firstName || u.first_name || u.givenName || u.given_name;
+  const lastName = u.lastName || u.last_name || u.familyName || u.family_name;
+  if (firstName || lastName) {
+    return [firstName, lastName].filter(Boolean).join(" ");
   }
-  return u.username || u.email || `User #${u.id}`;
+  return u.fullName || u.full_name || u.name || u.username || u.email || (u.id ? `User #${u.id}` : "");
+}
+
+function updateWaitingUserName() {
+  const name = teacherDisplayName();
+  const nameEl = $("#waiting-user-name");
+  const wrap = $("#waiting-user-name-wrap");
+  if (!nameEl || !wrap) return;
+
+  nameEl.textContent = name;
+  wrap.hidden = !name;
 }
 
 function courseBanner(course) {
@@ -2177,6 +2189,7 @@ async function setupClassSession(roomId, apiResponse) {
 async function showWaitingRoom() {
   if (!state.activeRoomId) return;
 
+  updateWaitingUserName();
   $("#waiting-error").textContent = "";
   $("#waiting-room-id").textContent = formatRoomCode(state.activeRoomId);
   await refreshWaitingClassRoster();

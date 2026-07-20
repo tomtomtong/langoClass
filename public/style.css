@@ -8587,6 +8587,29 @@ body.cms-light .cms-danger:hover:not(:disabled) {
     0 6px 18px rgba(0, 0, 0, 0.22);
 }
 
+.waiting-user-name {
+  position: absolute;
+  top: max(1.25rem, env(safe-area-inset-top));
+  right: max(1.25rem, env(safe-area-inset-right));
+  z-index: 5;
+  margin: 0;
+  padding: 0.65rem 1rem;
+  border: 3px solid rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 22px rgba(76, 29, 149, 0.2);
+  color: #6b21a8;
+  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
+  line-height: 1.2;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.waiting-user-name strong {
+  color: #86198f;
+  font-weight: 900;
+}
+
 .waiting-room-code-card {
   position: absolute;
   top: calc(max(1.25rem, env(safe-area-inset-top)) + clamp(2.75rem, 5vw, 3.75rem));
@@ -9082,6 +9105,14 @@ body.cms-light .cms-danger:hover:not(:disabled) {
     text-align: center;
   }
 
+  .waiting-user-name {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: fit-content;
+    margin: 0.75rem auto 0;
+  }
+
   .waiting-room-code-card {
     position: relative;
     top: auto;
@@ -9173,6 +9204,14 @@ body:has(#app.lango-host) {
   transform: translate(-50%, -50%) scale(var(--host-stage-scale));
   transform-origin: center center;
   contain: layout paint size;
+}
+
+/* Legacy active-screen rules use min-height: 100vh with higher specificity.
+   Keep the authored host canvas fixed so room code, content and footers scale as one unit. */
+#app.lango-host:has(.screen.active) {
+  height: 1080px;
+  min-height: 1080px;
+  max-height: 1080px;
 }
 
 #app.lango-host .host-sound-controls {
@@ -9668,6 +9707,7 @@ body:has(#app.lango-host) {
   flex-direction: column;
   gap: 10px;
   color: #344356;
+  z-index: 3;
 }
 
 #app.lango-host .host-buzzin-feedback-realtime-header {
@@ -9739,7 +9779,15 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .host-buzzin-chat-avatar--teacher {
-  font-size: 16px;
+  padding: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 45%, #e8fbff 0%, #96e5dd 100%);
+}
+
+#app.lango-host .host-buzzin-chat-avatar--teacher img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 #app.lango-host .host-buzzin-chat-bubble {
@@ -9835,11 +9883,12 @@ body:has(#app.lango-host) {
 
 #app.lango-host .host-buzzin-feedback-leaderboard {
   position: absolute;
+  box-sizing: border-box;
   left: 0;
   top: 0;
   width: 820px;
-  min-height: 218px;
-  height: auto;
+  min-height: 230px;
+  height: 230px;
   padding: 15px 25px 28px;
   border: 10px solid rgba(162, 89, 255, 0.6);
   border-radius: 100px;
@@ -9850,6 +9899,21 @@ body:has(#app.lango-host) {
   flex-direction: column;
   align-items: stretch;
   overflow: visible;
+  z-index: 2;
+}
+
+#app.lango-host .host-buzzin-feedback-character {
+  position: absolute;
+  z-index: 1;
+  left: 242px;
+  top: 220px;
+  width: 335px;
+  height: 409px;
+  object-fit: contain;
+  object-position: center bottom;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 16px 18px rgba(35, 22, 65, 0.22));
 }
 
 #app.lango-host .host-buzzin-feedback-leaderboard-head {
@@ -9932,8 +9996,8 @@ body:has(#app.lango-host) {
   align-items: flex-start;
   justify-content: center;
   flex: 0 0 auto;
-  margin-top: 12px;
-  padding: 10px 0 4px;
+  margin-top: 4px;
+  padding: 0;
   overflow: visible;
 }
 
@@ -9942,7 +10006,7 @@ body:has(#app.lango-host) {
   box-sizing: border-box;
   width: 221px;
   min-height: 106px;
-  padding: 14px 16px;
+  padding: 8px 16px;
   border: 4px solid #fc7dba;
   border-radius: 30px;
   display: flex;
@@ -10023,7 +10087,7 @@ body:has(#app.lango-host) {
   font-family: "DM Sans", sans-serif;
   font-size: 20px;
   font-weight: 600;
-  line-height: normal;
+  line-height: 1.05;
 }
 
 #app.lango-host .host-buzzin-winner-time {
@@ -10032,7 +10096,7 @@ body:has(#app.lango-host) {
   font-family: "DM Sans", sans-serif;
   font-size: 24px;
   font-weight: 600;
-  line-height: normal;
+  line-height: 1;
 }
 
 #app.lango-host .host-buzzin-winner-empty {
@@ -10212,14 +10276,14 @@ body:has(#app.lango-host) {
   z-index: 6;
   left: 0;
   bottom: 0;
-  width: 639px;
+  width: 660px;
   height: 105px;
   padding: 0 30px;
   border-radius: 0 30px 30px 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 48px;
+  gap: 24px;
   background: rgba(255, 255, 255, 0.8);
 }
 
@@ -10229,6 +10293,7 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .host-buzzin-footer-btn {
+  flex-shrink: 0;
   min-width: 144px;
   height: 63px;
   padding: 13.5px 18px 19.5px;
@@ -10247,6 +10312,7 @@ body:has(#app.lango-host) {
   line-height: 30px;
   letter-spacing: 0.54px;
   text-transform: capitalize;
+  white-space: nowrap;
   text-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
   box-shadow:
     inset 0 -3px 3px rgba(0, 0, 0, 0.1),
@@ -10265,8 +10331,60 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .host-buzzin-footer-btn--start {
+  position: relative;
   background: linear-gradient(180deg, #15c4f8 0%, #45c937 100%);
   min-width: 9rem;
+}
+
+#app.lango-host .host-buzzin-footer-btn--start:not(:disabled) {
+  animation: hostBuzzinGetReadyAttention 1.35s ease-in-out infinite;
+}
+
+#app.lango-host .host-buzzin-footer-btn--start:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: hostBuzzinGetReadyRing 1.35s ease-out infinite;
+}
+
+@keyframes hostBuzzinGetReadyAttention {
+  0%, 58%, 100% {
+    filter: brightness(1);
+    transform: translateX(0) scale(1);
+  }
+  64% {
+    filter: brightness(1.22);
+    transform: translateX(-4px) scale(1.045);
+  }
+  70% { transform: translateX(4px) scale(1.045); }
+  76% { transform: translateX(-3px) scale(1.045); }
+  82% { transform: translateX(3px) scale(1.045); }
+  90% {
+    filter: brightness(1.1);
+    transform: translateX(0) scale(1.025);
+  }
+}
+
+@keyframes hostBuzzinGetReadyRing {
+  0%, 55% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  65% { opacity: 0.9; }
+  100% {
+    opacity: 0;
+    transform: scale(1.16);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app.lango-host .host-buzzin-footer-btn--start:not(:disabled),
+  #app.lango-host .host-buzzin-footer-btn--start:not(:disabled)::after {
+    animation: none;
+  }
 }
 
 #app.lango-host .host-buzzin-footer-icon--next {
@@ -10925,6 +11043,19 @@ body:has(#app.lango-host) {
     0 6px 0 rgba(116, 60, 155, 0.45),
     0 10px 22px rgba(0, 0, 0, 0.25);
   animation: waiting-title-float 5s ease-in-out infinite;
+}
+
+#app.lango-host .waiting-user-name {
+  top: 42px;
+  right: 30px;
+  max-width: 760px;
+  padding: 18px 30px;
+  border-width: 4px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 30px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #app.lango-host .waiting-room-code-card {

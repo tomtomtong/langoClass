@@ -178,25 +178,6 @@ function formatBuzzinBuzzTime(seconds) {
   return `${seconds.toFixed(1)}s`;
 }
 
-function buzzinPointsFromAnalysis(analysis, maxPoints = 300) {
-  const cap = Math.max(0, Number(maxPoints) || 0);
-  if (!analysis || cap === 0) return 0;
-  const text = String(analysis);
-  const match = text.match(/(\d{1,3})\s*points?/i);
-  if (match) return Math.min(cap, parseInt(match[1], 10));
-
-  const categoryScores = Array.from(
-    text.matchAll(/(?:correctness|completeness|fluency)\s*\(\s*(\d{1,3})(?:\s*\/\s*100)?\s*\)/gi),
-    (item) => Math.min(100, parseInt(item[1], 10))
-  );
-  if (categoryScores.length) {
-    const average = categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length;
-    return Math.round((average / 100) * cap);
-  }
-
-  return cap;
-}
-
 function splitBuzzinNameLines(name) {
   const parts = String(name || "Student").trim().split(/\s+/).filter(Boolean);
   return {
@@ -230,6 +211,12 @@ function renderHostBuzzinWinnerCard(container, student, payload, { isLive = fals
 
 function buzzinTypingIndicatorHtml() {
   return `<span class="host-buzzin-chat-typing" aria-label="Speaking"><span></span><span></span><span></span></span>`;
+}
+
+function buzzinTeacherAvatarHtml() {
+  return `<div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">
+    <img src="/assets/buzzin/uncle-tommy-icon.png" alt="" />
+  </div>`;
 }
 
 function renderHostBuzzinAnswerBubbleContent({ response, currentTurn, emptyText }) {
@@ -277,24 +264,20 @@ function renderHostBuzzinFeedbackChat(container, {
   if (response && !response.pending && response.text) {
     if (response.analysisStatus === "pending") {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
-        <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+        ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--analyzing"><p>Analyzing response…</p></div>
       </div>`;
     } else if (response.analysisStatus === "error") {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
-        <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+        ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || "Analysis unavailable.")}</p></div>
       </div>`;
     } else if (response.analysis) {
-      const replayBtn = response.analysisAudio
-        ? `<button type="button" class="buzzin-analysis-play" data-buzzin-analysis-key="${escapeHtml(buzzinAnalysisAudioKey(response))}">Play feedback</button>`
-        : "";
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
-        <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+        ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-feedback-group">
           <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback">
             <p>${escapeHtml(response.analysis)}</p>
-            ${replayBtn}
           </div>
         </div>
       </div>`;
@@ -311,7 +294,7 @@ function renderHostBuzzinFeedbackChat(container, {
 
   container.innerHTML = `
     ${topicText ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${topicEnter}">
-      <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">T</div>
+      ${buzzinTeacherAvatarHtml()}
       <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--question"><p>${escapeHtml(topicText)}</p></div>
     </div>` : ""}
     ${student || currentTurn ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--student${answerEnter}">
@@ -375,52 +358,9 @@ function renderBuzzinAnalysisHtml(item) {
     return `<p class="buzzin-analysis buzzin-analysis--error">${escapeHtml(item.analysis || "Analysis unavailable.")}</p>`;
   }
   if (item.analysis) {
-    const replayBtn = item.analysisAudio
-      ? `<button type="button" class="btn buzzin-analysis-play" data-buzzin-analysis-key="${escapeHtml(buzzinAnalysisAudioKey(item))}">Play feedback</button>`
-      : "";
-    return `<p class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}${replayBtn}</p>`;
+    return `<p class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}</p>`;
   }
   return "";
-}
-
-function buzzinAnalysisAudioKey(item) {
-  return `${item.playerId || ""}:${item.at || 0}`;
-}
-
-let buzzinAnalysisAudioEl = null;
-
-function playBuzzinAnalysisAudio(item) {
-  const base64 = item?.analysisAudio;
-  if (!base64) return;
-
-  const format = String(item.analysisAudioFormat || "mp3").toLowerCase();
-  const mime = format === "wav" ? "audio/wav" : "audio/mpeg";
-  const src = `data:${mime};base64,${base64}`;
-
-  if (!buzzinAnalysisAudioEl) {
-    buzzinAnalysisAudioEl = new Audio();
-  }
-
-  buzzinAnalysisAudioEl.pause();
-  buzzinAnalysisAudioEl.src = src;
-  const playPromise = buzzinAnalysisAudioEl.play();
-  if (playPromise?.catch) {
-    playPromise.catch(() => {
-      /* Autoplay may be blocked until user gesture. */
-    });
-  }
-}
-
-function playNewBuzzinAnalysisAudio(responses, playedKeys) {
-  if (!Array.isArray(responses) || !playedKeys) return;
-
-  for (const item of responses) {
-    if (item.analysisStatus !== "done" || !item.analysisAudio) continue;
-    const key = buzzinAnalysisAudioKey(item);
-    if (playedKeys.has(key)) continue;
-    playedKeys.add(key);
-    playBuzzinAnalysisAudio(item);
-  }
 }
 
 function exerciseMetaLabel(exercise) {

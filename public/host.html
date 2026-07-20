@@ -320,6 +320,9 @@
         <img class="waiting-float waiting-float--star-2" src="/assets/login/star-2.png" alt="" />
 
         <h1 class="waiting-page-title">Waiting Room</h1>
+        <p class="waiting-user-name" id="waiting-user-name-wrap" hidden>
+          Logged in as <strong id="waiting-user-name"></strong>
+        </p>
 
         <div class="waiting-room-code-card" aria-label="Room code">
           <p class="waiting-room-code-label">Room Code</p>
@@ -653,7 +656,7 @@
           <span>Dashboard</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--start" id="btn-host-buzzin-start" hidden>
-          <span>Start Buzz</span>
+          <span>Get Ready</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-done">
           <span>Next</span>
@@ -694,6 +697,13 @@
               <div id="host-buzzin-winner-card"></div>
             </div>
           </section>
+
+          <img
+            class="host-buzzin-feedback-character"
+            src="/assets/buzzin/uncle-tommy-buzzin.png"
+            alt=""
+            aria-hidden="true"
+          />
         </div>
 
         <p id="host-buzzin-turn-status" class="host-buzzin-feedback-status visually-hidden" aria-live="polite"></p>

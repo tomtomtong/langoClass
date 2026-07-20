@@ -108,18 +108,33 @@ function renderPlayerFastMcResult({
         question.correctAnswer ||
         (Array.isArray(question.options) ? question.options[correctIndex] : "") ||
         "Correct answer";
-      const icon = mine?.correct ? "✅" : answerIndex == null ? "–" : "💪";
+      const answered = answerIndex != null;
+      const isCorrect = Boolean(mine?.correct);
+      const resultClass = isCorrect ? "is-correct" : answered ? "is-incorrect" : "is-unanswered";
+      const resultLabel = isCorrect ? "✓ Correct" : answered ? "✕ Incorrect" : "– No answer";
+      const selectedText = answered
+        ? (Array.isArray(question.options) ? question.options[Number(answerIndex)] : "") || `Option ${answerLabel}`
+        : "No answer submitted";
+      const answerLines = isCorrect
+        ? `<div class="player-fast-result__answer-line player-fast-result__answer-line--correct">
+            <span class="player-fast-result__answer-label">Your answer — Correct</span>
+            <span class="player-fast-result__answer-value"><strong>${escapeHtml(correctLabel)}.</strong> ${escapeHtml(answerText)}</span>
+          </div>`
+        : `<div class="player-fast-result__answer-line player-fast-result__answer-line--correct">
+            <span class="player-fast-result__answer-label">Correct answer</span>
+            <span class="player-fast-result__answer-value"><strong>${escapeHtml(correctLabel)}.</strong> ${escapeHtml(answerText)}</span>
+          </div>
+          <div class="player-fast-result__answer-line player-fast-result__answer-line--yours">
+            <span class="player-fast-result__answer-label">Your answer</span>
+            <span class="player-fast-result__answer-value">${answered ? `<strong>${escapeHtml(answerLabel)}.</strong> ` : ""}${escapeHtml(selectedText)}</span>
+          </div>`;
 
-      return `<li class="player-fast-result__answer">
-        <span class="player-fast-result__answer-main">
-          <span class="player-fast-result__answer-number">${index + 1}.</span>
-          <span class="player-fast-result__answer-letter">${escapeHtml(correctLabel)}.</span>
-          <span class="player-fast-result__answer-text">${escapeHtml(answerText)}</span>
-        </span>
-        <span class="player-fast-result__answer-status" aria-label="Your answer ${escapeHtml(answerLabel)}">
-          <span class="player-fast-result__answer-choice">${escapeHtml(answerLabel)}</span>
-          <span aria-hidden="true">${icon}</span>
-        </span>
+      return `<li class="player-fast-result__answer ${resultClass}">
+        <div class="player-fast-result__answer-head">
+          <span class="player-fast-result__answer-number">Question ${index + 1}</span>
+          <span class="player-fast-result__answer-status">${resultLabel}</span>
+        </div>
+        ${answerLines}
       </li>`;
     })
     .join("");

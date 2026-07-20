@@ -9,7 +9,6 @@ let hostBuzzinUiReady = false;
 let hostBuzzinRoomId = null;
 let hostBuzzinRoundId = null;
 let hostBuzzinJoinTimer = null;
-const hostBuzzinPlayedAnalysisAudio = new Set();
 let hostBuzzinLastResponses = [];
 let hostBuzzinActiveScreenPhase = null;
 let hostBuzzinExercisePoints = 300;
@@ -60,7 +59,7 @@ function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, r
   return flags;
 }
 
-function updateHostBuzzinScoreBadge(payload, response) {
+function updateHostBuzzinScoreBadge(payload) {
   const scoreCurrentEl = $("#host-buzzin-feedback-score-current");
   const scoreTotalEl = $("#host-buzzin-feedback-score-total");
   const scoreBadge = $("#host-buzzin-feedback-score");
@@ -69,24 +68,14 @@ function updateHostBuzzinScoreBadge(payload, response) {
   const maxPoints = hostBuzzinExercisePoints || 300;
   scoreTotalEl.textContent = String(maxPoints);
 
-  let nextScore = "0";
-  if (response?.text && !response.pending) {
-    if (response.analysisStatus === "pending") {
-      nextScore = "…";
-    } else if (response.analysisStatus === "error") {
-      nextScore = "0";
-    } else {
-      nextScore = String(buzzinPointsFromAnalysis(response.analysis, maxPoints));
-    }
-  }
+  const nextScore = buzzinSelectedStudent(payload) ? String(maxPoints) : "0";
 
   scoreCurrentEl.textContent = nextScore;
 
   if (
     scoreBadge &&
     nextScore !== hostBuzzinFeedbackAnim.scoreValue &&
-    nextScore !== "0" &&
-    nextScore !== "…"
+    nextScore !== "0"
   ) {
     scoreBadge.classList.remove("host-buzzin-feedback-score-badge--pop");
     void scoreBadge.offsetWidth;
@@ -187,7 +176,7 @@ function updateHostBuzzinTurnUi(payload) {
     response
   );
 
-  updateHostBuzzinScoreBadge(payload, response);
+  updateHostBuzzinScoreBadge(payload);
 
   if (!selectedStudent) {
     if (turnStatus) turnStatus.textContent = "No one buzzed in.";
@@ -223,7 +212,6 @@ function updateHostBuzzinTurnUi(payload) {
       feedback: animate.feedback,
     },
   });
-  playNewBuzzinAnalysisAudio(responses, hostBuzzinPlayedAnalysisAudio);
 }
 
 function setHostBuzzinPrompt(text) {
@@ -249,7 +237,7 @@ function updateHostBuzzinUi(payload) {
     hideHostBuzzinJoinTimer();
     setHostBuzzinStartButtonVisible(true);
     setHostBuzzinPrompt("Get ready");
-    if (joinStatus) joinStatus.textContent = "Tap Start Buzz when students are ready.";
+    if (joinStatus) joinStatus.textContent = "Tap Get Ready when students are ready.";
     showHostBuzzinScreenForPhase("join", { force: true });
     updateHostBuzzinTurnUi(payload);
     return;
@@ -298,25 +286,12 @@ function ensureHostBuzzinSocket() {
   if (hostBuzzinUiReady) return;
   hostBuzzinUiReady = true;
 
-  $("#host-buzzin-feedback-chat")?.addEventListener("click", (event) => {
-    const btn = event.target.closest(".buzzin-analysis-play");
-    if (!btn) return;
-    const key = btn.getAttribute("data-buzzin-analysis-key");
-    if (!key) return;
-    const [playerId, atRaw] = key.split(":");
-    const at = Number(atRaw);
-    const item = (hostBuzzinLastResponses || []).find(
-      (response) => response.playerId === playerId && response.at === at
-    );
-    if (item) playBuzzinAnalysisAudio(item);
-  });
 }
 
 function startHostBuzzinRound(roomId) {
   if (!roomId) return Promise.resolve();
   hostBuzzinRoomId = roomId;
   hostBuzzinRoundId = null;
-  hostBuzzinPlayedAnalysisAudio.clear();
   hostBuzzinLastResponses = [];
   hostBuzzinActiveScreenPhase = null;
   resetHostBuzzinFeedbackAnim();
@@ -327,7 +302,7 @@ function startHostBuzzinRound(roomId) {
   showHostBuzzinScreenForPhase("join", { force: true });
 
   const joinStatus = $("#host-buzzin-join-status");
-  if (joinStatus) joinStatus.textContent = "Tap Start Buzz when students are ready.";
+  if (joinStatus) joinStatus.textContent = "Tap Get Ready when students are ready.";
 
   const socket = getHostSessionSocket();
 
@@ -364,11 +339,7 @@ async function openHostBuzzinJoin() {
   const startBtn = $("#btn-host-buzzin-start");
   const joinStatus = $("#host-buzzin-join-status");
   if (startBtn) startBtn.disabled = true;
-  if (joinStatus) joinStatus.textContent = "Starting…";
-
-  if (typeof playExerciseCountdownVideo === "function") {
-    await playExerciseCountdownVideo();
-  }
+  if (joinStatus) joinStatus.textContent = "Opening buzz-in…";
 
   if (!socket.connected) {
     await new Promise((resolve, reject) => {
@@ -526,7 +497,7 @@ function renderCorrectResponders(results) {
     .join("");
 }
 
-function renderFastAccuracyLeaderboard(results) {
+function renderFastAccuracyLeaderboard(results, totalQuestions = 0) {
   const container = $("#host-fast-result-groups");
   if (!container) return;
 
@@ -546,6 +517,13 @@ function renderFastAccuracyLeaderboard(results) {
   let studentIndex = 0;
   container.innerHTML = sortedGroups
     .map(([correctAnswers, students]) => {
+      const calculatedPercent = totalQuestions
+        ? Math.round((correctAnswers / totalQuestions) * 100)
+        : 0;
+      const accuracyPercent = Math.max(
+        0,
+        Math.min(100, Number(students[0]?.accuracyPercent) || calculatedPercent)
+      );
       const cards = students.map((student) => {
         const name = String(student.name || "Student").trim() || "Student";
         const index = studentIndex++;
@@ -556,7 +534,7 @@ function renderFastAccuracyLeaderboard(results) {
       }).join("");
 
       return `<section class="host-fast-result-group${students.length > 3 ? " is-expanded" : ""}">
-        <h3 class="host-fast-result-score"><strong>${correctAnswers}</strong><span>correct</span></h3>
+        <h3 class="host-fast-result-score" aria-label="${accuracyPercent}% accuracy, ${correctAnswers} correct"><strong>${accuracyPercent}%</strong><span>accuracy</span></h3>
         <div class="host-fast-result-students">${cards}</div>
       </section>`;
     })
@@ -619,14 +597,14 @@ function setupHostRoomQuizSocket(socket) {
     $("#btn-host-quiz-next").textContent = isLast ? "Show final results" : "Next question";
   });
 
-  socket.on("game_finished", ({ leaderboard, accuracyLeaderboard, semesterLeaderboard, exerciseLeaderboard }) => {
+  socket.on("game_finished", ({ leaderboard, accuracyLeaderboard, answerReview, semesterLeaderboard, exerciseLeaderboard }) => {
     const wasFastMode = roomQuizFastMode;
     roomQuizFastMode = false;
     if (typeof markCurrentHostExerciseCompleted === "function") {
       markCurrentHostExerciseCompleted();
     }
     if (wasFastMode) {
-      renderFastAccuracyLeaderboard(accuracyLeaderboard || []);
+      renderFastAccuracyLeaderboard(accuracyLeaderboard || [], answerReview?.length || 0);
       showScreen("host-fast-results");
       if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
       return;

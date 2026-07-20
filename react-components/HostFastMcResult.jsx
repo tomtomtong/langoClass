@@ -33,6 +33,7 @@ function groupByCorrectAnswers(results) {
 
 export default function HostFastMcResult({
   results = DEFAULT_RESULTS,
+  totalQuestions = 3,
   onDashboard,
   onNext,
 }) {
@@ -52,9 +53,12 @@ export default function HostFastMcResult({
                 data-expanded={students.length > 3 || undefined}
                 key={correctAnswers}
               >
-                <h2 className="hostFastResult__score">
-                  <strong>{correctAnswers}</strong>
-                  <span>correct</span>
+                <h2
+                  className="hostFastResult__score"
+                  aria-label={`${Math.round((correctAnswers / Math.max(1, totalQuestions)) * 100)}% accuracy, ${correctAnswers} correct`}
+                >
+                  <strong>{Math.round((correctAnswers / Math.max(1, totalQuestions)) * 100)}%</strong>
+                  <span>accuracy</span>
                 </h2>
                 <div className="hostFastResult__students">
                   {students.map((student, index) => (
