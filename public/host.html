@@ -642,7 +642,13 @@
             </div>
           </section>
 
-          <div class="host-buzzin-prompt" aria-live="polite">Buzz In Now</div>
+          <button
+            type="button"
+            class="host-buzzin-prompt"
+            id="btn-host-buzzin-start"
+            aria-describedby="host-buzzin-join-status"
+            disabled
+          >Buzz In Now</button>
           <p class="host-buzzin-join-status hint" id="host-buzzin-join-status" aria-live="polite"></p>
         </main>
       </div>
@@ -651,9 +657,6 @@
         <button type="button" class="host-buzzin-footer-btn" id="btn-back-waiting-buzzin">
           <img src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
           <span>Dashboard</span>
-        </button>
-        <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--start" id="btn-host-buzzin-start" hidden>
-          <span>Get Ready</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-done">
           <span>Next</span>

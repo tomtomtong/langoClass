@@ -8830,14 +8830,20 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   align-items: center;
   justify-content: center;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.14);
-  background: #fff;
+  background: linear-gradient(
+    145deg,
+    hsl(var(--waiting-avatar-hue, 270) 88% 72%),
+    hsl(calc(var(--waiting-avatar-hue, 270) + 38) 82% 54%)
+  );
 }
 
-.waiting-student-photo {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.waiting-student-initials {
+  color: #fff;
+  font-size: clamp(1rem, 2.2vw, 1.55rem);
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  text-shadow: 0 2px 5px rgba(50, 20, 80, 0.28);
 }
 
 .waiting-student.connected .waiting-student-avatar {
@@ -8847,8 +8853,8 @@ body.cms-light .cms-danger:hover:not(:disabled) {
     0 8px 16px rgba(0, 0, 0, 0.14);
 }
 
-.waiting-student-avatar--placeholder,
-.waiting-student-photo--placeholder {
+.waiting-student-avatar--placeholder {
+  background: #d1d5db;
   filter: grayscale(1);
 }
 
@@ -9584,6 +9590,8 @@ body:has(#app.lango-host) {
 }
 
 #app.lango-host .host-buzzin-prompt {
+  position: relative;
+  appearance: none;
   min-width: 480px;
   min-height: 132px;
   padding: 26px 46px 34px;
@@ -9603,6 +9611,22 @@ body:has(#app.lango-host) {
     0 18px 0 #a85c23,
     0 24px 18px rgba(0, 0, 0, 0.35),
     inset 0 -4px 5px rgba(175, 82, 20, 0.22);
+  cursor: default;
+}
+
+#app.lango-host .host-buzzin-prompt.is-ready:not(:disabled) {
+  cursor: pointer;
+  animation: hostBuzzinGetReadyAttention 1.35s ease-in-out infinite;
+}
+
+#app.lango-host .host-buzzin-prompt.is-ready:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border: 7px solid rgba(255, 255, 255, 0.92);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: hostBuzzinGetReadyRing 1.35s ease-out infinite;
 }
 
 #app.lango-host .host-buzzin-footer-icon--next {
@@ -10245,7 +10269,7 @@ body:has(#app.lango-host) {
   z-index: 6;
   left: 0;
   bottom: 0;
-  width: 660px;
+  width: 500px;
   height: 105px;
   padding: 0 30px;
   border-radius: 0 30px 30px 0;
@@ -10299,26 +10323,6 @@ body:has(#app.lango-host) {
   background: linear-gradient(180deg, #ff4346 0%, #fe57c9 100%);
 }
 
-#app.lango-host .host-buzzin-footer-btn--start {
-  position: relative;
-  background: linear-gradient(180deg, #15c4f8 0%, #45c937 100%);
-  min-width: 9rem;
-}
-
-#app.lango-host .host-buzzin-footer-btn--start:not(:disabled) {
-  animation: hostBuzzinGetReadyAttention 1.35s ease-in-out infinite;
-}
-
-#app.lango-host .host-buzzin-footer-btn--start:not(:disabled)::after {
-  content: "";
-  position: absolute;
-  inset: -7px;
-  border: 4px solid rgba(255, 255, 255, 0.9);
-  border-radius: inherit;
-  pointer-events: none;
-  animation: hostBuzzinGetReadyRing 1.35s ease-out infinite;
-}
-
 @keyframes hostBuzzinGetReadyAttention {
   0%, 58%, 100% {
     filter: brightness(1);
@@ -10350,8 +10354,8 @@ body:has(#app.lango-host) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #app.lango-host .host-buzzin-footer-btn--start:not(:disabled),
-  #app.lango-host .host-buzzin-footer-btn--start:not(:disabled)::after {
+  #app.lango-host .host-buzzin-prompt.is-ready:not(:disabled),
+  #app.lango-host .host-buzzin-prompt.is-ready:not(:disabled)::after {
     animation: none;
   }
 }
@@ -11213,9 +11217,18 @@ body:has(#app.lango-host) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.65), #5da7ff);
+  background: radial-gradient(
+    circle at 35% 28%,
+    rgba(255, 255, 255, 0.72),
+    hsl(var(--waiting-avatar-hue, 270) 88% 68%) 38%,
+    hsl(calc(var(--waiting-avatar-hue, 270) + 38) 82% 50%)
+  );
   box-shadow: none;
   transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+#app.lango-host .waiting-student-avatar--placeholder {
+  background: #d1d5db;
 }
 
 #app.lango-host .waiting-student.connected .waiting-student-avatar:hover {
@@ -11229,14 +11242,8 @@ body:has(#app.lango-host) {
   box-shadow: 0 0 0 4px #2dd4bf;
 }
 
-#app.lango-host .waiting-student-photo {
-  width: 86%;
-  height: 86%;
-  border-radius: 999px;
-  object-fit: contain;
-  object-position: center center;
-  display: block;
-  margin: 0;
+#app.lango-host .waiting-student-initials {
+  font-size: calc(var(--waiting-avatar-size, 112px) * 0.34);
 }
 
 #app.lango-host .waiting-student.pending {

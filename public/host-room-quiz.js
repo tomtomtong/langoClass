@@ -10,6 +10,7 @@ let hostBuzzinRoomId = null;
 let hostBuzzinRoundId = null;
 let hostBuzzinJoinTimer = null;
 let hostBuzzinLastResponses = [];
+const hostBuzzinPlayedSpokenFeedbackAudio = new Set();
 let hostBuzzinActiveScreenPhase = null;
 let hostBuzzinExercisePoints = 300;
 const hostBuzzinFeedbackAnim = {
@@ -212,6 +213,7 @@ function updateHostBuzzinTurnUi(payload) {
       feedback: animate.feedback,
     },
   });
+  playNewBuzzinSpokenFeedbackAudio(responses, hostBuzzinPlayedSpokenFeedbackAudio);
 }
 
 function setHostBuzzinPrompt(text) {
@@ -222,8 +224,9 @@ function setHostBuzzinPrompt(text) {
 function setHostBuzzinStartButtonVisible(visible) {
   const startBtn = $("#btn-host-buzzin-start");
   if (!startBtn) return;
-  startBtn.hidden = !visible;
+  startBtn.hidden = false;
   startBtn.disabled = !visible;
+  startBtn.classList.toggle("is-ready", visible);
 }
 
 function updateHostBuzzinUi(payload) {
@@ -292,6 +295,7 @@ function startHostBuzzinRound(roomId) {
   if (!roomId) return Promise.resolve();
   hostBuzzinRoomId = roomId;
   hostBuzzinRoundId = null;
+  hostBuzzinPlayedSpokenFeedbackAudio.clear();
   hostBuzzinLastResponses = [];
   hostBuzzinActiveScreenPhase = null;
   resetHostBuzzinFeedbackAnim();

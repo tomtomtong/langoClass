@@ -363,6 +363,43 @@ function renderBuzzinAnalysisHtml(item) {
   return "";
 }
 
+function buzzinSpokenFeedbackAudioKey(item) {
+  return `${item.playerId || ""}:${item.at || 0}`;
+}
+
+let buzzinSpokenFeedbackAudioEl = null;
+
+function playBuzzinSpokenFeedbackAudio(item) {
+  const base64 = item?.analysisAudio;
+  if (!base64) return;
+
+  const format = String(item.analysisAudioFormat || "mp3").toLowerCase();
+  const mime = format === "wav" ? "audio/wav" : "audio/mpeg";
+
+  if (!buzzinSpokenFeedbackAudioEl) {
+    buzzinSpokenFeedbackAudioEl = new Audio();
+  }
+
+  buzzinSpokenFeedbackAudioEl.pause();
+  buzzinSpokenFeedbackAudioEl.src = `data:${mime};base64,${base64}`;
+  const playPromise = buzzinSpokenFeedbackAudioEl.play();
+  playPromise?.catch?.(() => {
+    /* Autoplay may be blocked until the host interacts with the page. */
+  });
+}
+
+function playNewBuzzinSpokenFeedbackAudio(responses, playedKeys) {
+  if (!Array.isArray(responses) || !playedKeys) return;
+
+  for (const item of responses) {
+    if (item.analysisStatus !== "done" || !item.analysisAudio) continue;
+    const key = buzzinSpokenFeedbackAudioKey(item);
+    if (playedKeys.has(key)) continue;
+    playedKeys.add(key);
+    playBuzzinSpokenFeedbackAudio(item);
+  }
+}
+
 function exerciseMetaLabel(exercise) {
   const parts = [];
   if (exercise?.subTitle) parts.push(exercise.subTitle);

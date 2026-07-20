@@ -1991,13 +1991,40 @@ function participantDisplayName(participant) {
   return String(participant?.displayName || "Student").trim() || "Student";
 }
 
+function waitingAvatarInitials(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return Array.from(parts[0]).slice(0, 2).join("").toUpperCase();
+  return `${Array.from(parts[0])[0] || ""}${Array.from(parts.at(-1))[0] || ""}`.toUpperCase();
+}
+
+function waitingAvatarHue(name) {
+  let hash = 0;
+  for (const character of String(name || "")) {
+    hash = (hash * 31 + character.codePointAt(0)) % 360;
+  }
+  return hash;
+}
+
+function renderWaitingAvatar(name, { placeholder = false } = {}) {
+  if (placeholder) {
+    return `<div class="waiting-student-avatar waiting-student-avatar--placeholder" aria-hidden="true">
+      <span class="waiting-student-initials">?</span>
+    </div>`;
+  }
+
+  const safeName = escapeHtml(name);
+  const initials = escapeHtml(waitingAvatarInitials(name));
+  return `<div class="waiting-student-avatar" role="img" aria-label="${safeName} avatar" style="--waiting-avatar-hue: ${waitingAvatarHue(name)}">
+    <span class="waiting-student-initials" aria-hidden="true">${initials}</span>
+  </div>`;
+}
+
 function renderWaitingStudentCard(student, participant) {
   const connected = Boolean(participant);
   const name = connected ? participantDisplayName(participant) : studentDisplayName(student);
   return `<li class="waiting-student${connected ? " connected" : " pending"}">
-    <div class="waiting-student-avatar">
-      <img class="waiting-student-photo" src="/assets/waiting/avatar.png" alt="" width="68" height="68" />
-    </div>
+    ${renderWaitingAvatar(name)}
     <span class="waiting-student-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
   </li>`;
 }
@@ -2005,9 +2032,7 @@ function renderWaitingStudentCard(student, participant) {
 function renderJoinedStudentCard(participant) {
   const name = participantDisplayName(participant);
   return `<li class="waiting-student connected">
-    <div class="waiting-student-avatar">
-      <img class="waiting-student-photo" src="/assets/waiting/avatar.png" alt="" width="68" height="68" />
-    </div>
+    ${renderWaitingAvatar(name)}
     <span class="waiting-student-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
   </li>`;
 }
@@ -2089,9 +2114,7 @@ function renderParticipants(participants) {
     const connectedMarkup = participants.map((p) => renderJoinedStudentCard(p)).join("");
     const pendingMarkup = Array.from({ length: pendingCount }, () =>
       `<li class="waiting-student pending" aria-hidden="true">
-        <div class="waiting-student-avatar waiting-student-avatar--placeholder">
-          <img class="waiting-student-photo waiting-student-photo--placeholder" src="/assets/waiting/avatar.png" alt="" width="68" height="68" />
-        </div>
+        ${renderWaitingAvatar("", { placeholder: true })}
         <span class="waiting-student-name">—</span>
       </li>`
     ).join("");

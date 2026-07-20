@@ -361,6 +361,7 @@ function updateStudentBuzzinUi(payload) {
   const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
   const currentTurn = payload.currentTurn || null;
   const firstBuzz = (payload.buzzes || [])[0] || null;
+  const alreadyWon = (payload.ineligiblePlayerIds || []).includes(playerId);
   const isMyAnswerTurn =
     currentTurn?.playerId === playerId ||
     (!currentTurn && firstBuzz?.playerId === playerId);
@@ -371,7 +372,9 @@ function updateStudentBuzzinUi(payload) {
     btn.disabled = true;
     hideRoomBuzzinJoinTimer();
     resetRoomBuzzinTurnUi();
-    status.textContent = "Waiting for teacher to start…";
+    status.textContent = alreadyWon
+      ? "You already won 300 points in this exercise."
+      : "Waiting for teacher to start…";
     result.hidden = true;
     return;
   }
@@ -384,6 +387,15 @@ function updateStudentBuzzinUi(payload) {
     btn.hidden = true;
     hideRoomBuzzinJoinTimer();
     updateStudentBuzzinTurnUi(payload);
+  }
+
+  if (alreadyWon) {
+    btn.disabled = true;
+    status.textContent = "You already won 300 points — let another student try!";
+    result.hidden = false;
+    result.textContent = "300 points secured!";
+    result.className = "buzzin-result buzzin-result--selected";
+    return;
   }
 
   if (myBuzz && isMyAnswerTurn) {
