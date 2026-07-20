@@ -1,0 +1,71 @@
+:root {
+  --lango-transition-z-index: 2147483647;
+}
+
+.lango-transition-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--lango-transition-z-index);
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.lango-transition-screen.is-playing {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.lango-transition-screen__image {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transform: scale(1.04);
+  transform-origin: center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.lango-transition-screen[data-fit="contain"] {
+  background: #8fd5f5;
+}
+
+.lango-transition-screen[data-fit="contain"] .lango-transition-screen__image {
+  object-fit: contain;
+}
+
+.lango-transition-screen.is-playing .lango-transition-screen__image {
+  animation: lango-transition-screen-play var(--lango-transition-duration, 2600ms) ease both;
+}
+
+@keyframes lango-transition-screen-play {
+  0% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+
+  16%,
+  78% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lango-transition-screen.is-playing .lango-transition-screen__image {
+    animation: none;
+  }
+}

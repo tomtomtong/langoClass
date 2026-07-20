@@ -85,8 +85,8 @@
         <p class="hint">
           Paste the <strong>Basic (Base64)</strong> credential from
           <a href="https://platform.inworld.ai/api-keys" target="_blank" rel="noopener">Inworld Portal</a>.
-          The key is stored on this server and used for Buzz In: speech-to-text, AI feedback (LLM),
-          and TTS voice <code>uncle_tommy</code>.
+          The key is stored on this server and used for Buzz In speech-to-text and TTS voice
+          <code>uncle_tommy</code>. AI feedback uses OpenRouter.
         </p>
 
         <label class="field">
@@ -272,12 +272,12 @@
       </div>
 
       <div class="cms-panel config-panel config-section-spaced">
-        <h2>OpenRouter (standalone transcribe tool)</h2>
+        <h2>OpenRouter (Buzz In AI feedback and transcription)</h2>
         <p class="hint">
           Paste your OpenRouter API key from
           <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>.
-          Used by the standalone <a href="/transcribe.html">Transcribe</a> page only.
-          Buzz In uses Inworld STT when an Inworld key is configured; OpenRouter is a fallback if not.
+          Used for Buzz In AI feedback and the standalone <a href="/transcribe.html">Transcribe</a>
+          page. Buzz In uses Inworld STT when an Inworld key is configured; OpenRouter is the STT fallback.
         </p>
 
         <label class="field">
@@ -300,7 +300,7 @@
         </div>
 
         <label class="field">
-          <span>Transcription model</span>
+          <span>Buzz In AI and transcription model</span>
           <input
             type="text"
             id="config-openrouter-buzzin-model"
@@ -313,7 +313,7 @@
             <option value="xiaomi/mimo-v2.5"></option>
           </datalist>
           <p class="hint">
-            OpenRouter model slug for the standalone transcribe page and Buzz In fallback.
+            OpenRouter model slug for Buzz In AI feedback, the standalone transcribe page, and Buzz In STT fallback.
           </p>
         </label>
 

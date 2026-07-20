@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-HK">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>隨機 Uncle Tommy 過場 Demo</title>
+    <link rel="stylesheet" href="./uncle-tommy-transition.css" />
+    <style>
+      * { box-sizing: border-box; }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        background: linear-gradient(145deg, #38204e, #714692);
+      }
+
+      main {
+        width: min(640px, calc(100% - 32px));
+        padding: 48px 24px;
+        text-align: center;
+      }
+
+      h1 { margin: 0 0 12px; }
+      p { margin: 0 0 28px; opacity: 0.82; }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 14px 24px;
+        color: #663584;
+        font: inherit;
+        font-weight: 800;
+        background: #fff;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>隨機 Uncle Tommy 過場</h1>
+      <p id="status">每次播放會隨機抽一款，而且唔會連續重複。</p>
+      <button id="play-transition" type="button">播放過場</button>
+    </main>
+
+    <script src="./uncle-tommy-transition.js"></script>
+    <script>
+      const status = document.querySelector("#status");
+
+      UncleTommyTransition.preload();
+      document.querySelector("#play-transition").addEventListener("click", () => {
+        UncleTommyTransition.play((pose) => {
+          status.textContent = `今次播放 Pose ${pose}`;
+        });
+      });
+    </script>
+  </body>
+</html>

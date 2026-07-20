@@ -9755,6 +9755,10 @@ body:has(#app.lango-host) {
   margin: 0;
 }
 
+#app.lango-host .host-buzzin-chat-bubble--feedback p {
+  white-space: pre-line;
+}
+
 #app.lango-host .host-buzzin-chat-bubble--question,
 #app.lango-host .host-buzzin-chat-bubble--feedback {
   color: #344356;

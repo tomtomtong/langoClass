@@ -181,8 +181,19 @@ function formatBuzzinBuzzTime(seconds) {
 function buzzinPointsFromAnalysis(analysis, maxPoints = 300) {
   const cap = Math.max(0, Number(maxPoints) || 0);
   if (!analysis || cap === 0) return 0;
-  const match = String(analysis).match(/(\d{1,3})\s*points?/i);
+  const text = String(analysis);
+  const match = text.match(/(\d{1,3})\s*points?/i);
   if (match) return Math.min(cap, parseInt(match[1], 10));
+
+  const categoryScores = Array.from(
+    text.matchAll(/(?:correctness|completeness|fluency)\s*\(\s*(\d{1,3})(?:\s*\/\s*100)?\s*\)/gi),
+    (item) => Math.min(100, parseInt(item[1], 10))
+  );
+  if (categoryScores.length) {
+    const average = categoryScores.reduce((sum, score) => sum + score, 0) / categoryScores.length;
+    return Math.round((average / 100) * cap);
+  }
+
   return cap;
 }
 

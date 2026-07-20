@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-HK">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lango 過場畫面 Demo</title>
+    <link rel="stylesheet" href="./transition-screen.css" />
+    <style>
+      * { box-sizing: border-box; }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        background: #36234e;
+      }
+
+      main {
+        width: min(680px, calc(100% - 32px));
+        padding: 48px;
+        border-radius: 28px;
+        text-align: center;
+        background: linear-gradient(145deg, #7544a4, #d171ad);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+      }
+
+      main.is-second {
+        background: linear-gradient(145deg, #087e8b, #5bc0be);
+      }
+
+      h1 { margin: 0 0 12px; }
+      p { margin: 0 0 28px; opacity: 0.86; }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 14px 24px;
+        color: #613172;
+        font: inherit;
+        font-weight: 800;
+        background: #fff;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="demo-page">
+      <h1 id="demo-title">第一頁</h1>
+      <p>撳掣預覽抽出後嘅 Uncle Tommy 過場畫面。</p>
+      <button id="play-transition" type="button">播放過場</button>
+    </main>
+
+    <script src="./transition-screen.js"></script>
+    <script>
+      const page = document.querySelector("#demo-page");
+      const title = document.querySelector("#demo-title");
+
+      document.querySelector("#play-transition").addEventListener("click", () => {
+        LangoTransitionScreen.play(() => {
+          page.classList.toggle("is-second");
+          title.textContent = page.classList.contains("is-second") ? "第二頁" : "第一頁";
+        });
+      });
+    </script>
+  </body>
+</html>

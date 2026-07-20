@@ -1,0 +1,177 @@
+:root {
+  --uncle-tommy-transition-purple: #743c9b;
+  --uncle-tommy-transition-lavender: #c398fb;
+  --uncle-tommy-transition-pink: #e4a0ce;
+  --uncle-tommy-transition-z-index: 2147483647;
+}
+
+.uncle-tommy-transition {
+  position: fixed;
+  inset: 0;
+  z-index: var(--uncle-tommy-transition-z-index);
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgba(116, 60, 155, 0.22);
+  isolation: isolate;
+}
+
+.uncle-tommy-transition.is-playing {
+  display: block;
+}
+
+.uncle-tommy-transition::before,
+.uncle-tommy-transition::after {
+  content: "";
+  position: absolute;
+}
+
+.uncle-tommy-transition::before {
+  inset: -24vmax;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, transparent 0 18%, rgba(255, 255, 255, 0.92) 18.5% 20%, transparent 20.5%),
+    repeating-conic-gradient(
+      from 18deg,
+      var(--uncle-tommy-transition-purple) 0deg 24deg,
+      var(--uncle-tommy-transition-lavender) 24deg 48deg,
+      var(--uncle-tommy-transition-pink) 48deg 72deg
+    );
+  filter:
+    saturate(1.08)
+    drop-shadow(0 0 26px rgba(195, 152, 251, 0.88))
+    drop-shadow(0 0 52px rgba(116, 60, 155, 0.58));
+  transform: scale(0) rotate(-28deg);
+}
+
+.uncle-tommy-transition::after {
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 24%, #fff 0 4px, var(--uncle-tommy-transition-purple) 5px 8px, transparent 9px),
+    radial-gradient(circle at 82% 18%, #fff 0 3px, var(--uncle-tommy-transition-lavender) 4px 7px, transparent 8px),
+    radial-gradient(circle at 24% 78%, #fff 0 5px, var(--uncle-tommy-transition-pink) 6px 10px, transparent 11px),
+    radial-gradient(circle at 88% 72%, #fff 0 4px, var(--uncle-tommy-transition-lavender) 5px 9px, transparent 10px),
+    radial-gradient(circle at 55% 12%, #fff 0 3px, transparent 4px),
+    radial-gradient(circle at 48% 88%, #fff 0 3px, transparent 4px);
+  opacity: 0;
+  transform: scale(0.72) rotate(-8deg);
+}
+
+.uncle-tommy-transition.is-playing::before {
+  animation: uncle-tommy-portal var(--uncle-tommy-transition-duration, 1180ms)
+    cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.uncle-tommy-transition.is-playing::after {
+  animation: uncle-tommy-spark-burst var(--uncle-tommy-transition-duration, 1180ms)
+    ease-out forwards;
+}
+
+.uncle-tommy-transition__cast {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+}
+
+.uncle-tommy-transition__character {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(280px, 60vw, 760px);
+  max-height: 84vh;
+  height: auto;
+  opacity: 0;
+  object-fit: contain;
+  transform: translate(-50%, 55%) scale(0.52) rotate(-5deg);
+  transform-origin: 50% 50%;
+  filter:
+    drop-shadow(0 10px 5px rgba(116, 60, 155, 0.34))
+    drop-shadow(0 0 14px rgba(195, 152, 251, 0.75));
+  will-change: transform, opacity;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.uncle-tommy-transition.is-playing .uncle-tommy-transition__character.is-active {
+  animation: uncle-tommy-jump var(--uncle-tommy-character-duration, 1080ms)
+    cubic-bezier(0.16, 1, 0.3, 1) 30ms both;
+}
+
+@keyframes uncle-tommy-jump {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 55%) scale(0.52) rotate(-5deg);
+  }
+
+  34% {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.08) rotate(1deg);
+  }
+
+  58% {
+    opacity: 1;
+    transform: translate(-50%, -47%) scale(0.98) rotate(-1deg);
+  }
+
+  78% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -66%) scale(0.96) rotate(2deg);
+  }
+}
+
+@keyframes uncle-tommy-portal {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-28deg);
+  }
+
+  38% {
+    opacity: 1;
+    transform: scale(1.35) rotate(8deg);
+  }
+
+  76% {
+    opacity: 1;
+    transform: scale(1.35) rotate(18deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(58deg);
+  }
+}
+
+@keyframes uncle-tommy-spark-burst {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.72) rotate(-8deg);
+  }
+
+  34%,
+  76% {
+    opacity: 1;
+    transform: scale(1.08) rotate(8deg);
+  }
+}
+
+@media (max-width: 600px) {
+  .uncle-tommy-transition__character {
+    width: clamp(280px, 88vw, 560px);
+    max-height: 82vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uncle-tommy-transition.is-playing::before,
+  .uncle-tommy-transition.is-playing::after,
+  .uncle-tommy-transition.is-playing .uncle-tommy-transition__character.is-active {
+    animation: none;
+  }
+}
