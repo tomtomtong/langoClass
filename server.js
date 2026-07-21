@@ -2878,8 +2878,20 @@ io.on("connection", (socket) => {
     }
 
     const finishedExercise = resolveFinishedExercise(session, { exerciseId, exerciseType });
+    const game = games.get(pin);
     let exerciseLeaderboard = null;
-    if (isVideoExercise(finishedExercise)) {
+    if (isLiveMcQuizExercise(finishedExercise) && game) {
+      if (!game.scoresSaved) {
+        const result = persistExerciseScores(game);
+        game.scoresSaved = true;
+        if (result?.saved > 0) {
+          console.log(
+            `[scores] Saved ${result.saved} partial quiz score(s) for class ${session.classId} exercise ${finishedExercise.id} (room ${pin})`
+          );
+        }
+      }
+      exerciseLeaderboard = getLeaderboard(game);
+    } else if (isVideoExercise(finishedExercise)) {
       const result = persistVideoExerciseScores(session, finishedExercise);
       exerciseLeaderboard = getVideoExerciseLeaderboard(session, finishedExercise);
       if (result?.saved > 0) {
@@ -2905,7 +2917,6 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const game = games.get(pin);
     if (game) {
       clearQuestionTimer(game);
       games.delete(pin);

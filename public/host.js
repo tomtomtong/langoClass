@@ -2494,8 +2494,12 @@ $("#btn-back-journey")?.addEventListener("click", backFromWaiting);
 
 document.querySelectorAll("#btn-back-waiting-preview, #btn-back-waiting-quiz, #btn-back-waiting-results").forEach((btn) =>
   btn.addEventListener("click", () => {
+    const confirmed = window.confirm(
+      "Leave this quiz? Scores from completed questions will be saved."
+    );
+    if (!confirmed) return;
     playPageBackSound();
-    returnHostToJourney();
+    endExerciseAndReturnToDashboard();
   })
 );
 
@@ -2511,7 +2515,7 @@ document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
 document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin, #btn-back-waiting-buzzin-feedback").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
-    finishVideoOrBuzzinExercise();
+    endExerciseAndReturnToDashboard();
   })
 );
 
@@ -2637,6 +2641,13 @@ function finishVideoOrBuzzinExercise() {
       showHostExerciseFinishedScreen(res);
       return;
     }
+    returnHostToJourney();
+  });
+}
+
+function endExerciseAndReturnToDashboard() {
+  wrapUpRoomExercise((res) => {
+    if (res?.ok) markCurrentHostExerciseCompleted();
     returnHostToJourney();
   });
 }
