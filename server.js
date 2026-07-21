@@ -227,7 +227,8 @@ function deleteSectionBanners(sections) {
 }
 
 const QUESTION_TIME_MS = 15000;
-const BASE_POINTS = 1000;
+const MC_QUESTION_POINTS = 300;
+const FAST_MC_QUESTION_POINTS = 500;
 const VIDEO_EXERCISE_POINTS = 200;
 const BUZZIN_EXERCISE_POINTS = 300;
 
@@ -1055,6 +1056,29 @@ function quizPayloadForRoomGame(pin, clientQuiz) {
   return payload?.questions?.length ? payload : clientQuiz;
 }
 
+function syncRoomGamePlayersFromSession(game) {
+  if (!game?.isRoomGame) return;
+
+  const session = sessionStore.getSession(game.pin);
+  if (!session) return;
+
+  for (const participant of session.participants.values()) {
+    const existing = game.players.get(participant.userId);
+    if (existing) {
+      existing.name = participant.displayName || existing.name;
+      continue;
+    }
+
+    game.players.set(participant.userId, {
+      id: participant.userId,
+      name: participant.displayName,
+      score: 0,
+      correctAnswers: 0,
+      socketId: null,
+    });
+  }
+}
+
 function createRoomGame(hostSocketId, roomId, quizPayload) {
   const pin = normalizeRoomId(roomId);
   if (!pin) return null;
@@ -1116,7 +1140,7 @@ function emitCurrentQuestion(socket, game) {
       text: question.text,
       previewSeconds: QUESTION_PREVIEW_SECONDS,
       previewEndsAt: game.previewEndsAt || Date.now() + QUESTION_PREVIEW_SECONDS * 1000,
-      points: game.fastMode ? 500 : 300,
+      points: questionPointsForGame(game),
       image: question.image || null,
       fastMode: game.fastMode,
     });
@@ -1134,7 +1158,7 @@ function emitCurrentQuestion(socket, game) {
     endsAt: game.questionStartedAt
       ? game.questionStartedAt + timeLimitSeconds * 1000
       : Date.now() + timeLimitSeconds * 1000,
-    points: game.fastMode ? 500 : 300,
+    points: questionPointsForGame(game),
     image: question.image || null,
   });
 }
@@ -1168,6 +1192,19 @@ function getLeaderboard(game) {
   return [...game.players.values()]
     .map((p) => ({ id: p.id, name: p.name, score: p.score }))
     .sort((a, b) => b.score - a.score);
+}
+
+function questionPointsForGame(game) {
+  return game.fastMode ? FAST_MC_QUESTION_POINTS : MC_QUESTION_POINTS;
+}
+
+function scheduleGameStart(game, delayMs) {
+  clearQuestionTimer(game);
+  game.questionTimer = setTimeout(() => {
+    game.questionTimer = null;
+    if (games.get(game.pin) !== game) return;
+    startQuestion(game);
+  }, delayMs);
 }
 
 function getAccuracyLeaderboard(game) {
@@ -1252,7 +1289,7 @@ function endQuestion(game) {
     if (answer) {
       answerCounts[answer.answerIndex]++;
       if (answer.answerIndex === question.correctIndex) {
-        const points = BASE_POINTS;
+        const points = questionPointsForGame(game);
         player.score += points;
         player.correctAnswers = (player.correctAnswers || 0) + 1;
         results.push({
@@ -1297,7 +1334,7 @@ function endQuestion(game) {
       totalQuestions: game.quiz.questions.length,
       isLast,
     });
-    setTimeout(() => startQuestion(game), 1500);
+    scheduleGameStart(game, 1500);
     return;
   }
 
@@ -1347,6 +1384,11 @@ function startQuestion(game) {
   const emitQuestionStart = () => {
     if (game.status !== "preview" && game.status !== "question") return;
 
+    // A room participant connects to the waiting room and quiz using separate
+    // sockets. Refresh the roster immediately before answers open so a fast
+    // first response cannot be mistaken for the whole class.
+    syncRoomGamePlayersFromSession(game);
+
     game.status = "question";
     game.questionStartedAt = Date.now();
     game.previewEndsAt = null;
@@ -1358,7 +1400,7 @@ function startQuestion(game) {
       options: question.options,
       timeLimit: question.timeLimit || 15,
       endsAt: game.questionStartedAt + timeLimit,
-      points: game.fastMode ? 500 : 300,
+      points: questionPointsForGame(game),
       image: question.image || null,
       fastMode: game.fastMode,
     });
@@ -1375,7 +1417,7 @@ function startQuestion(game) {
       text: question.text,
       previewSeconds: QUESTION_PREVIEW_SECONDS,
       previewEndsAt: game.previewEndsAt,
-      points: 300,
+      points: questionPointsForGame(game),
       image: question.image || null,
       fastMode: false,
     });
@@ -1407,7 +1449,15 @@ function removePlayerFromGame(socketId) {
     games.delete(meta.pin);
     endSession(meta.pin, "Host left the session");
   } else if (meta.playerId) {
-    game.players.delete(meta.playerId);
+    const player = game.players.get(meta.playerId);
+    if (game.isRoomGame) {
+      // Keep class members in the question roster when only their quiz socket
+      // disconnects. They may reconnect while their waiting-room socket stays
+      // active, and removing them could make one answer end the question early.
+      if (player?.socketId === socketId) player.socketId = null;
+    } else {
+      game.players.delete(meta.playerId);
+    }
     if (game.status === "lobby") {
       broadcastLobby(game);
     }
@@ -2550,6 +2600,11 @@ io.on("connection", (socket) => {
       socketId: socket.id,
     });
 
+    const activeRoomGame = games.get(pin);
+    if (activeRoomGame?.isRoomGame) {
+      syncRoomGamePlayersFromSession(activeRoomGame);
+    }
+
     socket.join(pin);
     socketMeta.set(socket.id, { pin, role: "session_player", playerId });
 
@@ -3058,7 +3113,7 @@ io.on("connection", (socket) => {
       fastMode: !!game.fastMode,
     });
 
-    setTimeout(() => startQuestion(game), game.fastMode ? 2000 : 0);
+    scheduleGameStart(game, game.fastMode ? 2000 : 0);
   }
 
   socket.on("start_game", hostStartGame);
@@ -3198,6 +3253,10 @@ io.on("connection", (socket) => {
     const game = games.get(meta.pin);
     if (!game || game.status !== "question") return;
     if (game.answers.has(meta.playerId)) return;
+
+    // Include everyone currently registered in the class before checking
+    // whether this response completes the question.
+    syncRoomGamePlayersFromSession(game);
 
     const idx = Number(answerIndex);
     const question = game.quiz.questions[game.currentQuestionIndex];

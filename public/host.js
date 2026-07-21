@@ -1363,7 +1363,8 @@ function exercisePointsValue(exercise) {
   const itemCount = Math.max(1, (exercise?.items || []).length);
   if (type === "video") return 200;
   if (type === "buzzin") return 300;
-  if (type === "mcquiz" || type === "fastmcquiz") return itemCount >= 5 ? 500 : 300;
+  if (type === "mcquiz") return 300;
+  if (type === "fastmcquiz") return 500;
   return 100 * itemCount;
 }
 

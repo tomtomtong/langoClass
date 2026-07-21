@@ -831,7 +831,7 @@ function showHostBuzzinExercise(exercise, roomId) {
   const scoreTotalEl = $("#host-buzzin-feedback-score-total");
   if (scoreTotalEl) scoreTotalEl.textContent = String(points);
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
-  showScreen("host-buzzin", { transition: false });
+  showScreen("host-buzzin");
   return startHostBuzzinRound(roomId);
 }
 
