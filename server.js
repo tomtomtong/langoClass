@@ -247,7 +247,7 @@ const BUZZIN_STT_SAMPLE_RATE = 16000;
 /** @type {Map<string, BuzzInRound>} */
 const buzzInRounds = new Map();
 
-/** @typedef {{ roundId: number, phase: 'ready' | 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, sttLanguage: string, buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, analysis: string | null, analysisStatus: 'pending' | 'done' | 'error', analysisAudio: string | null, analysisAudioFormat: string | null }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
+/** @typedef {{ roundId: number, phase: 'ready' | 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, sttLanguage: string, buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, responseAudio: string | null, responseAudioFormat: string | null, analysis: string | null, spokenFeedback: string | null, analysisStatus: 'pending' | 'done' | 'error', analysisAudio: string | null, analysisAudioFormat: string | null }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
 
 function normalizeBuzzinSttLanguage(value, fallback) {
   const normalized = String(value || "")
@@ -374,6 +374,7 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
 
   if (result.ok) {
     entry.analysis = result.analysis;
+    entry.spokenFeedback = result.spokenFeedback;
     entry.analysisStatus = "done";
     entry.analysisAudio = null;
     entry.analysisAudioFormat = null;
@@ -387,6 +388,7 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
     }
   } else {
     entry.analysis = result.error;
+    entry.spokenFeedback = null;
     entry.analysisStatus = "error";
     entry.analysisAudio = null;
     entry.analysisAudioFormat = null;
@@ -439,6 +441,19 @@ function parseBuzzinAudioPayload(audioBase64, format) {
     mimeType,
     base64Data,
   };
+}
+
+function buzzinStoredResponseAudio(audioBase64, format) {
+  if (!audioBase64) {
+    return { responseAudio: null, responseAudioFormat: null };
+  }
+
+  try {
+    const { audioFormat, base64Data } = parseBuzzinAudioPayload(audioBase64, format);
+    return { responseAudio: base64Data, responseAudioFormat: audioFormat };
+  } catch {
+    return { responseAudio: null, responseAudioFormat: null };
+  }
 }
 
 async function parseOpenRouterResponse(res) {
@@ -2889,7 +2904,9 @@ io.on("connection", (socket) => {
       rank: current.rank,
       text: trimmed,
       at: Date.now(),
+      ...buzzinStoredResponseAudio(audioBase64, format),
       analysis: null,
+      spokenFeedback: null,
       analysisStatus: "pending",
       analysisAudio: null,
       analysisAudioFormat: null,

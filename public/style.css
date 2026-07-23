@@ -9807,6 +9807,10 @@ body:has(#app.lango-host) {
   box-shadow: 0 12px 10px rgba(108, 106, 171, 0.06);
 }
 
+#app.lango-host .host-buzzin-chat-bubble--spoken {
+  background: #fffaf3;
+}
+
 #app.lango-host .host-buzzin-chat-bubble--answer {
   color: #fff;
   background: linear-gradient(153deg, rgba(162, 89, 255, 0.85) 0%, rgba(255, 107, 107, 0.85) 100%);
@@ -9874,6 +9878,14 @@ body:has(#app.lango-host) {
   cursor: pointer;
 }
 
+#app.lango-host .host-buzzin-chat-bubble .buzzin-analysis-play:hover {
+  filter: brightness(1.06);
+}
+
+#app.lango-host .host-buzzin-chat-bubble--answer .buzzin-response-play {
+  margin-top: 8px;
+}
+
 #app.lango-host .host-buzzin-feedback-leaderboard {
   position: absolute;
   box-sizing: border-box;
@@ -9912,10 +9924,14 @@ body:has(#app.lango-host) {
 #app.lango-host .host-buzzin-feedback-leaderboard-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 24px;
   flex: 0 0 auto;
   min-height: 57px;
+}
+
+#app.lango-host .host-buzzin-feedback-leaderboard-titles {
+  text-align: center;
 }
 
 #app.lango-host .host-buzzin-feedback-leaderboard-title {
@@ -9943,53 +9959,12 @@ body:has(#app.lango-host) {
   color: transparent;
 }
 
-#app.lango-host .host-buzzin-feedback-score-badge {
-  position: relative;
-  isolation: isolate;
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  min-height: 58px;
-  padding: 10px 22px 8px;
-  border: 10px solid rgba(255, 255, 255, 0.2);
-  border-radius: 55px;
-  background: linear-gradient(52deg, #fc7dba 0%, #947af7 98%) padding-box;
-  box-shadow:
-    inset 0 0 10px rgba(255, 255, 255, 0.5),
-    0 0 12.5px rgba(255, 105, 180, 0.5);
-  flex-shrink: 0;
-}
-
-#app.lango-host .host-buzzin-feedback-score-current,
-#app.lango-host .host-buzzin-feedback-score-sep,
-#app.lango-host .host-buzzin-feedback-score-total {
-  display: inline-block;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0.9px;
-  background: linear-gradient(180deg, #feca57, #ff9f43);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
-#app.lango-host .host-buzzin-feedback-score-current {
-  font-size: 40px;
-}
-
-#app.lango-host .host-buzzin-feedback-score-sep,
-#app.lango-host .host-buzzin-feedback-score-total {
-  font-size: 20px;
-}
-
 #app.lango-host .host-buzzin-feedback-winner-wrap {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  margin-top: 4px;
+  flex: 1 1 auto;
+  margin-top: 0;
   padding: 0;
   overflow: visible;
 }
@@ -10171,12 +10146,6 @@ body:has(#app.lango-host) {
   }
 }
 
-@keyframes hostBuzzinScorePop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.14); }
-  100% { transform: scale(1); }
-}
-
 @keyframes hostBuzzinLivePulse {
   0%, 100% {
     transform: scale(1);
@@ -10222,10 +10191,6 @@ body:has(#app.lango-host) {
   animation: hostBuzzinWinnerEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-#app.lango-host .host-buzzin-feedback-score-badge--pop {
-  animation: hostBuzzinScorePop 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
 #app.lango-host .host-buzzin-winner-card.is-live .host-buzzin-winner-live {
   animation: hostBuzzinLivePulse 1.4s ease-in-out infinite;
 }
@@ -10244,7 +10209,6 @@ body:has(#app.lango-host) {
   #screen-host-buzzin-feedback.active.host-buzzin-feedback-screen--enter .host-buzzin-feedback-realtime,
   #app.lango-host .host-buzzin-chat-row--enter,
   #app.lango-host .host-buzzin-winner-card--enter,
-  #app.lango-host .host-buzzin-feedback-score-badge--pop,
   #app.lango-host .host-buzzin-winner-card.is-live .host-buzzin-winner-live,
   #app.lango-host .host-buzzin-chat-bubble--pending,
   #app.lango-host .host-buzzin-chat-bubble--analyzing p {

@@ -226,7 +226,7 @@ function renderHostBuzzinAnswerBubbleContent({ response, currentTurn, emptyText 
 
   const text = String(response?.text || "").trim();
   if (text) {
-    return `<p>${escapeHtml(text)}</p>`;
+    return `<p>${escapeHtml(text)}</p>${buzzinResponseRecordingPlayButtonHtml(response)}`;
   }
 
   if (currentTurn) {
@@ -279,6 +279,7 @@ function renderHostBuzzinFeedbackChat(container, {
           <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback">
             <p>${escapeHtml(response.analysis)}</p>
           </div>
+          ${buzzinSpokenFeedbackBubbleHtml(response)}
         </div>
       </div>`;
     }
@@ -342,7 +343,7 @@ function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
     .map((item) => {
       const body = item.pending
         ? `<span class="buzzin-response-pending">Speaking…</span>`
-        : escapeHtml(item.text);
+        : `${escapeHtml(item.text)}${buzzinResponseRecordingPlayButtonHtml(item)}`;
       const analysis = renderBuzzinAnalysisHtml(item);
       return `<li><span class="buzzin-rank">${item.rank}</span><div class="buzzin-response-body"><strong>${escapeHtml(item.displayName)}</strong><p>${body}</p>${analysis}</div></li>`;
     })
@@ -358,7 +359,8 @@ function renderBuzzinAnalysisHtml(item) {
     return `<p class="buzzin-analysis buzzin-analysis--error">${escapeHtml(item.analysis || "Analysis unavailable.")}</p>`;
   }
   if (item.analysis) {
-    return `<p class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}</p>`;
+    const spoken = String(item.spokenFeedback || "").trim();
+    return `<div class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}${spoken ? `<p class="buzzin-spoken-feedback">${escapeHtml(spoken)}</p>` : ""}${buzzinSpokenFeedbackPlayButtonHtml(item)}</div>`;
   }
   return "";
 }
@@ -367,25 +369,80 @@ function buzzinSpokenFeedbackAudioKey(item) {
   return `${item.playerId || ""}:${item.at || 0}`;
 }
 
-let buzzinSpokenFeedbackAudioEl = null;
+function buzzinSpokenFeedbackPlayButtonHtml(item) {
+  if (!item?.analysisAudio) return "";
+  const key = buzzinSpokenFeedbackAudioKey(item);
+  return `<button type="button" class="buzzin-analysis-play" data-buzzin-play-feedback="${escapeHtml(key)}" aria-label="Play feedback">▶ Play feedback</button>`;
+}
 
-function playBuzzinSpokenFeedbackAudio(item) {
-  const base64 = item?.analysisAudio;
+function buzzinSpokenFeedbackBubbleHtml(item) {
+  const text = String(item?.spokenFeedback || "").trim();
+  if (!text && !item?.analysisAudio) return "";
+  return `<div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--spoken">
+    ${text ? `<p>${escapeHtml(text)}</p>` : ""}
+    ${buzzinSpokenFeedbackPlayButtonHtml(item)}
+  </div>`;
+}
+
+function buzzinResponseRecordingPlayButtonHtml(item) {
+  if (!item?.responseAudio) return "";
+  const key = buzzinSpokenFeedbackAudioKey(item);
+  return `<button type="button" class="buzzin-analysis-play buzzin-response-play" data-buzzin-play-recording="${escapeHtml(key)}" aria-label="Play recording">▶ Play recording</button>`;
+}
+
+function setupBuzzinSpokenFeedbackPlayDelegation(container, getResponses) {
+  if (!container || container.dataset.buzzinPlayBound === "1") return;
+  container.dataset.buzzinPlayBound = "1";
+  container.addEventListener("click", (event) => {
+    const responses = typeof getResponses === "function" ? getResponses() : [];
+    const recordingBtn = event.target.closest("[data-buzzin-play-recording]");
+    if (recordingBtn && container.contains(recordingBtn)) {
+      const key = recordingBtn.getAttribute("data-buzzin-play-recording");
+      const item = responses.find((response) => buzzinSpokenFeedbackAudioKey(response) === key);
+      if (item) playBuzzinResponseRecordingAudio(item);
+      return;
+    }
+
+    const feedbackBtn = event.target.closest("[data-buzzin-play-feedback]");
+    if (!feedbackBtn || !container.contains(feedbackBtn)) return;
+    const key = feedbackBtn.getAttribute("data-buzzin-play-feedback");
+    const item = responses.find((response) => buzzinSpokenFeedbackAudioKey(response) === key);
+    if (item) playBuzzinSpokenFeedbackAudio(item);
+  });
+}
+
+let buzzinPlaybackAudioEl = null;
+
+function buzzinAudioMimeFromFormat(format) {
+  const normalized = String(format || "mp3").toLowerCase().replace(/^\./, "");
+  if (normalized === "wav") return "audio/wav";
+  if (normalized === "webm") return "audio/webm";
+  if (normalized === "m4a" || normalized === "mp4") return "audio/mp4";
+  return "audio/mpeg";
+}
+
+function playBuzzinBase64Audio(base64, format) {
   if (!base64) return;
 
-  const format = String(item.analysisAudioFormat || "mp3").toLowerCase();
-  const mime = format === "wav" ? "audio/wav" : "audio/mpeg";
-
-  if (!buzzinSpokenFeedbackAudioEl) {
-    buzzinSpokenFeedbackAudioEl = new Audio();
+  const mime = buzzinAudioMimeFromFormat(format);
+  if (!buzzinPlaybackAudioEl) {
+    buzzinPlaybackAudioEl = new Audio();
   }
 
-  buzzinSpokenFeedbackAudioEl.pause();
-  buzzinSpokenFeedbackAudioEl.src = `data:${mime};base64,${base64}`;
-  const playPromise = buzzinSpokenFeedbackAudioEl.play();
+  buzzinPlaybackAudioEl.pause();
+  buzzinPlaybackAudioEl.src = `data:${mime};base64,${base64}`;
+  const playPromise = buzzinPlaybackAudioEl.play();
   playPromise?.catch?.(() => {
     /* Autoplay may be blocked until the host interacts with the page. */
   });
+}
+
+function playBuzzinSpokenFeedbackAudio(item) {
+  playBuzzinBase64Audio(item?.analysisAudio, item?.analysisAudioFormat || "mp3");
+}
+
+function playBuzzinResponseRecordingAudio(item) {
+  playBuzzinBase64Audio(item?.responseAudio, item?.responseAudioFormat || "wav");
 }
 
 function playNewBuzzinSpokenFeedbackAudio(responses, playedKeys) {

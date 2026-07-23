@@ -10,6 +10,42 @@
   const STORAGE_KEY = "lango_host_preview_layout";
   const TOOLBAR_OPEN_KEY = "lango_host_preview_toolbar_open";
 
+  function createPreviewBuzzinWavBase64() {
+    const sampleRate = 16000;
+    const numSamples = 3200;
+    const dataSize = numSamples * 2;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+    const writeString = (offset, value) => {
+      for (let i = 0; i < value.length; i += 1) {
+        view.setUint8(offset + i, value.charCodeAt(i));
+      }
+    };
+
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, dataSize, true);
+
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  const PREVIEW_BUZZIN_AUDIO = createPreviewBuzzinWavBase64();
+
   const LAYOUTS = [
     { id: "login", label: "Login" },
     { id: "class", label: "Class selection" },
@@ -211,9 +247,17 @@
         rank: 1,
         playerId: "p1",
         displayName: "Sophia Patel",
+        at: Date.now() - 1500,
         text: "I like dolphins because they are smart and playful.",
-        analysis: "Great answer, Sophia! I would give you 285 points! 🎉",
+        responseAudio: PREVIEW_BUZZIN_AUDIO,
+        responseAudioFormat: "wav",
+        analysis:
+          "✅ Correctness (88): Strong ocean animal\n🧩 Completeness (82): Nice personal reason\n🗣️ Fluency (85): Clear and confident",
+        spokenFeedback:
+          "Sophia, dolphins are a wonderful choice — you explained clearly why you like them. Keep sharing your ideas like that!",
         analysisStatus: "done",
+        analysisAudio: PREVIEW_BUZZIN_AUDIO,
+        analysisAudioFormat: "wav",
       },
     ],
   };

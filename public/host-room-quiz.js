@@ -18,7 +18,6 @@ const hostBuzzinFeedbackAnim = {
   answerKey: "",
   feedbackKey: "",
   winnerKey: "",
-  scoreValue: null,
 };
 
 function resetHostBuzzinFeedbackAnim() {
@@ -26,7 +25,6 @@ function resetHostBuzzinFeedbackAnim() {
   hostBuzzinFeedbackAnim.answerKey = "";
   hostBuzzinFeedbackAnim.feedbackKey = "";
   hostBuzzinFeedbackAnim.winnerKey = "";
-  hostBuzzinFeedbackAnim.scoreValue = null;
 }
 
 function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, response) {
@@ -37,7 +35,7 @@ function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, r
       ? "pending"
       : "";
   const feedbackKey = response
-    ? `${response.analysisStatus || "none"}:${response.analysis || ""}`
+    ? `${response.analysisStatus || "none"}:${response.analysis || ""}:${response.spokenFeedback || ""}`
     : "";
 
   const flags = {
@@ -58,31 +56,6 @@ function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, r
   }
 
   return flags;
-}
-
-function updateHostBuzzinScoreBadge(payload) {
-  const scoreCurrentEl = $("#host-buzzin-feedback-score-current");
-  const scoreTotalEl = $("#host-buzzin-feedback-score-total");
-  const scoreBadge = $("#host-buzzin-feedback-score");
-  if (!scoreCurrentEl || !scoreTotalEl) return;
-
-  const maxPoints = hostBuzzinExercisePoints || 300;
-  scoreTotalEl.textContent = String(maxPoints);
-
-  const nextScore = buzzinSelectedStudent(payload) ? String(maxPoints) : "0";
-
-  scoreCurrentEl.textContent = nextScore;
-
-  if (
-    scoreBadge &&
-    nextScore !== hostBuzzinFeedbackAnim.scoreValue &&
-    nextScore !== "0"
-  ) {
-    scoreBadge.classList.remove("host-buzzin-feedback-score-badge--pop");
-    void scoreBadge.offsetWidth;
-    scoreBadge.classList.add("host-buzzin-feedback-score-badge--pop");
-  }
-  hostBuzzinFeedbackAnim.scoreValue = nextScore;
 }
 
 function syncHostBuzzinTopic(topic) {
@@ -158,6 +131,7 @@ function updateHostBuzzinTurnUi(payload) {
   if (!chatEl || !winnerEl) return;
 
   hostBuzzinLastResponses = buzzinResponsesForDisplay(payload);
+  setupBuzzinSpokenFeedbackPlayDelegation(chatEl, () => hostBuzzinLastResponses);
 
   if (!hostBuzzinShowFeedbackPhase(payload)) {
     return;
@@ -176,8 +150,6 @@ function updateHostBuzzinTurnUi(payload) {
     currentTurn,
     response
   );
-
-  updateHostBuzzinScoreBadge(payload);
 
   if (!selectedStudent) {
     if (turnStatus) turnStatus.textContent = "No one buzzed in.";
@@ -288,7 +260,6 @@ function ensureHostBuzzinSocket() {
 
   if (hostBuzzinUiReady) return;
   hostBuzzinUiReady = true;
-
 }
 
 function startHostBuzzinRound(roomId) {
@@ -828,8 +799,6 @@ function showHostBuzzinExercise(exercise, roomId) {
   if (pointsEl) {
     pointsEl.textContent = `${points} pts`;
   }
-  const scoreTotalEl = $("#host-buzzin-feedback-score-total");
-  if (scoreTotalEl) scoreTotalEl.textContent = String(points);
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
   showScreen("host-buzzin");
   return startHostBuzzinRound(roomId);
