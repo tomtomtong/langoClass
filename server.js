@@ -895,7 +895,9 @@ function persistExerciseScores(game) {
     ? new Map([...session.participants.values()].map((p) => [p.userId, p]))
     : null;
 
-  const scores = [...game.players.values()].map((player) => {
+  const scores = [...game.players.values()]
+    .filter((player) => !game.isRoomGame || player.participated)
+    .map((player) => {
     const participant = participantById?.get(player.id);
     const rosterName = findStudentById(session?.studentList, player.id)?.fullName || "";
     const displayName =
@@ -974,11 +976,13 @@ function persistVideoExerciseScores(session, exercise = session?.exercise) {
 
 function getVideoExerciseLeaderboard(session, exercise = session?.exercise) {
   if (!session || !isVideoExercise(exercise)) return null;
-  return [...session.participants.values()].map((participant) => ({
-    id: participant.userId,
-    name: participant.displayName || "Student",
-    score: VIDEO_EXERCISE_POINTS,
-  }));
+  return [...session.participants.values()]
+    .map((participant) => ({
+      id: participant.userId,
+      name: participant.displayName || "Student",
+      score: VIDEO_EXERCISE_POINTS,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function getBuzzinExerciseScores(session, round = buzzInRounds.get(session?.roomId)) {
@@ -1075,6 +1079,7 @@ function syncRoomGamePlayersFromSession(game) {
       score: 0,
       correctAnswers: 0,
       socketId: null,
+      participated: false,
     });
   }
 }
@@ -1100,6 +1105,7 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
         score: 0,
         correctAnswers: 0,
         socketId: null,
+        participated: false,
       },
     ])
   );
@@ -1191,7 +1197,7 @@ function createGame(hostSocketId, quizPayload) {
 function getLeaderboard(game) {
   return [...game.players.values()]
     .map((p) => ({ id: p.id, name: p.name, score: p.score }))
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 }
 
 function questionPointsForGame(game) {
@@ -3083,7 +3089,7 @@ io.on("connection", (socket) => {
     }
 
     const playerId = socket.id;
-    game.players.set(playerId, { id: playerId, name, score: 0, correctAnswers: 0 });
+    game.players.set(playerId, { id: playerId, name, score: 0, correctAnswers: 0, participated: true });
     socket.join(game.pin);
     socketMeta.set(socket.id, { pin: game.pin, role: "player", playerId });
 
@@ -3214,6 +3220,7 @@ io.on("connection", (socket) => {
       score: existing?.score || 0,
       correctAnswers: existing?.correctAnswers || 0,
       socketId: socket.id,
+      participated: true,
     });
     socket.join(game.pin);
     socketMeta.set(socket.id, { pin: game.pin, role: "player", playerId });
@@ -3257,6 +3264,9 @@ io.on("connection", (socket) => {
     // Include everyone currently registered in the class before checking
     // whether this response completes the question.
     syncRoomGamePlayersFromSession(game);
+
+    const player = game.players.get(meta.playerId);
+    if (player) player.participated = true;
 
     const idx = Number(answerIndex);
     const question = game.quiz.questions[game.currentQuestionIndex];

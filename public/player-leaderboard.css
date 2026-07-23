@@ -351,6 +351,9 @@
 .player-leaderboard__board {
   width: min(600px, 100%);
   min-height: 0;
+  max-height: clamp(220px, 34vh, 420px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .player-leaderboard__list {
@@ -391,7 +394,30 @@
 
 .player-leaderboard__row--1 { background: linear-gradient(180deg, var(--leaderboard-orange-top), var(--leaderboard-orange-bottom)); }
 .player-leaderboard__row--3 { background: #dc9e42; }
+.player-leaderboard__row--self {
+  min-height: clamp(96px, 12vh, 132px);
+  background: #f4f0ff;
+}
 .player-leaderboard__row.is-me { outline: 4px solid #a259ff; outline-offset: -8px; }
+
+.player-leaderboard__separator {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.35);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+}
+
+.player-leaderboard__rank-summary {
+  margin: 0;
+  color: #7a4fd6;
+  font-size: clamp(16px, 2.42vw, 18px);
+  font-weight: 900;
+  letter-spacing: 0.36px;
+}
 
 .player-leaderboard__profile,
 .player-leaderboard__rank,

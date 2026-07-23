@@ -256,10 +256,17 @@ function showExerciseLeaderboards({
       name: String(p.name ?? p.displayName ?? "Player"),
       score: p.score ?? p.totalScore ?? 0,
     }));
-  const topHalfRows = (rows) => rows.slice(0, Math.ceil(rows.length / 2));
+  const sortLeaderboardRows = (rows) =>
+    [...rows].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  const samePlayerId = (left, right) =>
+    left != null && right != null && String(left) === String(right);
+  const playerRankFor = (rows, playerId) => {
+    const index = rows.findIndex((row) => samePlayerId(row.id, playerId));
+    return index >= 0 ? index + 1 : null;
+  };
 
-  const exerciseRows = normalizeRows(exerciseLeaderboard);
-  const semesterRows = normalizeRows(semesterLeaderboard);
+  const exerciseRows = sortLeaderboardRows(normalizeRows(exerciseLeaderboard));
+  const semesterRows = sortLeaderboardRows(normalizeRows(semesterLeaderboard));
   const hostScreen = exerciseListEl?.closest(".host-leaderboard");
 
   if (hostScreen) {
@@ -327,7 +334,7 @@ function showExerciseLeaderboards({
       const overall = view === "overall" && hasSemester;
       exerciseWrapEl.hidden = overall;
       semesterWrapEl.hidden = !overall;
-      if (title) title.textContent = overall ? "Overall Results" : "Leaderboard - Session 1";
+      if (title) title.textContent = overall ? "Overall Results" : "Exercise Results";
       tabs.forEach((tab) => {
         const active = tab.dataset.hostLeaderboardView === (overall ? "overall" : "current");
         tab.classList.toggle("is-active", active);
@@ -336,8 +343,8 @@ function showExerciseLeaderboards({
       });
     };
 
-    renderHostBoard(exerciseListEl, topHalfRows(exerciseRows), false);
-    renderHostBoard(semesterListEl, topHalfRows(semesterRows), true);
+    renderHostBoard(exerciseListEl, exerciseRows, false);
+    renderHostBoard(semesterListEl, semesterRows, true);
     tabs.forEach((tab) => {
       tab.hidden = tab.dataset.hostLeaderboardView === "overall" && !hasSemester;
       tab.onclick = () => setHostView(tab.dataset.hostLeaderboardView);
@@ -359,6 +366,40 @@ function showExerciseLeaderboards({
   if (finishedScreen) {
     const tabs = [...finishedScreen.querySelectorAll("[data-leaderboard-view]")];
     const pointsEl = finishedScreen.querySelector("#player-current-points");
+    const rankEl = finishedScreen.querySelector("#player-current-rank");
+
+    const ordinalLabel = (rank) => {
+      const teen = rank % 100;
+      if (teen >= 11 && teen <= 13) return `${rank}th`;
+      if (rank % 10 === 1) return `${rank}st`;
+      if (rank % 10 === 2) return `${rank}nd`;
+      if (rank % 10 === 3) return `${rank}rd`;
+      return `${rank}th`;
+    };
+
+    const renderPlayerRow = (player, rank, { podium = false } = {}) => {
+      const ordinal = rank <= 3 && podium
+        ? (rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd")
+        : ordinalLabel(rank);
+      const medal = podium && rank <= 3
+        ? (rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉")
+        : "";
+      const initial = escapeHtml((player.name.trim()[0] || "?").toUpperCase());
+      const rowClass = podium
+        ? `player-leaderboard__row player-leaderboard__row--${rank}${samePlayerId(player.id, highlightId) ? " is-me" : ""}`
+        : "player-leaderboard__row player-leaderboard__row--self is-me";
+      return `<li class="${rowClass}">
+        <div class="player-leaderboard__profile" aria-hidden="true">
+          ${medal ? `<span class="player-leaderboard__medal">${medal}</span>` : ""}
+          <span class="player-leaderboard__avatar">${initial}</span>
+        </div>
+        <span class="player-leaderboard__rank">${ordinal}</span>
+        <span class="player-leaderboard__player">
+          <span class="player-leaderboard__name">${escapeHtml(player.name)}</span>
+          <span class="player-leaderboard__score">${Number(player.score).toLocaleString()} pts</span>
+        </span>
+      </li>`;
+    };
 
     const renderCards = (listEl, rows) => {
       if (!listEl) return;
@@ -367,26 +408,15 @@ function showExerciseLeaderboards({
         return;
       }
 
-      listEl.innerHTML = rows
-        .slice(0, 3)
-        .map((p, index) => {
-          const rank = index + 1;
-          const ordinal = rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd";
-          const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
-          const initial = escapeHtml((p.name.trim()[0] || "?").toUpperCase());
-          return `<li class="player-leaderboard__row player-leaderboard__row--${rank}${p.id === highlightId ? " is-me" : ""}">
-            <div class="player-leaderboard__profile" aria-hidden="true">
-              <span class="player-leaderboard__medal">${medal}</span>
-              <span class="player-leaderboard__avatar">${initial}</span>
-            </div>
-            <span class="player-leaderboard__rank">${ordinal}</span>
-            <span class="player-leaderboard__player">
-              <span class="player-leaderboard__name">${escapeHtml(p.name)}</span>
-              <span class="player-leaderboard__score">${Number(p.score).toLocaleString()} pts</span>
-            </span>
-          </li>`;
-        })
-        .join("");
+      const ownRank = highlightId ? playerRankFor(rows, highlightId) : null;
+      const ownRow = ownRank ? rows[ownRank - 1] : null;
+      const topThree = rows.slice(0, 3);
+      let html = topThree.map((player, index) => renderPlayerRow(player, index + 1, { podium: true })).join("");
+      if (ownRank && ownRank > 3 && ownRow) {
+        html += `<li class="player-leaderboard__separator" aria-hidden="true">···</li>`;
+        html += renderPlayerRow(ownRow, ownRank);
+      }
+      listEl.innerHTML = html;
     };
 
     const setView = (view) => {
@@ -401,8 +431,17 @@ function showExerciseLeaderboards({
       });
 
       const rows = overall ? semesterRows : exerciseRows;
-      const ownRow = rows.find((row) => row.id === highlightId);
+      const ownRank = highlightId ? playerRankFor(rows, highlightId) : null;
+      const ownRow = ownRank ? rows[ownRank - 1] : null;
       if (pointsEl) pointsEl.textContent = `${Number(ownRow?.score || 0).toLocaleString()} pts`;
+      if (rankEl) {
+        if (ownRank) {
+          rankEl.textContent = `Your rank: ${ordinalLabel(ownRank)}`;
+          rankEl.hidden = false;
+        } else {
+          rankEl.hidden = true;
+        }
+      }
     };
 
     renderCards(exerciseListEl, exerciseRows);

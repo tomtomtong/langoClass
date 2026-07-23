@@ -11,8 +11,8 @@ function normalize(entries = []) {
   }));
 }
 
-function topHalf(rows) {
-  return rows.slice(0, Math.ceil(rows.length / 2));
+function sortRows(rows) {
+  return [...rows].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 }
 
 function ordinal(rank) {
@@ -21,8 +21,8 @@ function ordinal(rank) {
 }
 
 export default function HostLeaderboard({ currentSession = [], overall = [], sessionNumber = 1, onDashboard, onNextExercise }) {
-  const currentRows = useMemo(() => topHalf(normalize(currentSession)), [currentSession]);
-  const overallRows = useMemo(() => topHalf(normalize(overall)), [overall]);
+  const currentRows = useMemo(() => sortRows(normalize(currentSession)), [currentSession]);
+  const overallRows = useMemo(() => sortRows(normalize(overall)), [overall]);
   const [view, setView] = useState("current");
   const rows = view === "overall" ? overallRows : currentRows;
 
