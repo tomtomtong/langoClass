@@ -50,6 +50,7 @@ const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
 const TRANSCRIBE_DEFAULT_MODEL = "mistralai/voxtral-small-24b-2507";
 const TRANSCRIBE_MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 const QUESTION_PREVIEW_SECONDS = 5;
+const QUESTION_TTS_MAX_WAIT_MS = 45000;
 const TRANSCRIBE_PROMPT =
   "Listen to this audio and respond with exactly two sections:\n\n" +
   "Transcript:\n" +
@@ -1151,9 +1152,44 @@ function createRoomGame(hostSocketId, roomId, quizPayload) {
   return game;
 }
 
+function emitToGameHost(game, event, payload) {
+  const tryEmit = (socketId) => {
+    const sock = socketId ? io.sockets.sockets.get(socketId) : null;
+    if (!sock) return false;
+    sock.emit(event, payload);
+    return true;
+  };
+
+  if (tryEmit(game.hostId)) return true;
+
+  for (const [socketId, meta] of socketMeta.entries()) {
+    if (meta.pin === game.pin && meta.role === "host" && tryEmit(socketId)) {
+      game.hostId = socketId;
+      return true;
+    }
+  }
+  return false;
+}
+
+function questionSpeakingPayload(game, question) {
+  return {
+    questionIndex: game.currentQuestionIndex,
+    totalQuestions: game.quiz.questions.length,
+    text: question.text,
+    options: question.options,
+    points: questionPointsForGame(game),
+    image: question.image || null,
+    fastMode: !!game.fastMode,
+  };
+}
+
 function emitCurrentQuestion(socket, game) {
   const question = game.quiz.questions[game.currentQuestionIndex];
   if (!question) return;
+  if (game.status === "speaking") {
+    socket.emit("question_speaking", questionSpeakingPayload(game, question));
+    return;
+  }
   if (game.status === "preview") {
     socket.emit("question_preview", {
       questionIndex: game.currentQuestionIndex,
@@ -1181,7 +1217,84 @@ function emitCurrentQuestion(socket, game) {
       : Date.now() + timeLimitSeconds * 1000,
     points: questionPointsForGame(game),
     image: question.image || null,
+    fastMode: !!game.fastMode,
   });
+}
+
+function openQuestionAnswering(game) {
+  if (game.status !== "speaking" && game.status !== "preview") {
+    return;
+  }
+
+  const question = game.quiz.questions[game.currentQuestionIndex];
+  if (!question) return;
+
+  // A room participant connects to the waiting room and quiz using separate
+  // sockets. Refresh the roster immediately before answers open so a fast
+  // first response cannot be mistaken for the whole class.
+  syncRoomGamePlayersFromSession(game);
+
+  const timeLimit = (question.timeLimit || 15) * 1000;
+  game.status = "question";
+  game.questionStartedAt = Date.now();
+  game.previewEndsAt = null;
+
+  io.to(game.pin).emit("question_start", {
+    questionIndex: game.currentQuestionIndex,
+    totalQuestions: game.quiz.questions.length,
+    text: question.text,
+    options: question.options,
+    timeLimit: question.timeLimit || 15,
+    endsAt: game.questionStartedAt + timeLimit,
+    points: questionPointsForGame(game),
+    image: question.image || null,
+    fastMode: !!game.fastMode,
+  });
+
+  clearQuestionTimer(game);
+  game.questionTimer = setTimeout(() => endQuestion(game), timeLimit);
+}
+
+async function speakQuestionThenOpen(game, questionIndex) {
+  const question = game.quiz.questions[questionIndex];
+  if (!question) return;
+
+  const stillSpeakingThisQuestion = () =>
+    games.get(game.pin) === game &&
+    game.status === "speaking" &&
+    game.currentQuestionIndex === questionIndex;
+
+  const openIfStillSpeaking = () => {
+    if (!stillSpeakingThisQuestion()) return;
+    openQuestionAnswering(game);
+  };
+
+  clearQuestionTimer(game);
+  game.questionTimer = setTimeout(openIfStillSpeaking, QUESTION_TTS_MAX_WAIT_MS);
+
+  try {
+    const apiKey = getInworldApiKey();
+    if (!apiKey) {
+      openIfStillSpeaking();
+      return;
+    }
+
+    const tts = await inworldTtsSynthesize(apiKey, question.text);
+    if (!stillSpeakingThisQuestion()) return;
+
+    if (
+      !emitToGameHost(game, "question_tts", {
+        questionIndex,
+        audioContent: tts.audioContent,
+        format: tts.format,
+      })
+    ) {
+      openIfStillSpeaking();
+    }
+  } catch (err) {
+    console.warn(`[tts] Question speak failed: ${err.message || err}`);
+    openIfStillSpeaking();
+  }
 }
 
 function createGame(hostSocketId, quizPayload) {
@@ -1394,61 +1507,14 @@ function startQuestion(game) {
   }
 
   game.currentQuestionIndex = nextIndex;
-  game.status = game.fastMode ? "question" : "preview";
+  game.status = "speaking";
   game.answers.clear();
   game.questionStartedAt = null;
   game.previewEndsAt = null;
 
   const question = game.quiz.questions[nextIndex];
-  const timeLimit = (question.timeLimit || 15) * 1000;
-
-  const emitQuestionStart = () => {
-    if (game.status !== "preview" && game.status !== "question") return;
-
-    // A room participant connects to the waiting room and quiz using separate
-    // sockets. Refresh the roster immediately before answers open so a fast
-    // first response cannot be mistaken for the whole class.
-    syncRoomGamePlayersFromSession(game);
-
-    game.status = "question";
-    game.questionStartedAt = Date.now();
-    game.previewEndsAt = null;
-
-    io.to(game.pin).emit("question_start", {
-      questionIndex: nextIndex,
-      totalQuestions: game.quiz.questions.length,
-      text: question.text,
-      options: question.options,
-      timeLimit: question.timeLimit || 15,
-      endsAt: game.questionStartedAt + timeLimit,
-      points: questionPointsForGame(game),
-      image: question.image || null,
-      fastMode: game.fastMode,
-    });
-
-    clearQuestionTimer(game);
-    game.questionTimer = setTimeout(() => endQuestion(game), timeLimit);
-  };
-
-  if (!game.fastMode) {
-    game.previewEndsAt = Date.now() + QUESTION_PREVIEW_SECONDS * 1000;
-    io.to(game.pin).emit("question_preview", {
-      questionIndex: nextIndex,
-      totalQuestions: game.quiz.questions.length,
-      text: question.text,
-      previewSeconds: QUESTION_PREVIEW_SECONDS,
-      previewEndsAt: game.previewEndsAt,
-      points: questionPointsForGame(game),
-      image: question.image || null,
-      fastMode: false,
-    });
-
-    clearQuestionTimer(game);
-    game.questionTimer = setTimeout(emitQuestionStart, QUESTION_PREVIEW_SECONDS * 1000);
-    return;
-  }
-
-  emitQuestionStart();
+  io.to(game.pin).emit("question_speaking", questionSpeakingPayload(game, question));
+  void speakQuestionThenOpen(game, nextIndex);
 }
 
 function removePlayerFromGame(socketId) {
@@ -2706,7 +2772,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("start_buzzin_round", ({ roomId }, callback) => {
+  socket.on("start_buzzin_round", async ({ roomId }, callback) => {
     const meta = socketMeta.get(socket.id);
     const pin = normalizeRoomId(roomId) || meta?.pin;
     if (!meta || meta.role !== "host" || !pin) {
@@ -2729,9 +2795,28 @@ io.on("connection", (socket) => {
     const round = createBuzzInRound(pin, topic, sttLanguage);
     round.ineligiblePlayerIds = [...session.buzzinAwardedPlayers.keys()];
     const payload = buzzInPublicPayload(round);
+
+    let topicAudio = null;
+    let topicAudioFormat = null;
+    try {
+      const apiKey = getInworldApiKey();
+      if (apiKey && topic) {
+        const tts = await inworldTtsSynthesize(apiKey, topic);
+        topicAudio = tts.audioContent;
+        topicAudioFormat = tts.format;
+      }
+    } catch (err) {
+      console.warn(`[tts] Buzz-in topic speak failed: ${err.message || err}`);
+    }
+
     socket.join(pin);
     io.to(pin).emit("buzzin_round_started", payload);
-    callback?.({ ok: true, ...payload });
+    callback?.({
+      ok: true,
+      ...payload,
+      topicAudio,
+      topicAudioFormat,
+    });
   });
 
   socket.on("open_buzzin_join", ({ roomId }, callback) => {
@@ -3251,7 +3336,11 @@ io.on("connection", (socket) => {
 
     if (game.status === "lobby") {
       broadcastLobby(game);
-    } else if (game.status === "preview" || game.status === "question") {
+    } else if (
+      game.status === "preview" ||
+      game.status === "speaking" ||
+      game.status === "question"
+    ) {
       socket.emit("game_starting", {
         totalQuestions: game.quiz.questions.length,
         fastMode: game.fastMode,
@@ -3268,6 +3357,17 @@ io.on("connection", (socket) => {
     if (!game || game.status !== "results") return;
 
     startQuestion(game);
+  });
+
+  socket.on("question_tts_done", ({ questionIndex } = {}) => {
+    const meta = socketMeta.get(socket.id);
+    if (!meta || meta.role !== "host") return;
+
+    const game = games.get(meta.pin);
+    if (!game || game.status !== "speaking") return;
+    if (Number(questionIndex) !== game.currentQuestionIndex) return;
+
+    openQuestionAnswering(game);
   });
 
   socket.on("submit_answer", ({ answerIndex }) => {

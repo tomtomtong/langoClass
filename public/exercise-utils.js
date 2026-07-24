@@ -412,6 +412,28 @@ function setupBuzzinSpokenFeedbackPlayDelegation(container, getResponses) {
 }
 
 let buzzinPlaybackAudioEl = null;
+let buzzinPlaybackFinish = null;
+let buzzinSpeechBgmDuckDepth = 0;
+const BUZZIN_SPEECH_BGM_VOLUME = 0.06;
+
+function beginBuzzinSpeechBgmDuck() {
+  if (buzzinSpeechBgmDuckDepth === 0 && typeof fadeHostBgmTo === "function") {
+    fadeHostBgmTo(BUZZIN_SPEECH_BGM_VOLUME);
+  }
+  buzzinSpeechBgmDuckDepth += 1;
+}
+
+function endBuzzinSpeechBgmDuck() {
+  if (buzzinSpeechBgmDuckDepth <= 0) return;
+  buzzinSpeechBgmDuckDepth -= 1;
+  if (
+    buzzinSpeechBgmDuckDepth === 0 &&
+    typeof fadeHostBgmTo === "function" &&
+    typeof HOST_BGM_VOLUME === "number"
+  ) {
+    fadeHostBgmTo(HOST_BGM_VOLUME);
+  }
+}
 
 function buzzinAudioMimeFromFormat(format) {
   const normalized = String(format || "mp3").toLowerCase().replace(/^\./, "");
@@ -421,24 +443,59 @@ function buzzinAudioMimeFromFormat(format) {
   return "audio/mpeg";
 }
 
-function playBuzzinBase64Audio(base64, format) {
-  if (!base64) return;
+function stopBuzzinBase64Audio() {
+  if (buzzinPlaybackFinish) {
+    const finish = buzzinPlaybackFinish;
+    buzzinPlaybackFinish = null;
+    finish();
+  }
+  if (!buzzinPlaybackAudioEl) return;
+  buzzinPlaybackAudioEl.onended = null;
+  buzzinPlaybackAudioEl.onerror = null;
+  buzzinPlaybackAudioEl.pause();
+  buzzinPlaybackAudioEl.removeAttribute("src");
+}
+
+function playBuzzinBase64Audio(base64, format, { duckBgm = false } = {}) {
+  if (!base64) return Promise.resolve();
 
   const mime = buzzinAudioMimeFromFormat(format);
-  if (!buzzinPlaybackAudioEl) {
-    buzzinPlaybackAudioEl = new Audio();
-  }
+  stopBuzzinBase64Audio();
+  if (duckBgm) beginBuzzinSpeechBgmDuck();
 
-  buzzinPlaybackAudioEl.pause();
-  buzzinPlaybackAudioEl.src = `data:${mime};base64,${base64}`;
-  const playPromise = buzzinPlaybackAudioEl.play();
-  playPromise?.catch?.(() => {
-    /* Autoplay may be blocked until the host interacts with the page. */
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    buzzinPlaybackAudioEl = audio;
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (buzzinPlaybackFinish === finish) buzzinPlaybackFinish = null;
+      audio.onended = null;
+      audio.onerror = null;
+      if (duckBgm) endBuzzinSpeechBgmDuck();
+      resolve();
+    };
+
+    buzzinPlaybackFinish = finish;
+    audio.onended = finish;
+    audio.onerror = finish;
+    audio.src = `data:${mime};base64,${base64}`;
+    const playPromise = audio.play();
+    playPromise?.catch?.(() => {
+      /* Autoplay may be blocked until the host interacts with the page. */
+      finish();
+    });
   });
 }
 
+/** Host-only Uncle Tommy TTS playback. Resolves when audio ends or fails. */
+function playUncleTommyTts(base64, format) {
+  return playBuzzinBase64Audio(base64, format, { duckBgm: true });
+}
+
 function playBuzzinSpokenFeedbackAudio(item) {
-  playBuzzinBase64Audio(item?.analysisAudio, item?.analysisAudioFormat || "mp3");
+  return playUncleTommyTts(item?.analysisAudio, item?.analysisAudioFormat || "mp3");
 }
 
 function playBuzzinResponseRecordingAudio(item) {

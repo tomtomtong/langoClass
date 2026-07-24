@@ -610,6 +610,31 @@ function setupRoomPlayerQuiz(socket) {
     );
   });
 
+  socket.on("question_speaking", (data) => {
+    stopRoomStatusPoll();
+    stopRoomQuizJoinRetry();
+    roomQuizCurrentQuestion = data;
+    if (data?.fastMode != null) roomQuizFastMode = !!data.fastMode;
+    clearTimer();
+    resetPlayerMcqAnsweredState();
+    showScreen("player-question");
+
+    const screen = $("#screen-player-question");
+    screen?.classList.add("is-previewing");
+    $("#player-mcq-title").textContent = `Question ${data.questionIndex + 1}`;
+    $("#player-q-meta").textContent = "Listen to the question";
+    setQuestionImage(
+      $("#player-question-image"),
+      $("#player-question-image-wrap"),
+      typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
+    );
+    $("#player-question-text").textContent = data.text || "";
+    $("#player-options").innerHTML = "";
+    $("#answer-feedback").textContent = "Uncle Tommy is reading…";
+    $("#timer-text").textContent = "…";
+    $("#timer-ring")?.classList.remove("urgent");
+  });
+
   socket.on("question_start", (data) => {
     stopRoomStatusPoll();
     stopRoomQuizJoinRetry();

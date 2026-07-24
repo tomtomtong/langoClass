@@ -13,6 +13,8 @@ let hostBuzzinLastResponses = [];
 const hostBuzzinPlayedSpokenFeedbackAudio = new Set();
 let hostBuzzinActiveScreenPhase = null;
 let hostBuzzinExercisePoints = 300;
+let hostBuzzinTopicSpeaking = false;
+let hostQuestionTtsToken = 0;
 const hostBuzzinFeedbackAnim = {
   topic: "",
   answerKey: "",
@@ -197,8 +199,9 @@ function setHostBuzzinStartButtonVisible(visible) {
   const startBtn = $("#btn-host-buzzin-start");
   if (!startBtn) return;
   startBtn.hidden = false;
-  startBtn.disabled = !visible;
-  startBtn.classList.toggle("is-ready", visible);
+  const canEnable = visible && !hostBuzzinTopicSpeaking;
+  startBtn.disabled = !canEnable;
+  startBtn.classList.toggle("is-ready", canEnable);
 }
 
 function updateHostBuzzinUi(payload) {
@@ -212,12 +215,17 @@ function updateHostBuzzinUi(payload) {
     hideHostBuzzinJoinTimer();
     setHostBuzzinStartButtonVisible(true);
     setHostBuzzinPrompt("Get ready");
-    if (joinStatus) joinStatus.textContent = "Tap Get Ready when students are ready.";
+    if (joinStatus) {
+      joinStatus.textContent = hostBuzzinTopicSpeaking
+        ? "Uncle Tommy is reading the question…"
+        : "Tap Get Ready when students are ready.";
+    }
     showHostBuzzinScreenForPhase("join", { force: true });
     updateHostBuzzinTurnUi(payload);
     return;
   }
 
+  hostBuzzinTopicSpeaking = false;
   setHostBuzzinStartButtonVisible(false);
 
   if (joinStatus) {
@@ -269,15 +277,16 @@ function startHostBuzzinRound(roomId) {
   hostBuzzinPlayedSpokenFeedbackAudio.clear();
   hostBuzzinLastResponses = [];
   hostBuzzinActiveScreenPhase = null;
+  hostBuzzinTopicSpeaking = true;
   resetHostBuzzinFeedbackAnim();
   ensureHostBuzzinSocket();
   hideHostBuzzinJoinTimer();
-  setHostBuzzinStartButtonVisible(true);
+  setHostBuzzinStartButtonVisible(false);
   setHostBuzzinPrompt("Get ready");
   showHostBuzzinScreenForPhase("join", { force: true });
 
   const joinStatus = $("#host-buzzin-join-status");
-  if (joinStatus) joinStatus.textContent = "Tap Get Ready when students are ready.";
+  if (joinStatus) joinStatus.textContent = "Uncle Tommy is reading the question…";
 
   const socket = getHostSessionSocket();
 
@@ -287,18 +296,38 @@ function startHostBuzzinRound(roomId) {
         try {
           await connectHostSession(roomId);
         } catch (err) {
+          hostBuzzinTopicSpeaking = false;
           reject(err);
           return;
         }
       }
 
       socket.emit("start_buzzin_round", { roomId }, (res) => {
-        if (!res?.ok) {
-          reject(new Error(res?.error || "Could not prepare buzz-in round."));
-          return;
-        }
-        updateHostBuzzinUi(res);
-        resolve();
+        void (async () => {
+          if (!res?.ok) {
+            hostBuzzinTopicSpeaking = false;
+            reject(new Error(res?.error || "Could not prepare buzz-in round."));
+            return;
+          }
+          updateHostBuzzinUi(res);
+          if (joinStatus) joinStatus.textContent = "Uncle Tommy is reading the question…";
+          setHostBuzzinStartButtonVisible(false);
+
+          try {
+            if (res.topicAudio) {
+              await playHostUncleTommyTts(res.topicAudio, res.topicAudioFormat || "mp3");
+            }
+          } catch (err) {
+            console.warn(err?.message || "Could not play buzz-in topic TTS.");
+          } finally {
+            hostBuzzinTopicSpeaking = false;
+            if ((res.phase || "ready") === "ready") {
+              setHostBuzzinStartButtonVisible(true);
+              if (joinStatus) joinStatus.textContent = "Tap Get Ready when students are ready.";
+            }
+          }
+          resolve();
+        })();
       });
     };
 
@@ -351,7 +380,10 @@ function renderHostQuizPreview(data) {
   showScreen("host-quiz-preview");
 
   const points = data.points || 300;
-  $("#host-quiz-preview-title").textContent = `Question ${data.questionIndex + 1}`;
+  const speaking = !!data.speaking;
+  $("#host-quiz-preview-title").textContent = speaking
+    ? `Question ${data.questionIndex + 1}`
+    : `Question ${data.questionIndex + 1}`;
   $("#host-quiz-preview-points").textContent = `${points} pts`;
   $("#host-quiz-preview-question-text").textContent = data.text || "";
   setQuestionImage(
@@ -361,11 +393,58 @@ function renderHostQuizPreview(data) {
   );
 
   const progress = $("#host-quiz-preview-progress");
+  if (speaking) {
+    progress.style.width = "100%";
+    progress.classList.add("is-speaking");
+    return;
+  }
+
+  progress.classList.remove("is-speaking");
   startDeadlineTimer(data.previewEndsAt, data.previewSeconds || 5, (remaining) => {
     const total = Math.max(1, Number(data.previewSeconds) || 5);
     const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
     progress.style.width = `${pct}%`;
   });
+}
+
+function renderHostQuizSpeaking(data) {
+  roomQuizFastMode = !!data.fastMode;
+  if (data.fastMode) {
+    renderHostQuizQuestion(data, { preparing: true, transition: true });
+    clearTimer();
+    $("#host-quiz-countdown").textContent = "…";
+    $("#host-quiz-answered-count").textContent = "Uncle Tommy is reading the question…";
+    return;
+  }
+  renderHostQuizPreview({ ...data, speaking: true });
+}
+
+async function playHostUncleTommyTts(audioContent, format) {
+  if (!audioContent || typeof playUncleTommyTts !== "function") return;
+  const shouldDuck = typeof fadeHostBgmTo === "function";
+  try {
+    if (shouldDuck) fadeHostBgmTo(0.06);
+    await playUncleTommyTts(audioContent, format || "mp3");
+  } finally {
+    if (shouldDuck && typeof HOST_BGM_VOLUME === "number") {
+      fadeHostBgmTo(HOST_BGM_VOLUME);
+    }
+  }
+}
+
+async function playHostQuestionTts(data) {
+  const token = ++hostQuestionTtsToken;
+  const socket = getRoomQuizSocket();
+  const questionIndex = data?.questionIndex;
+
+  try {
+    await playHostUncleTommyTts(data?.audioContent, data?.format);
+  } catch (err) {
+    console.warn(err?.message || "Could not play question TTS.");
+  }
+
+  if (token !== hostQuestionTtsToken) return;
+  socket.emit("question_tts_done", { questionIndex });
 }
 
 function renderHostQuizQuestion(data, { preparing = false, transition = true } = {}) {
@@ -526,9 +605,23 @@ function setupHostRoomQuizSocket(socket) {
     renderHostQuizPreview(data);
   });
 
+  socket.on("question_speaking", (data) => {
+    roomQuizFastMode = !!data.fastMode;
+    hostQuestionTtsToken += 1;
+    if (typeof stopBuzzinBase64Audio === "function") stopBuzzinBase64Audio();
+    renderHostQuizSpeaking(data);
+  });
+
+  socket.on("question_tts", (data) => {
+    void playHostQuestionTts(data);
+  });
+
   socket.on("question_start", (data) => {
     roomQuizCurrentQuestion = data;
-    const fromPreview = $("#screen-host-quiz-preview")?.classList.contains("active");
+    hostQuestionTtsToken += 1;
+    const fromPreview =
+      $("#screen-host-quiz-preview")?.classList.contains("active") ||
+      $("#screen-host-quiz-question")?.classList.contains("active");
     renderHostQuizQuestion(data, { transition: !fromPreview });
   });
 

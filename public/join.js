@@ -408,12 +408,33 @@ function initQuizJoin() {
     $("#room-waiting-status").textContent = "Get ready…";
   });
 
+  socket.on("question_speaking", (data) => {
+    currentQuestion = data;
+    if (data?.fastMode != null) quizFastMode = !!data.fastMode;
+    clearTimer();
+    resetPlayerMcqAnsweredState();
+    showScreen("player-question");
+    $("#screen-player-question")?.classList.add("is-previewing");
+    $("#player-q-meta").textContent = "Listen to the question";
+    setQuestionImage(
+      $("#player-question-image"),
+      $("#player-question-image-wrap"),
+      typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
+    );
+    $("#player-question-text").textContent = data.text || "";
+    $("#player-options").innerHTML = "";
+    $("#answer-feedback").textContent = "Uncle Tommy is reading…";
+    $("#timer-text").textContent = "…";
+    $("#timer-ring")?.classList.remove("urgent");
+  });
+
   socket.on("question_start", (data) => {
     currentQuestion = data;
     if (data?.fastMode != null) quizFastMode = !!data.fastMode;
     clearTimer();
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
+    $("#screen-player-question")?.classList.remove("is-previewing");
     $("#player-q-meta").textContent = `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
     setQuestionImage(
       $("#player-question-image"),
