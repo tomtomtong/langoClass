@@ -26,6 +26,90 @@ function stopRoomBuzzinRecordTimer() {
   }
 }
 
+function hideStudentBuzzinAnswerPrompt() {
+  const panel = $("#room-buzzin-answer-prompt");
+  const screen = $("#screen-room-buzzin");
+  if (panel) panel.hidden = true;
+  screen?.classList.remove("has-answer-prompt");
+}
+
+function syncStudentBuzzinSpectatorUi(payload) {
+  const playerId = roomParticipant?.userId;
+  const phase = payload?.phase || "join";
+  const myBuzz = (payload?.buzzes || []).find((b) => b.playerId === playerId);
+  const myResponse = (payload?.responses || []).find((r) => r.playerId === playerId);
+  const currentTurn = payload?.currentTurn || null;
+  const firstBuzz = (payload.buzzes || [])[0] || null;
+  const isMyAnswerTurn =
+    currentTurn?.playerId === playerId ||
+    (!currentTurn && firstBuzz?.playerId === playerId);
+  const announcement = payload?.answerAnnouncement;
+  const isAnnouncedForMe = announcement?.playerId === playerId;
+
+  if (phase === "ready" || phase === "join") {
+    hideStudentBuzzinWatchingPrompt();
+    return;
+  }
+
+  if (isAnnouncedForMe && phase === "typing" && !myResponse && !payload?.typingComplete) {
+    hideStudentBuzzinWatchingPrompt();
+    return;
+  }
+
+  if (myBuzz && isMyAnswerTurn && !myResponse && !payload?.typingComplete) {
+    hideStudentBuzzinWatchingPrompt();
+    return;
+  }
+
+  if (phase === "typing" || phase === "done") {
+    const variant =
+      announcement && announcement.playerId !== playerId
+        ? "selected"
+        : !myBuzz && (payload?.buzzes || []).length
+          ? "buzz"
+          : "selected";
+    setRoomBuzzinWatchingUi(payload, { variant });
+    return;
+  }
+
+  hideStudentBuzzinWatchingPrompt();
+}
+
+function syncStudentBuzzinAnswerPrompt(payload) {
+  const panel = $("#room-buzzin-answer-prompt");
+  const topicEl = $("#room-buzzin-answer-prompt-topic");
+  const nameEl = $("#room-buzzin-answer-prompt-name");
+  const turnStatus = $("#room-buzzin-turn-status");
+  const screen = $("#screen-room-buzzin");
+  const playerId = roomParticipant?.userId;
+  const announcement = payload?.answerAnnouncement;
+  if (!panel) return;
+
+  const hasSubmitted = (payload?.responses || []).some((entry) => entry.playerId === playerId);
+  const isForMe =
+    announcement?.playerId === playerId &&
+    payload?.phase === "typing" &&
+    !hasSubmitted &&
+    !payload?.typingComplete;
+
+  if (!isForMe) {
+    hideStudentBuzzinAnswerPrompt();
+    return;
+  }
+
+  const topic = String(payload?.topic || "").trim();
+  if (topicEl) topicEl.textContent = topic || "Listen to your teacher.";
+  if (nameEl) {
+    nameEl.textContent = `${announcement.displayName || "You"}, you're up!`;
+  }
+  if (turnStatus) {
+    turnStatus.textContent = "Tap Record below when Uncle Tommy finishes speaking.";
+  }
+
+  panel.hidden = false;
+  screen?.classList.add("has-answer-prompt");
+}
+
 function setRoomBuzzinRecordingMode(active) {
   const screen = $("#screen-room-buzzin");
   const panel = $("#room-buzzin-recording-panel");
@@ -33,6 +117,7 @@ function setRoomBuzzinRecordingMode(active) {
   const turnStatus = $("#room-buzzin-turn-status");
   const title = $("#room-buzzin-card-title");
 
+  if (active) hideStudentBuzzinAnswerPrompt();
   if (screen) screen.classList.toggle("is-recording", !!active);
   if (panel) panel.hidden = !active;
   if (turnStatus) turnStatus.hidden = !!active;
@@ -101,30 +186,91 @@ function setRoomBuzzinRecordStatus(message, visible = true) {
   recordStatus.textContent = message || "";
 }
 
-function setRoomBuzzinMissedUi() {
-  const topic = $("#room-buzzin-topic");
+function getBuzzinActiveStudent(payload) {
+  const announcement = payload?.answerAnnouncement;
+  if (announcement?.displayName) {
+    return {
+      playerId: announcement.playerId || "",
+      displayName: announcement.displayName,
+    };
+  }
+  const currentTurn = payload?.currentTurn || null;
+  if (currentTurn?.displayName) return currentTurn;
+  const firstBuzz = (payload?.buzzes || [])[0] || null;
+  if (firstBuzz?.displayName) return firstBuzz;
+  return null;
+}
+
+function hideStudentBuzzinWatchingPrompt() {
+  const panel = $("#room-buzzin-watching-prompt");
+  const screen = $("#screen-room-buzzin");
+  if (panel) panel.hidden = true;
+  screen?.classList.remove("has-watching-prompt");
+}
+
+function setRoomBuzzinWatchingUi(payload, { variant = "selected" } = {}) {
+  const panel = $("#room-buzzin-watching-prompt");
+  const labelEl = $("#room-buzzin-watching-label");
+  const topicEl = $("#room-buzzin-watching-topic");
+  const nameEl = $("#room-buzzin-watching-name");
+  const hintEl = $("#room-buzzin-watching-hint");
   const title = $("#room-buzzin-card-title");
   const status = $("#room-buzzin-status");
   const result = $("#room-buzzin-result");
   const recordBtn = $("#btn-room-buzzin-record");
   const submitted = $("#room-buzzin-submitted");
   const turnStatus = $("#room-buzzin-turn-status");
+  const turnArea = $("#room-buzzin-turn");
+  const screen = $("#screen-room-buzzin");
+  const activeStudent = getBuzzinActiveStudent(payload);
+  const selectedName = activeStudent?.displayName || "Another student";
+  const topic = String(payload?.topic || "").trim();
 
+  hideStudentBuzzinAnswerPrompt();
   setRoomBuzzinRecordingMode(false);
-  setRoomBuzzinMissedMode(true);
-  if (topic) topic.textContent = "";
-  if (title) title.textContent = "Too late!";
-  if (status) status.textContent = "Another student buzzed in first. Please watch the teacher's screen.";
+  setRoomBuzzinMissedMode(false);
+
+  if (panel) panel.hidden = false;
+  screen?.classList.add("has-watching-prompt");
+
+  if (variant === "buzz") {
+    if (labelEl) labelEl.textContent = "Too late!";
+    if (nameEl) nameEl.textContent = `${selectedName} buzzed in first.`;
+    if (hintEl) {
+      hintEl.textContent = "Please watch the teacher's screen and listen while your classmate answers.";
+    }
+    if (title) title.textContent = "Too late!";
+    if (status) {
+      status.textContent = "Another student buzzed in first. Please watch the teacher's screen.";
+    }
+  } else {
+    if (labelEl) labelEl.textContent = "Watch & listen";
+    if (nameEl) nameEl.textContent = `${selectedName} is answering.`;
+    if (hintEl) {
+      hintEl.textContent = "Uncle Tommy is speaking on the teacher's screen. Please listen and watch quietly.";
+    }
+    if (title) title.textContent = "Watch & listen";
+    if (status) {
+      status.textContent = `${selectedName} was chosen. Please watch the teacher's screen.`;
+    }
+  }
+
+  if (topicEl) topicEl.textContent = topic || "Listen to your teacher.";
   if (result) {
     result.hidden = true;
     result.textContent = "";
   }
   if (recordBtn) recordBtn.hidden = true;
   if (submitted) submitted.hidden = true;
+  if (turnArea) turnArea.hidden = true;
   if (turnStatus) {
-    turnStatus.hidden = false;
-    turnStatus.textContent = "Another student buzzed in first. Please watch the teacher's screen.";
+    turnStatus.hidden = true;
+    turnStatus.textContent = "";
   }
+}
+
+function setRoomBuzzinMissedUi(payload) {
+  setRoomBuzzinWatchingUi(payload || {}, { variant: "buzz" });
 }
 
 function blobToBase64(blob) {
@@ -276,6 +422,8 @@ function resetRoomBuzzinTurnUi() {
   const title = $("#room-buzzin-card-title");
 
   resetRoomBuzzinRecordingUi();
+  hideStudentBuzzinAnswerPrompt();
+  hideStudentBuzzinWatchingPrompt();
   if (title) title.textContent = "Record your voice";
   const recordBtn = $("#btn-room-buzzin-record");
   if (turnArea) turnArea.hidden = true;
@@ -314,11 +462,12 @@ function updateStudentBuzzinTurnUi(payload) {
   hideRoomBuzzinJoinTimer();
 
   if (!myBuzz) {
-    setRoomBuzzinMissedUi();
+    syncStudentBuzzinSpectatorUi(payload);
     return;
   }
 
   if (myResponse) {
+    hideStudentBuzzinWatchingPrompt();
     turnStatus.textContent = "Your answer was submitted.";
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) recordBtn.hidden = true;
@@ -337,17 +486,20 @@ function updateStudentBuzzinTurnUi(payload) {
   }
 
   if (isMyAnswerTurn) {
-    turnStatus.textContent = "You buzzed in — tap Record and speak your answer.";
+    turnStatus.textContent = payload?.answerAnnouncement?.playerId === playerId
+      ? "Tap Record below when Uncle Tommy finishes speaking."
+      : "You buzzed in — tap Record and speak your answer.";
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) {
       recordBtn.hidden = false;
       recordBtn.disabled = false;
     }
     if (submitted) submitted.hidden = true;
+    syncStudentBuzzinAnswerPrompt(payload);
     return;
   }
 
-  setRoomBuzzinMissedUi();
+  setRoomBuzzinWatchingUi(payload, { variant: "buzz" });
 }
 
 function updateStudentBuzzinUi(payload) {
@@ -401,21 +553,24 @@ function updateStudentBuzzinUi(payload) {
   if (myBuzz && isMyAnswerTurn) {
     btn.disabled = true;
     result.hidden = false;
-    result.textContent = "You buzzed in!";
+    result.textContent = payload?.answerAnnouncement?.playerId === playerId
+      ? "You're up!"
+      : "You buzzed in!";
     result.className = "buzzin-result buzzin-result--selected";
     if (joinClosed) {
-      status.textContent = phase === "typing"
-        ? "You buzzed in — tap Record when ready."
-        : "Buzz in closed.";
+      status.textContent = payload?.answerAnnouncement?.playerId === playerId
+        ? "Listen to Uncle Tommy, then tap Record."
+        : "You're up — tap Record when ready.";
     } else {
       status.textContent = "You buzzed in!";
     }
+    syncStudentBuzzinAnswerPrompt(payload);
     return;
   }
 
   if (myBuzz && !isMyAnswerTurn) {
     btn.disabled = true;
-    setRoomBuzzinMissedUi();
+    syncStudentBuzzinSpectatorUi(payload);
     return;
   }
 
@@ -424,8 +579,9 @@ function updateStudentBuzzinUi(payload) {
     if (phase === "done") {
       status.textContent = "Buzz round complete.";
       result.hidden = true;
+      syncStudentBuzzinSpectatorUi(payload);
     } else {
-      setRoomBuzzinMissedUi();
+      syncStudentBuzzinSpectatorUi(payload);
     }
     return;
   }
@@ -433,6 +589,8 @@ function updateStudentBuzzinUi(payload) {
   btn.disabled = false;
   status.textContent = "Tap BUZZ IN — one student can answer!";
   result.hidden = true;
+  hideStudentBuzzinAnswerPrompt();
+  hideStudentBuzzinWatchingPrompt();
 }
 
 function resetStudentBuzzinUi() {
@@ -466,6 +624,14 @@ function ensureRoomBuzzinSocket() {
     roomBuzzinRoundId = payload.roundId;
     resetStudentBuzzinUi();
     updateStudentBuzzinUi(payload);
+  });
+
+  socket.on("buzzin_countdown", () => {
+    if (typeof playCountdown321Video === "function") {
+      void playCountdown321Video({
+        root: document.querySelector("#app") || document.body,
+      });
+    }
   });
 
   socket.on("buzzin_join_opened", (payload) => {

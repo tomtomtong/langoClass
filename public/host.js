@@ -47,7 +47,11 @@ const HOST_BGM_TRACKS = [
   "/assets/bgm/BGM_1.mp3",
   "/assets/bgm/BGM_2.mp3",
 ];
-const HOST_BGM_VOLUME = 0.3;
+const HOST_BGM_VOLUME_DEFAULT = 0.3;
+const HOST_SOUND_EFFECTS_VOLUME_DEFAULT = 1;
+/** Preferred BGM level (also used by other host scripts after ducking). */
+let HOST_BGM_VOLUME = HOST_BGM_VOLUME_DEFAULT;
+let hostSoundEffectsVolume = HOST_SOUND_EFFECTS_VOLUME_DEFAULT;
 const HOST_BGM_FADE_MS = 700;
 const hostSoundBank = new Map();
 let hostBgmAudio = null;
@@ -57,6 +61,12 @@ let hostBgmFadeFrame = null;
 let hostBgmMuted = false;
 let hostSoundEffectsMuted = false;
 let hostSoundMenuOpen = false;
+
+function clampHostVolume(value, fallback = 1) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.max(0, Math.min(1, num));
+}
 
 function isImageAssignmentExercise(exercise) {
   return normalizeExerciseType(exercise?.type) === "imageassignment";
@@ -93,7 +103,7 @@ function playHostSound(src, { volume = 1 } = {}) {
   }
   audio.pause();
   audio.currentTime = 0;
-  audio.volume = volume;
+  audio.volume = clampHostVolume(volume * hostSoundEffectsVolume, 0);
   const playPromise = audio.play();
   if (playPromise?.catch) {
     playPromise.catch(() => {
@@ -109,7 +119,7 @@ function playHostSoundAwait(src, { volume = 1 } = {}) {
       return;
     }
     const audio = new Audio(src);
-    audio.volume = volume;
+    audio.volume = clampHostVolume(volume * hostSoundEffectsVolume, 0);
     const finish = () => resolve();
     audio.addEventListener("ended", finish, { once: true });
     audio.addEventListener("error", finish, { once: true });
@@ -238,6 +248,30 @@ function setHostBgmMuted(muted) {
 
 function setHostSoundEffectsMuted(muted) {
   hostSoundEffectsMuted = Boolean(muted);
+  if (typeof syncBuzzinPlaybackToHostSoundEffects === "function") {
+    syncBuzzinPlaybackToHostSoundEffects();
+  }
+}
+
+function applyHostBgmVolumeNow() {
+  if (!hostBgmAudio || hostBgmMuted || hostBgmFadeFrame != null) return;
+  hostBgmAudio.volume = HOST_BGM_VOLUME;
+}
+
+function setHostBgmVolume(volume, { persist = true } = {}) {
+  HOST_BGM_VOLUME = clampHostVolume(volume, HOST_BGM_VOLUME_DEFAULT);
+  applyHostBgmVolumeNow();
+  updateHostSoundControls();
+  if (persist) savePrefs();
+}
+
+function setHostSoundEffectsVolume(volume, { persist = true } = {}) {
+  hostSoundEffectsVolume = clampHostVolume(volume, HOST_SOUND_EFFECTS_VOLUME_DEFAULT);
+  if (typeof syncBuzzinPlaybackToHostSoundEffects === "function") {
+    syncBuzzinPlaybackToHostSoundEffects();
+  }
+  updateHostSoundControls();
+  if (persist) savePrefs();
 }
 
 function updateHostSoundControls() {
@@ -246,6 +280,8 @@ function updateHostSoundControls() {
   const effectsState = $("#host-effects-state");
   const bgmBtn = $("#btn-host-toggle-bgm");
   const effectsBtn = $("#btn-host-toggle-effects");
+  const bgmVolume = $("#host-bgm-volume");
+  const effectsVolume = $("#host-effects-volume");
 
   if (btn) {
     const bothMuted = hostBgmMuted && hostSoundEffectsMuted;
@@ -271,6 +307,16 @@ function updateHostSoundControls() {
   if (effectsBtn) {
     effectsBtn.classList.toggle("is-muted", hostSoundEffectsMuted);
     effectsBtn.setAttribute("aria-pressed", hostSoundEffectsMuted ? "true" : "false");
+  }
+  if (bgmVolume) {
+    bgmVolume.value = String(Math.round(HOST_BGM_VOLUME * 100));
+    bgmVolume.style.setProperty("--host-sound-volume", `${Math.round(HOST_BGM_VOLUME * 100)}%`);
+    bgmVolume.setAttribute("aria-valuetext", `${Math.round(HOST_BGM_VOLUME * 100)} percent`);
+  }
+  if (effectsVolume) {
+    effectsVolume.value = String(Math.round(hostSoundEffectsVolume * 100));
+    effectsVolume.style.setProperty("--host-sound-volume", `${Math.round(hostSoundEffectsVolume * 100)}%`);
+    effectsVolume.setAttribute("aria-valuetext", `${Math.round(hostSoundEffectsVolume * 100)} percent`);
   }
 
   const wrap = $("#host-sound-controls");
@@ -323,6 +369,8 @@ function setupHostMuteButton() {
   const btn = $("#btn-host-mute");
   const bgmBtn = $("#btn-host-toggle-bgm");
   const effectsBtn = $("#btn-host-toggle-effects");
+  const bgmVolume = $("#host-bgm-volume");
+  const effectsVolume = $("#host-effects-volume");
   const wrap = $("#host-sound-controls");
 
   if (btn) {
@@ -344,6 +392,22 @@ function setupHostMuteButton() {
       event.stopPropagation();
       setHostSoundEffectsMutedPersisted(!hostSoundEffectsMuted);
     });
+  }
+
+  if (bgmVolume) {
+    bgmVolume.addEventListener("input", (event) => {
+      event.stopPropagation();
+      setHostBgmVolume(Number(event.target.value) / 100);
+    });
+    bgmVolume.addEventListener("click", (event) => event.stopPropagation());
+  }
+
+  if (effectsVolume) {
+    effectsVolume.addEventListener("input", (event) => {
+      event.stopPropagation();
+      setHostSoundEffectsVolume(Number(event.target.value) / 100);
+    });
+    effectsVolume.addEventListener("click", (event) => event.stopPropagation());
   }
 
   document.addEventListener("click", (event) => {
@@ -419,6 +483,7 @@ function playExerciseCountdownVideo() {
 
     video.currentTime = 0;
     video.muted = hostSoundEffectsMuted;
+    video.volume = hostSoundEffectsVolume;
     layer.classList.add("is-playing");
     video.addEventListener("ended", finish, { once: true });
     video.addEventListener("error", finish, { once: true });
@@ -458,6 +523,10 @@ function loadPrefs() {
     }
     if (typeof data.bgmMuted === "boolean") hostBgmMuted = data.bgmMuted;
     if (typeof data.soundEffectsMuted === "boolean") hostSoundEffectsMuted = data.soundEffectsMuted;
+    if (data.bgmVolume != null) HOST_BGM_VOLUME = clampHostVolume(data.bgmVolume, HOST_BGM_VOLUME_DEFAULT);
+    if (data.soundEffectsVolume != null) {
+      hostSoundEffectsVolume = clampHostVolume(data.soundEffectsVolume, HOST_SOUND_EFFECTS_VOLUME_DEFAULT);
+    }
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
@@ -481,6 +550,8 @@ function savePrefs() {
       bgmMuted: hostBgmMuted,
       soundEffectsMuted: hostSoundEffectsMuted,
       soundMuted: hostBgmMuted && hostSoundEffectsMuted,
+      bgmVolume: HOST_BGM_VOLUME,
+      soundEffectsVolume: hostSoundEffectsVolume,
     })
   );
 }
@@ -2082,7 +2153,14 @@ function updateWaitingGridLayout(slotCount) {
   panel.style.setProperty("--waiting-name-size", `${nameSize}px`);
 }
 
+let hostSessionParticipants = [];
+
+function getHostSessionParticipants() {
+  return hostSessionParticipants.slice();
+}
+
 function renderParticipants(participants) {
+  hostSessionParticipants = Array.isArray(participants) ? participants.slice() : [];
   const list = $("#waiting-participants");
   const statusEl = $("#waiting-participant-status");
   const roster = getWaitingClassRoster();

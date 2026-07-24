@@ -24,14 +24,44 @@
         <span class="host-sound-mute-icon" aria-hidden="true"></span>
       </button>
       <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true">
-        <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
-          <span class="host-sound-menu-label">Background Music</span>
-          <span class="host-sound-menu-state" id="host-bgm-state">On</span>
-        </button>
-        <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
-          <span class="host-sound-menu-label">Sound Effects</span>
-          <span class="host-sound-menu-state" id="host-effects-state">On</span>
-        </button>
+        <div class="host-sound-menu-row">
+          <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
+            <span class="host-sound-menu-label">Background Music</span>
+            <span class="host-sound-menu-state" id="host-bgm-state">On</span>
+          </button>
+          <label class="host-sound-volume">
+            <span class="host-sound-volume-label">Volume</span>
+            <input
+              type="range"
+              class="host-sound-volume-slider"
+              id="host-bgm-volume"
+              min="0"
+              max="100"
+              step="1"
+              value="30"
+              aria-label="Background music volume"
+            />
+          </label>
+        </div>
+        <div class="host-sound-menu-row">
+          <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
+            <span class="host-sound-menu-label">Sound Effects</span>
+            <span class="host-sound-menu-state" id="host-effects-state">On</span>
+          </button>
+          <label class="host-sound-volume">
+            <span class="host-sound-volume-label">Volume</span>
+            <input
+              type="range"
+              class="host-sound-volume-slider"
+              id="host-effects-volume"
+              min="0"
+              max="100"
+              step="1"
+              value="100"
+              aria-label="Sound effects volume"
+            />
+          </label>
+        </div>
       </div>
     </div>
 
@@ -684,8 +714,8 @@
           <section class="host-buzzin-feedback-leaderboard" aria-label="Buzz in winner">
             <div class="host-buzzin-feedback-leaderboard-head">
               <div class="host-buzzin-feedback-leaderboard-titles">
-                <h2 class="host-buzzin-feedback-leaderboard-title">Fastest Student</h2>
-                <p class="host-buzzin-feedback-leaderboard-sub">Buzz In Winner</p>
+                <h2 class="host-buzzin-feedback-leaderboard-title" id="host-buzzin-leaderboard-title">Fastest Student</h2>
+                <p class="host-buzzin-feedback-leaderboard-sub" id="host-buzzin-leaderboard-sub">Buzz In Winner</p>
               </div>
             </div>
             <div class="host-buzzin-feedback-winner-wrap">
@@ -718,6 +748,28 @@
           <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
         </button>
       </footer>
+
+      <div id="host-buzzin-lucky-draw" class="host-buzzin-lucky-draw" hidden aria-hidden="true">
+        <div class="host-buzzin-lucky-draw__backdrop"></div>
+        <div
+          class="host-buzzin-lucky-draw__dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="host-buzzin-lucky-draw-title"
+        >
+          <header class="host-buzzin-lucky-draw__header">
+            <h2 id="host-buzzin-lucky-draw-title" class="host-buzzin-lucky-draw__title">Lucky Draw</h2>
+          </header>
+          <div class="host-buzzin-lucky-draw__body">
+            <div class="host-buzzin-lucky-draw__wheel-wrap">
+              <div class="host-buzzin-lucky-draw__wheel" id="host-buzzin-lucky-draw-wheel">
+                <div class="host-buzzin-lucky-draw__wheel-face" id="host-buzzin-lucky-draw-avatar"></div>
+              </div>
+            </div>
+            <p class="host-buzzin-lucky-draw__name" id="host-buzzin-lucky-draw-name" aria-live="polite">????????</p>
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 

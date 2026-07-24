@@ -196,7 +196,30 @@
             <button class="btn buzzin-btn" id="btn-room-buzz-in" type="button" disabled>BUZZ IN!</button>
             <p id="room-buzzin-result" class="buzzin-result" hidden></p>
 
+            <div class="buzzin-watching-prompt" id="room-buzzin-watching-prompt" hidden aria-live="polite">
+              <p class="buzzin-watching-prompt__label" id="room-buzzin-watching-label">Watch &amp; listen</p>
+              <p class="buzzin-watching-prompt__question">
+                <span class="buzzin-watching-prompt__lead">Today's question:</span>
+                <span id="room-buzzin-watching-topic"></span>
+              </p>
+              <p class="buzzin-watching-prompt__name" id="room-buzzin-watching-name"></p>
+              <p class="buzzin-watching-prompt__hint" id="room-buzzin-watching-hint"></p>
+            </div>
+
             <div class="buzzin-turn-area" id="room-buzzin-turn" hidden>
+              <div class="buzzin-answer-prompt" id="room-buzzin-answer-prompt" hidden aria-live="polite">
+                <p class="buzzin-answer-prompt__label">Uncle Tommy says</p>
+                <p class="buzzin-answer-prompt__question">
+                  <span class="buzzin-answer-prompt__lead">Today's question:</span>
+                  <span id="room-buzzin-answer-prompt-topic"></span>
+                </p>
+                <p class="buzzin-answer-prompt__name" id="room-buzzin-answer-prompt-name"></p>
+                <ol class="buzzin-answer-prompt__steps">
+                  <li>Tap <strong>Record</strong> below</li>
+                  <li>Speak your answer</li>
+                  <li>Tap <strong>Record</strong> again to submit</li>
+                </ol>
+              </div>
               <p id="room-buzzin-turn-status" class="buzzin-turn-status"></p>
               <div class="buzzin-record-controls">
                 <div class="buzzin-recording-panel" id="room-buzzin-recording-panel" hidden aria-live="polite">

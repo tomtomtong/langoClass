@@ -15,6 +15,9 @@ let hostBuzzinActiveScreenPhase = null;
 let hostBuzzinExercisePoints = 300;
 let hostBuzzinTopicSpeaking = false;
 let hostQuestionTtsToken = 0;
+let hostBuzzinLuckyDrawRunning = false;
+let hostBuzzinLuckyStar = null;
+const hostBuzzinPlayedAnnouncements = new Set();
 const hostBuzzinFeedbackAnim = {
   topic: "",
   answerKey: "",
@@ -27,6 +30,10 @@ function resetHostBuzzinFeedbackAnim() {
   hostBuzzinFeedbackAnim.answerKey = "";
   hostBuzzinFeedbackAnim.feedbackKey = "";
   hostBuzzinFeedbackAnim.winnerKey = "";
+  hostBuzzinLuckyStar = null;
+  hostBuzzinPlayedAnnouncements.clear();
+  setHostBuzzinLeaderboardMode("winner");
+  resetHostBuzzinLuckyDrawUi();
 }
 
 function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, response) {
@@ -144,18 +151,36 @@ function updateHostBuzzinTurnUi(payload) {
   const selectedStudent = buzzinSelectedStudent(payload);
   const currentTurn = buzzinCurrentTurnForDisplay(payload);
   const responses = buzzinResponsesForDisplay(payload);
-  const response = responses[0] || null;
-  const isLive = Boolean(currentTurn && !payload.typingComplete);
+  let response = responses[0] || null;
+  let chatStudent = selectedStudent;
+  let chatCurrentTurn = currentTurn;
+
+  if (
+    hostBuzzinLuckyStar &&
+    currentTurn?.playerId === hostBuzzinLuckyStar.playerId
+  ) {
+    chatStudent = hostBuzzinLuckyStar;
+    chatCurrentTurn = currentTurn;
+    response =
+      (payload?.responses || []).find(
+        (entry) => entry.playerId === hostBuzzinLuckyStar.playerId
+      ) || null;
+  }
+
+  const isLive = Boolean(chatCurrentTurn && !payload.typingComplete);
   const animate = hostBuzzinFeedbackAnimateFlags(
     payload,
-    selectedStudent,
-    currentTurn,
+    chatStudent,
+    chatCurrentTurn,
     response
   );
 
   if (!selectedStudent) {
     if (turnStatus) turnStatus.textContent = "No one buzzed in.";
-    renderHostBuzzinWinnerCard(winnerEl, null, payload);
+    if (!hostBuzzinLuckyStar) {
+      setHostBuzzinLeaderboardMode("winner");
+      renderHostBuzzinWinnerCard(winnerEl, null, payload);
+    }
     renderHostBuzzinFeedbackChat(chatEl, {
       topic: payload.topic,
       emptyText: "No answer yet.",
@@ -164,22 +189,25 @@ function updateHostBuzzinTurnUi(payload) {
   }
 
   if (payload.typingComplete) {
-    if (turnStatus) turnStatus.textContent = `${selectedStudent.displayName} has answered.`;
-  } else if (currentTurn) {
-    if (turnStatus) turnStatus.textContent = `Waiting for ${currentTurn.displayName} to record their answer…`;
+    if (turnStatus) turnStatus.textContent = `${chatStudent?.displayName || selectedStudent?.displayName || "Student"} has answered.`;
+  } else if (chatCurrentTurn) {
+    if (turnStatus) turnStatus.textContent = `Waiting for ${chatCurrentTurn.displayName} to record their answer…`;
   } else {
-    if (turnStatus) turnStatus.textContent = `Waiting for ${selectedStudent.displayName} to answer…`;
+    if (turnStatus) turnStatus.textContent = `Waiting for ${(chatStudent || selectedStudent)?.displayName || "Student"} to answer…`;
   }
 
-  renderHostBuzzinWinnerCard(winnerEl, selectedStudent, payload, {
-    isLive,
-    animate: animate.winner,
-  });
+  if (!hostBuzzinLuckyStar) {
+    setHostBuzzinLeaderboardMode("winner");
+    renderHostBuzzinWinnerCard(winnerEl, selectedStudent, payload, {
+      isLive,
+      animate: animate.winner,
+    });
+  }
   renderHostBuzzinFeedbackChat(chatEl, {
     topic: payload.topic,
-    student: selectedStudent,
+    student: chatStudent,
     response,
-    currentTurn,
+    currentTurn: chatCurrentTurn,
     emptyText: "Waiting for answer…",
     animate: {
       topic: animate.topic,
@@ -187,7 +215,10 @@ function updateHostBuzzinTurnUi(payload) {
       feedback: animate.feedback,
     },
   });
-  playNewBuzzinSpokenFeedbackAudio(responses, hostBuzzinPlayedSpokenFeedbackAudio);
+  playNewBuzzinSpokenFeedbackAudio(
+    response ? [response] : [],
+    hostBuzzinPlayedSpokenFeedbackAudio
+  );
 }
 
 function setHostBuzzinPrompt(text) {
@@ -246,6 +277,232 @@ function updateHostBuzzinUi(payload) {
   updateHostBuzzinTurnUi(payload);
 }
 
+function setHostBuzzinLeaderboardMode(mode = "winner") {
+  const title = $("#host-buzzin-leaderboard-title");
+  const sub = $("#host-buzzin-leaderboard-sub");
+  if (!title || !sub) return;
+
+  if (mode === "lucky") {
+    title.textContent = "Our lucky Students";
+    sub.textContent = "Today's Lucky Star";
+    return;
+  }
+
+  title.textContent = "Fastest Student";
+  sub.textContent = "Buzz In Winner";
+}
+
+function applyHostBuzzinLuckyStar(winner, { animate = true } = {}) {
+  if (!winner) return;
+  hostBuzzinLuckyStar = winner;
+  setHostBuzzinLeaderboardMode("lucky");
+  renderHostBuzzinLuckyStarCard($("#host-buzzin-winner-card"), winner, { animate });
+}
+
+function waitHostBuzzin(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function resetHostBuzzinLuckyDrawUi() {
+  const modal = $("#host-buzzin-lucky-draw");
+  const wheel = $("#host-buzzin-lucky-draw-wheel");
+  const avatar = $("#host-buzzin-lucky-draw-avatar");
+  const nameEl = $("#host-buzzin-lucky-draw-name");
+
+  if (modal) {
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
+    modal.classList.remove("is-spinning", "is-revealed");
+  }
+  if (wheel) wheel.classList.remove("is-spinning", "is-revealed");
+  if (avatar) avatar.innerHTML = "";
+  if (nameEl) nameEl.textContent = "????????";
+}
+
+function getHostBuzzinLuckyDrawPreviewWinner() {
+  return { playerId: "preview-kiki", displayName: "Kiki Cheung" };
+}
+
+function getHostBuzzinLuckyDrawCandidates() {
+  const participants =
+    typeof getHostSessionParticipants === "function" ? getHostSessionParticipants() : [];
+
+  return participants
+    .map((participant) => ({
+      playerId: participant.userId || participant.id || "",
+      displayName:
+        participant.displayName ||
+        participant.name ||
+        participant.nickname ||
+        "Student",
+    }))
+    .filter((entry) => entry.playerId && entry.displayName);
+}
+
+function requestHostBuzzinLuckyDrawWinner() {
+  if (new URLSearchParams(window.location.search).has("preview")) {
+    const winner = getHostBuzzinLuckyDrawPreviewWinner();
+    const topic = getHostBuzzinTopicText();
+    return Promise.resolve({
+      winner,
+      topic,
+      announcementText: buildBuzzinAnswerAnnouncement(topic, winner.displayName),
+      announcementAudio: null,
+      announcementAudioFormat: null,
+    });
+  }
+
+  const candidates = getHostBuzzinLuckyDrawCandidates();
+  if (!hostBuzzinRoomId) {
+    const winner =
+      candidates.length > 0
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : getHostBuzzinLuckyDrawPreviewWinner();
+    const topic = getHostBuzzinTopicText();
+    return Promise.resolve({
+      winner,
+      topic,
+      announcementText: buildBuzzinAnswerAnnouncement(topic, winner.displayName),
+      announcementAudio: null,
+      announcementAudioFormat: null,
+    });
+  }
+
+  const socket = getHostSessionSocket();
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      socket.emit("buzzin_lucky_draw", { roomId: hostBuzzinRoomId }, (res) => {
+        if (!res?.ok) {
+          reject(new Error(res?.error || "Could not run lucky draw."));
+          return;
+        }
+        resolve({
+          winner: {
+            playerId: res.winner?.playerId || "",
+            displayName: res.winner?.displayName || "Student",
+          },
+          topic: res.topic || getHostBuzzinTopicText(),
+          announcementText: res.announcementText || "",
+          announcementAudio: res.announcementAudio || null,
+          announcementAudioFormat: res.announcementAudioFormat || "mp3",
+          payload: res,
+        });
+      });
+    };
+
+    if (socket.connected) run();
+    else socket.once("connect", run);
+  });
+}
+
+function buzzinAnswerAnnouncementKey(payload) {
+  const announcement = payload?.answerAnnouncement;
+  if (!announcement?.playerId) return "";
+  return `${payload.roundId || 0}:${announcement.playerId}`;
+}
+
+async function playHostBuzzinAnswerAnnouncement({ winner, announcementAudio, announcementAudioFormat } = {}) {
+  const turnStatus = $("#host-buzzin-turn-status");
+  const winnerName = winner?.displayName || "Student";
+  if (turnStatus) {
+    turnStatus.textContent = `Uncle Tommy is calling on ${winnerName}…`;
+    turnStatus.classList.remove("visually-hidden");
+  }
+
+  hostBuzzinTopicSpeaking = true;
+  try {
+    if (announcementAudio) {
+      await playHostUncleTommyTts(announcementAudio, announcementAudioFormat || "mp3");
+    }
+  } catch (err) {
+    console.warn(err?.message || "Could not play answer announcement.");
+  } finally {
+    hostBuzzinTopicSpeaking = false;
+    if (turnStatus) {
+      turnStatus.textContent = `Waiting for ${winnerName} to record their answer…`;
+    }
+  }
+}
+
+async function maybePlayHostBuzzinAnswerAnnouncement(payload) {
+  const announcement = payload?.answerAnnouncement;
+  if (!announcement) return;
+
+  const key = buzzinAnswerAnnouncementKey(payload);
+  if (!key || hostBuzzinPlayedAnnouncements.has(key)) return;
+  hostBuzzinPlayedAnnouncements.add(key);
+
+  await playHostBuzzinAnswerAnnouncement({
+    winner: {
+      playerId: announcement.playerId,
+      displayName: announcement.displayName,
+    },
+    announcementAudio: announcement.audio,
+    announcementAudioFormat: announcement.format,
+  });
+}
+
+async function playHostBuzzinLuckyDraw(winner) {
+  const modal = $("#host-buzzin-lucky-draw");
+  const wheel = $("#host-buzzin-lucky-draw-wheel");
+  const avatar = $("#host-buzzin-lucky-draw-avatar");
+  const nameEl = $("#host-buzzin-lucky-draw-name");
+  if (!modal || !wheel || !avatar || !nameEl || !winner) return;
+
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const spinMs = reduceMotion ? 0 : 2400;
+  const revealHoldMs = reduceMotion ? 600 : 1600;
+
+  resetHostBuzzinLuckyDrawUi();
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  modal.classList.add("is-spinning");
+  wheel.classList.add("is-spinning");
+  nameEl.textContent = "????????";
+
+  if (spinMs > 0) await waitHostBuzzin(spinMs);
+
+  modal.classList.remove("is-spinning");
+  modal.classList.add("is-revealed");
+  wheel.classList.remove("is-spinning");
+  wheel.classList.add("is-revealed");
+  avatar.innerHTML = buzzinLuckyDrawAvatarHtml(winner.displayName);
+  nameEl.textContent = winner.displayName;
+
+  await waitHostBuzzin(revealHoldMs);
+
+  resetHostBuzzinLuckyDrawUi();
+}
+
+async function openHostBuzzinLuckyDraw() {
+  if (hostBuzzinLuckyDrawRunning) return;
+  hostBuzzinLuckyDrawRunning = true;
+
+  const randomBtn = $("#btn-host-buzzin-random");
+  if (randomBtn) randomBtn.disabled = true;
+
+  try {
+    const result = await requestHostBuzzinLuckyDrawWinner();
+    const winner = result?.winner;
+    if (!winner) return;
+
+    await playHostBuzzinLuckyDraw(winner);
+    applyHostBuzzinLuckyStar(winner);
+
+    if (result?.payload) {
+      if (result.payload.roundId != null) hostBuzzinRoundId = result.payload.roundId;
+      updateHostBuzzinUi(result.payload);
+      await maybePlayHostBuzzinAnswerAnnouncement(result.payload);
+    }
+  } catch (err) {
+    console.warn(err?.message || "Could not run lucky draw.");
+    resetHostBuzzinLuckyDrawUi();
+  } finally {
+    hostBuzzinLuckyDrawRunning = false;
+    if (randomBtn) randomBtn.disabled = false;
+  }
+}
+
 function bindHostBuzzinSocketHandlers(socket) {
   if (socket.__hostBuzzinBound) return;
   socket.__hostBuzzinBound = true;
@@ -253,6 +510,7 @@ function bindHostBuzzinSocketHandlers(socket) {
   const applyBuzzinPayload = (payload) => {
     if (payload?.roundId != null) hostBuzzinRoundId = payload.roundId;
     updateHostBuzzinUi(payload);
+    void maybePlayHostBuzzinAnswerAnnouncement(payload);
   };
 
   socket.on("buzzin_round_started", applyBuzzinPayload);
@@ -277,6 +535,9 @@ function startHostBuzzinRound(roomId) {
   hostBuzzinPlayedSpokenFeedbackAudio.clear();
   hostBuzzinLastResponses = [];
   hostBuzzinActiveScreenPhase = null;
+  hostBuzzinLuckyStar = null;
+  hostBuzzinPlayedAnnouncements.clear();
+  setHostBuzzinLeaderboardMode("winner");
   hostBuzzinTopicSpeaking = true;
   resetHostBuzzinFeedbackAnim();
   ensureHostBuzzinSocket();
@@ -343,13 +604,40 @@ async function openHostBuzzinJoin() {
   const startBtn = $("#btn-host-buzzin-start");
   const joinStatus = $("#host-buzzin-join-status");
   if (startBtn) startBtn.disabled = true;
-  if (joinStatus) joinStatus.textContent = "Opening buzz-in…";
+  if (joinStatus) joinStatus.textContent = "Starting…";
 
   if (!socket.connected) {
     await new Promise((resolve, reject) => {
       socket.once("connect", resolve);
       socket.once("connect_error", () => reject(new Error("Could not connect to room.")));
     });
+  }
+
+  try {
+    await new Promise((resolve, reject) => {
+      socket.emit("start_buzzin_countdown", { roomId: hostBuzzinRoomId }, (res) => {
+        if (!res?.ok) {
+          reject(new Error(res?.error || "Could not start buzz-in countdown."));
+          return;
+        }
+        resolve();
+      });
+    });
+
+    if (typeof playExerciseCountdownVideo === "function") {
+      await playExerciseCountdownVideo();
+    } else if (typeof playCountdown321Video === "function") {
+      await playCountdown321Video({
+        root: document.querySelector("#app.lango-host") || document.body,
+        layerClass: "host-exercise-countdown",
+        videoClass: "host-exercise-countdown-video",
+        playingClass: "is-playing",
+      });
+    }
+  } catch (err) {
+    if (startBtn) startBtn.disabled = false;
+    if (joinStatus) joinStatus.textContent = err.message || "Could not start buzz in.";
+    throw err;
   }
 
   return new Promise((resolve, reject) => {
@@ -380,10 +668,7 @@ function renderHostQuizPreview(data) {
   showScreen("host-quiz-preview");
 
   const points = data.points || 300;
-  const speaking = !!data.speaking;
-  $("#host-quiz-preview-title").textContent = speaking
-    ? `Question ${data.questionIndex + 1}`
-    : `Question ${data.questionIndex + 1}`;
+  $("#host-quiz-preview-title").textContent = `Question ${data.questionIndex + 1}`;
   $("#host-quiz-preview-points").textContent = `${points} pts`;
   $("#host-quiz-preview-question-text").textContent = data.text || "";
   setQuestionImage(
@@ -391,20 +676,6 @@ function renderHostQuizPreview(data) {
     $("#host-quiz-preview-image-wrap"),
     resolvedMediaUrl(data.image)
   );
-
-  const progress = $("#host-quiz-preview-progress");
-  if (speaking) {
-    progress.style.width = "100%";
-    progress.classList.add("is-speaking");
-    return;
-  }
-
-  progress.classList.remove("is-speaking");
-  startDeadlineTimer(data.previewEndsAt, data.previewSeconds || 5, (remaining) => {
-    const total = Math.max(1, Number(data.previewSeconds) || 5);
-    const pct = Math.max(0, Math.min(100, (remaining / total) * 100));
-    progress.style.width = `${pct}%`;
-  });
 }
 
 function renderHostQuizSpeaking(data) {
@@ -421,15 +692,7 @@ function renderHostQuizSpeaking(data) {
 
 async function playHostUncleTommyTts(audioContent, format) {
   if (!audioContent || typeof playUncleTommyTts !== "function") return;
-  const shouldDuck = typeof fadeHostBgmTo === "function";
-  try {
-    if (shouldDuck) fadeHostBgmTo(0.06);
-    await playUncleTommyTts(audioContent, format || "mp3");
-  } finally {
-    if (shouldDuck && typeof HOST_BGM_VOLUME === "number") {
-      fadeHostBgmTo(HOST_BGM_VOLUME);
-    }
-  }
+  await playUncleTommyTts(audioContent, format || "mp3");
 }
 
 async function playHostQuestionTts(data) {
@@ -983,11 +1246,7 @@ function initHostRoomQuizUi() {
 
   $("#btn-host-buzzin-random")?.addEventListener("click", () => {
     if (typeof playPageNextSound === "function") playPageNextSound();
-    if (!hostBuzzinRoomId) return;
-    hostBuzzinActiveScreenPhase = null;
-    startHostBuzzinRound(hostBuzzinRoomId).catch((err) => {
-      console.warn(err?.message || "Could not restart buzz-in round.");
-    });
+    void openHostBuzzinLuckyDraw();
   });
 }
 

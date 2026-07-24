@@ -64,6 +64,7 @@
     { id: "buzzin-ready", label: "Buzz In — waiting to start" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
     { id: "buzzin-responses", label: "Buzz In — answer & feedback" },
+    { id: "buzzin-lucky-draw", label: "Buzz In — lucky draw" },
   ];
 
   const SAMPLE = {
@@ -561,6 +562,7 @@
         break;
 
       case "buzzin-responses":
+      case "buzzin-lucky-draw":
         resetHostBuzzinFeedbackAnim();
         showHostPreviewScreen("host-buzzin-feedback", "quiz");
         triggerHostBuzzinFeedbackEnter();
@@ -577,6 +579,9 @@
           responses: SAMPLE.buzzResponses,
           typingComplete: true,
         });
+        if (layoutId === "buzzin-lucky-draw") {
+          void openHostBuzzinLuckyDraw();
+        }
         break;
 
       default:

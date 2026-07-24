@@ -742,6 +742,7 @@ function buzzInCurrentTurn(round) {
 
 function buzzInPublicPayload(round) {
   const joinRemainingMs = round.phase === "join" ? Math.max(0, round.joinEndsAt - Date.now()) : 0;
+  const announcement = round.answerAnnouncement;
   return {
     roundId: round.roundId,
     phase: round.phase,
@@ -758,6 +759,15 @@ function buzzInPublicPayload(round) {
     responses: round.responses,
     typingComplete: round.phase === "done",
     ineligiblePlayerIds: round.ineligiblePlayerIds || [],
+    answerAnnouncement: announcement
+      ? {
+          playerId: announcement.playerId,
+          displayName: announcement.displayName,
+          text: announcement.text,
+          audio: announcement.audio,
+          format: announcement.format,
+        }
+      : null,
   };
 }
 
@@ -771,8 +781,13 @@ function closeBuzzInJoinWindow(pin) {
   const round = buzzInRounds.get(pin);
   if (!round || round.phase !== "join") return;
 
+  if (round.buzzes.length) {
+    void finalizeBuzzInJoinToTyping(pin);
+    return;
+  }
+
   clearBuzzInJoinTimer(round);
-  round.phase = round.buzzes.length ? "typing" : "done";
+  round.phase = "done";
   round.status = "closed";
   round.turnIndex = 0;
   broadcastBuzzInUpdate(pin, "buzzin_join_closed");
@@ -787,6 +802,82 @@ function advanceBuzzInTurn(pin) {
     round.phase = "done";
   }
   broadcastBuzzInUpdate(pin);
+}
+
+function buildBuzzinAnswerAnnouncement(topic, displayName) {
+  const question = String(topic || "").trim() || "your question";
+  const name = String(displayName || "Student").trim() || "Student";
+  return `Today's question is: ${question} ${name}, you're up! On your device, tap the Record button, speak your answer, then tap again to submit.`;
+}
+
+function buildBuzzinLuckyDrawAnnouncement(topic, displayName) {
+  return buildBuzzinAnswerAnnouncement(topic, displayName);
+}
+
+async function synthesizeBuzzinAnswerAnnouncement(round, winner) {
+  const playerId = winner?.playerId;
+  const displayName = winner?.displayName || "Student";
+  const text = buildBuzzinAnswerAnnouncement(round.topic, displayName);
+  let audio = null;
+  let format = null;
+
+  try {
+    const apiKey = getInworldApiKey();
+    if (apiKey && text) {
+      const tts = await inworldTtsSynthesize(apiKey, text);
+      audio = tts.audioContent;
+      format = tts.format;
+    }
+  } catch (err) {
+    console.warn(`[tts] Buzz-in answer announcement failed: ${err.message || err}`);
+  }
+
+  round.answerAnnouncement = {
+    playerId,
+    displayName,
+    text,
+    audio,
+    format,
+  };
+  return round.answerAnnouncement;
+}
+
+async function finalizeBuzzInJoinToTyping(pin) {
+  const round = buzzInRounds.get(pin);
+  if (!round || round.phase !== "join" || !round.buzzes.length) return;
+
+  clearBuzzInJoinTimer(round);
+  const winner = round.buzzes[0];
+  await synthesizeBuzzinAnswerAnnouncement(round, winner);
+  round.phase = "typing";
+  round.status = "closed";
+  round.turnIndex = 0;
+  broadcastBuzzInUpdate(pin, "buzzin_join_closed");
+}
+
+function assignBuzzinLuckyDrawWinner(pin, winner) {
+  const round = buzzInRounds.get(pin);
+  if (!round || !winner?.playerId) return null;
+
+  let buzz = round.buzzes.find((entry) => entry.playerId === winner.playerId);
+  if (!buzz) {
+    buzz = {
+      playerId: winner.playerId,
+      displayName: winner.displayName || "Student",
+      rank: round.buzzes.length + 1,
+      at: Date.now(),
+    };
+    round.buzzes.push(buzz);
+  } else {
+    buzz.displayName = winner.displayName || buzz.displayName || "Student";
+  }
+
+  clearBuzzInJoinTimer(round);
+  round.phase = "typing";
+  round.status = "closed";
+  round.turnIndex = round.buzzes.findIndex((entry) => entry.playerId === winner.playerId);
+  if (round.turnIndex < 0) round.turnIndex = 0;
+  return round;
 }
 
 function createBuzzInRound(pin, topic = "", sttLanguage = "") {
@@ -805,6 +896,7 @@ function createBuzzInRound(pin, topic = "", sttLanguage = "") {
     turnIndex: 0,
     joinEndsAt: 0,
     joinTimer: null,
+    answerAnnouncement: null,
   };
   buzzInRounds.set(pin, round);
   return round;
@@ -2819,6 +2911,28 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("start_buzzin_countdown", ({ roomId }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can start the buzz-in countdown." });
+      return;
+    }
+
+    const round = buzzInRounds.get(pin);
+    if (!round) {
+      callback?.({ ok: false, error: "Buzz-in round not prepared." });
+      return;
+    }
+    if (round.phase !== "ready") {
+      callback?.({ ok: false, error: "Buzz in already started." });
+      return;
+    }
+
+    io.to(pin).emit("buzzin_countdown");
+    callback?.({ ok: true });
+  });
+
   socket.on("open_buzzin_join", ({ roomId }, callback) => {
     const meta = socketMeta.get(socket.id);
     const pin = normalizeRoomId(roomId) || meta?.pin;
@@ -2900,7 +3014,7 @@ io.on("connection", (socket) => {
     session.buzzinAwardedPlayers.set(meta.playerId, displayName);
 
     if (round.buzzes.length >= BUZZIN_WINNER_COUNT) {
-      closeBuzzInJoinWindow(meta.pin);
+      void finalizeBuzzInJoinToTyping(meta.pin);
     } else {
       broadcastBuzzInUpdate(meta.pin);
     }
@@ -2910,6 +3024,66 @@ io.on("connection", (socket) => {
       rank,
       selected: rank <= BUZZIN_WINNER_COUNT,
       roundId: round.roundId,
+    });
+  });
+
+  socket.on("buzzin_lucky_draw", async ({ roomId }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can run a lucky draw." });
+      return;
+    }
+
+    const session = sessionStore.getSession(pin);
+    if (!session) {
+      callback?.({ ok: false, error: "Room not found." });
+      return;
+    }
+
+    const round = buzzInRounds.get(pin);
+    if (!round) {
+      callback?.({ ok: false, error: "Buzz-in round not prepared." });
+      return;
+    }
+
+    const awardedIds = new Set(
+      session.buzzinAwardedPlayers instanceof Map
+        ? [...session.buzzinAwardedPlayers.keys()]
+        : []
+    );
+    const candidates = [...session.participants.values()]
+      .map((participant) => ({
+        playerId: participant.userId,
+        displayName: participant.displayName || "Student",
+      }))
+      .filter((entry) => entry.playerId);
+
+    const pool = candidates.filter((entry) => !awardedIds.has(entry.playerId));
+    const finalPool = pool.length ? pool : candidates;
+    if (!finalPool.length) {
+      callback?.({ ok: false, error: "No students are connected for the lucky draw." });
+      return;
+    }
+
+    const winner = finalPool[Math.floor(Math.random() * finalPool.length)];
+    assignBuzzinLuckyDrawWinner(pin, winner);
+
+    if (!(session.buzzinAwardedPlayers instanceof Map)) {
+      session.buzzinAwardedPlayers = new Map();
+    }
+    session.buzzinAwardedPlayers.set(winner.playerId, winner.displayName || "Student");
+
+    const announcement = await synthesizeBuzzinAnswerAnnouncement(round, winner);
+    const payload = buzzInPublicPayload(round);
+    io.to(pin).emit("buzzin_update", payload);
+    callback?.({
+      ok: true,
+      winner,
+      announcementText: announcement?.text || "",
+      announcementAudio: announcement?.audio || null,
+      announcementAudioFormat: announcement?.format || null,
+      ...payload,
     });
   });
 

@@ -164,6 +164,59 @@ function buzzinAvatarInitials(name) {
   return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
 }
 
+function buzzinAvatarHue(name) {
+  let hash = 0;
+  for (const character of String(name || "")) {
+    hash = (hash * 31 + character.codePointAt(0)) % 360;
+  }
+  return hash;
+}
+
+function buzzinLuckyDrawAvatarHtml(name) {
+  const safeName = escapeHtml(name || "Student");
+  const initials = escapeHtml(buzzinAvatarInitials(name));
+  const hue = buzzinAvatarHue(name);
+  return `<div class="host-buzzin-lucky-draw__avatar" role="img" aria-label="${safeName} avatar" style="--lucky-avatar-hue: ${hue}">
+    <span aria-hidden="true">${initials}</span>
+  </div>`;
+}
+
+function buildBuzzinAnswerAnnouncement(topic, displayName) {
+  const question = String(topic || "").trim() || "your question";
+  const name = String(displayName || "Student").trim() || "Student";
+  return `Today's question is: ${question} ${name}, you're up! On your device, tap the Record button, speak your answer, then tap again to submit.`;
+}
+
+function buildBuzzinLuckyDrawAnnouncement(topic, displayName) {
+  return buildBuzzinAnswerAnnouncement(topic, displayName);
+}
+
+function getHostBuzzinTopicText() {
+  const feedbackTopic = $("#host-buzzin-feedback-topic");
+  const questionTopic = $("#host-buzzin-topic");
+  return String(feedbackTopic?.textContent || questionTopic?.textContent || "").trim();
+}
+
+function renderHostBuzzinLuckyStarCard(container, student, { animate = false } = {}) {
+  if (!container) return;
+  if (!student) {
+    container.innerHTML = `<p class="host-buzzin-winner-empty">No lucky star yet.</p>`;
+    return;
+  }
+
+  const { line1, line2 } = splitBuzzinNameLines(student.displayName);
+  const initials = buzzinAvatarInitials(student.displayName);
+  const hue = buzzinAvatarHue(student.displayName);
+  const enterClass = animate ? " host-buzzin-winner-card--enter" : "";
+
+  container.innerHTML = `<article class="host-buzzin-winner-card host-buzzin-winner-card--lucky${enterClass}">
+    <div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--lucky" style="--lucky-avatar-hue: ${hue}" aria-hidden="true">${escapeHtml(initials)}</div>
+    <div class="host-buzzin-winner-copy">
+      <p class="host-buzzin-winner-name">${escapeHtml(line1)}${line2 ? `<br />${escapeHtml(line2)}` : ""}</p>
+    </div>
+  </article>`;
+}
+
 function buzzinBuzzElapsedSeconds(buzz, payload) {
   if (!buzz?.at) return null;
   const joinSeconds = payload?.joinSeconds || 20;
@@ -276,8 +329,8 @@ function renderHostBuzzinFeedbackChat(container, {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
         ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-feedback-group">
-          <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback">
-            <p>${escapeHtml(response.analysis)}</p>
+          <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--scores">
+            ${renderBuzzinAnalysisScorePiesHtml(response.analysis)}
           </div>
           ${buzzinSpokenFeedbackBubbleHtml(response)}
         </div>
@@ -350,6 +403,44 @@ function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
     .join("");
 }
 
+const BUZZIN_SCORE_METRICS = [
+  { key: "correctness", label: "Correctness", pattern: /Correctness\s*\((\d+)\)/i, color: "#45c937" },
+  { key: "completeness", label: "Completeness", pattern: /Completeness\s*\((\d+)\)/i, color: "#15c4f8" },
+  { key: "fluency", label: "Fluency", pattern: /Fluency\s*\((\d+)\)/i, color: "#f59e0b" },
+];
+
+function parseBuzzinAnalysisScores(analysis) {
+  const text = String(analysis || "");
+  return BUZZIN_SCORE_METRICS.map((metric) => {
+    const match = text.match(metric.pattern);
+    if (!match) return null;
+    return {
+      ...metric,
+      score: Math.max(0, Math.min(100, Number(match[1]) || 0)),
+    };
+  }).filter(Boolean);
+}
+
+function buzzinScorePieHtml({ label, score, color }) {
+  return `<div class="buzzin-score-pie">
+    <div class="buzzin-score-pie__chart" style="--score: ${score}; --pie-color: ${color}" role="img" aria-label="${escapeHtml(label)} ${score} out of 100">
+      <div class="buzzin-score-pie__ring" aria-hidden="true"></div>
+      <span class="buzzin-score-pie__value">${score}</span>
+    </div>
+    <span class="buzzin-score-pie__label">${escapeHtml(label)}</span>
+  </div>`;
+}
+
+function renderBuzzinAnalysisScorePiesHtml(analysis) {
+  const metrics = parseBuzzinAnalysisScores(analysis);
+  if (!metrics.length) {
+    return `<p>${escapeHtml(analysis || "")}</p>`;
+  }
+  return `<div class="buzzin-score-pies" aria-label="AI feedback scores">
+    ${metrics.map((metric) => buzzinScorePieHtml(metric)).join("")}
+  </div>`;
+}
+
 function renderBuzzinAnalysisHtml(item) {
   if (item.pending || !item.text) return "";
   if (item.analysisStatus === "pending") {
@@ -360,7 +451,7 @@ function renderBuzzinAnalysisHtml(item) {
   }
   if (item.analysis) {
     const spoken = String(item.spokenFeedback || "").trim();
-    return `<div class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${escapeHtml(item.analysis)}${spoken ? `<p class="buzzin-spoken-feedback">${escapeHtml(spoken)}</p>` : ""}${buzzinSpokenFeedbackPlayButtonHtml(item)}</div>`;
+    return `<div class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${renderBuzzinAnalysisScorePiesHtml(item.analysis)}${spoken ? `<p class="buzzin-spoken-feedback">${escapeHtml(spoken)}</p>` : ""}${buzzinSpokenFeedbackPlayButtonHtml(item)}</div>`;
   }
   return "";
 }
@@ -415,6 +506,7 @@ let buzzinPlaybackAudioEl = null;
 let buzzinPlaybackFinish = null;
 let buzzinSpeechBgmDuckDepth = 0;
 const BUZZIN_SPEECH_BGM_VOLUME = 0.06;
+const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 3.5;
 
 function beginBuzzinSpeechBgmDuck() {
   if (buzzinSpeechBgmDuckDepth === 0 && typeof fadeHostBgmTo === "function") {
@@ -449,6 +541,9 @@ function stopBuzzinBase64Audio() {
     buzzinPlaybackFinish = null;
     finish();
   }
+  buzzinActiveGainSetup = null;
+  buzzinActiveBaseGain = 1;
+  buzzinActiveUseEffectsVolume = true;
   if (!buzzinPlaybackAudioEl) return;
   buzzinPlaybackAudioEl.onended = null;
   buzzinPlaybackAudioEl.onerror = null;
@@ -456,23 +551,130 @@ function stopBuzzinBase64Audio() {
   buzzinPlaybackAudioEl.removeAttribute("src");
 }
 
-function playBuzzinBase64Audio(base64, format, { duckBgm = false } = {}) {
+function getHostSoundEffectsPlaybackVolume() {
+  if (typeof hostSoundEffectsMuted === "boolean" && hostSoundEffectsMuted) return 0;
+  if (typeof hostSoundEffectsVolume === "number" && Number.isFinite(hostSoundEffectsVolume)) {
+    return Math.max(0, Math.min(1, hostSoundEffectsVolume));
+  }
+  return 1;
+}
+
+/** Uncle Tommy speech stays loud in the classroom; only the global mute stops it. */
+function getUncleTommyTtsPlaybackVolume() {
+  if (typeof hostSoundEffectsMuted === "boolean" && hostSoundEffectsMuted) return 0;
+  return 1;
+}
+
+function attachBuzzinPlaybackGain(audio, gain = 1) {
+  const normalizedGain = Number.isFinite(gain) ? Math.max(0, gain) : 1;
+  if (normalizedGain <= 1) {
+    audio.volume = normalizedGain;
+    return {
+      setGain(nextGain) {
+        const value = Number.isFinite(nextGain) ? Math.max(0, nextGain) : 1;
+        audio.volume = Math.min(1, value);
+      },
+      release() {},
+      resumeIfNeeded() {},
+    };
+  }
+
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) {
+    audio.volume = 1;
+    return {
+      setGain() {},
+      release() {},
+      resumeIfNeeded() {},
+    };
+  }
+
+  try {
+    const audioContext = new AudioContextCtor();
+    const sourceNode = audioContext.createMediaElementSource(audio);
+    const gainNode = audioContext.createGain();
+    audio.volume = 1;
+    gainNode.gain.value = normalizedGain;
+    sourceNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    return {
+      setGain(nextGain) {
+        const value = Number.isFinite(nextGain) ? Math.max(0, nextGain) : 1;
+        gainNode.gain.value = value;
+      },
+      release() {
+        try {
+          sourceNode.disconnect();
+          gainNode.disconnect();
+          if (audioContext.state !== "closed") void audioContext.close();
+        } catch {
+          /* Ignore teardown errors after playback ends. */
+        }
+      },
+      resumeIfNeeded() {
+        if (audioContext.state === "suspended") void audioContext.resume();
+      },
+    };
+  } catch {
+    audio.volume = 1;
+    return {
+      setGain() {},
+      release() {},
+      resumeIfNeeded() {},
+    };
+  }
+}
+
+let buzzinActiveGainSetup = null;
+let buzzinActiveBaseGain = 1;
+let buzzinActiveUseEffectsVolume = true;
+
+function syncBuzzinPlaybackToHostSoundEffects() {
+  if (!buzzinActiveGainSetup) return;
+  const effectsVolume = buzzinActiveUseEffectsVolume
+    ? getHostSoundEffectsPlaybackVolume()
+    : getUncleTommyTtsPlaybackVolume();
+  if (effectsVolume <= 0) {
+    stopBuzzinBase64Audio();
+    return;
+  }
+  buzzinActiveGainSetup.setGain(buzzinActiveBaseGain * effectsVolume);
+}
+
+function playBuzzinBase64Audio(base64, format, { duckBgm = false, gain = 1, useEffectsVolume = true } = {}) {
   if (!base64) return Promise.resolve();
+
+  const effectsVolume = useEffectsVolume
+    ? getHostSoundEffectsPlaybackVolume()
+    : getUncleTommyTtsPlaybackVolume();
+  if (effectsVolume <= 0) return Promise.resolve();
 
   const mime = buzzinAudioMimeFromFormat(format);
   stopBuzzinBase64Audio();
   if (duckBgm) beginBuzzinSpeechBgmDuck();
 
+  const baseGain = Number.isFinite(gain) ? Math.max(0, gain) : 1;
+  buzzinActiveBaseGain = baseGain;
+  buzzinActiveUseEffectsVolume = useEffectsVolume;
+
   return new Promise((resolve) => {
     const audio = new Audio();
+    const gainSetup = attachBuzzinPlaybackGain(audio, baseGain * effectsVolume);
+    buzzinActiveGainSetup = gainSetup;
     buzzinPlaybackAudioEl = audio;
     let settled = false;
     const finish = () => {
       if (settled) return;
       settled = true;
       if (buzzinPlaybackFinish === finish) buzzinPlaybackFinish = null;
+      if (buzzinActiveGainSetup === gainSetup) {
+        buzzinActiveGainSetup = null;
+        buzzinActiveBaseGain = 1;
+        buzzinActiveUseEffectsVolume = true;
+      }
       audio.onended = null;
       audio.onerror = null;
+      gainSetup.release();
       if (duckBgm) endBuzzinSpeechBgmDuck();
       resolve();
     };
@@ -482,7 +684,7 @@ function playBuzzinBase64Audio(base64, format, { duckBgm = false } = {}) {
     audio.onerror = finish;
     audio.src = `data:${mime};base64,${base64}`;
     const playPromise = audio.play();
-    playPromise?.catch?.(() => {
+    playPromise?.then?.(() => gainSetup.resumeIfNeeded())?.catch?.(() => {
       /* Autoplay may be blocked until the host interacts with the page. */
       finish();
     });
@@ -491,7 +693,11 @@ function playBuzzinBase64Audio(base64, format, { duckBgm = false } = {}) {
 
 /** Host-only Uncle Tommy TTS playback. Resolves when audio ends or fails. */
 function playUncleTommyTts(base64, format) {
-  return playBuzzinBase64Audio(base64, format, { duckBgm: true });
+  return playBuzzinBase64Audio(base64, format, {
+    duckBgm: true,
+    gain: UNCLE_TOMMY_TTS_PLAYBACK_GAIN,
+    useEffectsVolume: false,
+  });
 }
 
 function playBuzzinSpokenFeedbackAudio(item) {

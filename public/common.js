@@ -718,3 +718,60 @@ function clearTimer() {
     window._timerInterval = null;
   }
 }
+
+const COUNTDOWN321_VIDEO_SRC = "/assets/transitions/countdown321.mp4";
+
+function playCountdown321Video(options = {}) {
+  const {
+    root = document.body,
+    layerClass = "lango-countdown321",
+    videoClass = "lango-countdown321-video",
+    playingClass = "is-playing",
+    src = COUNTDOWN321_VIDEO_SRC,
+    muted = false,
+    volume = 1,
+  } = options;
+
+  return new Promise((resolve) => {
+    if (!root) {
+      resolve();
+      return;
+    }
+
+    let layer = root.querySelector(`.${layerClass}`);
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.className = layerClass;
+      layer.setAttribute("aria-hidden", "true");
+
+      const video = document.createElement("video");
+      video.className = videoClass;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "");
+      video.src = src;
+      layer.appendChild(video);
+      root.appendChild(layer);
+    }
+
+    const video = layer.querySelector("video");
+    if (!video) {
+      resolve();
+      return;
+    }
+
+    const finish = () => {
+      layer.classList.remove(playingClass);
+      video.pause();
+      resolve();
+    };
+
+    video.currentTime = 0;
+    video.muted = muted;
+    video.volume = volume;
+    layer.classList.add(playingClass);
+    video.addEventListener("ended", finish, { once: true });
+    video.addEventListener("error", finish, { once: true });
+    const playPromise = video.play();
+    if (playPromise?.catch) playPromise.catch(finish);
+  });
+}
