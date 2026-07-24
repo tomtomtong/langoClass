@@ -898,6 +898,7 @@ function updatePersistentRoomCode(screenId) {
     "host-video",
     "host-buzzin",
     "host-buzzin-feedback",
+    "host-buzzin-empty",
   ];
   const roomCode = getVisibleRoomCode();
   const shouldShow = Boolean(roomCode && roomScreenIds.includes(screenId));
@@ -2591,7 +2592,7 @@ document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
   })
 );
 
-document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin, #btn-back-waiting-buzzin-feedback").forEach((btn) =>
+document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin, #btn-back-waiting-buzzin-feedback, #btn-back-waiting-buzzin-empty").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
     endExerciseAndReturnToDashboard();
@@ -2760,6 +2761,10 @@ $("#btn-host-buzzin-done")?.addEventListener("click", () => {
   backToWaitingFromExercise();
 });
 $("#btn-host-buzzin-feedback-done")?.addEventListener("click", () => {
+  playPageNextSound();
+  backToWaitingFromExercise();
+});
+$("#btn-host-buzzin-empty-done")?.addEventListener("click", () => {
   playPageNextSound();
   backToWaitingFromExercise();
 });

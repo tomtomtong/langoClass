@@ -64,6 +64,7 @@
     { id: "buzzin-ready", label: "Buzz In — waiting to start" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
     { id: "buzzin-responses", label: "Buzz In — answer & feedback" },
+    { id: "buzzin-empty", label: "Buzz In — no one buzzed in" },
     { id: "buzzin-lucky-draw", label: "Buzz In — lucky draw" },
   ];
 
@@ -582,6 +583,21 @@
         if (layoutId === "buzzin-lucky-draw") {
           void openHostBuzzinLuckyDraw();
         }
+        break;
+
+      case "buzzin-empty":
+        resetHostBuzzinFeedbackAnim();
+        showHostPreviewScreen("host-buzzin-empty", "quiz");
+        triggerHostBuzzinEmptyEnter();
+        syncHostBuzzinTopic(SAMPLE.buzzTopic);
+        $("#host-buzzin-points").textContent = "300 pts";
+        updateHostBuzzinUi({
+          phase: "done",
+          topic: SAMPLE.buzzTopic,
+          buzzes: [],
+          responses: [],
+          typingComplete: true,
+        });
         break;
 
       default:

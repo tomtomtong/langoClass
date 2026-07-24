@@ -748,29 +748,70 @@
           <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
         </button>
       </footer>
+    </section>
 
-      <div id="host-buzzin-lucky-draw" class="host-buzzin-lucky-draw" hidden aria-hidden="true">
-        <div class="host-buzzin-lucky-draw__backdrop"></div>
-        <div
-          class="host-buzzin-lucky-draw__dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="host-buzzin-lucky-draw-title"
-        >
-          <header class="host-buzzin-lucky-draw__header">
-            <h2 id="host-buzzin-lucky-draw-title" class="host-buzzin-lucky-draw__title">Lucky Draw</h2>
-          </header>
-          <div class="host-buzzin-lucky-draw__body">
-            <div class="host-buzzin-lucky-draw__wheel-wrap">
-              <div class="host-buzzin-lucky-draw__wheel" id="host-buzzin-lucky-draw-wheel">
-                <div class="host-buzzin-lucky-draw__wheel-face" id="host-buzzin-lucky-draw-avatar"></div>
-              </div>
+    <section id="screen-host-buzzin-empty" class="screen host-buzzin-empty-screen">
+      <img class="host-buzzin-bg" src="/assets/course/courseBG.png" alt="" />
+
+      <div class="host-buzzin-empty-stage">
+        <header class="host-buzzin-header">
+          <h1 class="host-buzzin-title">Buzz in question</h1>
+        </header>
+
+        <main class="host-buzzin-empty-main">
+          <section class="host-buzzin-empty-card" aria-label="No one buzzed in">
+            <span class="host-buzzin-sparkle" aria-hidden="true"></span>
+            <h2 class="host-buzzin-empty-headline">
+              Since you guys are so focused,<br />
+              let's keep this momentum going.
+            </h2>
+            <p class="host-buzzin-empty-subhead">Let me test you guys again on the next one!</p>
+            <img
+              class="host-buzzin-empty-character"
+              src="/assets/buzzin/uncle-tommy-empty.png"
+              alt=""
+              aria-hidden="true"
+            />
+          </section>
+        </main>
+      </div>
+
+      <footer class="host-buzzin-footer host-buzzin-footer--feedback">
+        <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--muted" id="btn-back-waiting-buzzin-empty">
+          <img src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--random" id="btn-host-buzzin-empty-random">
+          <span>Random</span>
+        </button>
+        <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-empty-done">
+          <span>Next</span>
+          <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+        </button>
+      </footer>
+    </section>
+
+    <div id="host-buzzin-lucky-draw" class="host-buzzin-lucky-draw" hidden aria-hidden="true">
+      <div class="host-buzzin-lucky-draw__backdrop"></div>
+      <div
+        class="host-buzzin-lucky-draw__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="host-buzzin-lucky-draw-title"
+      >
+        <header class="host-buzzin-lucky-draw__header">
+          <h2 id="host-buzzin-lucky-draw-title" class="host-buzzin-lucky-draw__title">Lucky Draw</h2>
+        </header>
+        <div class="host-buzzin-lucky-draw__body">
+          <div class="host-buzzin-lucky-draw__wheel-wrap">
+            <div class="host-buzzin-lucky-draw__wheel" id="host-buzzin-lucky-draw-wheel">
+              <div class="host-buzzin-lucky-draw__wheel-face" id="host-buzzin-lucky-draw-avatar"></div>
             </div>
-            <p class="host-buzzin-lucky-draw__name" id="host-buzzin-lucky-draw-name" aria-live="polite">????????</p>
           </div>
+          <p class="host-buzzin-lucky-draw__name" id="host-buzzin-lucky-draw-name" aria-live="polite">????????</p>
         </div>
       </div>
-    </section>
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>

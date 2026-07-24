@@ -81,15 +81,36 @@ function hostBuzzinShowFeedbackPhase(payload) {
   return true;
 }
 
+function hostBuzzinHasBuzzes(payload) {
+  return Boolean((payload?.buzzes || []).length || hostBuzzinLuckyStar);
+}
+
+function hostBuzzinShowEmptyPhase(payload) {
+  if (!hostBuzzinShowFeedbackPhase(payload)) return false;
+  return !hostBuzzinHasBuzzes(payload);
+}
+
+function hostBuzzinScreenPhase(payload) {
+  if (!hostBuzzinShowFeedbackPhase(payload)) return "join";
+  return hostBuzzinShowEmptyPhase(payload) ? "empty" : "feedback";
+}
+
 function showHostBuzzinScreenForPhase(phase, { force = false } = {}) {
-  const normalized = phase === "join" ? "join" : "feedback";
-  const screenId = normalized === "join" ? "host-buzzin" : "host-buzzin-feedback";
+  const normalized =
+    phase === "join" ? "join" : phase === "empty" ? "empty" : "feedback";
+  const screenId =
+    normalized === "join"
+      ? "host-buzzin"
+      : normalized === "empty"
+        ? "host-buzzin-empty"
+        : "host-buzzin-feedback";
   const domActive = document.querySelector(`#screen-${screenId}.active`);
   if (!force && hostBuzzinActiveScreenPhase === normalized && domActive) return;
   hostBuzzinActiveScreenPhase = normalized;
   if (typeof showScreen !== "function") return;
   showScreen(screenId, { transition: false });
   if (normalized === "feedback") triggerHostBuzzinFeedbackEnter();
+  if (normalized === "empty") triggerHostBuzzinEmptyEnter();
 }
 
 function triggerHostBuzzinFeedbackEnter() {
@@ -98,6 +119,14 @@ function triggerHostBuzzinFeedbackEnter() {
   screen.classList.remove("host-buzzin-feedback-screen--enter");
   void screen.offsetWidth;
   screen.classList.add("host-buzzin-feedback-screen--enter");
+}
+
+function triggerHostBuzzinEmptyEnter() {
+  const screen = $("#screen-host-buzzin-empty");
+  if (!screen) return;
+  screen.classList.remove("host-buzzin-empty-screen--enter");
+  void screen.offsetWidth;
+  screen.classList.add("host-buzzin-empty-screen--enter");
 }
 
 function stopHostBuzzinJoinTimer() {
@@ -143,6 +172,10 @@ function updateHostBuzzinTurnUi(payload) {
   setupBuzzinSpokenFeedbackPlayDelegation(chatEl, () => hostBuzzinLastResponses);
 
   if (!hostBuzzinShowFeedbackPhase(payload)) {
+    return;
+  }
+
+  if (hostBuzzinShowEmptyPhase(payload)) {
     return;
   }
 
@@ -268,7 +301,7 @@ function updateHostBuzzinUi(payload) {
   if (showFeedback) {
     hideHostBuzzinJoinTimer();
     setHostBuzzinPrompt("Buzz In Now");
-    showHostBuzzinScreenForPhase("feedback", { force: true });
+    showHostBuzzinScreenForPhase(hostBuzzinScreenPhase(payload), { force: true });
   } else {
     setHostBuzzinPrompt("Buzz In Now");
     startHostBuzzinJoinTimer(payload.joinEndsAt);
@@ -478,8 +511,10 @@ async function openHostBuzzinLuckyDraw() {
   if (hostBuzzinLuckyDrawRunning) return;
   hostBuzzinLuckyDrawRunning = true;
 
-  const randomBtn = $("#btn-host-buzzin-random");
-  if (randomBtn) randomBtn.disabled = true;
+  const randomBtns = getHostBuzzinRandomButtons();
+  randomBtns.forEach((btn) => {
+    btn.disabled = true;
+  });
 
   try {
     const result = await requestHostBuzzinLuckyDrawWinner();
@@ -499,8 +534,17 @@ async function openHostBuzzinLuckyDraw() {
     resetHostBuzzinLuckyDrawUi();
   } finally {
     hostBuzzinLuckyDrawRunning = false;
-    if (randomBtn) randomBtn.disabled = false;
+    getHostBuzzinRandomButtons().forEach((btn) => {
+      btn.disabled = false;
+    });
   }
+}
+
+function getHostBuzzinRandomButtons() {
+  return [
+    $("#btn-host-buzzin-random"),
+    $("#btn-host-buzzin-empty-random"),
+  ].filter(Boolean);
 }
 
 function bindHostBuzzinSocketHandlers(socket) {
@@ -1244,9 +1288,11 @@ function initHostRoomQuizUi() {
     });
   });
 
-  $("#btn-host-buzzin-random")?.addEventListener("click", () => {
-    if (typeof playPageNextSound === "function") playPageNextSound();
-    void openHostBuzzinLuckyDraw();
+  getHostBuzzinRandomButtons().forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (typeof playPageNextSound === "function") playPageNextSound();
+      void openHostBuzzinLuckyDraw();
+    });
   });
 }
 
