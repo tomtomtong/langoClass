@@ -53,6 +53,7 @@
     { id: "section", label: "Section road" },
     { id: "section-exercises", label: "Section — exercise panel" },
     { id: "waiting", label: "Waiting room" },
+    { id: "settings", label: "Settings" },
     { id: "mc-preview", label: "MC Quiz — preview" },
     { id: "mc-question", label: "MC Quiz — question" },
     { id: "mc-fast", label: "MC Quiz — fast mode" },
@@ -432,6 +433,13 @@
         $("#waiting-error").textContent = "";
         showHostPreviewScreen("waiting", "waiting");
         initWaitingClockLottie();
+        break;
+
+      case "settings":
+        if (typeof updateHostSettingsControls === "function") {
+          updateHostSettingsControls();
+        }
+        showHostPreviewScreen("settings", "class");
         break;
 
       case "mc-preview":

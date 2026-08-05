@@ -78,7 +78,15 @@
               "type": "video",
               "items": [
                 {
-                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4"
+                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4",
+                  "captionUrl": "/uploads/captions/captions-1785833557976-54dbec83.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/captions-1785833557976-54dbec83.vtt"
+                    }
+                  ]
                 }
               ]
             },
@@ -158,7 +166,15 @@
               "type": "video",
               "items": [
                 {
-                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4"
+                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4",
+                  "captionUrl": "/uploads/captions/captions-1785833557976-54dbec83.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/captions-1785833557976-54dbec83.vtt"
+                    }
+                  ]
                 }
               ]
             },
@@ -213,7 +229,7 @@
         }
       ],
       "createdAt": "2026-06-15T02:57:28.201Z",
-      "updatedAt": "2026-06-25T05:36:07.940Z",
+      "updatedAt": "2026-08-04T08:55:54.061Z",
       "classIds": [
         2913
       ]
@@ -258,6 +274,25 @@
       ],
       "createdAt": "2026-06-23T08:57:57.798Z",
       "updatedAt": "2026-06-23T08:57:57.798Z"
+    },
+    {
+      "id": -4,
+      "teacherId": 821,
+      "name": "New course",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "order": 1,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-08-04T09:05:15.973Z",
+      "updatedAt": "2026-08-04T09:05:15.973Z"
     }
   ]
 }

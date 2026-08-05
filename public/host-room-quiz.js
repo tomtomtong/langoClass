@@ -1004,6 +1004,229 @@ function setupHostRoomQuizSocket(socket) {
 let hostVideoControlsReady = false;
 let hostVideoScrubbing = false;
 let hostVideoControlsHideTimer = null;
+let hostVideoPlaybackRate = 1;
+let hostVideoCaptionsEnabled = true;
+let hostVideoCaptionCues = [];
+let hostVideoCaptionTracks = [];
+let hostVideoCaptionLanguage = "en";
+let hostVideoCaptionLoadToken = 0;
+let hostVideoSpeedMenuOpen = false;
+let hostVideoLangMenuOpen = false;
+
+const HOST_VIDEO_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+function formatHostVideoSpeedLabel(rate) {
+  const value = Number(rate);
+  if (!Number.isFinite(value) || value <= 0) return "1x";
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded}x`;
+}
+
+function hostVideoCaptionLanguageLabel(code) {
+  if (typeof captionLanguageMeta === "function") {
+    return captionLanguageMeta(code).label;
+  }
+  return String(code || "EN").toUpperCase();
+}
+
+function parseHostVideoVttTimestamp(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(?:(\d{1,2}):)?(\d{1,2}):(\d{1,2})(?:[.,](\d{1,3}))?$/);
+  if (!match) return null;
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+  const fraction = String(match[4] || "0").padEnd(3, "0").slice(0, 3);
+  return hours * 3600 + minutes * 60 + seconds + Number(fraction) / 1000;
+}
+
+function parseHostVideoWebVtt(text) {
+  const lines = String(text || "")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r/g, "")
+    .split("\n");
+  const cues = [];
+  let index = 0;
+
+  if (/^WEBVTT/i.test(lines[0] || "")) index = 1;
+
+  while (index < lines.length) {
+    while (index < lines.length && !String(lines[index] || "").trim()) index += 1;
+    if (index >= lines.length) break;
+
+    let line = String(lines[index] || "").trim();
+    if (/^\d+$/.test(line)) {
+      index += 1;
+      line = String(lines[index] || "").trim();
+    }
+
+    const timing = line.match(
+      /^((?:\d{1,2}:)?\d{1,2}:\d{1,2}(?:[.,]\d{1,3})?)\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{1,2}(?:[.,]\d{1,3})?)/
+    );
+    if (!timing) {
+      index += 1;
+      continue;
+    }
+
+    const start = parseHostVideoVttTimestamp(timing[1]);
+    const end = parseHostVideoVttTimestamp(timing[2]);
+    index += 1;
+    const textLines = [];
+    while (index < lines.length && String(lines[index] || "").trim()) {
+      textLines.push(String(lines[index]).trim());
+      index += 1;
+    }
+
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start && textLines.length) {
+      cues.push({
+        start,
+        end,
+        text: textLines.join("\n"),
+      });
+    }
+  }
+
+  return cues;
+}
+
+function setHostVideoLangMenuOpen(open) {
+  const wrap = document.querySelector("#screen-host-video .host-video-lang-wrap");
+  const button = $("#host-video-lang");
+  const menu = $("#host-video-lang-menu");
+  hostVideoLangMenuOpen = Boolean(open);
+  wrap?.classList.toggle("is-open", hostVideoLangMenuOpen);
+  if (button) button.setAttribute("aria-expanded", hostVideoLangMenuOpen ? "true" : "false");
+  if (menu) menu.hidden = !hostVideoLangMenuOpen;
+  if (hostVideoLangMenuOpen) {
+    setHostVideoSpeedMenuOpen(false);
+    setHostVideoControlsVisible(true);
+  }
+}
+
+function renderHostVideoLanguageMenu() {
+  const menu = $("#host-video-lang-menu");
+  const button = $("#host-video-lang");
+  const label = $("#host-video-lang-label");
+  if (!menu || !button) return;
+
+  menu.innerHTML = hostVideoCaptionTracks
+    .map((track) => {
+      const isActive = track.language === hostVideoCaptionLanguage;
+      return `<button type="button" class="host-video-lang-option${isActive ? " is-active" : ""}" role="menuitemradio" data-lang="${escapeHtml(track.language)}" aria-checked="${isActive ? "true" : "false"}">${escapeHtml(track.label || hostVideoCaptionLanguageLabel(track.language))}</button>`;
+    })
+    .join("");
+
+  const hasTracks = hostVideoCaptionTracks.length > 0;
+  button.disabled = !hasTracks;
+  if (label) {
+    label.textContent = hasTracks
+      ? hostVideoCaptionLanguageLabel(hostVideoCaptionLanguage)
+      : "EN";
+  }
+}
+
+function clearHostVideoCaptions({ keepTracks = false } = {}) {
+  hostVideoCaptionLoadToken += 1;
+  hostVideoCaptionCues = [];
+  if (!keepTracks) {
+    hostVideoCaptionTracks = [];
+    hostVideoCaptionLanguage = "en";
+  }
+  const captionEl = $("#host-video-captions");
+  if (captionEl) {
+    captionEl.textContent = "";
+    captionEl.hidden = true;
+  }
+  renderHostVideoLanguageMenu();
+  syncHostVideoCaptionDisplay();
+}
+
+function syncHostVideoCaptionDisplay() {
+  const captionEl = $("#host-video-captions");
+  const cc = $("#host-video-cc");
+  const screen = $("#screen-host-video");
+  const video = $("#host-video-player");
+  if (!captionEl) return;
+
+  const hasCaptions = hostVideoCaptionCues.length > 0;
+  let text = "";
+  if (hasCaptions && hostVideoCaptionsEnabled && video) {
+    const current = Number(video.currentTime) || 0;
+    text = hostVideoCaptionCues
+      .filter((cue) => current >= cue.start && current <= cue.end)
+      .map((cue) => cue.text)
+      .join("\n");
+  }
+
+  captionEl.textContent = text;
+  captionEl.hidden = !text;
+  screen?.classList.toggle("has-captions-on", hasCaptions && hostVideoCaptionsEnabled);
+  if (cc) {
+    cc.disabled = !hasCaptions && !hostVideoCaptionTracks.length;
+    cc.setAttribute("aria-pressed", hasCaptions && hostVideoCaptionsEnabled ? "true" : "false");
+    cc.classList.toggle("is-active", hasCaptions && hostVideoCaptionsEnabled);
+    cc.title = hasCaptions
+      ? hostVideoCaptionsEnabled
+        ? "Hide subtitles"
+        : "Show subtitles"
+      : "No subtitles for this video yet";
+  }
+}
+
+async function loadHostVideoCaptionLanguage(language) {
+  const nextLanguage =
+    typeof normalizeCaptionLanguage === "function"
+      ? normalizeCaptionLanguage(language, hostVideoCaptionLanguage)
+      : String(language || hostVideoCaptionLanguage || "en");
+  const track =
+    hostVideoCaptionTracks.find((entry) => entry.language === nextLanguage) ||
+    hostVideoCaptionTracks[0];
+  if (!track?.url) {
+    clearHostVideoCaptions({ keepTracks: true });
+    return;
+  }
+
+  hostVideoCaptionLanguage = track.language;
+  renderHostVideoLanguageMenu();
+
+  const loadToken = ++hostVideoCaptionLoadToken;
+  try {
+    const res = await fetch(track.url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Caption fetch failed (${res.status})`);
+    const text = await res.text();
+    if (loadToken !== hostVideoCaptionLoadToken) return;
+    hostVideoCaptionCues = parseHostVideoWebVtt(text);
+    if (!hostVideoCaptionCues.length) {
+      throw new Error("Caption file has no cues.");
+    }
+    hostVideoCaptionsEnabled = true;
+    syncHostVideoCaptionDisplay();
+  } catch (err) {
+    console.warn("Could not load video captions:", err);
+    if (loadToken === hostVideoCaptionLoadToken) {
+      hostVideoCaptionCues = [];
+      syncHostVideoCaptionDisplay();
+    }
+  }
+}
+
+async function attachHostVideoCaptions(video, exercise) {
+  clearHostVideoCaptions();
+  if (!video) return;
+
+  hostVideoCaptionTracks =
+    typeof captionTracksFromExercise === "function" ? captionTracksFromExercise(exercise) : [];
+  if (!hostVideoCaptionTracks.length) {
+    syncHostVideoCaptionDisplay();
+    return;
+  }
+
+  const preferred =
+    (typeof normalizeCaptionLanguage === "function"
+      ? normalizeCaptionLanguage(exercise?.items?.[0]?.captionLanguage, hostVideoCaptionTracks[0].language)
+      : hostVideoCaptionTracks[0].language) || hostVideoCaptionTracks[0].language;
+  await loadHostVideoCaptionLanguage(preferred);
+}
 
 function setHostVideoControlsVisible(visible, { autoHide = false } = {}) {
   const screen = $("#screen-host-video");
@@ -1016,7 +1239,15 @@ function setHostVideoControlsVisible(visible, { autoHide = false } = {}) {
   }
 
   screen.classList.toggle("controls-visible", visible);
-  if (visible && autoHide && !video.paused && !video.ended && !hostVideoScrubbing) {
+  if (
+    visible &&
+    autoHide &&
+    !video.paused &&
+    !video.ended &&
+    !hostVideoScrubbing &&
+    !hostVideoSpeedMenuOpen &&
+    !hostVideoLangMenuOpen
+  ) {
     hostVideoControlsHideTimer = setTimeout(() => {
       screen.classList.remove("controls-visible");
       hostVideoControlsHideTimer = null;
@@ -1030,6 +1261,36 @@ function formatHostVideoTime(seconds) {
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
   return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function setHostVideoSpeedMenuOpen(open) {
+  const wrap = document.querySelector("#screen-host-video .host-video-speed-wrap");
+  const button = $("#host-video-speed");
+  const menu = $("#host-video-speed-menu");
+  hostVideoSpeedMenuOpen = Boolean(open);
+  wrap?.classList.toggle("is-open", hostVideoSpeedMenuOpen);
+  if (button) button.setAttribute("aria-expanded", hostVideoSpeedMenuOpen ? "true" : "false");
+  if (menu) menu.hidden = !hostVideoSpeedMenuOpen;
+  if (hostVideoSpeedMenuOpen) {
+    setHostVideoLangMenuOpen(false);
+    setHostVideoControlsVisible(true);
+  }
+}
+
+function setHostVideoPlaybackRate(rate) {
+  const video = $("#host-video-player");
+  const nextRate = HOST_VIDEO_SPEEDS.includes(Number(rate)) ? Number(rate) : 1;
+  hostVideoPlaybackRate = nextRate;
+  if (video) video.playbackRate = nextRate;
+
+  const label = $("#host-video-speed-label");
+  if (label) label.textContent = formatHostVideoSpeedLabel(nextRate);
+
+  document.querySelectorAll("#host-video-speed-menu .host-video-speed-option").forEach((option) => {
+    const isActive = Number(option.dataset.rate) === nextRate;
+    option.classList.toggle("is-active", isActive);
+    option.setAttribute("aria-checked", isActive ? "true" : "false");
+  });
 }
 
 function updateHostVideoControls() {
@@ -1056,6 +1317,17 @@ function updateHostVideoControls() {
   screen.classList.toggle("is-muted", video.muted || video.volume === 0);
   if (play) play.setAttribute("aria-label", video.paused ? "Play video" : "Pause video");
   if (mute) mute.setAttribute("aria-label", video.muted || video.volume === 0 ? "Unmute video" : "Mute video");
+
+  if (Number.isFinite(video.playbackRate) && video.playbackRate > 0) {
+    const matched = HOST_VIDEO_SPEEDS.find((rate) => Math.abs(rate - video.playbackRate) < 0.001);
+    if (matched != null && matched !== hostVideoPlaybackRate) {
+      setHostVideoPlaybackRate(matched);
+    } else {
+      const label = $("#host-video-speed-label");
+      if (label) label.textContent = formatHostVideoSpeedLabel(video.playbackRate || hostVideoPlaybackRate);
+    }
+  }
+  syncHostVideoCaptionDisplay();
 }
 
 function seekHostVideoFromScrubber() {
@@ -1074,6 +1346,11 @@ function setupHostVideoControls() {
   const play = $("#host-video-play");
   const scrubber = $("#host-video-scrubber");
   const mute = $("#host-video-mute");
+  const speedBtn = $("#host-video-speed");
+  const speedMenu = $("#host-video-speed-menu");
+  const langBtn = $("#host-video-lang");
+  const langMenu = $("#host-video-lang-menu");
+  const ccBtn = $("#host-video-cc");
   const frame = document.querySelector("#screen-host-video .host-video-frame");
   if (!video || !play || !scrubber || !mute || !frame) return;
 
@@ -1090,6 +1367,8 @@ function setupHostVideoControls() {
   });
 
   video.addEventListener("click", () => {
+    setHostVideoSpeedMenuOpen(false);
+    setHostVideoLangMenuOpen(false);
     if (video.paused || video.ended) {
       video.play().catch(() => {});
     } else {
@@ -1102,8 +1381,67 @@ function setupHostVideoControls() {
     updateHostVideoControls();
   });
 
+  speedBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setHostVideoLangMenuOpen(false);
+    setHostVideoSpeedMenuOpen(!hostVideoSpeedMenuOpen);
+    setHostVideoControlsVisible(true);
+  });
+
+  speedMenu?.addEventListener("click", (event) => {
+    const option = event.target.closest(".host-video-speed-option");
+    if (!option) return;
+    event.stopPropagation();
+    setHostVideoPlaybackRate(Number(option.dataset.rate));
+    setHostVideoSpeedMenuOpen(false);
+    setHostVideoControlsVisible(true, { autoHide: true });
+  });
+
+  langBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!hostVideoCaptionTracks.length) return;
+    setHostVideoSpeedMenuOpen(false);
+    setHostVideoLangMenuOpen(!hostVideoLangMenuOpen);
+    setHostVideoControlsVisible(true);
+  });
+
+  langMenu?.addEventListener("click", (event) => {
+    const option = event.target.closest(".host-video-lang-option");
+    if (!option) return;
+    event.stopPropagation();
+    const nextLang = option.dataset.lang;
+    setHostVideoLangMenuOpen(false);
+    void loadHostVideoCaptionLanguage(nextLang);
+    setHostVideoControlsVisible(true, { autoHide: true });
+  });
+
+  ccBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!hostVideoCaptionCues.length && !hostVideoCaptionTracks.length) return;
+    hostVideoCaptionsEnabled = !hostVideoCaptionsEnabled;
+    syncHostVideoCaptionDisplay();
+    setHostVideoControlsVisible(true, { autoHide: true });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (hostVideoSpeedMenuOpen) {
+      const wrap = document.querySelector("#screen-host-video .host-video-speed-wrap");
+      if (wrap && !wrap.contains(event.target)) {
+        setHostVideoSpeedMenuOpen(false);
+      }
+    }
+    if (hostVideoLangMenuOpen) {
+      const wrap = document.querySelector("#screen-host-video .host-video-lang-wrap");
+      if (wrap && !wrap.contains(event.target)) {
+        setHostVideoLangMenuOpen(false);
+      }
+    }
+  });
+
   video.addEventListener("play", () => {
-    if (typeof fadeOutHostBgm === "function") fadeOutHostBgm();
+    const isolate =
+      typeof shouldIsolateHostBgmForMedia !== "function" || shouldIsolateHostBgmForMedia();
+    if (isolate && typeof fadeOutHostBgm === "function") fadeOutHostBgm();
     setHostVideoControlsVisible(true, { autoHide: true });
   });
 
@@ -1119,7 +1457,13 @@ function setupHostVideoControls() {
   });
 
   frame.addEventListener("pointerleave", () => {
-    if (!video.paused && !video.ended && !hostVideoScrubbing) {
+    if (
+      !video.paused &&
+      !video.ended &&
+      !hostVideoScrubbing &&
+      !hostVideoSpeedMenuOpen &&
+      !hostVideoLangMenuOpen
+    ) {
       setHostVideoControlsVisible(false);
     }
   });
@@ -1143,14 +1487,19 @@ function setupHostVideoControls() {
     setHostVideoControlsVisible(true, { autoHide: true });
   });
 
-  ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "ended", "volumechange"].forEach((eventName) => {
-    video.addEventListener(eventName, updateHostVideoControls);
-  });
+  ["loadedmetadata", "durationchange", "timeupdate", "play", "pause", "ended", "volumechange", "ratechange"].forEach(
+    (eventName) => {
+      video.addEventListener(eventName, updateHostVideoControls);
+    }
+  );
 }
 
 function resetHostVideoControls() {
   const scrubber = $("#host-video-scrubber");
   hostVideoScrubbing = false;
+  setHostVideoSpeedMenuOpen(false);
+  setHostVideoLangMenuOpen(false);
+  setHostVideoPlaybackRate(hostVideoPlaybackRate || 1);
   if (scrubber) {
     scrubber.value = "0";
     scrubber.style.setProperty("--host-video-progress", "0%");
@@ -1163,6 +1512,8 @@ function stopHostVideoPlayback() {
   const video = $("#host-video-player");
   if (!video) return;
   video.pause();
+  setHostVideoSpeedMenuOpen(false);
+  setHostVideoLangMenuOpen(false);
   updateHostVideoControls();
 }
 
@@ -1178,13 +1529,18 @@ function showHostVideoExercise(exercise) {
   video.defaultMuted = false;
   video.muted = false;
   video.volume = 1;
+  video.playbackRate = hostVideoPlaybackRate || 1;
+  clearHostVideoCaptions();
   video.src = url;
   video.load();
+  void attachHostVideoCaptions(video, exercise);
   setupHostVideoControls();
   resetHostVideoControls();
   $("#screen-host-video")?.classList.add("has-video");
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
-  if (typeof fadeOutHostBgm === "function") fadeOutHostBgm();
+  const isolate =
+    typeof shouldIsolateHostBgmForMedia !== "function" || shouldIsolateHostBgmForMedia();
+  if (isolate && typeof fadeOutHostBgm === "function") fadeOutHostBgm();
   showScreen("host-video");
 }
 

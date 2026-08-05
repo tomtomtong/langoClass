@@ -18,6 +18,7 @@ const hostProgressStore = require("./lib/host-progress-store");
 const sessionStore = require("./lib/session-store");
 const paths = require("./lib/paths");
 const settingsStore = require("./lib/settings-store");
+const videoCaptions = require("./lib/video-captions");
 
 const app = express();
 const server = http.createServer(app);
@@ -128,6 +129,8 @@ paths.ensurePersistentDirs();
 const UPLOADS_DIR = paths.uploadsCoursesDir;
 const SECTION_UPLOADS_DIR = paths.uploadsSectionsDir;
 const QUESTION_UPLOADS_DIR = paths.uploadsQuestionsDir;
+const CAPTIONS_UPLOADS_DIR = paths.uploadsCaptionsDir;
+const CAPTION_STT_MODEL = "groq/whisper-large-v3";
 const MAX_MC_OPTIONS = 6;
 const ALLOWED_IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 
@@ -204,7 +207,8 @@ function deleteLocalUpload(uploadUrl) {
   if (
     !url.startsWith("/uploads/courses/") &&
     !url.startsWith("/uploads/sections/") &&
-    !url.startsWith("/uploads/questions/")
+    !url.startsWith("/uploads/questions/") &&
+    !url.startsWith("/uploads/captions/")
   ) {
     return;
   }
@@ -572,6 +576,66 @@ async function transcribeBuzzinAudioWithInworld(audioBase64, format, apiKeyOverr
     throw new Error("Could not transcribe your recording. Try again.");
   }
   return text;
+}
+
+async function transcribeCaptionAudioWithInworld(audioBase64, format, languageOverride) {
+  const apiKey = getInworldApiKey();
+  if (!apiKey) {
+    throw new Error("Inworld is not configured. Add an API key in Config.");
+  }
+
+  const configuredModel = getInworldSttModel();
+  // Word timestamps are supported on Groq Whisper (and similar), not inworld-stt-1.
+  const modelId = /whisper|assemblyai|soniox|deepgram/i.test(configuredModel)
+    ? configuredModel
+    : CAPTION_STT_MODEL;
+  const language = normalizeBuzzinSttLanguage(languageOverride, getInworldSttLanguage());
+  const { audioFormat, base64Data } = parseBuzzinAudioPayload(audioBase64, format);
+  const transcribeConfig = {
+    ...inworldSttTranscribeConfig(modelId, audioFormat, language),
+    includeWordTimestamps: true,
+  };
+
+  const res = await fetch(`${INWORLD_API_BASE}/stt/v1/transcribe`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      transcribeConfig,
+      audioData: {
+        content: base64Data,
+      },
+    }),
+  });
+
+  const data = await parseInworldResponse(res);
+  if (!res.ok) {
+    throw new Error(`Caption STT (${modelId}): ${inworldErrorMessage(data, res.status)}`);
+  }
+
+  const transcript = data?.transcription?.transcript?.trim?.() || "";
+  const words = data?.transcription?.wordTimestamps || [];
+  if (!transcript && !words.length) {
+    return { transcript: "", words: [] };
+  }
+  return { transcript, words };
+}
+
+async function transcribeCaptionAudioWithOpenRouter(audioBase64, format) {
+  const text = await transcribeBuzzinAudioWithOpenRouter(audioBase64, format);
+  return { transcript: text, words: [] };
+}
+
+async function transcribeCaptionAudioChunk(audioBase64, format, language) {
+  if (getInworldApiKey()) {
+    return transcribeCaptionAudioWithInworld(audioBase64, format, language);
+  }
+  if (getOpenRouterApiKey()) {
+    return transcribeCaptionAudioWithOpenRouter(audioBase64, format);
+  }
+  throw new Error("Configure Inworld or OpenRouter STT in Config first.");
 }
 
 async function transcribeBuzzinAudio(audioBase64, format, { pin, language } = {}) {
@@ -2459,6 +2523,114 @@ app.post("/api/cms/courses/:courseId/question-image", async (req, res) => {
   if (!course) return res.status(404).json({ message: "Course not found." });
 
   handleQuestionImageUpload(req, res);
+});
+
+app.post("/api/cms/generate-video-captions", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const videoUrl = String(req.body?.videoUrl || "").trim();
+  const language = normalizeBuzzinSttLanguage(req.body?.language, getInworldSttLanguage());
+  if (!videoUrl) {
+    return res.status(400).json({ message: "Video URL is required." });
+  }
+  if (!getInworldApiKey() && !getOpenRouterApiKey()) {
+    return res.status(400).json({
+      message: "Configure Inworld or OpenRouter STT in Config before generating captions.",
+    });
+  }
+
+  try {
+    const result = await videoCaptions.generateVideoCaptions({
+      videoUrl,
+      language,
+      captionsDir: CAPTIONS_UPLOADS_DIR,
+      uploadFilePath: paths.uploadFilePath,
+      transcribeChunk: async (audioBase64, format, meta) =>
+        transcribeCaptionAudioChunk(audioBase64, format, meta?.language || language),
+    });
+    return res.json({
+      ok: true,
+      captionUrl: result.captionUrl,
+      language,
+      cueCount: result.cueCount,
+      wordCount: result.wordCount,
+    });
+  } catch (err) {
+    console.error("generate-video-captions failed:", err);
+    return res.status(500).json({
+      message: err.message || "Caption generation failed.",
+    });
+  }
+});
+
+async function completeCaptionTranslationLlm(messages, maxTokens) {
+  if (getInworldApiKey()) {
+    return inworldLlmComplete(getInworldApiKey(), getInworldLlmModel(), messages, maxTokens);
+  }
+  if (getQwenApiKey()) {
+    return qwenLlmComplete(getQwenApiKey(), getQwenModel(), messages, maxTokens);
+  }
+  if (getOpenRouterApiKey()) {
+    return openRouterLlmComplete(getOpenRouterApiKey(), getOpenRouterBuzzinModel(), messages, maxTokens);
+  }
+  throw new Error("Configure Inworld, Qwen, or OpenRouter LLM in Config before translating captions.");
+}
+
+async function readCaptionSourceText(captionUrl) {
+  const localPath = paths.uploadFilePath(captionUrl);
+  if (localPath && fs.existsSync(localPath)) {
+    return fs.readFileSync(localPath, "utf8");
+  }
+
+  let absoluteUrl = captionUrl;
+  if (captionUrl.startsWith("/")) {
+    const base = getPublicBaseUrl() || `http://127.0.0.1:${PORT}`;
+    absoluteUrl = `${base}${captionUrl}`;
+  }
+  const res = await fetch(absoluteUrl);
+  if (!res.ok) {
+    throw new Error(`Could not read source captions (${res.status}).`);
+  }
+  return res.text();
+}
+
+app.post("/api/cms/translate-video-captions", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const captionUrl = String(req.body?.captionUrl || "").trim();
+  const targetLanguage = normalizeBuzzinSttLanguage(req.body?.targetLanguage, "zh");
+  if (!captionUrl) {
+    return res.status(400).json({ message: "Source caption URL is required." });
+  }
+  if (!getInworldApiKey() && !getQwenApiKey() && !getOpenRouterApiKey()) {
+    return res.status(400).json({
+      message: "Configure Inworld, Qwen, or OpenRouter LLM in Config before translating captions.",
+    });
+  }
+
+  try {
+    const sourceText = await readCaptionSourceText(captionUrl);
+    const translatedVtt = await videoCaptions.translateWebVtt(
+      sourceText,
+      targetLanguage,
+      (messages, maxTokens) => completeCaptionTranslationLlm(messages, maxTokens)
+    );
+    const saved = await videoCaptions.writeCaptionVttFile(CAPTIONS_UPLOADS_DIR, translatedVtt);
+    const cueCount = videoCaptions.parseWebVtt(translatedVtt).length;
+    return res.json({
+      ok: true,
+      captionUrl: saved.captionUrl,
+      language: targetLanguage,
+      cueCount,
+    });
+  } catch (err) {
+    console.error("translate-video-captions failed:", err);
+    return res.status(500).json({
+      message: err.message || "Caption translation failed.",
+    });
+  }
 });
 
 app.post("/api/cms/courses/:courseId/banner", async (req, res) => {

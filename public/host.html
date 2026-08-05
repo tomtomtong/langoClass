@@ -11,56 +11,67 @@
 </head>
 <body>
   <div id="app" class="lango-host">
-    <div class="host-sound-controls" id="host-sound-controls">
+    <div class="host-utility-controls" id="host-utility-controls">
       <button
         type="button"
-        class="host-sound-mute-btn"
-        id="btn-host-mute"
-        aria-label="Sound settings"
-        aria-expanded="false"
-        aria-haspopup="true"
-        title="Sound settings"
+        class="host-settings-btn"
+        id="btn-host-settings"
+        aria-label="Settings"
+        title="Settings"
       >
-        <span class="host-sound-mute-icon" aria-hidden="true"></span>
+        <span class="host-settings-icon" aria-hidden="true"></span>
       </button>
-      <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true">
-        <div class="host-sound-menu-row">
-          <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
-            <span class="host-sound-menu-label">Background Music</span>
-            <span class="host-sound-menu-state" id="host-bgm-state">On</span>
-          </button>
-          <label class="host-sound-volume">
-            <span class="host-sound-volume-label">Volume</span>
-            <input
-              type="range"
-              class="host-sound-volume-slider"
-              id="host-bgm-volume"
-              min="0"
-              max="100"
-              step="1"
-              value="30"
-              aria-label="Background music volume"
-            />
-          </label>
-        </div>
-        <div class="host-sound-menu-row">
-          <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
-            <span class="host-sound-menu-label">Sound Effects</span>
-            <span class="host-sound-menu-state" id="host-effects-state">On</span>
-          </button>
-          <label class="host-sound-volume">
-            <span class="host-sound-volume-label">Volume</span>
-            <input
-              type="range"
-              class="host-sound-volume-slider"
-              id="host-effects-volume"
-              min="0"
-              max="100"
-              step="1"
-              value="100"
-              aria-label="Sound effects volume"
-            />
-          </label>
+      <div class="host-sound-controls" id="host-sound-controls">
+        <button
+          type="button"
+          class="host-sound-mute-btn"
+          id="btn-host-mute"
+          aria-label="Sound settings"
+          aria-expanded="false"
+          aria-haspopup="true"
+          title="Sound settings"
+        >
+          <span class="host-sound-mute-icon" aria-hidden="true"></span>
+        </button>
+        <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true">
+          <div class="host-sound-menu-row">
+            <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
+              <span class="host-sound-menu-label">Background Music</span>
+              <span class="host-sound-menu-state" id="host-bgm-state">On</span>
+            </button>
+            <label class="host-sound-volume">
+              <span class="host-sound-volume-label">Volume</span>
+              <input
+                type="range"
+                class="host-sound-volume-slider"
+                id="host-bgm-volume"
+                min="0"
+                max="100"
+                step="1"
+                value="30"
+                aria-label="Background music volume"
+              />
+            </label>
+          </div>
+          <div class="host-sound-menu-row">
+            <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
+              <span class="host-sound-menu-label">Sound Effects</span>
+              <span class="host-sound-menu-state" id="host-effects-state">On</span>
+            </button>
+            <label class="host-sound-volume">
+              <span class="host-sound-volume-label">Volume</span>
+              <input
+                type="range"
+                class="host-sound-volume-slider"
+                id="host-effects-volume"
+                min="0"
+                max="100"
+                step="1"
+                value="100"
+                aria-label="Sound effects volume"
+              />
+            </label>
+          </div>
         </div>
       </div>
     </div>
@@ -87,6 +98,51 @@
       <span class="step" data-step="waiting">6 Waiting room</span>
       <span class="step" data-step="quiz">7 Quiz</span>
     </nav>
+
+    <section id="screen-settings" class="screen settings-screen" aria-labelledby="host-settings-title">
+      <div class="settings-scene">
+        <img class="settings-bg" src="/assets/class/bg.jpg" alt="" />
+        <div class="settings-page">
+          <div class="settings-panel">
+            <header class="settings-panel-header">
+              <h1 class="settings-page-title" id="host-settings-title">Settings</h1>
+              <p class="settings-page-subtitle">Audio preferences for the classroom host</p>
+            </header>
+
+            <div class="settings-list">
+              <div class="settings-card">
+                <div class="settings-card-copy">
+                  <h2 class="settings-card-title">音量隔離</h2>
+                  <p class="settings-card-desc" id="host-audio-isolation-desc">
+                    Background music fades out when video or speech plays, so classroom audio stays clear.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="settings-toggle"
+                  id="btn-host-audio-isolation"
+                  role="switch"
+                  aria-checked="true"
+                  aria-describedby="host-audio-isolation-desc"
+                >
+                  <span class="settings-toggle-track" aria-hidden="true">
+                    <span class="settings-toggle-thumb"></span>
+                  </span>
+                  <span class="settings-toggle-state" id="host-audio-isolation-state">On</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="settings-toolbar">
+          <button type="button" class="class-back-btn settings-toolbar-back" id="btn-back-settings">
+            <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+            <span>Back</span>
+          </button>
+        </footer>
+      </div>
+    </section>
 
     <section id="screen-login" class="screen active login-screen">
       <div class="login-scene" aria-hidden="false">
@@ -571,7 +627,6 @@
       <div class="host-leaderboard__container">
         <header class="host-leaderboard__header">
           <h1 id="host-leaderboard-title">Exercise Results</h1>
-          <button class="host-leaderboard__next" id="btn-host-quiz-next-exercise" type="button" hidden>Next exercise</button>
         </header>
 
         <main class="host-leaderboard__main">
@@ -589,6 +644,7 @@
             <button class="host-leaderboard__button is-active" id="host-leaderboard-current-tab" type="button" role="tab" aria-selected="true" aria-controls="host-exercise-leaderboard-wrap" data-host-leaderboard-view="current">Current Session</button>
             <button class="host-leaderboard__button" id="host-leaderboard-overall-tab" type="button" role="tab" aria-selected="false" aria-controls="host-semester-leaderboard-wrap" data-host-leaderboard-view="overall">Overall</button>
           </div>
+          <button class="host-leaderboard__next" id="btn-host-quiz-next-exercise" type="button" hidden>Next exercise</button>
         </footer>
 
         <div class="host-leaderboard__legacy-actions" hidden>
@@ -616,6 +672,7 @@
                 <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-13Z"></path>
                 <path d="m10 8 6 4-6 4V8Z"></path>
               </svg>
+              <div class="host-video-captions" id="host-video-captions" aria-live="polite" hidden></div>
               <div class="host-video-controls" aria-label="Video controls">
                 <button class="host-video-control-btn host-video-play-btn" id="host-video-play" type="button" aria-label="Play video">
                   <span class="host-video-play-icon" aria-hidden="true"></span>
@@ -632,6 +689,52 @@
                   aria-label="Video progress"
                 />
                 <span class="host-video-time" id="host-video-duration">0:00</span>
+                <div class="host-video-speed-wrap">
+                  <button
+                    class="host-video-text-btn host-video-speed-btn"
+                    id="host-video-speed"
+                    type="button"
+                    aria-label="Playback speed"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="host-video-speed-menu"
+                  >
+                    <span id="host-video-speed-label">1x</span>
+                  </button>
+                  <div class="host-video-speed-menu" id="host-video-speed-menu" role="menu" hidden>
+                    <button type="button" class="host-video-speed-option" role="menuitemradio" data-rate="0.5" aria-checked="false">0.5x</button>
+                    <button type="button" class="host-video-speed-option" role="menuitemradio" data-rate="0.75" aria-checked="false">0.75x</button>
+                    <button type="button" class="host-video-speed-option is-active" role="menuitemradio" data-rate="1" aria-checked="true">1x</button>
+                    <button type="button" class="host-video-speed-option" role="menuitemradio" data-rate="1.25" aria-checked="false">1.25x</button>
+                    <button type="button" class="host-video-speed-option" role="menuitemradio" data-rate="1.5" aria-checked="false">1.5x</button>
+                    <button type="button" class="host-video-speed-option" role="menuitemradio" data-rate="2" aria-checked="false">2x</button>
+                  </div>
+                </div>
+                <div class="host-video-lang-wrap">
+                  <button
+                    class="host-video-text-btn host-video-lang-btn"
+                    id="host-video-lang"
+                    type="button"
+                    aria-label="Caption language"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="host-video-lang-menu"
+                    disabled
+                  >
+                    <span id="host-video-lang-label">EN</span>
+                  </button>
+                  <div class="host-video-lang-menu" id="host-video-lang-menu" role="menu" hidden></div>
+                </div>
+                <button
+                  class="host-video-text-btn host-video-cc-btn"
+                  id="host-video-cc"
+                  type="button"
+                  aria-label="Subtitles"
+                  aria-pressed="false"
+                  disabled
+                >
+                  字幕
+                </button>
                 <button class="host-video-control-btn host-video-mute-btn" id="host-video-mute" type="button" aria-label="Mute video">
                   <span class="host-video-volume-icon" aria-hidden="true"></span>
                 </button>
@@ -646,7 +749,7 @@
           <img class="host-video-footer-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
           <span>Dashboard</span>
         </button>
-        <button type="button" class="host-video-footer-btn" id="btn-host-video-done">
+        <button type="button" class="host-video-footer-btn" id="btn-host-video-next-exercise" hidden>
           <span>Next</span>
           <img class="host-video-footer-icon host-video-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
         </button>

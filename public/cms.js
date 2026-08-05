@@ -1064,14 +1064,181 @@ function renderMcQuizBody(container, exercise) {
 }
 
 function renderVideoBody(container, exercise) {
-  const url = exercise.items?.[0]?.videoUrl || "";
+  const item = exercise.items?.[0] || {};
+  const url = item.videoUrl || "";
+  const tracks =
+    typeof captionTracksFromExercise === "function"
+      ? captionTracksFromExercise({ type: "video", items: [item] })
+      : [];
+  const primary = tracks[0] || null;
+  const captionUrl = primary?.url || item.captionUrl || item.subtitleUrl || "";
+  const captionLanguage = primary?.language || item.captionLanguage || "en";
+  const trackSummary = tracks.length
+    ? tracks.map((track) => `${track.label}: ${track.url}`).join("\n")
+    : "";
+
   container.innerHTML = `<label class="field">
     <span>Video URL</span>
     <input type="url" class="cms-video-url" value="${escapeHtml(url)}" placeholder="https://..." />
-  </label>`;
+  </label>
+  <label class="field">
+    <span>字幕 / Caption URL (WebVTT)</span>
+    <input type="url" class="cms-video-caption-url" value="${escapeHtml(captionUrl)}" placeholder="https://.../captions.vtt" />
+  </label>
+  <input type="hidden" class="cms-video-caption-tracks" value="${escapeHtml(JSON.stringify(tracks.map((t) => ({ language: t.language, url: t.url }))))}" />
+  <input type="hidden" class="cms-video-caption-language" value="${escapeHtml(captionLanguage)}" />
+  <div class="cms-video-caption-tools">
+    <label class="field cms-field-inline">
+      <span>Caption language</span>
+      <select class="cms-video-caption-target-language" aria-label="Caption language">
+        <option value="en">English (en)</option>
+        <option value="zh">Chinese (zh)</option>
+        <option value="yue">Cantonese (yue)</option>
+        <option value="ja">Japanese (ja)</option>
+        <option value="ko">Korean (ko)</option>
+      </select>
+    </label>
+    <button type="button" class="btn secondary small cms-generate-captions">Generate 字幕 (STT)</button>
+    <button type="button" class="btn secondary small cms-translate-captions">Translate 字幕 (LLM)</button>
+    <p class="hint cms-caption-status">${
+      tracks.length
+        ? `Saved languages: ${tracks.map((t) => t.label).join(", ")}. Generate/translate into another language, then Save Course.`
+        : "Generate STT captions, or translate an existing caption file into another language for the player language menu."
+    }</p>
+    ${trackSummary ? `<pre class="hint cms-caption-track-list">${escapeHtml(trackSummary)}</pre>` : ""}
+  </div>`;
+
+  const languageSelect = container.querySelector(".cms-video-caption-target-language");
+  if (languageSelect) languageSelect.value = captionLanguage;
+
+  const readTracks = () => {
+    try {
+      const raw = container.querySelector(".cms-video-caption-tracks")?.value || "[]";
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writeTracks = (nextTracks, activeLanguage) => {
+    const normalized = [];
+    const seen = new Set();
+    for (const track of nextTracks || []) {
+      const language = String(track.language || "en").trim().toLowerCase();
+      const trackUrl = String(track.url || "").trim();
+      if (!language || !trackUrl || seen.has(language)) continue;
+      seen.add(language);
+      normalized.push({ language, url: trackUrl });
+    }
+    container.querySelector(".cms-video-caption-tracks").value = JSON.stringify(normalized);
+    const active =
+      normalized.find((track) => track.language === activeLanguage) || normalized[0] || null;
+    const captionInput = container.querySelector(".cms-video-caption-url");
+    const languageInput = container.querySelector(".cms-video-caption-language");
+    if (captionInput) captionInput.value = active?.url || "";
+    if (languageInput) languageInput.value = active?.language || activeLanguage || "en";
+    const status = container.querySelector(".cms-caption-status");
+    if (status && normalized.length) {
+      status.textContent = `Saved languages: ${normalized
+        .map((track) => track.language.toUpperCase())
+        .join(", ")}. Click Save Course to keep them.`;
+    }
+  };
+
+  container.querySelector(".cms-generate-captions")?.addEventListener("click", async () => {
+    const videoUrl = container.querySelector(".cms-video-url")?.value.trim() || "";
+    const status = container.querySelector(".cms-caption-status");
+    const button = container.querySelector(".cms-generate-captions");
+    const language = container.querySelector(".cms-video-caption-target-language")?.value || "en";
+
+    if (!videoUrl) {
+      if (status) status.textContent = "Add a video URL first.";
+      return;
+    }
+
+    if (button) button.disabled = true;
+    if (status) status.textContent = "Generating captions… this can take a minute for longer videos.";
+
+    try {
+      const data = await api("/api/cms/generate-video-captions", {
+        method: "POST",
+        body: { videoUrl, language },
+      });
+      if (data.captionUrl) {
+        const next = readTracks().filter((track) => track.language !== language);
+        next.push({ language, url: data.captionUrl });
+        writeTracks(next, language);
+      }
+      if (status) {
+        status.textContent = `Generated ${data.cueCount || 0} ${language.toUpperCase()} cues. Click Save Course, then reopen the video.`;
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message || "Caption generation failed.";
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+
+  container.querySelector(".cms-translate-captions")?.addEventListener("click", async () => {
+    const status = container.querySelector(".cms-caption-status");
+    const button = container.querySelector(".cms-translate-captions");
+    const targetLanguage =
+      container.querySelector(".cms-video-caption-target-language")?.value || "zh";
+    const sourceUrl =
+      container.querySelector(".cms-video-caption-url")?.value.trim() ||
+      readTracks()[0]?.url ||
+      "";
+
+    if (!sourceUrl) {
+      if (status) status.textContent = "Generate or paste a source caption URL first.";
+      return;
+    }
+
+    if (button) button.disabled = true;
+    if (status) status.textContent = `Translating captions to ${targetLanguage.toUpperCase()}…`;
+
+    try {
+      const data = await api("/api/cms/translate-video-captions", {
+        method: "POST",
+        body: { captionUrl: sourceUrl, targetLanguage },
+      });
+      if (data.captionUrl) {
+        const next = readTracks().filter((track) => track.language !== targetLanguage);
+        next.push({ language: targetLanguage, url: data.captionUrl });
+        writeTracks(next, targetLanguage);
+      }
+      if (status) {
+        status.textContent = `Translated to ${targetLanguage.toUpperCase()}. Click Save Course, then use the language menu on the video page.`;
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message || "Caption translation failed.";
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+
   container._collectItems = () => {
     const videoUrl = container.querySelector(".cms-video-url")?.value.trim() || "";
-    return videoUrl ? [{ videoUrl }] : [];
+    if (!videoUrl) return [];
+    const tracksValue = readTracks();
+    const captionUrl = container.querySelector(".cms-video-caption-url")?.value.trim() || "";
+    const captionLanguage =
+      container.querySelector(".cms-video-caption-language")?.value.trim() ||
+      tracksValue[0]?.language ||
+      "en";
+    if (captionUrl && !tracksValue.some((track) => track.url === captionUrl)) {
+      tracksValue.unshift({ language: captionLanguage, url: captionUrl });
+    }
+    const primary =
+      tracksValue.find((track) => track.language === captionLanguage) || tracksValue[0] || null;
+    return [
+      {
+        videoUrl,
+        ...(primary ? { captionUrl: primary.url, captionLanguage: primary.language } : {}),
+        ...(tracksValue.length ? { captionTracks: tracksValue } : {}),
+      },
+    ];
   };
 }
 

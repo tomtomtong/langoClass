@@ -70,6 +70,86 @@ function videoUrlFromExercise(exercise) {
   return item?.videoUrl || item?.video_url || null;
 }
 
+const CAPTION_LANGUAGE_OPTIONS = [
+  { code: "en", label: "EN", name: "English" },
+  { code: "zh", label: "中文", name: "Chinese" },
+  { code: "yue", label: "粵", name: "Cantonese" },
+  { code: "ja", label: "日本語", name: "Japanese" },
+  { code: "ko", label: "한국어", name: "Korean" },
+];
+
+function normalizeCaptionLanguage(value, fallback = "en") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .split(/[-_]/)[0];
+  if (CAPTION_LANGUAGE_OPTIONS.some((entry) => entry.code === normalized)) {
+    return normalized;
+  }
+  const nextFallback = String(fallback || "en")
+    .trim()
+    .toLowerCase()
+    .split(/[-_]/)[0];
+  return CAPTION_LANGUAGE_OPTIONS.some((entry) => entry.code === nextFallback)
+    ? nextFallback
+    : "en";
+}
+
+function captionLanguageMeta(code) {
+  const language = normalizeCaptionLanguage(code);
+  return (
+    CAPTION_LANGUAGE_OPTIONS.find((entry) => entry.code === language) || {
+      code: language,
+      label: language.toUpperCase(),
+      name: language,
+    }
+  );
+}
+
+function captionTracksFromExercise(exercise) {
+  if (!exercise || !isVideoExercise(exercise)) return [];
+  const item = exercise?.items?.[0] || {};
+  const tracks = [];
+  const seen = new Set();
+
+  const pushTrack = (languageRaw, urlRaw) => {
+    const url = String(urlRaw || "").trim();
+    const language = normalizeCaptionLanguage(languageRaw);
+    if (!url || seen.has(language)) return;
+    seen.add(language);
+    const meta = captionLanguageMeta(language);
+    tracks.push({
+      language,
+      label: meta.label,
+      name: meta.name,
+      url,
+    });
+  };
+
+  (Array.isArray(item.captionTracks) ? item.captionTracks : []).forEach((track) => {
+    pushTrack(track?.language || track?.lang || track?.code, track?.url || track?.captionUrl);
+  });
+
+  const legacyUrl =
+    item.captionUrl || item.subtitleUrl || item.captionsUrl || item.caption_url || "";
+  if (legacyUrl) {
+    pushTrack(item.captionLanguage || item.captionLang || "en", legacyUrl);
+  }
+
+  return tracks;
+}
+
+function captionUrlFromExercise(exercise, preferredLanguage) {
+  const tracks = captionTracksFromExercise(exercise);
+  if (!tracks.length) return null;
+  if (preferredLanguage) {
+    const language = normalizeCaptionLanguage(preferredLanguage);
+    const match = tracks.find((track) => track.language === language);
+    if (match) return match.url;
+  }
+  return tracks[0].url;
+}
+
 function normalizeBuzzinQuestionText(value) {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
@@ -508,9 +588,16 @@ let buzzinSpeechBgmDuckDepth = 0;
 const BUZZIN_SPEECH_BGM_VOLUME = 0.06;
 const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 3.5;
 
+function getBuzzinSpeechBgmDuckVolume() {
+  if (typeof getHostSpeechBgmDuckVolume === "function") {
+    return getHostSpeechBgmDuckVolume();
+  }
+  return BUZZIN_SPEECH_BGM_VOLUME;
+}
+
 function beginBuzzinSpeechBgmDuck() {
   if (buzzinSpeechBgmDuckDepth === 0 && typeof fadeHostBgmTo === "function") {
-    fadeHostBgmTo(BUZZIN_SPEECH_BGM_VOLUME);
+    fadeHostBgmTo(getBuzzinSpeechBgmDuckVolume());
   }
   buzzinSpeechBgmDuckDepth += 1;
 }

@@ -28,6 +28,7 @@ let classSessionCreating = false;
 let exerciseLottieInstances = [];
 let waitingClockLottieInstance = null;
 let sectionExerciseCloseTimer = null;
+let hostProgressSaveChain = Promise.resolve();
 const WAITING_TIMER_SECONDS = 300;
 const SECTION_EXERCISE_CLOSE_MS = 260;
 const LOGIN_SCAN_CYCLE_MS = 3600;
@@ -61,6 +62,9 @@ let hostBgmFadeFrame = null;
 let hostBgmMuted = false;
 let hostSoundEffectsMuted = false;
 let hostSoundMenuOpen = false;
+/** When on, BGM fully yields to video/speech so classroom audio stays clear. */
+let hostAudioIsolationEnabled = true;
+let hostSettingsReturnScreenId = "";
 
 function clampHostVolume(value, fallback = 1) {
   const num = Number(value);
@@ -272,6 +276,88 @@ function setHostSoundEffectsVolume(volume, { persist = true } = {}) {
   }
   updateHostSoundControls();
   if (persist) savePrefs();
+}
+
+function isHostAudioIsolationEnabled() {
+  return hostAudioIsolationEnabled;
+}
+
+function getHostSpeechBgmDuckVolume() {
+  return hostAudioIsolationEnabled ? 0 : 0.06;
+}
+
+function shouldIsolateHostBgmForMedia() {
+  return hostAudioIsolationEnabled;
+}
+
+function updateHostSettingsControls() {
+  const toggle = $("#btn-host-audio-isolation");
+  const stateEl = $("#host-audio-isolation-state");
+  const desc = $("#host-audio-isolation-desc");
+
+  if (toggle) {
+    toggle.classList.toggle("is-on", hostAudioIsolationEnabled);
+    toggle.setAttribute("aria-checked", hostAudioIsolationEnabled ? "true" : "false");
+  }
+  if (stateEl) {
+    stateEl.textContent = hostAudioIsolationEnabled ? "On" : "Off";
+  }
+  if (desc) {
+    desc.textContent = hostAudioIsolationEnabled
+      ? "Background music fades out when video or speech plays, so classroom audio stays clear."
+      : "Background music can keep playing under video and speech.";
+  }
+}
+
+function setHostAudioIsolationEnabled(enabled, { persist = true } = {}) {
+  hostAudioIsolationEnabled = Boolean(enabled);
+  updateHostSettingsControls();
+  if (persist) savePrefs();
+}
+
+function openHostSettings() {
+  closeHostSoundMenu();
+  const currentId = getActiveHostScreenId();
+  if (currentId === "settings") return;
+  if (currentId) {
+    hostSettingsReturnScreenId = currentId;
+  }
+  updateHostSettingsControls();
+  showScreen("settings");
+}
+
+function closeHostSettings() {
+  const returnId = hostSettingsReturnScreenId || "login";
+  hostSettingsReturnScreenId = "";
+  showScreen(returnId);
+}
+
+function setupHostSettings() {
+  $("#btn-host-settings")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (getActiveHostScreenId() === "settings") {
+      playPageBackSound();
+      closeHostSettings();
+      return;
+    }
+    playPageNextSound();
+    openHostSettings();
+  });
+
+  $("#btn-back-settings")?.addEventListener("click", () => {
+    playPageBackSound();
+    closeHostSettings();
+  });
+
+  $("#btn-host-audio-isolation")?.addEventListener("click", () => {
+    setHostAudioIsolationEnabled(!hostAudioIsolationEnabled);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && getActiveHostScreenId() === "settings") {
+      closeHostSettings();
+    }
+  });
 }
 
 function updateHostSoundControls() {
@@ -527,6 +613,9 @@ function loadPrefs() {
     if (data.soundEffectsVolume != null) {
       hostSoundEffectsVolume = clampHostVolume(data.soundEffectsVolume, HOST_SOUND_EFFECTS_VOLUME_DEFAULT);
     }
+    if (typeof data.audioIsolationEnabled === "boolean") {
+      hostAudioIsolationEnabled = data.audioIsolationEnabled;
+    }
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
@@ -552,6 +641,7 @@ function savePrefs() {
       soundMuted: hostBgmMuted && hostSoundEffectsMuted,
       bgmVolume: HOST_BGM_VOLUME,
       soundEffectsVolume: hostSoundEffectsVolume,
+      audioIsolationEnabled: hostAudioIsolationEnabled,
     })
   );
 }
@@ -667,27 +757,72 @@ async function loadHostProgress() {
   }
 }
 
-async function persistHostProgress(patch) {
-  if (!state.course?.id || !state.classItem?.id) return;
-  if (state.hostProgressSaving) return;
+function mergeHostProgressPatch(base, patch) {
+  const merged = { ...(base || {}) };
 
-  state.hostProgressSaving = true;
-  try {
-    const data = await api("/api/host/progress", {
-      method: "PUT",
-      body: {
-        classId: state.classItem.id,
-        courseId: state.course.id,
-        ...patch,
-      },
-    });
-    state.hostProgress = data.progress || state.hostProgress || emptyHostProgress();
-    savePrefs();
-  } catch (err) {
-    console.warn("Could not save host progress:", err.message);
-  } finally {
-    state.hostProgressSaving = false;
+  if (patch.completedExerciseIds != null) {
+    merged.completedExerciseIds = [
+      ...new Set([
+        ...(merged.completedExerciseIds || []),
+        ...patch.completedExerciseIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+      ]),
+    ];
   }
+  if (patch.visitedSectionIds != null) {
+    merged.visitedSectionIds = [
+      ...new Set([
+        ...(merged.visitedSectionIds || []),
+        ...patch.visitedSectionIds.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+      ]),
+    ];
+  }
+  if (patch.lastSectionId !== undefined) {
+    merged.lastSectionId = patch.lastSectionId == null ? null : Number(patch.lastSectionId);
+  }
+  if (patch.lastExerciseId !== undefined) {
+    merged.lastExerciseId = patch.lastExerciseId == null ? null : Number(patch.lastExerciseId);
+  }
+
+  return merged;
+}
+
+function applyHostProgressPatch(patch) {
+  if (!state.hostProgress) state.hostProgress = emptyHostProgress();
+  state.hostProgress = {
+    ...state.hostProgress,
+    ...mergeHostProgressPatch(state.hostProgress, patch),
+  };
+}
+
+function flushHostProgress() {
+  return hostProgressSaveChain;
+}
+
+async function persistHostProgress(patch, { applyLocally = true } = {}) {
+  if (!state.course?.id || !state.classItem?.id) return;
+
+  if (applyLocally) applyHostProgressPatch(patch);
+
+  hostProgressSaveChain = hostProgressSaveChain.then(async () => {
+    state.hostProgressSaving = true;
+    try {
+      const data = await api("/api/host/progress", {
+        method: "PUT",
+        body: {
+          classId: state.classItem.id,
+          courseId: state.course.id,
+          ...patch,
+        },
+      });
+      state.hostProgress = data.progress || state.hostProgress || emptyHostProgress();
+    } catch (err) {
+      console.warn("Could not save host progress:", err.message);
+    } finally {
+      state.hostProgressSaving = false;
+    }
+  });
+
+  return hostProgressSaveChain;
 }
 
 async function markHostSectionVisited(sectionId) {
@@ -705,15 +840,17 @@ async function markHostExerciseSelected(exerciseId) {
 
 async function markHostExerciseCompleted(exerciseId) {
   if (exerciseId == null || isHostExerciseCompleted(exerciseId)) return;
-  await persistHostProgress({ completedExerciseIds: [Number(exerciseId)] });
+  const patch = { completedExerciseIds: [Number(exerciseId)] };
+  applyHostProgressPatch(patch);
   updateSectionProgressCard(getSortedSections(), state.selectedSection?.id);
   renderSectionPicker();
   renderExercises();
+  await persistHostProgress(patch, { applyLocally: false });
 }
 
 function markCurrentHostExerciseCompleted() {
-  if (!state.selectedExercise?.id) return;
-  void markHostExerciseCompleted(state.selectedExercise.id);
+  if (!state.selectedExercise?.id) return Promise.resolve();
+  return markHostExerciseCompleted(state.selectedExercise.id);
 }
 
 window.markCurrentHostExerciseCompleted = markCurrentHostExerciseCompleted;
@@ -734,23 +871,81 @@ function getNextExerciseAfter(exercise) {
   return exercises[idx + 1];
 }
 
+function getNextSectionAfter(section) {
+  const playableSections = getPlayableSections();
+  const idx = playableSections.findIndex((entry) => entry.id === section?.id);
+  if (idx < 0 || idx >= playableSections.length - 1) return null;
+  return playableSections[idx + 1];
+}
+
+function isLastExerciseInSection(exercise, section = state.selectedSection) {
+  const exercises = sectionExerciseList(section);
+  const idx = exercises.findIndex((entry) => entry.id === exercise?.id);
+  return idx >= 0 && idx === exercises.length - 1;
+}
+
+function getNextHostStep() {
+  const nextExercise = getNextExerciseAfter(state.selectedExercise);
+  if (nextExercise) {
+    return {
+      type: "exercise",
+      section: state.selectedSection,
+      exercise: nextExercise,
+      label: nextExercise.title || `Exercise ${nextExercise.id}`,
+    };
+  }
+
+  const nextSection = getNextSectionAfter(state.selectedSection);
+  if (!nextSection) return null;
+
+  const playableSections = getPlayableSections();
+  if (!isHostSectionUnlocked(nextSection, playableSections)) return null;
+
+  const exercises = sectionExerciseList(nextSection);
+  if (!exercises.length) return null;
+
+  const exercise = preferredHostExercise(exercises) || exercises[0];
+  return {
+    type: "section",
+    section: nextSection,
+    exercise,
+    label: nextSection.title || `Section ${nextSection.id}`,
+  };
+}
+
+function shouldAdvanceToNextSection(exercise = state.selectedExercise, section = state.selectedSection) {
+  if (!exercise?.id || !section?.id || !isLastExerciseInSection(exercise, section)) return false;
+  const nextSection = getNextSectionAfter(section);
+  if (!nextSection) return false;
+  return isHostSectionUnlocked(nextSection, getPlayableSections());
+}
+
+function setNextStepButtonLabel(btn, buttonLabel) {
+  if (!btn) return;
+  if (buttonLabel) {
+    btn.hidden = false;
+    const span = btn.querySelector("span");
+    if (span) span.textContent = buttonLabel;
+    else btn.textContent = buttonLabel;
+  } else {
+    btn.hidden = true;
+  }
+}
+
 function refreshNextExerciseUi() {
-  const next = getNextExerciseAfter(state.selectedExercise);
-  const label = next ? next.title || `Exercise ${next.id}` : null;
+  const step = getNextHostStep();
+  const buttonLabel = step
+    ? step.type === "section"
+      ? `Next section: ${step.label}`
+      : `Next exercise: ${step.label}`
+    : null;
 
   for (const id of [
     "btn-host-quiz-next-exercise",
     "btn-host-fast-results-next-exercise",
     "btn-host-video-next-exercise",
   ]) {
-    const btn = $("#" + id);
-    if (!btn) continue;
-    if (label) {
-      btn.hidden = false;
-      btn.textContent = `Next exercise: ${label}`;
-    } else {
-      btn.hidden = true;
-    }
+    setNextStepButtonLabel($("#" + id), buttonLabel);
   }
 }
 
@@ -2451,8 +2646,8 @@ async function runHostExercise(roomId, exercise) {
 }
 
 async function handleStartNextExercise() {
-  const next = getNextExerciseAfter(state.selectedExercise);
-  if (!next || !state.activeRoomId) return;
+  const step = getNextHostStep();
+  if (!step?.exercise || !state.activeRoomId) return;
 
   if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   playPageNextSound();
@@ -2460,25 +2655,35 @@ async function handleStartNextExercise() {
   if (state.selectedExercise?.id) {
     await markHostExerciseCompleted(state.selectedExercise.id);
   }
-  state.selectedExercise = next;
-  void markHostExerciseSelected(next.id);
 
+  if (step.type === "section") {
+    state.selectedSection = findSectionInList(step.section.id) || step.section;
+    savePrefs();
+    void markHostSectionVisited(step.section.id);
+  }
+
+  state.selectedExercise = step.exercise;
+  void markHostExerciseSelected(step.exercise.id);
+
+  const startingLabel =
+    step.type === "section" ? "Starting next section…" : "Starting next exercise…";
   const buttons = [
     "#btn-host-quiz-next-exercise",
+    "#btn-host-fast-results-next-exercise",
     "#btn-host-video-next-exercise",
   ];
   for (const sel of buttons) {
     const btn = $(sel);
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Starting next exercise…";
+      setNextStepButtonLabel(btn, startingLabel);
     }
   }
 
   try {
-    await launchHostExercise(next, {
+    await launchHostExercise(step.exercise, {
       errorElement: $("#waiting-error"),
-      idleText: "Next exercise",
+      idleText: step.type === "section" ? "Next section" : "Next exercise",
       playIntro: false,
     });
   } catch (err) {
@@ -2586,8 +2791,11 @@ document.querySelectorAll("#btn-back-waiting-preview, #btn-back-waiting-quiz, #b
 document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
-    wrapUpRoomExercise(() => {
-      returnHostToJourney();
+    wrapUpRoomExercise(async () => {
+      if (state.selectedExercise?.id) {
+        await markHostExerciseCompleted(state.selectedExercise.id);
+      }
+      await returnHostToJourney();
     });
   })
 );
@@ -2652,7 +2860,7 @@ $("#btn-copy-persistent-room-id")?.addEventListener("click", () => {
 });
 
 function resetSessionAndGoToJourney() {
-  returnHostToJourney();
+  void returnHostToJourney();
 }
 
 $("#btn-start-another").addEventListener("click", () => {
@@ -2667,7 +2875,6 @@ $("#btn-start-another-quiz")?.addEventListener("click", () => {
 function showHostExerciseFinishedScreen(payload) {
   if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   fadeInHostBgm();
-  markCurrentHostExerciseCompleted();
   showExerciseLeaderboards({
     exerciseLeaderboard: payload?.exerciseLeaderboard,
     semesterLeaderboard: payload?.semesterLeaderboard,
@@ -2698,37 +2905,57 @@ function wrapUpRoomExercise(callback) {
   });
 }
 
-function returnHostToJourney() {
+async function returnHostToJourney() {
   if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   fadeInHostBgm();
+  const advanceSection = shouldAdvanceToNextSection();
+  const previousSection = state.selectedSection;
   state.quizActive = false;
   state.selectedExercise = null;
   updateWaitingStartButton();
   refreshNextExerciseUi();
 
+  await flushHostProgress();
+  await loadHostProgress();
+
+  if (advanceSection && previousSection) {
+    const nextSection = getNextSectionAfter(previousSection);
+    const playableSections = getPlayableSections();
+    if (nextSection && isHostSectionUnlocked(nextSection, playableSections)) {
+      state.selectedSection = findSectionInList(nextSection.id) || nextSection;
+      savePrefs();
+      void markHostSectionVisited(nextSection.id);
+    }
+  }
+
   if (state.course?.id) {
     goTo("section", "section");
     renderSectionPicker();
-    void showSectionExercises();
+    await showSectionExercises();
     return;
   }
-  void enterCourseStep();
+  await enterCourseStep();
 }
 
 function finishVideoOrBuzzinExercise() {
-  wrapUpRoomExercise((res) => {
+  wrapUpRoomExercise(async (res) => {
+    if (res?.ok && state.selectedExercise?.id) {
+      await markHostExerciseCompleted(state.selectedExercise.id);
+    }
     if (res?.ok && (res.semesterLeaderboard?.length || res.exerciseLeaderboard?.length)) {
       showHostExerciseFinishedScreen(res);
       return;
     }
-    returnHostToJourney();
+    await returnHostToJourney();
   });
 }
 
 function endExerciseAndReturnToDashboard() {
-  wrapUpRoomExercise((res) => {
-    if (res?.ok) markCurrentHostExerciseCompleted();
-    returnHostToJourney();
+  wrapUpRoomExercise(async (res) => {
+    if (res?.ok && state.selectedExercise?.id) {
+      await markHostExerciseCompleted(state.selectedExercise.id);
+    }
+    await returnHostToJourney();
   });
 }
 
@@ -2738,24 +2965,34 @@ function backToWaitingFromExercise() {
 
 $("#btn-host-quiz-done")?.addEventListener("click", () => {
   playPageBackSound();
-  markCurrentHostExerciseCompleted();
-  wrapUpRoomExercise(() => {
-    returnHostToJourney();
+  wrapUpRoomExercise(async () => {
+    if (state.selectedExercise?.id) {
+      await markHostExerciseCompleted(state.selectedExercise.id);
+    }
+    await returnHostToJourney();
   });
 });
 
 $("#btn-host-fast-results-done")?.addEventListener("click", () => {
   playPageBackSound();
-  markCurrentHostExerciseCompleted();
-  wrapUpRoomExercise(() => {
-    returnHostToJourney();
+  wrapUpRoomExercise(async () => {
+    if (state.selectedExercise?.id) {
+      await markHostExerciseCompleted(state.selectedExercise.id);
+    }
+    await returnHostToJourney();
   });
 });
 
-$("#btn-host-video-done")?.addEventListener("click", () => {
+function handleHostVideoNextClick() {
   playPageNextSound();
+  if (getNextHostStep()) {
+    void handleStartNextExercise();
+    return;
+  }
   backToWaitingFromExercise();
-});
+}
+
+$("#btn-host-video-next-exercise")?.addEventListener("click", handleHostVideoNextClick);
 $("#btn-host-buzzin-done")?.addEventListener("click", () => {
   playPageNextSound();
   backToWaitingFromExercise();
@@ -2786,6 +3023,8 @@ loadPrefs();
 applyLoginUsernameToForm();
 setupHostMuteButton();
 updateHostMuteButton();
+setupHostSettings();
+updateHostSettingsControls();
 setupHostBgm({ autostart: !hostBgmMuted });
 initPersistentRoomCodeSync();
 if (state.token && state.user) savePrefs();
