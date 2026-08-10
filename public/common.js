@@ -125,6 +125,9 @@ function getScreenTransitionLayer() {
     document.body.classList.contains("join-page") || app.classList.contains("lango-host");
 
   if (usesCharacterTransition && !layer.querySelector(".join-transition-cast")) {
+    // Real portal/sparks nodes only when GSAP is available; otherwise keep CSS ::before/::after.
+    window.LangoGsap?.ensureTransitionFx?.(layer);
+
     const cast = document.createElement("div");
     cast.className = "join-transition-cast";
 
@@ -139,6 +142,8 @@ function getScreenTransitionLayer() {
     });
 
     layer.appendChild(cast);
+  } else if (usesCharacterTransition) {
+    window.LangoGsap?.ensureTransitionFx?.(layer);
   }
   return layer;
 }
@@ -184,6 +189,7 @@ function showScreen(id, { transition = true } = {}) {
 
   if (!transition) {
     screenTransitionToken++;
+    window.LangoGsap?.killScreenTransition?.();
     document.querySelector(".host-page-transition")?.classList.remove("is-playing");
     activateScreen(id);
     return Promise.resolve();
@@ -201,8 +207,23 @@ function showScreen(id, { transition = true } = {}) {
   screenTransitionPromise = screenTransitionPromise
     .catch(() => {})
     .then(async () => {
+      if (token !== screenTransitionToken) return;
+
       layer.classList.remove("is-playing");
       selectJoinTransitionCharacter(layer);
+
+      if (window.LangoGsap?.playScreenTransition) {
+        window.LangoGsap.killScreenTransition?.();
+        await window.LangoGsap.playScreenTransition(layer, {
+          coveredAt: 0.92,
+          duration: 1.18,
+          onCovered: () => {
+            if (token === screenTransitionToken) activateScreen(id);
+          },
+        });
+        return;
+      }
+
       void layer.offsetWidth;
       layer.classList.add("is-playing");
       await wait(920);

@@ -234,6 +234,70 @@ html:has(body.join-page) {
   animation: joinGameSparkBurst 1.18s ease-out forwards;
 }
 
+/* GSAP-driven transition layers (real DOM instead of ::before/::after). */
+.join-page .host-page-transition__portal,
+#app.lango-host .host-page-transition__portal,
+.join-page .host-page-transition__sparks,
+#app.lango-host .host-page-transition__sparks {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.join-page .host-page-transition__portal,
+#app.lango-host .host-page-transition__portal {
+  inset: -24vmax;
+  z-index: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, transparent 0 18%, rgba(255, 255, 255, 0.92) 18.5% 20%, transparent 20.5%),
+    repeating-conic-gradient(
+      from 18deg,
+      var(--transition-purple) 0deg 24deg,
+      var(--transition-lavender) 24deg 48deg,
+      var(--transition-pink) 48deg 72deg
+    );
+  filter:
+    saturate(1.08)
+    drop-shadow(0 0 26px rgba(195, 152, 251, 0.88))
+    drop-shadow(0 0 52px rgba(116, 60, 155, 0.58));
+  transform: scale(0) rotate(-28deg);
+  opacity: 0;
+}
+
+.join-page .host-page-transition__sparks,
+#app.lango-host .host-page-transition__sparks {
+  inset: 0;
+  z-index: 2;
+  background:
+    radial-gradient(circle at 12% 24%, #fff 0 4px, var(--transition-purple) 5px 8px, transparent 9px),
+    radial-gradient(circle at 82% 18%, #fff 0 3px, var(--transition-lavender) 4px 7px, transparent 8px),
+    radial-gradient(circle at 24% 78%, #fff 0 5px, var(--transition-pink) 6px 10px, transparent 11px),
+    radial-gradient(circle at 88% 72%, #fff 0 4px, var(--transition-lavender) 5px 9px, transparent 10px),
+    radial-gradient(circle at 55% 12%, #fff 0 3px, transparent 4px),
+    radial-gradient(circle at 48% 88%, #fff 0 3px, transparent 4px);
+  opacity: 0;
+  transform: scale(0.72) rotate(-8deg);
+}
+
+.join-page .host-page-transition.has-gsap-fx::before,
+.join-page .host-page-transition.has-gsap-fx::after,
+#app.lango-host .host-page-transition.has-gsap-fx::before,
+#app.lango-host .host-page-transition.has-gsap-fx::after {
+  content: none !important;
+  display: none !important;
+  animation: none !important;
+}
+
+html.lango-gsap-ready .join-page .host-page-transition.is-playing::before,
+html.lango-gsap-ready .join-page .host-page-transition.is-playing::after,
+html.lango-gsap-ready #app.lango-host .host-page-transition.is-playing::before,
+html.lango-gsap-ready #app.lango-host .host-page-transition.is-playing::after,
+html.lango-gsap-ready .join-page .host-page-transition.is-playing .join-transition-tommy.is-active,
+html.lango-gsap-ready #app.lango-host .host-page-transition.is-playing .join-transition-tommy.is-active {
+  animation: none !important;
+}
+
 .join-transition-cast {
   position: absolute;
   inset: 0;
@@ -10313,6 +10377,11 @@ body:has(#app.lango-host) {
   }
 }
 
+html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen--enter .host-buzzin-title,
+html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen--enter .host-buzzin-empty-card {
+  animation: none !important;
+}
+
 #app.lango-host .host-buzzin-feedback-screen {
   position: relative;
   overflow: hidden;
@@ -10907,6 +10976,12 @@ body:has(#app.lango-host) {
   #app.lango-host .host-buzzin-chat-bubble--analyzing p {
     animation: none !important;
   }
+}
+
+html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-screen--enter .host-buzzin-feedback-title,
+html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-screen--enter .host-buzzin-feedback-leaderboard,
+html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-screen--enter .host-buzzin-feedback-realtime {
+  animation: none !important;
 }
 
 #app.lango-host .visually-hidden {
@@ -12092,6 +12167,16 @@ body:has(#app.lango-host) {
   backdrop-filter: blur(150px);
   -webkit-backdrop-filter: blur(150px);
   animation: waiting-soft-rise 650ms ease 120ms both;
+}
+
+html.lango-gsap-ready #app.lango-host .waiting-wizard,
+html.lango-gsap-ready #app.lango-host .waiting-students-panel {
+  animation: none;
+}
+
+html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entered) .waiting-wizard,
+html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entered) .waiting-students-panel {
+  opacity: 0;
 }
 
 #app.lango-host .waiting-students-header {

@@ -26,7 +26,8 @@ const io = new Server(server, {
   maxHttpBufferSize: 5 * 1024 * 1024,
 });
 
-const PORT = process.env.PORT || 6000;
+// Avoid 6000: Chromium blocks it as ERR_UNSAFE_PORT (X11).
+const PORT = process.env.PORT || 3000;
 const LANGO_API_BASE = "https://dev.api.lango.ai/v1";
 const ENV_PUBLIC_BASE_URL = (
   process.env.PUBLIC_BASE_URL || "https://test.n9n.uk"
@@ -2869,6 +2870,10 @@ app.get("/api/scores", async (req, res) => {
 });
 
 app.use("/uploads", express.static(paths.uploadsRoot));
+app.use(
+  "/vendor/gsap",
+  express.static(path.join(__dirname, "node_modules/gsap/dist"))
+);
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (_req, res) => {

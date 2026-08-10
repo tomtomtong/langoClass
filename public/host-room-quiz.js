@@ -119,6 +119,7 @@ function triggerHostBuzzinFeedbackEnter() {
   screen.classList.remove("host-buzzin-feedback-screen--enter");
   void screen.offsetWidth;
   screen.classList.add("host-buzzin-feedback-screen--enter");
+  window.LangoGsap?.playBuzzinFeedbackEnter?.(screen);
 }
 
 function triggerHostBuzzinEmptyEnter() {
@@ -127,6 +128,7 @@ function triggerHostBuzzinEmptyEnter() {
   screen.classList.remove("host-buzzin-empty-screen--enter");
   void screen.offsetWidth;
   screen.classList.add("host-buzzin-empty-screen--enter");
+  window.LangoGsap?.playBuzzinEmptyEnter?.(screen);
 }
 
 function stopHostBuzzinJoinTimer() {
