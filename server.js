@@ -19,6 +19,7 @@ const sessionStore = require("./lib/session-store");
 const paths = require("./lib/paths");
 const settingsStore = require("./lib/settings-store");
 const videoCaptions = require("./lib/video-captions");
+const courseExport = require("./lib/course-export");
 
 const app = express();
 const server = http.createServer(app);
@@ -2385,6 +2386,34 @@ app.post("/api/lango/sendNotification", async (req, res) => {
   return res.json({ ok: true, notification: notifyBody, apiResponse: data });
 });
 
+function courseExportDetailsForTeacher(teacherId, { courseId } = {}) {
+  if (courseId != null) {
+    const course = cmsStore.getCourseForTeacher(courseId, teacherId);
+    if (!course) return null;
+    return [cmsStore.courseDetailResponse(course)];
+  }
+
+  const list = cmsStore.listCoursesForTeacher(teacherId);
+  if (!list.length) return [];
+  return list
+    .map((entry) => cmsStore.getCourseForTeacher(entry.id, teacherId))
+    .filter(Boolean)
+    .map((course) => cmsStore.courseDetailResponse(course));
+}
+
+async function streamCourseExportZip(res, details, { teacherId } = {}) {
+  const archive = await courseExport.exportCoursesZip(details, { teacherId });
+  const filename = courseExport.exportFilename(details);
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  archive.on("error", (err) => {
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message || "Export failed." });
+    }
+  });
+  archive.pipe(res);
+}
+
 app.get("/api/cms/courses", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
@@ -2394,6 +2423,22 @@ app.get("/api/cms/courses", async (req, res) => {
       classId: Number.isFinite(classId) ? classId : undefined,
     }),
   });
+});
+
+app.get("/api/cms/courses/export-all", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const details = courseExportDetailsForTeacher(auth.teacherId);
+  if (!details.length) {
+    return res.status(404).json({ message: "No courses to export." });
+  }
+
+  try {
+    await streamCourseExportZip(res, details, { teacherId: auth.teacherId });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Export failed." });
+  }
 });
 
 app.post("/api/cms/courses", async (req, res) => {
@@ -2412,6 +2457,23 @@ app.get("/api/cms/courses/:courseId", async (req, res) => {
   if (!course) return res.status(404).json({ message: "Course not found." });
 
   return res.json(cmsStore.courseDetailResponse(course));
+});
+
+app.get("/api/cms/courses/:courseId/export", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const courseId = Number(req.params.courseId);
+  const details = courseExportDetailsForTeacher(auth.teacherId, { courseId });
+  if (!details) {
+    return res.status(404).json({ message: "Course not found." });
+  }
+
+  try {
+    await streamCourseExportZip(res, details, { teacherId: auth.teacherId });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Export failed." });
+  }
 });
 
 app.put("/api/cms/courses/:courseId", async (req, res) => {

@@ -45,7 +45,10 @@
           <h1>My courses</h1>
           <p class="hint">Create courses with quiz, video, and discussion exercises.</p>
         </div>
-        <button type="button" class="btn primary cms-new-btn" id="btn-new-course">+ New course</button>
+        <div class="cms-header-actions">
+          <button type="button" class="btn secondary" id="btn-export-all-courses">Export all</button>
+          <button type="button" class="btn primary cms-new-btn" id="btn-new-course">+ New course</button>
+        </div>
       </header>
       <div id="cms-course-list" class="cms-course-list"></div>
       <p class="status-msg" id="cms-list-status"></p>
@@ -92,6 +95,7 @@
         </div>
         <div class="cms-actions-row">
           <button type="button" class="btn primary" id="btn-save-details">Save details</button>
+          <button type="button" class="btn secondary" id="btn-export-course">Export course</button>
           <button type="button" class="btn secondary cms-danger" id="btn-delete-course">Delete course</button>
         </div>
         <p class="error" id="cms-details-error"></p>

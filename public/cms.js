@@ -85,6 +85,89 @@ async function api(path, options = {}) {
   return data;
 }
 
+function slugifyFilename(name) {
+  return (
+    String(name || "course")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60) || "course"
+  );
+}
+
+async function downloadCourseExport(path, fallbackFilename) {
+  const headers = { Accept: "application/zip" };
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  headers["X-Teacher-Id"] = String(state.user?.id || "");
+
+  const res = await fetch(path, { headers });
+  if (!res.ok) {
+    const text = await res.text();
+    let message = `Export failed (${res.status})`;
+    try {
+      const data = text ? JSON.parse(text) : null;
+      if (data?.message) message = data.message;
+    } catch {
+      if (text) message = text;
+    }
+    throw new Error(message);
+  }
+
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="([^"]+)"/i);
+  const filename = match?.[1] || fallbackFilename;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportAllCourses() {
+  const btn = $("#btn-export-all-courses");
+  const status = $("#cms-list-status");
+  const error = $("#cms-list-error");
+  error.textContent = "";
+  btn.disabled = true;
+  status.textContent = "Preparing export…";
+
+  try {
+    await downloadCourseExport("/api/cms/courses/export-all", `langoclass-courses-${Date.now()}.zip`);
+    status.textContent = "Export downloaded.";
+  } catch (err) {
+    status.textContent = "";
+    error.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function exportCurrentCourse() {
+  if (!state.editingCourse) return;
+
+  const btn = $("#btn-export-course");
+  const status = $("#cms-details-status");
+  const error = $("#cms-details-error");
+  error.textContent = "";
+  btn.disabled = true;
+  status.textContent = "Preparing export…";
+
+  try {
+    const course = state.editingCourse;
+    const fallback = `course-${course.id}-${slugifyFilename(course.name)}.zip`;
+    await downloadCourseExport(`/api/cms/courses/${course.id}/export`, fallback);
+    status.textContent = "Export downloaded.";
+  } catch (err) {
+    status.textContent = "";
+    error.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function showCmsScreen(id) {
   document.querySelectorAll(".cms-app .screen").forEach((s) => s.classList.remove("active"));
   document.querySelector(`#screen-cms-${id}`).classList.add("active");
@@ -1631,8 +1714,10 @@ $("#cms-login-password").addEventListener("keydown", (e) => {
 });
 $("#btn-cms-logout").addEventListener("click", handleLogout);
 $("#btn-new-course").addEventListener("click", createNewCourse);
+$("#btn-export-all-courses").addEventListener("click", exportAllCourses);
 $("#btn-back-list").addEventListener("click", () => enterCourseList());
 $("#btn-save-details").addEventListener("click", saveDetails);
+$("#btn-export-course").addEventListener("click", exportCurrentCourse);
 $("#btn-delete-course").addEventListener("click", deleteCourse);
 $("#course-banner-file").addEventListener("change", handleBannerFileChange);
 $("#btn-remove-banner").addEventListener("click", handleRemoveBanner);

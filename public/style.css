@@ -6954,6 +6954,18 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   flex-wrap: wrap;
 }
 
+.cms-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cms-header-actions .btn {
+  width: auto;
+  min-width: 120px;
+}
+
 .cms-new-btn {
   width: auto !important;
   margin-top: 0 !important;

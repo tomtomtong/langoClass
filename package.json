@@ -8,6 +8,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "express": "^4.21.2",
     "gsap": "^3.15.0",
     "multer": "^2.1.1",
