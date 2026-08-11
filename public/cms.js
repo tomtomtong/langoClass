@@ -145,6 +145,56 @@ async function exportAllCourses() {
   }
 }
 
+function triggerImportAllCourses() {
+  $("#import-all-file").click();
+}
+
+async function importAllCourses(file) {
+  const btn = $("#btn-import-all-courses");
+  const status = $("#cms-list-status");
+  const error = $("#cms-list-error");
+  error.textContent = "";
+  btn.disabled = true;
+  status.textContent = "Importing courses…";
+
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const headers = {};
+    if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    headers["X-Teacher-Id"] = String(state.user?.id || "");
+
+    const res = await fetch("/api/cms/courses/import-all", {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    const text = await res.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = { message: text || res.statusText };
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.message || `Import failed (${res.status})`);
+    }
+
+    const count = data?.imported || 0;
+    status.textContent = `Imported ${count} course${count === 1 ? "" : "s"}.`;
+    await enterCourseList();
+  } catch (err) {
+    status.textContent = "";
+    error.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+    $("#import-all-file").value = "";
+  }
+}
+
 async function exportCurrentCourse() {
   if (!state.editingCourse) return;
 
@@ -1714,6 +1764,11 @@ $("#cms-login-password").addEventListener("keydown", (e) => {
 });
 $("#btn-cms-logout").addEventListener("click", handleLogout);
 $("#btn-new-course").addEventListener("click", createNewCourse);
+$("#btn-import-all-courses").addEventListener("click", triggerImportAllCourses);
+$("#import-all-file").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (file) await importAllCourses(file);
+});
 $("#btn-export-all-courses").addEventListener("click", exportAllCourses);
 $("#btn-back-list").addEventListener("click", () => enterCourseList());
 $("#btn-save-details").addEventListener("click", saveDetails);

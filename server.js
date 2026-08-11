@@ -20,6 +20,7 @@ const paths = require("./lib/paths");
 const settingsStore = require("./lib/settings-store");
 const videoCaptions = require("./lib/video-captions");
 const courseExport = require("./lib/course-export");
+const courseImport = require("./lib/course-import");
 
 const app = express();
 const server = http.createServer(app);
@@ -190,6 +191,19 @@ const transcribeUpload = multer({
   limits: { fileSize: TRANSCRIBE_MAX_AUDIO_BYTES },
 });
 
+const courseImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: courseImport.MAX_ZIP_BYTES },
+  fileFilter: (_req, file, cb) => {
+    const name = String(file.originalname || "").toLowerCase();
+    const ok =
+      name.endsWith(".zip") ||
+      file.mimetype === "application/zip" ||
+      file.mimetype === "application/x-zip-compressed";
+    cb(ok ? null : new Error("Only ZIP files are allowed."), ok);
+  },
+});
+
 function handleQuestionImageUpload(req, res) {
   questionImageUpload.single("image")(req, res, (err) => {
     if (err) {
@@ -210,7 +224,8 @@ function deleteLocalUpload(uploadUrl) {
     !url.startsWith("/uploads/courses/") &&
     !url.startsWith("/uploads/sections/") &&
     !url.startsWith("/uploads/questions/") &&
-    !url.startsWith("/uploads/captions/")
+    !url.startsWith("/uploads/captions/") &&
+    !url.startsWith("/uploads/videos/")
   ) {
     return;
   }
@@ -2439,6 +2454,31 @@ app.get("/api/cms/courses/export-all", async (req, res) => {
   } catch (err) {
     return res.status(500).json({ message: err.message || "Export failed." });
   }
+});
+
+app.post("/api/cms/courses/import-all", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  courseImportUpload.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "No ZIP file provided." });
+    }
+
+    try {
+      const courses = courseImport.importCoursesFromZip(req.file.buffer, auth.teacherId);
+      return res.json({
+        ok: true,
+        imported: courses.length,
+        courses,
+      });
+    } catch (importErr) {
+      return res.status(400).json({ message: importErr.message || "Import failed." });
+    }
+  });
 });
 
 app.post("/api/cms/courses", async (req, res) => {
