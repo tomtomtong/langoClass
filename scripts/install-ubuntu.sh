@@ -3,7 +3,8 @@
 # LangoClass — Ubuntu server install script
 #
 # Installs system dependencies, Node.js, npm packages, systemd service,
-# and (optionally) Nginx reverse proxy with Socket.IO WebSocket support.
+# optional git auto-update timer (pull + restart every 5 minutes), and
+# (optionally) Nginx reverse proxy with Socket.IO WebSocket support.
 #
 # Usage (on the server, from the project root):
 #   sudo bash scripts/install-ubuntu.sh
@@ -14,6 +15,7 @@
 #   --domain DOMAIN       Public hostname for Nginx + PUBLIC_BASE_URL
 #   --with-nginx          Install and configure Nginx reverse proxy
 #   --skip-copy           Use current directory instead of copying to --app-dir
+#   --no-auto-update      Do not install the 5-minute git pull + restart timer
 #   --node-major N        Node.js major version (default: 22)
 #   --help                Show this help
 #
@@ -27,6 +29,7 @@ APP_PORT="3000"
 NODE_MAJOR="22"
 WITH_NGINX="0"
 SKIP_COPY="0"
+AUTO_UPDATE="1"
 DOMAIN=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -36,7 +39,7 @@ warn() { printf '\033[1;33m!!>\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; }
 
 usage() {
-  sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 require_root() {
@@ -54,6 +57,7 @@ parse_args() {
       --domain)      DOMAIN="$2"; shift 2 ;;
       --with-nginx)  WITH_NGINX="1"; shift ;;
       --skip-copy)   SKIP_COPY="1"; shift ;;
+      --no-auto-update) AUTO_UPDATE="0"; shift ;;
       --node-major)  NODE_MAJOR="$2"; shift 2 ;;
       --help|-h)     usage; exit 0 ;;
       *)
@@ -141,6 +145,34 @@ deploy_application() {
   if [[ "${SKIP_COPY}" == "1" ]]; then
     APP_DIR="${PROJECT_ROOT}"
     log "Using project at ${APP_DIR} (--skip-copy)."
+  elif [[ -d "${PROJECT_ROOT}/.git" ]]; then
+    local remote branch
+    remote="$(git -C "${PROJECT_ROOT}" remote get-url origin 2>/dev/null || true)"
+    branch="$(git -C "${PROJECT_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+    if [[ -n "${remote}" ]]; then
+      log "Deploying from git: ${remote} (${branch})"
+      install -d -m 0755 "${APP_DIR}"
+      if [[ -d "${APP_DIR}/.git" ]]; then
+        git -C "${APP_DIR}" remote set-url origin "${remote}" || true
+        git -C "${APP_DIR}" fetch --depth 1 origin "${branch}"
+        git -C "${APP_DIR}" checkout -B "${branch}" "origin/${branch}"
+        git -C "${APP_DIR}" reset --hard "origin/${branch}"
+      else
+        rm -rf "${APP_DIR:?}/"*
+        git clone --branch "${branch}" --depth 1 "${remote}" "${APP_DIR}"
+      fi
+      git -C "${APP_DIR}" branch --set-upstream-to="origin/${branch}" "${branch}" 2>/dev/null || true
+    else
+      warn "No git remote in ${PROJECT_ROOT} — falling back to rsync (auto-update will not work)."
+      log "Deploying application to ${APP_DIR}..."
+      install -d -m 0755 "${APP_DIR}"
+      rsync -a --delete \
+        --exclude node_modules \
+        --exclude .git \
+        --exclude .wrangler \
+        --exclude .env \
+        "${PROJECT_ROOT}/" "${APP_DIR}/"
+    fi
   else
     log "Deploying application to ${APP_DIR}..."
     install -d -m 0755 "${APP_DIR}"
@@ -150,6 +182,9 @@ deploy_application() {
       --exclude .wrangler \
       --exclude .env \
       "${PROJECT_ROOT}/" "${APP_DIR}/"
+    if [[ "${AUTO_UPDATE}" == "1" ]]; then
+      warn "Source is not a git repo — auto-update timer will be installed but will no-op until ${APP_DIR} is a git checkout."
+    fi
   fi
 
   if [[ ! -f "${APP_DIR}/package.json" ]]; then
@@ -239,6 +274,50 @@ EOF
   systemctl restart "${APP_NAME}.service"
   log "Service status:"
   systemctl --no-pager status "${APP_NAME}.service" || true
+}
+
+install_auto_update() {
+  if [[ "${AUTO_UPDATE}" != "1" ]]; then
+    log "Skipping auto-update timer (--no-auto-update)."
+    return
+  fi
+
+  log "Installing git auto-update (every 5 minutes)..."
+
+  install -m 0755 "${PROJECT_ROOT}/scripts/auto-update.sh" "/usr/local/bin/${APP_NAME}-auto-update"
+
+  cat > "/etc/systemd/system/${APP_NAME}-auto-update.service" <<EOF
+[Unit]
+Description=LangoClass git auto-update check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=APP_NAME=${APP_NAME}
+Environment=APP_DIR=${APP_DIR}
+Environment=APP_USER=${APP_USER}
+ExecStart=/usr/local/bin/${APP_NAME}-auto-update
+EOF
+
+  cat > "/etc/systemd/system/${APP_NAME}-auto-update.timer" <<EOF
+[Unit]
+Description=Check for LangoClass git updates every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable "${APP_NAME}-auto-update.timer"
+  systemctl restart "${APP_NAME}-auto-update.timer"
+  log "Auto-update timer enabled: systemctl status ${APP_NAME}-auto-update.timer"
 }
 
 install_nginx() {
@@ -355,6 +434,9 @@ print_summary() {
  Logs          : journalctl -u ${APP_NAME} -f
  Config        : ${APP_DIR}/.env
  Web UI        : ${access_url}
+$(if [[ "${AUTO_UPDATE}" == "1" ]]; then
+  echo " Auto-update   : every 5 min (git pull + restart) — timer status: systemctl status ${APP_NAME}-auto-update.timer"
+fi)
 
  Next steps:
    1. Edit ${APP_DIR}/.env with your PUBLIC_BASE_URL and API keys
@@ -375,6 +457,7 @@ main() {
   deploy_application
   write_env_file
   install_systemd_service
+  install_auto_update
   install_nginx
   configure_firewall
   verify_installation
