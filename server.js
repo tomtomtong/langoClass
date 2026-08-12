@@ -21,6 +21,7 @@ const settingsStore = require("./lib/settings-store");
 const videoCaptions = require("./lib/video-captions");
 const courseExport = require("./lib/course-export");
 const courseImport = require("./lib/course-import");
+const courseImportChunked = require("./lib/course-import-chunked");
 
 const app = express();
 const server = http.createServer(app);
@@ -202,6 +203,11 @@ const courseImportUpload = multer({
       file.mimetype === "application/x-zip-compressed";
     cb(ok ? null : new Error("Only ZIP files are allowed."), ok);
   },
+});
+
+const courseImportChunkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: courseImportChunked.IMPORT_CHUNK_BYTES + 1024 * 1024 },
 });
 
 function handleQuestionImageUpload(req, res) {
@@ -2453,6 +2459,72 @@ app.get("/api/cms/courses/export-all", async (req, res) => {
     await streamCourseExportZip(res, details, { teacherId: auth.teacherId });
   } catch (err) {
     return res.status(500).json({ message: err.message || "Export failed." });
+  }
+});
+
+app.post("/api/cms/courses/import-all/init", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  try {
+    const totalBytes = Number(req.body?.totalBytes);
+    const totalChunks = Number(req.body?.totalChunks);
+    const fileName = req.body?.fileName;
+    const session = courseImportChunked.createSession(
+      auth.teacherId,
+      totalBytes,
+      totalChunks,
+      fileName
+    );
+    return res.json({ ok: true, ...session });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not start import." });
+  }
+});
+
+app.post("/api/cms/courses/import-all/chunk", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  courseImportChunkUpload.single("chunk")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Chunk upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "No chunk data provided." });
+    }
+
+    const uploadId = String(req.body?.uploadId || "");
+    const chunkIndex = Number(req.body?.chunkIndex);
+
+    try {
+      const progress = courseImportChunked.writeChunk(
+        uploadId,
+        auth.teacherId,
+        chunkIndex,
+        req.file.buffer
+      );
+      return res.json({ ok: true, ...progress });
+    } catch (writeErr) {
+      return res.status(400).json({ message: writeErr.message || "Chunk upload failed." });
+    }
+  });
+});
+
+app.post("/api/cms/courses/import-all/complete", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  try {
+    const uploadId = String(req.body?.uploadId || "");
+    const courses = courseImportChunked.completeSession(uploadId, auth.teacherId);
+    return res.json({
+      ok: true,
+      imported: courses.length,
+      courses,
+    });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Import failed." });
   }
 });
 

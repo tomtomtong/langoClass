@@ -378,12 +378,20 @@ EOF
 
   ln -sf "${conf}" "/etc/nginx/sites-enabled/${APP_NAME}"
   rm -f /etc/nginx/sites-enabled/default
+
+  # Global upload limit so Certbot HTTPS server blocks inherit it too.
+  cat > "/etc/nginx/conf.d/${APP_NAME}-upload.conf" <<EOF
+# Managed by scripts/install-ubuntu.sh — course backup ZIP imports
+client_max_body_size 512m;
+EOF
+
   nginx -t
   systemctl enable nginx
   systemctl reload nginx
 
   log "Nginx configured for http://${DOMAIN}"
   warn "For HTTPS, run: sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx -d ${DOMAIN}"
+  warn "If import shows 413 later, run: sudo bash ${APP_DIR}/scripts/fix-nginx-upload-limit.sh"
 }
 
 configure_firewall() {

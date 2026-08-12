@@ -293,6 +293,702 @@
       ],
       "createdAt": "2026-08-04T09:05:15.973Z",
       "updatedAt": "2026-08-04T09:05:15.973Z"
+    },
+    {
+      "id": -5,
+      "teacherId": 835,
+      "name": "test",
+      "description": "",
+      "banner": "/uploads/courses/import-835-1786443755498-qdzvjk.jpg",
+      "langCode": "en",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "/uploads/sections/import-835-1786443755499-q1ods2.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question2?",
+                  "options": [
+                    {
+                      "text": "Apple",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Ball",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Cat",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Dog",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/questions/import-835-1786443755499-cg8e9k.jpeg"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 3,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1786443755500-bs0gbw.mp4",
+                  "captionUrl": "/uploads/captions/import-835-1786443755503-9jxsz0.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/import-835-1786443755503-9jxsz0.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "title": "Fast quiz",
+              "subTitle": "Fast MC Quiz",
+              "order": 4,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 5,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "What is your favorite animal?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Section 2",
+          "banner": "/uploads/sections/import-835-1786443755509-w6wg46.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 6,
+              "title": "Quiz2",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1786443755510-vuolsl.jpg"
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 2,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1786443755510-3uhv9l.mp4",
+                  "captionUrl": "/uploads/captions/import-835-1786443755513-zocuhf.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/import-835-1786443755513-zocuhf.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 3,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "What is your favorite animal?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Section 3",
+          "banner": "/uploads/sections/import-835-1786443755514-or5c95.png",
+          "order": 3,
+          "exercises": []
+        },
+        {
+          "id": 4,
+          "title": "Section 4",
+          "banner": "/uploads/sections/import-835-1786443755514-47geul.png",
+          "order": 4,
+          "exercises": []
+        },
+        {
+          "id": 5,
+          "title": "Section 5",
+          "banner": "",
+          "order": 5,
+          "exercises": []
+        },
+        {
+          "id": 6,
+          "title": "Section 6",
+          "banner": "",
+          "order": 6,
+          "exercises": []
+        },
+        {
+          "id": 7,
+          "title": "Section 7",
+          "banner": "",
+          "order": 7,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-08-11T10:22:35.515Z",
+      "updatedAt": "2026-08-11T10:22:35.516Z"
+    },
+    {
+      "id": -6,
+      "teacherId": 835,
+      "name": "test",
+      "description": "",
+      "banner": "/uploads/courses/import-835-1786443794386-jk6m7x.jpg",
+      "langCode": "en",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "/uploads/sections/import-835-1786443794388-hw9o9g.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question2?",
+                  "options": [
+                    {
+                      "text": "Apple",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Ball",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Cat",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Dog",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/questions/import-835-1786443794389-3x380s.jpeg"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 3,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1786443794389-z5wjbx.mp4",
+                  "captionUrl": "/uploads/captions/import-835-1786443794393-qjdidv.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/import-835-1786443794393-qjdidv.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "title": "Fast quiz",
+              "subTitle": "Fast MC Quiz",
+              "order": 4,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 5,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "What is your favorite animal?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Section 2",
+          "banner": "/uploads/sections/import-835-1786443794394-mqsub1.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 6,
+              "title": "Quiz2",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1786443794394-n8wk9r.jpg"
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 2,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1786443794395-1goct5.mp4",
+                  "captionUrl": "/uploads/captions/import-835-1786443794397-ofia80.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/import-835-1786443794397-ofia80.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 3,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "What is your favorite animal?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Section 3",
+          "banner": "/uploads/sections/import-835-1786443794398-0bmf05.png",
+          "order": 3,
+          "exercises": []
+        },
+        {
+          "id": 4,
+          "title": "Section 4",
+          "banner": "/uploads/sections/import-835-1786443794398-hd309n.png",
+          "order": 4,
+          "exercises": []
+        },
+        {
+          "id": 5,
+          "title": "Section 5",
+          "banner": "",
+          "order": 5,
+          "exercises": []
+        },
+        {
+          "id": 6,
+          "title": "Section 6",
+          "banner": "",
+          "order": 6,
+          "exercises": []
+        },
+        {
+          "id": 7,
+          "title": "Section 7",
+          "banner": "",
+          "order": 7,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-08-11T10:23:14.399Z",
+      "updatedAt": "2026-08-11T10:23:14.400Z"
+    },
+    {
+      "id": -7,
+      "teacherId": 835,
+      "name": "test",
+      "description": "",
+      "banner": "/uploads/courses/import-835-1786443794401-17po6o.jpg",
+      "langCode": "en",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "/uploads/sections/import-835-1786443794402-xqom9c.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question2?",
+                  "options": [
+                    {
+                      "text": "Apple",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Ball",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Cat",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Dog",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/questions/import-835-1786443794402-z9gvub.jpeg"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 3,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1786443794403-juz47v.mp4",
+                  "captionUrl": "/uploads/captions/import-835-1786443794405-dd14hs.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/import-835-1786443794405-dd14hs.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "title": "Fast quiz",
+              "subTitle": "Fast MC Quiz",
+              "order": 4,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 5,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "What is your favorite animal?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Section 2",
+          "banner": "/uploads/sections/import-835-1786443794405-lwxhz6.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 6,
+              "title": "Quiz2",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1786443794406-jyyaz0.jpg"
+                }
+              ]
+            },
+            {
+              "id": 7,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 2,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1786443794406-i8srs0.mp4",
+                  "captionUrl": "/uploads/captions/import-835-1786443794409-jvy6kk.vtt",
+                  "captionLanguage": "en",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/import-835-1786443794409-jvy6kk.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 8,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 3,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "What is your favorite animal?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Section 3",
+          "banner": "/uploads/sections/import-835-1786443794409-kzxmlp.png",
+          "order": 3,
+          "exercises": []
+        },
+        {
+          "id": 4,
+          "title": "Section 4",
+          "banner": "/uploads/sections/import-835-1786443794410-z5tqo5.png",
+          "order": 4,
+          "exercises": []
+        },
+        {
+          "id": 5,
+          "title": "Section 5",
+          "banner": "",
+          "order": 5,
+          "exercises": []
+        },
+        {
+          "id": 6,
+          "title": "Section 6",
+          "banner": "",
+          "order": 6,
+          "exercises": []
+        },
+        {
+          "id": 7,
+          "title": "Section 7",
+          "banner": "",
+          "order": 7,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-08-11T10:23:14.411Z",
+      "updatedAt": "2026-08-11T10:23:14.412Z"
     }
   ]
 }

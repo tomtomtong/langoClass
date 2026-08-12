@@ -149,40 +149,96 @@ function triggerImportAllCourses() {
   $("#import-all-file").click();
 }
 
+const IMPORT_CHUNK_BYTES = 512 * 1024;
+
+function cmsImportHeaders() {
+  const headers = {};
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  headers["X-Teacher-Id"] = String(state.user?.id || "");
+  return headers;
+}
+
+function parseImportResponseError(res, text, data) {
+  const raw = String(data?.message || text || "");
+  if (res.status === 413 || /413|Request Entity Too Large/i.test(raw)) {
+    return new Error(
+      "Upload rejected by the server (file too large). Reload the page and retry — imports now upload in small chunks."
+    );
+  }
+  if (/^\s*<html[\s>]/i.test(raw)) {
+    return new Error(`Import failed (${res.status}). The server returned an error page instead of JSON.`);
+  }
+  return new Error(data?.message || `Import failed (${res.status})`);
+}
+
+async function readImportResponse(res) {
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text || res.statusText };
+  }
+  if (!res.ok) {
+    throw parseImportResponseError(res, text, data);
+  }
+  return data;
+}
+
+async function importAllCoursesChunked(file, status) {
+  const totalBytes = file.size;
+  const totalChunks = Math.ceil(totalBytes / IMPORT_CHUNK_BYTES);
+
+  const initData = await readImportResponse(
+    await fetch("/api/cms/courses/import-all/init", {
+      method: "POST",
+      headers: { ...cmsImportHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ totalBytes, totalChunks, fileName: file.name }),
+    })
+  );
+
+  const uploadId = initData.uploadId;
+
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * IMPORT_CHUNK_BYTES;
+    const end = Math.min(start + IMPORT_CHUNK_BYTES, totalBytes);
+    const formData = new FormData();
+    formData.append("uploadId", uploadId);
+    formData.append("chunkIndex", String(i));
+    formData.append("chunk", file.slice(start, end), `chunk-${i}`);
+
+    status.textContent = `Uploading backup… ${i + 1}/${totalChunks}`;
+
+    await readImportResponse(
+      await fetch("/api/cms/courses/import-all/chunk", {
+        method: "POST",
+        headers: cmsImportHeaders(),
+        body: formData,
+      })
+    );
+  }
+
+  status.textContent = "Importing courses…";
+
+  return readImportResponse(
+    await fetch("/api/cms/courses/import-all/complete", {
+      method: "POST",
+      headers: { ...cmsImportHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadId }),
+    })
+  );
+}
+
 async function importAllCourses(file) {
   const btn = $("#btn-import-all-courses");
   const status = $("#cms-list-status");
   const error = $("#cms-list-error");
   error.textContent = "";
   btn.disabled = true;
-  status.textContent = "Importing courses…";
+  status.textContent = "Preparing import…";
 
   try {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const headers = {};
-    if (state.token) headers.Authorization = `Bearer ${state.token}`;
-    headers["X-Teacher-Id"] = String(state.user?.id || "");
-
-    const res = await fetch("/api/cms/courses/import-all", {
-      method: "POST",
-      headers,
-      body: formData,
-    });
-
-    const text = await res.text();
-    let data = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = { message: text || res.statusText };
-    }
-
-    if (!res.ok) {
-      throw new Error(data?.message || `Import failed (${res.status})`);
-    }
-
+    const data = await importAllCoursesChunked(file, status);
     const count = data?.imported || 0;
     status.textContent = `Imported ${count} course${count === 1 ? "" : "s"}.`;
     await enterCourseList();
