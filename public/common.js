@@ -1,9 +1,14 @@
 const OPTION_LABELS = ["▲", "◆", "●", "■", "★", "⬡"];
 
+function uiT(key, vars) {
+  return window.LangoI18n?.t?.(key, vars) ?? key;
+}
+
 const PLAYER_SOUND_EFFECTS = Object.freeze({
   click: "/assets/soundeffect/user_click.mp3",
   correct: "/assets/soundeffect/user_correct_answer.mp3",
   wrong: "/assets/soundeffect/user_wrong_answer.mp3",
+  celebrate: "/assets/soundeffect/login_success.mp3",
 });
 
 const playerSoundBank = new Map();
@@ -177,6 +182,13 @@ function activateScreen(id) {
   window.dispatchEvent(new CustomEvent("lango:screen-change", { detail: { screenId: id } }));
 }
 
+/** Invalidate in-flight page transitions so a later activateScreen/showScreen sticks. */
+function cancelScreenTransition() {
+  screenTransitionToken++;
+  window.LangoGsap?.killScreenTransition?.();
+  document.querySelector(".host-page-transition")?.classList.remove("is-playing");
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -188,9 +200,7 @@ function showScreen(id, { transition = true } = {}) {
   const current = document.querySelector(".screen.active");
 
   if (!transition) {
-    screenTransitionToken++;
-    window.LangoGsap?.killScreenTransition?.();
-    document.querySelector(".host-page-transition")?.classList.remove("is-playing");
+    cancelScreenTransition();
     activateScreen(id);
     return Promise.resolve();
   }
@@ -199,6 +209,7 @@ function showScreen(id, { transition = true } = {}) {
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
   if (!layer || !current || current === next || reduceMotion) {
+    cancelScreenTransition();
     activateScreen(id);
     return Promise.resolve();
   }
@@ -242,12 +253,12 @@ function renderLeaderboard(listEl, entries, highlightId) {
   if (!listEl) return;
   const rows = (entries || []).map((p) => ({
     id: p.id ?? p.studentUserId,
-    name: p.name ?? p.displayName ?? "Player",
+    name: p.name ?? p.displayName ?? uiT("leaderboard.player"),
     score: p.score ?? p.totalScore ?? 0,
   }));
 
   if (!rows.length) {
-    listEl.innerHTML = `<li class="leaderboard-empty"><span>No scores yet</span></li>`;
+    listEl.innerHTML = `<li class="leaderboard-empty"><span>${uiT("leaderboard.noScores")}</span></li>`;
     return;
   }
 
@@ -267,6 +278,8 @@ function showExerciseLeaderboards({
   semesterListEl,
   semesterWrapEl,
   exerciseWrapEl,
+  accuracyLeaderboard,
+  totalQuestions,
 }) {
   const hasExercise = (exerciseLeaderboard || []).length > 0;
   const hasSemester = (semesterLeaderboard || []).length > 0;
@@ -285,6 +298,62 @@ function showExerciseLeaderboards({
     const index = rows.findIndex((row) => samePlayerId(row.id, playerId));
     return index >= 0 ? index + 1 : null;
   };
+  const ordinalLabel = (rank) => {
+    const teen = rank % 100;
+    if (teen >= 11 && teen <= 13) return `${rank}th`;
+    if (rank % 10 === 1) return `${rank}st`;
+    if (rank % 10 === 2) return `${rank}nd`;
+    if (rank % 10 === 3) return `${rank}rd`;
+    return `${rank}th`;
+  };
+  const encouragementFor = (rank, rows, ownScore) => {
+    if (!rank) return uiT("leaderboard.getOnBoard");
+    if (rank === 1) return uiT("leaderboard.firstPlace");
+    if (rank === 2 || rank === 3) return uiT("leaderboard.podium");
+    const topCut = Math.max(3, Math.ceil(rows.length * 0.3));
+    if (rank <= topCut) return uiT("leaderboard.topClassEncourage");
+    const ahead = rows[rank - 2];
+    if (ahead) {
+      const gap = Math.max(0, Number(ahead.score) - Number(ownScore || 0));
+      if (gap > 0) return uiT("leaderboard.ptsToClimb", { n: gap.toLocaleString() });
+    }
+    return uiT("leaderboard.stillClimbing");
+  };
+  const classPulseHtml = (rows) => {
+    const scored = rows.filter((row) => Number(row.score) > 0).length || rows.length;
+    const totalPts = rows.reduce((sum, row) => sum + Math.max(0, Number(row.score) || 0), 0);
+    return `
+      <div class="host-leaderboard__pulse-chip">
+        <strong>${scored}</strong>
+        <span>${uiT("leaderboard.playersScored")}</span>
+      </div>
+      <div class="host-leaderboard__pulse-chip">
+        <strong>${totalPts.toLocaleString()}</strong>
+        <span>${uiT("leaderboard.classPts")}</span>
+      </div>`;
+  };
+  const fillScoresFallback = (root) => {
+    root?.querySelectorAll?.("[data-score-value]")?.forEach((el) => {
+      const value = Number(el.dataset.scoreValue || 0);
+      el.textContent = uiT("leaderboard.pts", { n: value.toLocaleString() });
+    });
+  };
+  const accuracyForPlayer = (playerId) => {
+    if (!playerId || !Array.isArray(accuracyLeaderboard)) return null;
+    const entry = accuracyLeaderboard.find(
+      (row) => samePlayerId(row.id ?? row.playerId, playerId)
+    );
+    if (!entry) return null;
+    const correct = Number(entry.correctAnswers ?? entry.correct ?? 0);
+    const total =
+      Number(totalQuestions) ||
+      Number(entry.totalQuestions) ||
+      (entry.accuracyPercent != null && correct
+        ? Math.round(correct / (Number(entry.accuracyPercent) / 100))
+        : 0);
+    if (!total && entry.accuracyPercent == null) return { correct, total: null };
+    return { correct, total: total || null, percent: entry.accuracyPercent };
+  };
 
   const exerciseRows = sortLeaderboardRows(normalizeRows(exerciseLeaderboard));
   const semesterRows = sortLeaderboardRows(normalizeRows(semesterLeaderboard));
@@ -293,38 +362,31 @@ function showExerciseLeaderboards({
   if (hostScreen) {
     const tabs = [...hostScreen.querySelectorAll("[data-host-leaderboard-view]")];
     const title = hostScreen.querySelector("#host-leaderboard-title");
-
-    const ordinal = (rank) => {
-      const teen = rank % 100;
-      if (teen >= 11 && teen <= 13) return `${rank}th`;
-      if (rank % 10 === 1) return `${rank}st`;
-      if (rank % 10 === 2) return `${rank}nd`;
-      if (rank % 10 === 3) return `${rank}rd`;
-      return `${rank}th`;
-    };
+    const pulseEl = hostScreen.querySelector("#host-leaderboard-pulse");
 
     const renderHostBoard = (container, rows, overall) => {
       if (!container) return;
       if (!rows.length) {
-        container.innerHTML = `<p class="host-leaderboard__empty">No scores yet</p>`;
+        container.innerHTML = `<p class="host-leaderboard__empty">${uiT("leaderboard.noScores")}</p>`;
         return;
       }
 
       const podium = rows.slice(0, 3)
         .map((row, index) => {
           const rank = index + 1;
-          const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉";
           const initial = escapeHtml((row.name.trim()[0] || "?").toUpperCase());
-          return `<li class="host-leaderboard__podium-row host-leaderboard__podium-row--${rank}">
-            <div class="host-leaderboard__profile" aria-hidden="true">
-              <span class="host-leaderboard__medal">${medal}</span>
+          return `<li class="host-leaderboard__podium-row host-leaderboard__podium-row--${rank}" data-reveal="podium" data-reveal-order="${4 - rank}">
+            <div class="host-leaderboard__podium-person">
+              ${rank === 1 ? '<span class="host-leaderboard__crown" aria-hidden="true"></span>' : ""}
               <span class="host-leaderboard__avatar">${initial}</span>
-            </div>
-            <span class="host-leaderboard__rank">${ordinal(rank)}</span>
-            <span class="host-leaderboard__player">
               <span class="host-leaderboard__name">${escapeHtml(row.name)}</span>
-              <span class="host-leaderboard__score">${Number(row.score).toLocaleString()} pts</span>
-            </span>
+              <span class="host-leaderboard__score-pill">
+                <span class="host-leaderboard__score" data-score-value="${Number(row.score)}">${uiT("leaderboard.pts", { n: 0 })}</span>
+              </span>
+            </div>
+            <div class="host-leaderboard__plinth" aria-hidden="true">
+              <span class="host-leaderboard__plinth-num">${rank}</span>
+            </div>
           </li>`;
         })
         .join("");
@@ -333,42 +395,62 @@ function showExerciseLeaderboards({
         .map((row, index) => {
           const rank = index + 4;
           const initial = escapeHtml((row.name.trim()[0] || "?").toUpperCase());
-          return `<li class="host-leaderboard__ranking-row">
-            <span class="host-leaderboard__ranking-rank">${rank}.</span>
+          return `<li class="host-leaderboard__ranking-row" data-reveal="rank">
+            <span class="host-leaderboard__ranking-rank">${rank}</span>
             <span class="host-leaderboard__ranking-avatar" aria-hidden="true">${initial}</span>
             <span class="host-leaderboard__ranking-name">${escapeHtml(row.name)}</span>
-            <span class="host-leaderboard__ranking-result">
-              <strong>${Number(row.score).toLocaleString()} pts</strong>
-              <small>${overall ? "Overall Score" : "Section Scores"}</small>
-            </span>
+            <strong class="host-leaderboard__score" data-score-value="${Number(row.score)}">${uiT("leaderboard.pts", { n: 0 })}</strong>
           </li>`;
         })
         .join("");
 
-      container.innerHTML = `<div class="host-leaderboard__columns">
-        <ol class="host-leaderboard__podium">${podium}</ol>
-        <ol class="host-leaderboard__rankings" start="4">${rankings || '<li class="host-leaderboard__empty host-leaderboard__empty--small">No other scores yet</li>'}</ol>
+      container.innerHTML = `<div class="host-leaderboard__arena">
+        <div class="host-leaderboard__spotlight">
+          <ol class="host-leaderboard__podium" aria-label="${escapeHtml(uiT("leaderboard.topOfClass"))}">${podium}</ol>
+        </div>
+        <section class="host-leaderboard__sheet">
+          <div class="host-leaderboard__sheet-handle" aria-hidden="true"></div>
+          <ol class="host-leaderboard__rankings" start="4">${rankings || `<li class="host-leaderboard__empty host-leaderboard__empty--small">${uiT("leaderboard.noOtherScores")}</li>`}</ol>
+        </section>
       </div>`;
     };
 
-    const setHostView = (view) => {
+    const updatePulse = (rows) => {
+      if (!pulseEl) return;
+      pulseEl.innerHTML = rows.length ? classPulseHtml(rows) : "";
+    };
+
+    const runHostReveal = (boardRoot) => {
+      if (window.LangoGsap?.playLeaderboardReveal) {
+        window.LangoGsap.playLeaderboardReveal(hostScreen, { boardRoot });
+        return;
+      }
+      fillScoresFallback(hostScreen);
+    };
+
+    const setHostView = (view, { animate = false } = {}) => {
       const overall = view === "overall" && hasSemester;
       exerciseWrapEl.hidden = overall;
       semesterWrapEl.hidden = !overall;
-      if (title) title.textContent = overall ? "Overall Results" : "Exercise Results";
+      if (title) title.textContent = overall ? uiT("leaderboard.overallResults") : uiT("leaderboard.exerciseResults");
+      updatePulse(overall ? semesterRows : exerciseRows);
       tabs.forEach((tab) => {
         const active = tab.dataset.hostLeaderboardView === (overall ? "overall" : "current");
         tab.classList.toggle("is-active", active);
         tab.setAttribute("aria-selected", String(active));
         tab.tabIndex = active ? 0 : -1;
       });
+      if (animate) {
+        const board = overall ? semesterWrapEl || semesterListEl : exerciseWrapEl || exerciseListEl;
+        runHostReveal(board);
+      }
     };
 
     renderHostBoard(exerciseListEl, exerciseRows, false);
     renderHostBoard(semesterListEl, semesterRows, true);
     tabs.forEach((tab) => {
       tab.hidden = tab.dataset.hostLeaderboardView === "overall" && !hasSemester;
-      tab.onclick = () => setHostView(tab.dataset.hostLeaderboardView);
+      tab.onclick = () => setHostView(tab.dataset.hostLeaderboardView, { animate: true });
       tab.onkeydown = (event) => {
         if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
         event.preventDefault();
@@ -379,6 +461,9 @@ function showExerciseLeaderboards({
       };
     });
     setHostView("current");
+    requestAnimationFrame(() => {
+      runHostReveal(exerciseWrapEl || exerciseListEl);
+    });
     return;
   }
 
@@ -388,54 +473,71 @@ function showExerciseLeaderboards({
     const tabs = [...finishedScreen.querySelectorAll("[data-leaderboard-view]")];
     const pointsEl = finishedScreen.querySelector("#player-current-points");
     const rankEl = finishedScreen.querySelector("#player-current-rank");
+    const encouragementEl = finishedScreen.querySelector("#player-encouragement");
+    const accuracyEl = finishedScreen.querySelector("#player-accuracy-line");
+    const meHero = finishedScreen.querySelector("#player-me-hero");
+    const boardLabel = finishedScreen.querySelector("#player-board-label");
 
-    const ordinalLabel = (rank) => {
-      const teen = rank % 100;
-      if (teen >= 11 && teen <= 13) return `${rank}th`;
-      if (rank % 10 === 1) return `${rank}st`;
-      if (rank % 10 === 2) return `${rank}nd`;
-      if (rank % 10 === 3) return `${rank}rd`;
-      return `${rank}th`;
+    const renderPlayerRow = (player, rank, { compact = false, isMe = false } = {}) => {
+      const initial = escapeHtml((player.name.trim()[0] || "?").toUpperCase());
+      const podium = rank <= 3;
+      const rowClass = [
+        "player-leaderboard__row",
+        "player-leaderboard__row--sheet",
+        compact ? "player-leaderboard__row--compact" : "",
+        podium ? `player-leaderboard__row--${rank}` : "player-leaderboard__row--rest",
+        isMe || samePlayerId(player.id, highlightId) ? "is-me" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `<li class="${rowClass}">
+        <span class="player-leaderboard__rank-badge">${rank}</span>
+        <span class="player-leaderboard__avatar" aria-hidden="true">${initial}</span>
+        <span class="player-leaderboard__meta">
+          <span class="player-leaderboard__name">${escapeHtml(player.name)}</span>
+        </span>
+        <span class="player-leaderboard__score">${uiT("leaderboard.pts", { n: Number(player.score).toLocaleString() })}</span>
+      </li>`;
     };
 
-    const renderPlayerRow = (player, rank, { podium = false } = {}) => {
-      const ordinal = rank <= 3 && podium
-        ? (rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd")
-        : ordinalLabel(rank);
-      const medal = podium && rank <= 3
-        ? (rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉")
-        : "";
-      const initial = escapeHtml((player.name.trim()[0] || "?").toUpperCase());
-      const rowClass = podium
-        ? `player-leaderboard__row player-leaderboard__row--${rank}${samePlayerId(player.id, highlightId) ? " is-me" : ""}`
-        : "player-leaderboard__row player-leaderboard__row--self is-me";
-      return `<li class="${rowClass}">
-        <div class="player-leaderboard__profile" aria-hidden="true">
-          ${medal ? `<span class="player-leaderboard__medal">${medal}</span>` : ""}
-          <span class="player-leaderboard__avatar">${initial}</span>
-        </div>
-        <span class="player-leaderboard__rank">${ordinal}</span>
-        <span class="player-leaderboard__player">
-          <span class="player-leaderboard__name">${escapeHtml(player.name)}</span>
-          <span class="player-leaderboard__score">${Number(player.score).toLocaleString()} pts</span>
-        </span>
-      </li>`;
+    const neighborSlice = (rows, ownRank) => {
+      if (!rows.length) return [];
+      if (!ownRank || ownRank <= 3) return rows.slice(0, Math.min(3, rows.length));
+      const start = Math.max(0, ownRank - 2);
+      const end = Math.min(rows.length, ownRank + 1);
+      return rows.slice(start, end).map((row, i) => ({ row, rank: start + i + 1 }));
     };
 
     const renderCards = (listEl, rows) => {
       if (!listEl) return;
       if (!rows.length) {
-        listEl.innerHTML = `<li class="player-leaderboard__empty">No scores yet</li>`;
+        listEl.innerHTML = `<li class="player-leaderboard__empty">${uiT("leaderboard.noScores")}</li>`;
         return;
       }
 
       const ownRank = highlightId ? playerRankFor(rows, highlightId) : null;
-      const ownRow = ownRank ? rows[ownRank - 1] : null;
-      const topThree = rows.slice(0, 3);
-      let html = topThree.map((player, index) => renderPlayerRow(player, index + 1, { podium: true })).join("");
-      if (ownRank && ownRank > 3 && ownRow) {
-        html += `<li class="player-leaderboard__separator" aria-hidden="true">···</li>`;
-        html += renderPlayerRow(ownRow, ownRank);
+      let html = "";
+
+      if (!ownRank || ownRank <= 3) {
+        html = rows
+          .slice(0, 3)
+          .map((player, index) =>
+            renderPlayerRow(player, index + 1, {
+              compact: true,
+              isMe: samePlayerId(player.id, highlightId),
+            })
+          )
+          .join("");
+      } else {
+        const neighbors = neighborSlice(rows, ownRank);
+        html = neighbors
+          .map(({ row, rank }) =>
+            renderPlayerRow(row, rank, {
+              compact: true,
+              isMe: samePlayerId(row.id, highlightId),
+            })
+          )
+          .join("");
       }
       listEl.innerHTML = html;
     };
@@ -454,14 +556,46 @@ function showExerciseLeaderboards({
       const rows = overall ? semesterRows : exerciseRows;
       const ownRank = highlightId ? playerRankFor(rows, highlightId) : null;
       const ownRow = ownRank ? rows[ownRank - 1] : null;
-      if (pointsEl) pointsEl.textContent = `${Number(ownRow?.score || 0).toLocaleString()} pts`;
+      const score = Number(ownRow?.score || 0);
+
+      if (pointsEl) {
+        pointsEl.dataset.scoreValue = String(score);
+        pointsEl.textContent = uiT("leaderboard.pts", { n: 0 });
+      }
       if (rankEl) {
-        if (ownRank) {
-          rankEl.textContent = `Your rank: ${ordinalLabel(ownRank)}`;
-          rankEl.hidden = false;
+        rankEl.textContent = ownRank ? ordinalLabel(ownRank) : "—";
+        rankEl.hidden = false;
+      }
+      if (encouragementEl) {
+        encouragementEl.textContent = encouragementFor(ownRank, rows, score);
+      }
+      if (accuracyEl) {
+        const accuracy = !overall ? accuracyForPlayer(highlightId) : null;
+        if (accuracy && (accuracy.total || accuracy.correct != null)) {
+          accuracyEl.hidden = false;
+          accuracyEl.textContent = accuracy.total
+            ? uiT("leaderboard.correctOfTotal", {
+                correct: accuracy.correct,
+                total: accuracy.total,
+              })
+            : uiT("leaderboard.correctCount", { correct: accuracy.correct });
         } else {
-          rankEl.hidden = true;
+          accuracyEl.hidden = true;
+          accuracyEl.textContent = "";
         }
+      }
+      if (boardLabel) {
+        boardLabel.textContent =
+          ownRank && ownRank > 3 ? uiT("leaderboard.nearYou") : uiT("leaderboard.topOfClass");
+      }
+      if (meHero) {
+        meHero.classList.toggle("is-podium", ownRank != null && ownRank <= 3);
+        meHero.classList.toggle("is-first", ownRank === 1);
+      }
+      if (window.LangoGsap?.playPlayerLeaderboardEnter) {
+        window.LangoGsap.playPlayerLeaderboardEnter(finishedScreen);
+      } else if (pointsEl) {
+        pointsEl.textContent = uiT("leaderboard.pts", { n: score.toLocaleString() });
       }
     };
 
@@ -634,31 +768,31 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
   screen?.classList.toggle("is-wrong", !isCorrect);
 
   if (isCorrect) {
-    msg.textContent = "You answered it correctly";
+    msg.textContent = uiT("mcq.resultCorrect");
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg correct";
     icon.textContent = "✅";
-    points.textContent = `${mine?.points || 0} pts`;
+    points.textContent = uiT("leaderboard.pts", { n: mine?.points || 0 });
     points.dataset.text = points.textContent;
-    encouragement.textContent = "Keep going";
+    encouragement.textContent = uiT("mcq.encourageKeepGoing");
     encouragement.dataset.text = encouragement.textContent;
   } else if (hasAnswer) {
-    msg.textContent = "You were so close !";
+    msg.textContent = uiT("mcq.resultClose");
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
     icon.textContent = "💪";
-    points.textContent = "0 pts";
+    points.textContent = uiT("leaderboard.pts", { n: 0 });
     points.dataset.text = points.textContent;
-    encouragement.textContent = "Keep it up for next time.";
+    encouragement.textContent = uiT("mcq.encourageNextTime");
     encouragement.dataset.text = encouragement.textContent;
   } else {
-    msg.textContent = "Time's up";
+    msg.textContent = uiT("mcq.timesUpShort");
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
     icon.textContent = "⏰";
-    points.textContent = "0 pts";
+    points.textContent = uiT("leaderboard.pts", { n: 0 });
     points.dataset.text = points.textContent;
-    encouragement.textContent = "Try the next one";
+    encouragement.textContent = uiT("mcq.encourageTryNext");
     encouragement.dataset.text = encouragement.textContent;
   }
 
@@ -673,7 +807,7 @@ function resetPlayerMcqAnsweredState() {
   screen?.classList.remove("is-answered", "is-previewing");
   const title = $("#player-mcq-title");
   const label = $("#player-selected-answer-label");
-  if (title) title.textContent = "MCQ Question";
+  if (title) title.textContent = uiT("mcq.title");
   if (label) label.hidden = true;
 }
 
@@ -685,7 +819,7 @@ function showPlayerMcqAnsweredState(answerIndex) {
   const buttons = $("#player-options")?.querySelectorAll(".player-btn") || [];
 
   screen?.classList.add("is-answered");
-  if (title) title.textContent = "Quick Questions";
+  if (title) title.textContent = uiT("mcq.quickQuestions");
   if (label) label.hidden = false;
   timerRing?.classList.remove("urgent");
   buttons.forEach((button, index) => {

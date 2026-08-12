@@ -56,12 +56,21 @@ function clearStoredParticipant() {
 }
 
 let roomSessionSocket = null;
+let joinSessionLocale = "en";
 
-const FAST_RESULT_OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
+function joinT(key) {
+  return window.LangoI18n?.t?.(key) ?? key;
+}
+
+function applyJoinUiLocale(locale, { persist = false } = {}) {
+  const i18n = window.LangoI18n;
+  if (!i18n || !locale) return;
+  joinSessionLocale = i18n.setLocale(locale, { persist, apply: true });
+}
 
 function showPlayerPassiveWaiting({
-  title = "Exercise complete",
-  message = "No action is needed. Please watch the teacher's screen.",
+  title = joinT("join.watchTitle"),
+  message = joinT("join.watchStatus"),
 } = {}) {
   $("#room-passive-waiting-title").textContent = title;
   $("#room-passive-waiting-status").textContent = message;
@@ -86,7 +95,7 @@ function renderPlayerFastMcResult({
   const scoreRow = (leaderboard || []).find((row) => row.id === playerId || row.playerId === playerId);
 
   $("#player-fast-correct-score").textContent = `${correctCount} / ${rows.length}`;
-  $("#player-fast-current-points").textContent = `${scoreRow?.score || 0} pts`;
+  $("#player-fast-current-points").textContent = uiT("mcq.pts", { n: scoreRow?.score || 0 });
 
   const list = $("#player-fast-answer-list");
   if (!list) return;
@@ -144,10 +153,18 @@ function getRoomSessionSocket() {
   if (!roomSessionSocket) {
     roomSessionSocket = io({ transports: ["websocket", "polling"] });
 
+    roomSessionSocket.on("session_locale", ({ uiLocale }) => {
+      if (uiLocale) applyJoinUiLocale(uiLocale);
+    });
+
+    roomSessionSocket.on("session_lobby_update", (data) => {
+      if (data?.uiLocale) applyJoinUiLocale(data.uiLocale);
+    });
+
     roomSessionSocket.on("session_started", ({ exercise }) => {
       if (!roomParticipant) return;
       window.roomFastQuizCompleted = false;
-      $("#room-waiting-status").textContent = "Class is starting — get ready!";
+      $("#room-waiting-status").textContent = joinT("join.classStarting");
       startRoomExercise(
         roomParticipant.roomId,
         roomParticipant.displayName,
@@ -193,8 +210,7 @@ function getRoomSessionSocket() {
         return;
       }
 
-      $("#room-waiting-status").textContent =
-        "You're in class — your teacher will start the next activity when ready.";
+      $("#room-waiting-status").textContent = joinT("join.inClassWaiting");
       showScreen("room-waiting");
     });
   }
@@ -294,10 +310,12 @@ function doJoinRoom(roomId, displayNameOverride) {
         saveStoredParticipant(participant);
         roomParticipant = participant;
 
+        if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
+
         $("#room-waiting-status").textContent =
           data.sessionStatus === "start"
-            ? "Class is starting — get ready!"
-            : "You're in class — your teacher will start an activity when ready.";
+            ? joinT("join.classStarting")
+            : joinT("join.inClassWaiting");
         showScreen("room-waiting");
 
         const nextUrl = new URL(window.location.href);
@@ -388,7 +406,7 @@ function initQuizJoin() {
 
       myPlayerId = res.playerId;
       $("#room-waiting-title").textContent = res.quizTitle || "Waiting Room";
-      $("#room-waiting-status").textContent = "Waiting for host to start…";
+      $("#room-waiting-status").textContent = uiT("status.waitHost");
       $("#btn-leave-room").hidden = true;
       showScreen("room-waiting");
     });
@@ -405,7 +423,7 @@ function initQuizJoin() {
 
   socket.on("game_starting", ({ fastMode } = {}) => {
     quizFastMode = !!fastMode;
-    $("#room-waiting-status").textContent = "Get ready…";
+    $("#room-waiting-status").textContent = uiT("status.getReady");
   });
 
   socket.on("question_speaking", (data) => {
@@ -415,7 +433,7 @@ function initQuizJoin() {
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
     $("#screen-player-question")?.classList.add("is-previewing");
-    $("#player-q-meta").textContent = "Listen to the question";
+    $("#player-q-meta").textContent = uiT("mcq.listenQuestion");
     setQuestionImage(
       $("#player-question-image"),
       $("#player-question-image-wrap"),
@@ -423,7 +441,7 @@ function initQuizJoin() {
     );
     $("#player-question-text").textContent = data.text || "";
     $("#player-options").innerHTML = "";
-    $("#answer-feedback").textContent = "Uncle Tommy is reading…";
+    $("#answer-feedback").textContent = uiT("buzzin.uncleReading");
     $("#timer-text").textContent = "…";
     $("#timer-ring")?.classList.remove("urgent");
   });
@@ -435,7 +453,7 @@ function initQuizJoin() {
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
     $("#screen-player-question")?.classList.remove("is-previewing");
-    $("#player-q-meta").textContent = `Question ${data.questionIndex + 1} of ${data.totalQuestions}`;
+    $("#player-q-meta").textContent = uiT("mcq.questionOf", { n: data.questionIndex + 1, total: data.totalQuestions });
     setQuestionImage(
       $("#player-question-image"),
       $("#player-question-image-wrap"),
@@ -450,7 +468,7 @@ function initQuizJoin() {
       onClick: (index, btn) => {
         showPlayerMcqAnsweredState(index);
         socket.emit("submit_answer", { answerIndex: index });
-        $("#answer-feedback").textContent = "Answer locked in!";
+        $("#answer-feedback").textContent = uiT("mcq.answerLocked");
       },
     });
 
@@ -463,23 +481,23 @@ function initQuizJoin() {
       },
       () => {
         $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
-        $("#answer-feedback").textContent = "Time's up!";
+        $("#answer-feedback").textContent = uiT("mcq.timesUp");
       }
     );
   });
 
   socket.on("answer_received", () => {
     $("#answer-feedback").textContent = quizFastMode
-      ? "Answer saved — next question coming…"
-      : "Waiting for others…";
+      ? uiT("fast.answerSaved")
+      : uiT("mcq.waitingOthers");
   });
 
   socket.on("question_between", ({ isLast } = {}) => {
     if (!quizFastMode) return;
     clearTimer();
     $("#answer-feedback").textContent = isLast
-      ? "Calculating your score…"
-      : "Next question coming…";
+      ? uiT("mcq.calculatingScore")
+      : uiT("mcq.nextComing");
   });
 
   socket.on("question_results", ({ results, leaderboard }) => {
@@ -490,7 +508,7 @@ function initQuizJoin() {
     renderPlayerMcqResult(mine, leaderboard, myPlayerId);
   });
 
-  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard, answerReview, answerHistory }) => {
+  socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard, answerReview, answerHistory, accuracyLeaderboard }) => {
     const wasFastMode = quizFastMode;
     quizFastMode = false;
     clearTimer();
@@ -508,6 +526,8 @@ function initQuizJoin() {
     showExerciseLeaderboards({
       exerciseLeaderboard: exerciseLeaderboard || leaderboard,
       semesterLeaderboard,
+      accuracyLeaderboard,
+      totalQuestions: answerReview?.length || 0,
       highlightId: myPlayerId,
       exerciseListEl: $("#player-final-leaderboard"),
       semesterListEl: $("#player-semester-leaderboard"),
@@ -553,3 +573,6 @@ if (urlParams.has("preview")) {
 } else {
   initJoinLinkRequired();
 }
+
+window.LangoI18n?.init?.();
+window.LangoI18n?.applyDom?.();

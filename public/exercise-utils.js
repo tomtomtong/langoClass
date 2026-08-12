@@ -178,18 +178,17 @@ function buddyDisplayText(buddy) {
 
 function collectBuzzinQuestions(exercise) {
   const items = Array.isArray(exercise?.items) ? exercise.items : [];
-  const first = items[0] || {};
 
+  const fromTopics = items
+    .map((item) => normalizeBuzzinQuestionText(item?.topic || item?.title || item?.question || item?.text))
+    .filter(Boolean);
+  if (fromTopics.length) return fromTopics;
+
+  const first = items[0] || {};
   const fromFirstItem = (first.questions || [])
     .map(normalizeBuzzinQuestionText)
     .filter(Boolean);
   if (fromFirstItem.length) return fromFirstItem;
-
-  const fromExtraItems = items
-    .slice(1)
-    .map((item) => normalizeBuzzinQuestionText(item?.question || item?.text || item?.title))
-    .filter(Boolean);
-  if (fromExtraItems.length) return fromExtraItems;
 
   const topLevel = (exercise?.questions || [])
     .map(normalizeBuzzinQuestionText)
@@ -202,19 +201,16 @@ function collectBuzzinQuestions(exercise) {
 function buzzinFromExercise(exercise) {
   if (!exercise || !isBuzzinExercise(exercise)) return null;
 
-  const items = Array.isArray(exercise.items) ? exercise.items : [];
-  const first = items[0] || {};
-  const topic = String(
-    first.topic ||
-      first.title ||
-      collectBuzzinQuestions(exercise)[0] ||
-      exercise.title ||
-      ""
-  ).trim();
-
+  const topics = collectBuzzinQuestions(exercise);
+  const topic = String(topics[0] || exercise.title || "").trim();
   if (!topic) return null;
 
-  return { topic };
+  return {
+    topic,
+    topics,
+    questionIndex: 0,
+    totalQuestions: Math.max(1, topics.length),
+  };
 }
 
 function buzzinSelectedStudent(payload) {
@@ -381,7 +377,7 @@ function renderHostBuzzinFeedbackChat(container, {
   student = null,
   response = null,
   currentTurn = null,
-  emptyText = "Waiting for answer…",
+  emptyText = uiT("buzzin.waitingAnswer"),
   animate = {},
 } = {}) {
   if (!container) return;
@@ -403,12 +399,13 @@ function renderHostBuzzinFeedbackChat(container, {
     } else if (response.analysisStatus === "error") {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
         ${buzzinTeacherAvatarHtml()}
-        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || "Analysis unavailable.")}</p></div>
+        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || uiT("buzzin.analysisUnavailable"))}</p></div>
       </div>`;
     } else if (response.analysis) {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
         ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-feedback-group">
+          ${buzzinAnswerVerdictBadgeHtml(response)}
           <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--scores">
             ${renderBuzzinAnalysisScorePiesHtml(response.analysis)}
           </div>
@@ -451,7 +448,7 @@ function renderBuzzinWinnersList(listEl, winners, emptyText) {
             `<li><span class="buzzin-rank">${w.rank}</span><span>${escapeHtml(w.displayName)}</span></li>`
         )
         .join("")
-    : `<li class="hint">${escapeHtml(emptyText || "Waiting for students to buzz in…")}</li>`;
+    : `<li class="hint">${escapeHtml(emptyText || uiT("buzzin.waitBuzzList"))}</li>`;
 }
 
 function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
@@ -468,14 +465,14 @@ function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
   }
 
   if (!items.length) {
-    listEl.innerHTML = `<li class="hint">${escapeHtml(emptyText || "Waiting for answers…")}</li>`;
+    listEl.innerHTML = `<li class="hint">${escapeHtml(emptyText || uiT("buzzin.waitingAnswer"))}</li>`;
     return;
   }
 
   listEl.innerHTML = items
     .map((item) => {
       const body = item.pending
-        ? `<span class="buzzin-response-pending">Speaking…</span>`
+        ? `<span class="buzzin-response-pending">${uiT("buzzin.speaking")}</span>`
         : `${escapeHtml(item.text)}${buzzinResponseRecordingPlayButtonHtml(item)}`;
       const analysis = renderBuzzinAnalysisHtml(item);
       return `<li><span class="buzzin-rank">${item.rank}</span><div class="buzzin-response-body"><strong>${escapeHtml(item.displayName)}</strong><p>${body}</p>${analysis}</div></li>`;
@@ -484,10 +481,25 @@ function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
 }
 
 const BUZZIN_SCORE_METRICS = [
-  { key: "correctness", label: "Correctness", pattern: /Correctness\s*\((\d+)\)/i, color: "#45c937" },
-  { key: "completeness", label: "Completeness", pattern: /Completeness\s*\((\d+)\)/i, color: "#15c4f8" },
-  { key: "fluency", label: "Fluency", pattern: /Fluency\s*\((\d+)\)/i, color: "#f59e0b" },
+  { key: "correctness", labelKey: "buzzin.scoreCorrectness", pattern: /Correctness\s*\((\d+)\)/i, color: "#45c937" },
+  { key: "completeness", labelKey: "buzzin.scoreCompleteness", pattern: /Completeness\s*\((\d+)\)/i, color: "#15c4f8" },
+  { key: "fluency", labelKey: "buzzin.scoreFluency", pattern: /Fluency\s*\((\d+)\)/i, color: "#f59e0b" },
 ];
+
+function buzzinAnswerVerdictBadgeHtml(item) {
+  const verdict = String(item?.answerVerdict || "").trim().toLowerCase();
+  if (!verdict) return "";
+  const label =
+    verdict === "correct"
+      ? uiT("buzzin.verdictCorrect")
+      : verdict === "incorrect"
+        ? uiT("buzzin.verdictIncorrect")
+        : verdict === "partial"
+          ? uiT("buzzin.verdictPartial")
+          : "";
+  if (!label) return "";
+  return `<div class="host-buzzin-answer-verdict host-buzzin-answer-verdict--${escapeHtml(verdict)}" role="status">${escapeHtml(label)}</div>`;
+}
 
 function parseBuzzinAnalysisScores(analysis) {
   const text = String(analysis || "");
@@ -496,6 +508,7 @@ function parseBuzzinAnalysisScores(analysis) {
     if (!match) return null;
     return {
       ...metric,
+      label: uiT(metric.labelKey),
       score: Math.max(0, Math.min(100, Number(match[1]) || 0)),
     };
   }).filter(Boolean);
@@ -524,14 +537,14 @@ function renderBuzzinAnalysisScorePiesHtml(analysis) {
 function renderBuzzinAnalysisHtml(item) {
   if (item.pending || !item.text) return "";
   if (item.analysisStatus === "pending") {
-    return `<p class="buzzin-analysis buzzin-analysis--pending">Analyzing response…</p>`;
+    return `<p class="buzzin-analysis buzzin-analysis--pending">${uiT("buzzin.analyzing")}</p>`;
   }
   if (item.analysisStatus === "error") {
-    return `<p class="buzzin-analysis buzzin-analysis--error">${escapeHtml(item.analysis || "Analysis unavailable.")}</p>`;
+    return `<p class="buzzin-analysis buzzin-analysis--error">${escapeHtml(item.analysis || uiT("buzzin.analysisUnavailable"))}</p>`;
   }
   if (item.analysis) {
     const spoken = String(item.spokenFeedback || "").trim();
-    return `<div class="buzzin-analysis"><span class="buzzin-analysis-label">AI feedback</span>${renderBuzzinAnalysisScorePiesHtml(item.analysis)}${spoken ? `<p class="buzzin-spoken-feedback">${escapeHtml(spoken)}</p>` : ""}${buzzinSpokenFeedbackPlayButtonHtml(item)}</div>`;
+    return `<div class="buzzin-analysis"><span class="buzzin-analysis-label">${uiT("buzzin.aiFeedback")}</span>${buzzinAnswerVerdictBadgeHtml(item)}${renderBuzzinAnalysisScorePiesHtml(item.analysis)}${spoken ? `<p class="buzzin-spoken-feedback">${escapeHtml(spoken)}</p>` : ""}${buzzinSpokenFeedbackPlayButtonHtml(item)}</div>`;
   }
   return "";
 }
@@ -543,7 +556,7 @@ function buzzinSpokenFeedbackAudioKey(item) {
 function buzzinSpokenFeedbackPlayButtonHtml(item) {
   if (!item?.analysisAudio) return "";
   const key = buzzinSpokenFeedbackAudioKey(item);
-  return `<button type="button" class="buzzin-analysis-play" data-buzzin-play-feedback="${escapeHtml(key)}" aria-label="Play feedback">▶ Play feedback</button>`;
+  return `<button type="button" class="buzzin-analysis-play" data-buzzin-play-feedback="${escapeHtml(key)}" aria-label="${uiT("buzzin.playFeedback")}">▶ ${uiT("buzzin.playFeedback")}</button>`;
 }
 
 function buzzinSpokenFeedbackBubbleHtml(item) {
@@ -558,7 +571,7 @@ function buzzinSpokenFeedbackBubbleHtml(item) {
 function buzzinResponseRecordingPlayButtonHtml(item) {
   if (!item?.responseAudio) return "";
   const key = buzzinSpokenFeedbackAudioKey(item);
-  return `<button type="button" class="buzzin-analysis-play buzzin-response-play" data-buzzin-play-recording="${escapeHtml(key)}" aria-label="Play recording">▶ Play recording</button>`;
+  return `<button type="button" class="buzzin-analysis-play buzzin-response-play" data-buzzin-play-recording="${escapeHtml(key)}" aria-label="${uiT("buzzin.playRecording")}">▶ ${uiT("buzzin.playRecording")}</button>`;
 }
 
 function setupBuzzinSpokenFeedbackPlayDelegation(container, getResponses) {

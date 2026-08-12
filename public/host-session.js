@@ -2,8 +2,12 @@
 let hostSessionSocket = null;
 let hostSessionRoomId = null;
 
+function currentHostUiLocale() {
+  return window.LangoI18n?.getLocale?.() || "en";
+}
+
 function emitHostSessionJoin(socket, roomId, { resolve, reject } = {}) {
-  socket.emit("host_session", { roomId }, (res) => {
+  socket.emit("host_session", { roomId, uiLocale: currentHostUiLocale() }, (res) => {
     if (!res?.ok) {
       reject?.(new Error(res?.error || "Could not connect to waiting room."));
       return;
@@ -13,6 +17,19 @@ function emitHostSessionJoin(socket, roomId, { resolve, reject } = {}) {
     }
     resolve?.(res);
   });
+}
+
+function syncHostSessionLocale(locale = currentHostUiLocale()) {
+  if (!hostSessionSocket || !hostSessionRoomId) return;
+  const run = () => {
+    hostSessionSocket.emit(
+      "set_session_locale",
+      { roomId: hostSessionRoomId, uiLocale: locale },
+      () => {}
+    );
+  };
+  if (hostSessionSocket.connected) run();
+  else hostSessionSocket.once("connect", run);
 }
 
 function getHostSessionSocket() {

@@ -40,6 +40,8 @@ const HOST_SOUND_EFFECTS = {
     "/assets/soundeffect/uncletommy_letsgo_1.mp3",
     "/assets/soundeffect/uncletommy_letsgo_2.mp3",
   ],
+  leaderboardFanfare: "/assets/soundeffect/login_success.mp3",
+  leaderboardPodium: "/assets/soundeffect/Page_nextbutton.mp3",
   exerciseCountdownVideo: "/assets/transitions/countdown321.mp4",
   pageNext: "/assets/soundeffect/Page_nextbutton.mp3",
   pageBack: "/assets/soundeffect/Page_Backforward.mp3",
@@ -293,8 +295,8 @@ function shouldIsolateHostBgmForMedia() {
 /** Preferred UI locale loaded from prefs; applied during i18n init. */
 let hostPreferredUiLocale = null;
 
-function hostT(key) {
-  return window.LangoI18n?.t?.(key) ?? key;
+function hostT(key, vars) {
+  return window.LangoI18n?.t?.(key, vars) ?? key;
 }
 
 function getHostLanguageLabel(code) {
@@ -392,11 +394,14 @@ function updateHostSettingsControls() {
 function setHostUiLocale(locale, { persist = true } = {}) {
   const i18n = window.LangoI18n;
   if (!i18n) return;
-  i18n.setLocale(locale, { persist, apply: true });
+  const next = i18n.setLocale(locale, { persist, apply: true });
   populateHostLanguageSelect();
   applyHostUiLanguage();
   closeHostLanguageMenu();
   if (persist) savePrefs();
+  if (typeof syncHostSessionLocale === "function") {
+    syncHostSessionLocale(next);
+  }
 }
 
 function applyHostUiLanguage() {
@@ -1905,11 +1910,109 @@ function renderExerciseItem(exercise, index, selectedId, { locked = false, compl
   </button>`;
 }
 
-function renderExercises() {
+function setJourneyLoadStatus({ text = "", done = null, total = null, active = false } = {}) {
+  const wrap = $("#journey-load-status");
+  const status = $("#journey-status");
+  const fill = $("#journey-load-fill");
+  const hasProgress = Number.isFinite(done) && Number.isFinite(total) && total > 0;
+  const progress = hasProgress ? Math.max(0, Math.min(1, done / total)) : null;
+  const visible = Boolean(text) || active;
+
+  if (status) status.textContent = text;
+  if (wrap) {
+    wrap.hidden = !visible;
+    wrap.classList.toggle("is-active", active || hasProgress);
+    wrap.classList.toggle("has-progress", hasProgress);
+    if (hasProgress) {
+      wrap.setAttribute("aria-busy", "true");
+      wrap.setAttribute(
+        "aria-valuenow",
+        String(Math.round((progress || 0) * 100))
+      );
+      wrap.setAttribute("aria-valuemin", "0");
+      wrap.setAttribute("aria-valuemax", "100");
+      wrap.setAttribute("role", "progressbar");
+      wrap.setAttribute("aria-label", text || hostT("section.exercisesLoading"));
+    } else {
+      wrap.removeAttribute("aria-busy");
+      wrap.removeAttribute("aria-valuenow");
+      wrap.removeAttribute("aria-valuemin");
+      wrap.removeAttribute("aria-valuemax");
+      wrap.removeAttribute("role");
+      wrap.removeAttribute("aria-label");
+    }
+  }
+  if (fill) {
+    if (hasProgress) {
+      fill.style.width = `${Math.round((progress || 0) * 100)}%`;
+    } else if (active) {
+      fill.style.width = "35%";
+    } else {
+      fill.style.width = "0%";
+    }
+  }
+}
+
+function clearJourneyLoadStatus() {
+  setJourneyLoadStatus({ text: "", active: false });
+}
+
+function renderExerciseListSkeleton(count = 4) {
+  const container = $("#exercise-list");
+  if (!container) return;
+  const n = Math.max(3, Math.min(Number(count) || 4, 6));
+  container.setAttribute("aria-busy", "true");
+  container.innerHTML = Array.from({ length: n }, (_, index) => `
+    <div class="exercise-item exercise-item--skeleton" aria-hidden="true" style="--sk-i:${index}">
+      <span class="exercise-item-main">
+        <span class="exercise-skel-icon"></span>
+        <span class="exercise-item-text">
+          <span class="exercise-skel-line exercise-skel-line--title"></span>
+          <span class="exercise-skel-line exercise-skel-line--sub"></span>
+        </span>
+      </span>
+      <span class="exercise-skel-line exercise-skel-line--pts"></span>
+    </div>
+  `).join("");
+}
+
+function revealExerciseListItems(container) {
+  if (!container) return;
+  const items = [...container.querySelectorAll(".exercise-item")];
+  if (!items.length) return;
+
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (reduceMotion) return;
+
+  items.forEach((item, index) => {
+    const targetOpacity =
+      item.classList.contains("active") || item.classList.contains("exercise-item--completed")
+        ? "1"
+        : "0.52";
+    item.classList.add("exercise-item--reveal");
+    item.style.setProperty("--reveal-i", String(index));
+    item.style.setProperty("--reveal-opacity", targetOpacity);
+  });
+  // Force reflow so the reveal animation plays after paint.
+  void container.offsetWidth;
+  items.forEach((item) => item.classList.add("is-in"));
+
+  const clearAfterMs = 420 + Math.max(0, items.length - 1) * 55 + 40;
+  window.setTimeout(() => {
+    items.forEach((item) => {
+      item.classList.remove("exercise-item--reveal", "is-in");
+      item.style.removeProperty("--reveal-i");
+      item.style.removeProperty("--reveal-opacity");
+    });
+  }, clearAfterMs);
+}
+
+function renderExercises({ animate = false } = {}) {
   const container = $("#exercise-list");
   const selectedId = state.selectedExercise?.id;
   const exercises = getSelectedSectionExercises();
   updateExerciseContextLabel();
+  container?.removeAttribute("aria-busy");
 
   if (!exercises.length) {
     container.innerHTML = `<p class="exercise-empty">${hostT("section.exercisesEmpty")}</p>`;
@@ -1946,6 +2049,7 @@ function renderExercises() {
         exercise.id === state.selectedExercise?.id && isHostExerciseUnlocked(exercise, index, exercises)
     );
 
+  if (animate) revealExerciseListItems(container);
   initExerciseLotties();
 }
 
@@ -2161,7 +2265,7 @@ async function enterSectionStep({ resume = false } = {}) {
   destroyExerciseLotties();
   $("#exercise-list").innerHTML = "";
   $("#journey-error").textContent = "";
-  $("#journey-status").textContent = "";
+  clearJourneyLoadStatus();
   $("#btn-start-session").disabled = true;
   setSectionExercisePanelVisible(false);
   goTo("section", "section");
@@ -2247,9 +2351,13 @@ async function showSectionExercises() {
   state.selectedExercise = null;
   updateExerciseContextLabel();
   $("#journey-error").textContent = "";
-  $("#journey-status").textContent = hostT("section.exercisesLoading");
+  setJourneyLoadStatus({
+    text: hostT("section.exercisesLoading"),
+    active: true,
+  });
   destroyExerciseLotties();
-  $("#exercise-list").innerHTML = "";
+  const expectedCount = (state.selectedSection?.exercises || []).length;
+  renderExerciseListSkeleton(expectedCount || 4);
   $("#btn-start-session").disabled = true;
   setSectionExercisePanelVisible(true);
   goTo("section", "section");
@@ -2267,25 +2375,44 @@ async function showSectionExercises() {
     const exercises = getSelectedSectionExercises();
     if (exercises.length) {
       state.selectedExercise = preferredHostExercise(exercises);
+      // Refresh skeleton count once we know the real list length.
+      if (exercises.length !== expectedCount) {
+        renderExerciseListSkeleton(exercises.length);
+      }
     }
 
     if (exercises.length) {
       const mediaUrls = collectExerciseMediaUrls(exercises);
       if (mediaUrls.length) {
-        $("#journey-status").textContent = `Downloading media (0/${mediaUrls.length})…`;
+        setJourneyLoadStatus({
+          text: hostT("section.mediaLoading", { done: 0, total: mediaUrls.length }),
+          done: 0,
+          total: mediaUrls.length,
+          active: true,
+        });
         await preloadExerciseMedia(exercises, {
           onProgress: (done, total) => {
-            $("#journey-status").textContent = `Downloading media (${done}/${total})…`;
+            setJourneyLoadStatus({
+              text: hostT("section.mediaLoading", { done, total }),
+              done,
+              total,
+              active: true,
+            });
           },
         });
       }
     }
 
-    $("#journey-status").textContent = exercises.length ? "" : hostT("section.exercisesEmpty");
-    renderExercises();
+    if (exercises.length) {
+      clearJourneyLoadStatus();
+    } else {
+      setJourneyLoadStatus({ text: hostT("section.exercisesEmpty"), active: false });
+    }
+    renderExercises({ animate: true });
     $("#btn-start-session").disabled = !state.selectedExercise;
   } catch (err) {
-    $("#journey-status").textContent = "";
+    clearJourneyLoadStatus();
+    $("#exercise-list")?.removeAttribute("aria-busy");
     $("#journey-error").textContent = err.message;
   }
 }
@@ -2732,6 +2859,7 @@ async function createWaitingRoomForClass() {
       body: {
         class: state.classItem,
         user: state.user,
+        uiLocale: window.LangoI18n?.getLocale?.() || "en",
       },
     });
 
@@ -3182,13 +3310,24 @@ $("#btn-host-buzzin-done")?.addEventListener("click", () => {
   backToWaitingFromExercise();
 });
 $("#btn-host-buzzin-feedback-done")?.addEventListener("click", () => {
-  playPageNextSound();
-  backToWaitingFromExercise();
+  void handleHostBuzzinAdvanceOrDone();
 });
 $("#btn-host-buzzin-empty-done")?.addEventListener("click", () => {
-  playPageNextSound();
-  backToWaitingFromExercise();
+  void handleHostBuzzinAdvanceOrDone();
 });
+
+async function handleHostBuzzinAdvanceOrDone() {
+  playPageNextSound();
+  if (typeof hostBuzzinCanAdvanceQuestion === "function" && hostBuzzinCanAdvanceQuestion()) {
+    try {
+      await hostBuzzinAdvanceQuestion();
+    } catch (err) {
+      console.warn(err?.message || "Could not open next Buzz In question.");
+    }
+    return;
+  }
+  backToWaitingFromExercise();
+}
 $("#btn-start-another-video")?.addEventListener("click", () => {
   playPageNextSound();
   resetSessionAndGoToJourney();

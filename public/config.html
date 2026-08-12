@@ -10,20 +10,29 @@
 </head>
 <body class="cms-light">
   <div id="app" class="cms-app config-app">
-    <nav class="cms-topbar">
-      <a class="cms-brand" href="/config.html">Notification config</a>
+    <nav class="cms-topbar" aria-label="Config">
+      <a class="cms-brand" href="/config.html">
+        <span class="cms-brand-mark">Lango</span>
+        <span class="cms-brand-sep" aria-hidden="true"></span>
+        <span class="cms-brand-product">Notifications</span>
+      </a>
       <div class="cms-topbar-actions">
-        <a class="cms-link" href="/host.html">Host</a>
-        <a class="cms-link" href="/cms.html">Course CMS</a>
-        <span class="cms-teacher" id="config-teacher-label" hidden></span>
-        <button type="button" class="btn secondary small cms-logout" id="btn-config-logout" hidden>Log out</button>
+        <div class="cms-nav-group" aria-label="Shortcuts">
+          <a class="cms-link" href="/host.html">Host</a>
+          <a class="cms-link" href="/cms.html">Course CMS</a>
+        </div>
+        <div class="cms-nav-group cms-nav-account">
+          <span class="cms-teacher" id="config-teacher-label" hidden></span>
+          <button type="button" class="btn secondary small cms-logout" id="btn-config-logout" hidden>Log out</button>
+        </div>
       </div>
     </nav>
 
     <section id="screen-config-login" class="screen active">
-      <div class="cms-panel config-panel">
-        <h1>Teacher login</h1>
-        <p class="hint">Sign in to change the push notification base endpoint.</p>
+      <div class="cms-panel config-panel cms-panel-login">
+        <p class="cms-kicker">Teachers</p>
+        <h1>Sign in</h1>
+        <p class="hint">Change the push notification base endpoint.</p>
         <label class="field">
           <span>Username or email</span>
           <input type="text" id="config-login-username" autocomplete="username" />

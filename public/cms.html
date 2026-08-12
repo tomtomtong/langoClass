@@ -10,22 +10,31 @@
 </head>
 <body class="cms-light">
   <div id="app" class="cms-app">
-    <nav class="cms-topbar">
-      <a class="cms-brand" href="/cms.html">Course CMS</a>
+    <nav class="cms-topbar" aria-label="CMS">
+      <a class="cms-brand" href="/cms.html">
+        <span class="cms-brand-mark">Lango</span>
+        <span class="cms-brand-sep" aria-hidden="true"></span>
+        <span class="cms-brand-product">Course CMS</span>
+      </a>
       <div class="cms-topbar-actions">
-        <a class="cms-link" href="/host.html">← Back to host</a>
-        <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener">Student preview ↗</a>
-        <a class="cms-link" href="/host.html?preview=1" target="_blank" rel="noopener">Host preview ↗</a>
-        <a class="cms-link" href="/config.html">Notification config</a>
-        <span class="cms-teacher" id="cms-teacher-label" hidden></span>
-        <button type="button" class="btn secondary small cms-logout" id="btn-cms-logout" hidden>Log out</button>
+        <div class="cms-nav-group" aria-label="Shortcuts">
+          <a class="cms-link" href="/host.html">Host</a>
+          <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener">Student preview</a>
+          <a class="cms-link" href="/host.html?preview=1" target="_blank" rel="noopener">Host preview</a>
+          <a class="cms-link" href="/config.html">Notifications</a>
+        </div>
+        <div class="cms-nav-group cms-nav-account">
+          <span class="cms-teacher" id="cms-teacher-label" hidden></span>
+          <button type="button" class="btn secondary small cms-logout" id="btn-cms-logout" hidden>Log out</button>
+        </div>
       </div>
     </nav>
 
     <section id="screen-cms-login" class="screen active">
-      <div class="cms-panel">
-        <h1>Teacher login</h1>
-        <p class="hint">Sign in to create and manage your courses.</p>
+      <div class="cms-panel cms-panel-login">
+        <p class="cms-kicker">Teachers</p>
+        <h1>Sign in</h1>
+        <p class="hint">Create and manage courses for your classes.</p>
         <label class="field">
           <span>Username or email</span>
           <input type="text" id="cms-login-username" autocomplete="username" />
@@ -43,13 +52,13 @@
       <header class="cms-header">
         <div>
           <h1>My courses</h1>
-          <p class="hint">Create courses with quiz, video, and discussion exercises.</p>
+          <p class="hint">Build courses with quiz, video, and discussion exercises.</p>
         </div>
         <div class="cms-header-actions">
           <input type="file" id="import-all-file" accept=".zip,application/zip" hidden />
           <button type="button" class="btn secondary" id="btn-import-all-courses">Import all</button>
           <button type="button" class="btn secondary" id="btn-export-all-courses">Export all</button>
-          <button type="button" class="btn primary cms-new-btn" id="btn-new-course">+ New course</button>
+          <button type="button" class="btn primary cms-new-btn" id="btn-new-course">New course</button>
         </div>
       </header>
       <div id="cms-course-list" class="cms-course-list"></div>
@@ -58,50 +67,54 @@
     </section>
 
     <section id="screen-cms-edit" class="screen">
-      <button type="button" class="back-btn" id="btn-back-list">← All courses</button>
-      <h1 id="cms-edit-title">Edit course</h1>
+      <div class="cms-edit-chrome">
+        <button type="button" class="back-btn" id="btn-back-list">All courses</button>
+        <h1 id="cms-edit-title">Edit course</h1>
+      </div>
 
-      <div class="cms-tabs">
-        <button type="button" class="cms-tab active" data-tab="details">Details</button>
-        <button type="button" class="cms-tab" data-tab="sections">Sections</button>
+      <div class="cms-tabs" role="tablist">
+        <button type="button" class="cms-tab active" data-tab="details" role="tab" aria-selected="true">Details</button>
+        <button type="button" class="cms-tab" data-tab="sections" role="tab" aria-selected="false">Sections</button>
       </div>
 
       <div id="cms-tab-details" class="cms-tab-panel active">
-        <label class="field">
-          <span>Course name</span>
-          <input type="text" id="course-name" maxlength="120" />
-        </label>
-        <label class="field">
-          <span>Description</span>
-          <textarea id="course-description" rows="3" maxlength="500"></textarea>
-        </label>
-        <div class="field cms-thumbnail-field">
-          <span>Course thumbnail</span>
-          <div class="cms-thumbnail-preview" id="course-banner-preview" hidden>
-            <img id="course-banner-img" alt="Course thumbnail" />
-            <button type="button" class="btn secondary small" id="btn-remove-banner">Remove</button>
-          </div>
-          <label class="cms-thumbnail-upload btn secondary">
-            <input type="file" id="course-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
-            Upload image
+        <div class="cms-edit-surface">
+          <label class="field">
+            <span>Course name</span>
+            <input type="text" id="course-name" maxlength="120" />
           </label>
-          <p class="hint cms-thumbnail-hint">JPEG, PNG, WebP, or GIF · max 2 MB</p>
-          <input type="hidden" id="course-banner" />
-          <p class="status-msg" id="cms-banner-status"></p>
+          <label class="field">
+            <span>Description</span>
+            <textarea id="course-description" rows="3" maxlength="500"></textarea>
+          </label>
+          <div class="field cms-thumbnail-field">
+            <span>Course thumbnail</span>
+            <div class="cms-thumbnail-preview" id="course-banner-preview" hidden>
+              <img id="course-banner-img" alt="Course thumbnail" />
+              <button type="button" class="btn secondary small" id="btn-remove-banner">Remove</button>
+            </div>
+            <label class="cms-thumbnail-upload btn secondary">
+              <input type="file" id="course-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+              Upload image
+            </label>
+            <p class="hint cms-thumbnail-hint">JPEG, PNG, WebP, or GIF · max 2 MB</p>
+            <input type="hidden" id="course-banner" />
+            <p class="status-msg" id="cms-banner-status"></p>
+          </div>
+          <div class="field">
+            <span>Assigned classes</span>
+            <p class="hint cms-class-hint">Leave all unchecked to make this course available for any class when hosting.</p>
+            <div id="course-class-list" class="cms-class-picker"></div>
+            <p class="status-msg" id="cms-classes-status"></p>
+          </div>
+          <div class="cms-actions-row">
+            <button type="button" class="btn primary" id="btn-save-details">Save details</button>
+            <button type="button" class="btn secondary" id="btn-export-course">Export course</button>
+            <button type="button" class="btn secondary cms-danger" id="btn-delete-course">Delete course</button>
+          </div>
+          <p class="error" id="cms-details-error"></p>
+          <p class="status-msg" id="cms-details-status"></p>
         </div>
-        <div class="field">
-          <span>Assigned classes</span>
-          <p class="hint cms-class-hint">Leave all unchecked to make this course available for any class when hosting.</p>
-          <div id="course-class-list" class="cms-class-picker"></div>
-          <p class="status-msg" id="cms-classes-status"></p>
-        </div>
-        <div class="cms-actions-row">
-          <button type="button" class="btn primary" id="btn-save-details">Save details</button>
-          <button type="button" class="btn secondary" id="btn-export-course">Export course</button>
-          <button type="button" class="btn secondary cms-danger" id="btn-delete-course">Delete course</button>
-        </div>
-        <p class="error" id="cms-details-error"></p>
-        <p class="status-msg" id="cms-details-status"></p>
       </div>
 
       <div id="cms-tab-sections" class="cms-tab-panel">
@@ -111,7 +124,7 @@
           </div>
           <div id="cms-section-list" class="cms-section-list"></div>
           <div class="cms-section-add cms-section-add-bottom">
-            <button type="button" class="btn secondary small" id="btn-add-section">+ Add section</button>
+            <button type="button" class="btn secondary small" id="btn-add-section">Add section</button>
           </div>
           <button type="button" class="btn primary" id="btn-save-sections">Save sections</button>
           <p class="error" id="cms-sections-error"></p>
@@ -119,12 +132,12 @@
         </div>
 
         <div id="cms-exercises-view" class="cms-subview" hidden>
-          <button type="button" class="back-btn" id="btn-back-sections">← Back to sections</button>
+          <button type="button" class="back-btn" id="btn-back-sections">Back to sections</button>
           <h2 class="cms-subview-title" id="cms-exercises-section-title">Section exercises</h2>
           <div class="cms-exercise-toolbar">
             <span class="hint">Add blank templates or ready-to-use demos, then save when done.</span>
             <div class="cms-exercise-toolbar-row">
-              <a class="cms-link cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener">Preview all student layouts ↗</a>
+              <a class="cms-link cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener">Preview all student layouts</a>
               <div class="cms-exercise-add">
               <select id="cms-new-exercise-type">
                 <optgroup label="Blank template">
@@ -140,7 +153,7 @@
                   <option value="demo:buzzin">Demo Buzz In</option>
                 </optgroup>
               </select>
-              <button type="button" class="btn secondary small" id="btn-add-exercise">+ Add exercise</button>
+              <button type="button" class="btn secondary small" id="btn-add-exercise">Add exercise</button>
               </div>
             </div>
           </div>
@@ -178,7 +191,7 @@
       </div>
       <footer class="cms-section-footer">
         <span class="hint cms-section-exercise-count"></span>
-        <button type="button" class="btn secondary small cms-manage-exercises">Manage exercises →</button>
+        <button type="button" class="btn secondary small cms-manage-exercises">Manage exercises</button>
       </footer>
     </article>
   </template>
@@ -211,13 +224,15 @@
       </div>
       <div class="cms-exercise-body"></div>
       <footer class="cms-exercise-footer">
-        <a class="btn secondary small cms-exercise-preview" target="_blank" rel="noopener">Preview student layout ↗</a>
+        <a class="btn secondary small cms-exercise-preview" target="_blank" rel="noopener">Preview student layout</a>
       </footer>
     </article>
   </template>
 
   <script src="/common.js"></script>
   <script src="/exercise-utils.js"></script>
+  <script src="/vendor/gsap/gsap.min.js"></script>
+  <script src="/lango-gsap.js"></script>
   <script src="/cms.js"></script>
 </body>
 </html>

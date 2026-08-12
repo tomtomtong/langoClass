@@ -289,9 +289,16 @@ async function exportCurrentCourse() {
   }
 }
 
+function cmsMotion() {
+  return window.LangoGsap?.ready ? window.LangoGsap : null;
+}
+
 function showCmsScreen(id) {
   document.querySelectorAll(".cms-app .screen").forEach((s) => s.classList.remove("active"));
-  document.querySelector(`#screen-cms-${id}`).classList.add("active");
+  const screen = document.querySelector(`#screen-cms-${id}`);
+  if (!screen) return;
+  screen.classList.add("active");
+  cmsMotion()?.playCmsScreenEnter?.(screen);
 }
 
 function updateAuthUi() {
@@ -474,8 +481,13 @@ function renderAssignedClasses() {
 async function enterCourseList() {
   showCmsScreen("list");
   $("#cms-list-error").textContent = "";
-  $("#cms-list-status").textContent = "Loading courses…";
-  $("#cms-course-list").innerHTML = "";
+  $("#cms-list-status").textContent = "";
+  $("#cms-course-list").innerHTML = `
+    <div class="cms-list-loading" aria-hidden="true">
+      <div class="cms-skeleton-card"></div>
+      <div class="cms-skeleton-card"></div>
+      <div class="cms-skeleton-card"></div>
+    </div>`;
 
   try {
     await loadClasses();
@@ -484,8 +496,9 @@ async function enterCourseList() {
     renderCourseList();
     $("#cms-list-status").textContent = state.courses.length
       ? `${state.courses.length} course${state.courses.length === 1 ? "" : "s"}`
-      : "No courses yet — create your first one.";
+      : "";
   } catch (err) {
+    $("#cms-course-list").innerHTML = "";
     $("#cms-list-status").textContent = "";
     $("#cms-list-error").textContent = err.message;
   }
@@ -494,7 +507,14 @@ async function enterCourseList() {
 function renderCourseList() {
   const container = $("#cms-course-list");
   if (!state.courses.length) {
-    container.innerHTML = "";
+    container.innerHTML = `
+      <div class="cms-empty">
+        <p class="cms-empty-title">No courses yet</p>
+        <p class="cms-empty-copy">Create your first course, then add sections and exercises for class.</p>
+        <button type="button" class="btn primary" id="btn-empty-new-course">New course</button>
+      </div>`;
+    $("#btn-empty-new-course")?.addEventListener("click", createNewCourse);
+    cmsMotion()?.playCmsListReveal?.(container);
     return;
   }
 
@@ -518,6 +538,7 @@ function renderCourseList() {
   container.querySelectorAll(".cms-course-card").forEach((btn) => {
     btn.addEventListener("click", () => openCourseEditor(Number(btn.dataset.id)));
   });
+  cmsMotion()?.playCmsListReveal?.(container);
 }
 
 async function openCourseEditor(courseId) {
@@ -712,6 +733,7 @@ function openSectionExercises(sectionIndex) {
   $("#cms-exercises-error").textContent = "";
   $("#cms-exercises-status").textContent = "";
   renderExerciseEditors();
+  cmsMotion()?.playCmsTabEnter?.($("#cms-exercises-view"));
 }
 
 function closeSectionExercises({ reRender = true } = {}) {
@@ -734,13 +756,22 @@ function switchTab(tabId) {
   }
 
   document.querySelectorAll(".cms-tab").forEach((tab) => {
-    tab.classList.toggle("active", tab.dataset.tab === tabId);
+    const active = tab.dataset.tab === tabId;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
   });
   document.querySelectorAll(".cms-tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === `cms-tab-${tabId}`);
   });
 
-  if (tabId === "sections") renderSectionEditors();
+  if (tabId === "sections") {
+    renderSectionEditors();
+  } else {
+    const panel = document.querySelector(`#cms-tab-${tabId}`);
+    if (panel?.classList.contains("active")) {
+      cmsMotion()?.playCmsTabEnter?.(panel);
+    }
+  }
 }
 
 async function handleBannerFileChange() {
@@ -832,7 +863,16 @@ function defaultExercise(type) {
       type: "buzzin",
       title: "Buzz In",
       subTitle: "Buzz In",
-      items: [{ topic: "What is your favorite animal?" }],
+      items: [
+        {
+          topic: "What is your favorite animal?",
+          correctAnswer: "Any real animal with a clear reason is acceptable.",
+        },
+        {
+          topic: "Name a place you want to visit and say why.",
+          correctAnswer: "Any real place with a clear personal reason.",
+        },
+      ],
     };
   }
   if (type === "fastmcquiz") {
@@ -883,7 +923,20 @@ function demoExercise(type) {
       type: "buzzin",
       title: "Demo: Ocean Animals",
       subTitle: "Buzz In",
-      items: [{ topic: "Name an animal that lives in the ocean and say why you like it." }],
+      items: [
+        {
+          topic: "Name an animal that lives in the ocean and say why you like it.",
+          correctAnswer: "An ocean animal (for example dolphin, whale, turtle) with a reason.",
+        },
+        {
+          topic: "What is the biggest ocean animal you know?",
+          correctAnswer: "Blue whale (or another correctly named large ocean animal).",
+        },
+        {
+          topic: "Would you rather swim with dolphins or turtles? Why?",
+          correctAnswer: "Either dolphins or turtles, with a clear reason.",
+        },
+      ],
     };
   }
   if (type === "fastmcquiz") {
@@ -1446,35 +1499,120 @@ function renderVideoBody(container, exercise) {
   };
 }
 
+const MAX_BUZZIN_TOPICS = 15;
+
+function buzzinSttLanguageOptionsHtml(selected = "") {
+  const value = String(selected || "").trim().toLowerCase();
+  return `
+    <option value=""${value ? "" : " selected"}>Server default</option>
+    <option value="en"${value === "en" ? " selected" : ""}>English (en)</option>
+    <option value="yue"${value === "yue" ? " selected" : ""}>Cantonese (yue)</option>
+    <option value="zh"${value === "zh" ? " selected" : ""}>Chinese (zh)</option>
+    <option value="ja"${value === "ja" ? " selected" : ""}>Japanese (ja)</option>
+    <option value="ko"${value === "ko" ? " selected" : ""}>Korean (ko)</option>
+  `;
+}
+
 function renderBuzzinBody(container, exercise) {
-  const item = exercise.items?.[0] || {};
-  const topic =
-    item.topic || collectBuzzinQuestions(exercise)[0] || item.title || exercise.title || "";
-  const sttLanguage = String(item.sttLanguage || "").trim().toLowerCase();
-  container.innerHTML = `
-    <label class="field">
-      <span>Topic</span>
-      <input type="text" class="cms-buzzin-topic" value="${escapeHtml(topic)}" placeholder="What should students discuss?" />
-    </label>
-    <label class="field">
-      <span>Speech language</span>
-      <select class="cms-buzzin-stt-language">
-        <option value=""${sttLanguage ? "" : " selected"}>Server default</option>
-        <option value="en"${sttLanguage === "en" ? " selected" : ""}>English (en)</option>
-        <option value="yue"${sttLanguage === "yue" ? " selected" : ""}>Cantonese (yue)</option>
-        <option value="zh"${sttLanguage === "zh" ? " selected" : ""}>Chinese (zh)</option>
-        <option value="ja"${sttLanguage === "ja" ? " selected" : ""}>Japanese (ja)</option>
-        <option value="ko"${sttLanguage === "ko" ? " selected" : ""}>Korean (ko)</option>
-      </select>
-      <p class="hint">STT language hint for this Buzz In. Leave as server default unless students answer in another language.</p>
-    </label>`;
+  const items = (exercise.items?.length ? exercise.items : defaultExercise("buzzin").items).map(
+    (item) => ({
+      topic: String(item.topic || item.title || "").trim(),
+      correctAnswer: String(item.correctAnswer || item.answer || "").trim(),
+      sttLanguage: String(item.sttLanguage || "").trim().toLowerCase(),
+    })
+  );
+  if (!items.length) items.push({ topic: "", correctAnswer: "", sttLanguage: "" });
+
+  container.innerHTML = `<div class="cms-questions-list cms-buzzin-topics-list"></div>
+    <button type="button" class="btn secondary small cms-add-buzzin-topic">+ Add question</button>
+    <p class="hint">Each question needs a topic and correct answer. AI uses the correct answer to judge Correctness.</p>`;
+
+  const list = container.querySelector(".cms-buzzin-topics-list");
+
+  function syncFromDom() {
+    list.querySelectorAll(".cms-buzzin-topic-block").forEach((block, idx) => {
+      if (!items[idx]) return;
+      items[idx].topic = block.querySelector(".cms-buzzin-topic")?.value.trim() || "";
+      items[idx].correctAnswer =
+        block.querySelector(".cms-buzzin-correct-answer")?.value.trim() || "";
+      items[idx].sttLanguage =
+        block.querySelector(".cms-buzzin-stt-language")?.value.trim().toLowerCase() || "";
+    });
+  }
+
+  function renderTopics() {
+    list.innerHTML = items
+      .map(
+        (item, qIdx) => `<div class="cms-question-block cms-buzzin-topic-block" data-q="${qIdx}">
+          <div class="cms-question-head">
+            <span>Q${qIdx + 1}</span>
+            <button type="button" class="cms-icon-btn cms-remove-buzzin-topic" data-q="${qIdx}"${
+              items.length <= 1 ? " disabled" : ""
+            }>×</button>
+          </div>
+          <label class="field">
+            <span>Topic</span>
+            <input type="text" class="cms-buzzin-topic" data-q="${qIdx}" value="${escapeHtml(
+              item.topic || ""
+            )}" placeholder="What should students discuss?" />
+          </label>
+          <label class="field">
+            <span>Correct answer</span>
+            <input type="text" class="cms-buzzin-correct-answer" data-q="${qIdx}" value="${escapeHtml(
+              item.correctAnswer || ""
+            )}" placeholder="Expected answer for AI Correctness scoring" />
+          </label>
+          <label class="field">
+            <span>Speech language</span>
+            <select class="cms-buzzin-stt-language" data-q="${qIdx}">
+              ${buzzinSttLanguageOptionsHtml(item.sttLanguage)}
+            </select>
+          </label>
+        </div>`
+      )
+      .join("");
+
+    list.querySelectorAll(".cms-remove-buzzin-topic").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const qIdx = Number(btn.dataset.q);
+        syncFromDom();
+        if (items.length <= 1) return;
+        items.splice(qIdx, 1);
+        renderTopics();
+      });
+    });
+  }
+
+  container.querySelector(".cms-add-buzzin-topic")?.addEventListener("click", () => {
+    syncFromDom();
+    if (items.length >= MAX_BUZZIN_TOPICS) return;
+    items.push({
+      topic: "",
+      correctAnswer: "",
+      sttLanguage: items[items.length - 1]?.sttLanguage || "",
+    });
+    renderTopics();
+  });
 
   container._collectItems = () => {
-    const nextTopic = container.querySelector(".cms-buzzin-topic")?.value.trim() || "";
-    const nextLanguage = container.querySelector(".cms-buzzin-stt-language")?.value.trim() || "";
-    if (!nextTopic) return [];
-    return [{ topic: nextTopic, ...(nextLanguage ? { sttLanguage: nextLanguage } : {}) }];
+    syncFromDom();
+    return items
+      .map((item) => {
+        const topic = String(item.topic || "").trim();
+        const correctAnswer = String(item.correctAnswer || "").trim();
+        const sttLanguage = String(item.sttLanguage || "").trim().toLowerCase();
+        if (!topic) return null;
+        return {
+          topic,
+          ...(correctAnswer ? { correctAnswer } : {}),
+          ...(sttLanguage ? { sttLanguage } : {}),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, MAX_BUZZIN_TOPICS);
   };
+
+  renderTopics();
 }
 
 function renderExerciseBody(card, exercise) {
@@ -1653,6 +1791,7 @@ function renderSectionEditors() {
     setupSectionDrag(sectionCard, container);
     container.appendChild(sectionCard);
   });
+  cmsMotion()?.playCmsListReveal?.(container);
 }
 
 function renderExerciseEditors() {
@@ -1668,13 +1807,19 @@ function renderExerciseEditors() {
 
   const exercises = section.exercises || [];
   if (!exercises.length) {
-    container.innerHTML = `<p class="hint">No exercises yet. Choose a type and click “Add exercise”.</p>`;
+    container.innerHTML = `
+      <div class="cms-empty">
+        <p class="cms-empty-title">No exercises yet</p>
+        <p class="cms-empty-copy">Pick a blank template or demo above, then click Add exercise.</p>
+      </div>`;
+    cmsMotion()?.playCmsListReveal?.(container);
     return;
   }
 
   exercises.forEach((exercise, exerciseIndex) => {
     renderExerciseCard(exercise, sectionIndex, exerciseIndex, container);
   });
+  cmsMotion()?.playCmsListReveal?.(container);
 }
 
 function setupSectionDrag(sectionCard, container) {

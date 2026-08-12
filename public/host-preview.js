@@ -258,6 +258,8 @@
           "✅ Correctness (88): Strong ocean animal\n🧩 Completeness (82): Nice personal reason\n🗣️ Fluency (85): Clear and confident",
         spokenFeedback:
           "Sophia, dolphins are a wonderful choice — you explained clearly why you like them. Keep sharing your ideas like that!",
+        answerVerdict: "correct",
+        isCorrect: true,
         analysisStatus: "done",
         analysisAudio: PREVIEW_BUZZIN_AUDIO,
         analysisAudioFormat: "wav",
@@ -287,8 +289,11 @@
         setSectionExercisePanelVisible(false);
       }
     }
-    if (typeof activateScreen === "function") activateScreen(screenId);
-    else showScreen(screenId);
+    // Always cancel in-flight GSAP page transitions. Using activateScreen alone
+    // leaves a pending showScreen onCovered callback that snaps back to the
+    // previous quiz screen — which feels like the layout switcher is broken.
+    if (typeof showScreen === "function") showScreen(screenId, { transition: false });
+    else if (typeof activateScreen === "function") activateScreen(screenId);
     if (typeof setActiveStep === "function") setActiveStep(stepId);
   }
 
@@ -375,6 +380,7 @@
   }
 
   function applyLayout(layoutId) {
+    if (typeof cancelScreenTransition === "function") cancelScreenTransition();
     seedPreviewState();
 
     switch (layoutId) {
@@ -384,10 +390,10 @@
 
       case "class":
         renderClassGrid($("#class-sections"), SAMPLE.classes, { selectedId: 1, onSelect: () => {} });
-        $("#class-status").textContent = "";
-        $("#class-error").textContent = "";
-        $("#teacher-label-wrap").hidden = false;
-        $("#teacher-label").textContent = "Preview Teacher";
+        if ($("#class-status")) $("#class-status").textContent = "";
+        if ($("#class-error")) $("#class-error").textContent = "";
+        if ($("#teacher-label-wrap")) $("#teacher-label-wrap").hidden = false;
+        if ($("#teacher-label")) $("#teacher-label").textContent = "Preview Teacher";
         showHostPreviewScreen("class", "class");
         break;
 
@@ -410,7 +416,8 @@
         const exercises = SAMPLE.sections[0].exercises;
         state.selectedExercise = exercises[1];
         setSectionExercisePanelVisible(true);
-        $("#journey-status").textContent = "";
+        if (typeof clearJourneyLoadStatus === "function") clearJourneyLoadStatus();
+        else $("#journey-status").textContent = "";
         $("#journey-error").textContent = "";
         $("#exercise-list").innerHTML = exercises
           .map((exercise, index) =>
@@ -443,20 +450,22 @@
         break;
 
       case "mc-preview":
-        renderHostQuizPreview({
-          questionIndex: 0,
-          totalQuestions: 3,
-          text: SAMPLE.question,
-          image: SAMPLE.image,
-          points: 300,
-          previewSeconds: 5,
-          previewEndsAt: Date.now() + 5000,
-        });
+        renderHostQuizPreview(
+          {
+            questionIndex: 0,
+            totalQuestions: 3,
+            text: SAMPLE.question,
+            image: SAMPLE.image,
+            points: 300,
+            previewSeconds: 5,
+            previewEndsAt: Date.now() + 5000,
+          },
+          { transition: false }
+        );
         setActiveStep("quiz");
         break;
 
       case "mc-question":
-        const fromMcPreview = $("#screen-host-quiz-preview")?.classList.contains("active");
         renderHostQuizQuestion(
           {
             questionIndex: 0,
@@ -468,23 +477,26 @@
             timeLimit: 15,
             endsAt: Date.now() + 15000,
           },
-          { preparing: false, transition: !fromMcPreview }
+          { preparing: false, transition: false }
         );
         setActiveStep("quiz");
         break;
 
       case "mc-fast":
-        renderHostQuizQuestion({
-          questionIndex: 1,
-          totalQuestions: 5,
-          text: SAMPLE.question,
-          options: SAMPLE.options,
-          image: "",
-          points: 500,
-          fastMode: true,
-          timeLimit: 8,
-          endsAt: Date.now() + 8000,
-        });
+        renderHostQuizQuestion(
+          {
+            questionIndex: 1,
+            totalQuestions: 5,
+            text: SAMPLE.question,
+            options: SAMPLE.options,
+            image: "",
+            points: 500,
+            fastMode: true,
+            timeLimit: 8,
+            endsAt: Date.now() + 8000,
+          },
+          { preparing: false, transition: false }
+        );
         setActiveStep("quiz");
         break;
 
@@ -508,7 +520,7 @@
         const correctAnswerEl = $("#host-quiz-results-correct-answer");
         if (correctAnswerEl) {
           correctAnswerEl.innerHTML =
-            'Correct Answer: <span class="host-mcq-correct-highlight">A. Photosynthesis</span>';
+            '<span class="host-mcq-correct-highlight">A. Photosynthesis</span>';
         }
         renderHostResultDistribution(roomQuizCurrentQuestion, [3, 1, 1, 0], 0);
         renderCorrectResponders(SAMPLE.quizResults);
@@ -620,9 +632,10 @@
   const previewParam = params.get("preview");
   const initial =
     params.get("layout") ||
-    (previewParam === "1" ? "mc-preview" : localStorage.getItem(STORAGE_KEY)) ||
-    (previewParam === "leaderboard" ? "leaderboard" : "mc-preview");
+    (previewParam === "leaderboard" ? "leaderboard" : null) ||
+    localStorage.getItem(STORAGE_KEY) ||
+    "mc-preview";
   const valid = LAYOUTS.some((layout) => layout.id === initial);
-  layoutSelect.value = valid ? initial : "mc-question";
+  layoutSelect.value = valid ? initial : "mc-preview";
   applyLayout(layoutSelect.value);
 })();

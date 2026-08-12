@@ -13,24 +13,24 @@
   <div id="app">
     <section id="screen-join" class="screen active">
       <div id="join-panel-quiz">
-        <h2>Join a Game</h2>
+        <h2 data-i18n="join.gameTitle">Join a Game</h2>
         <label class="field">
-          <span>Nickname</span>
-          <input type="text" id="join-nickname" maxlength="20" placeholder="Your name" />
+          <span data-i18n="join.nickname">Nickname</span>
+          <input type="text" id="join-nickname" maxlength="20" placeholder="Your name" data-i18n="join.nicknamePlaceholder" data-i18n-attr="placeholder" />
         </label>
-        <p class="connection-status" id="connection-status">Connecting to server…</p>
-        <button class="btn primary" id="btn-join-game" disabled>Join</button>
+        <p class="connection-status" id="connection-status" data-i18n="join.connecting">Connecting to server…</p>
+        <button class="btn primary" id="btn-join-game" disabled data-i18n="join.button">Join</button>
         <p class="error" id="join-error"></p>
       </div>
 
       <div id="join-panel-link-required" hidden>
-        <h2>Join class</h2>
-        <p class="connection-status">Open the join link from your teacher's notification.</p>
+        <h2 data-i18n="join.classTitle">Join class</h2>
+        <p class="connection-status" data-i18n="join.classHint">Open the join link from your teacher's notification.</p>
       </div>
 
       <div id="join-panel-room" hidden>
-        <h2>Joining class</h2>
-        <p class="connection-status" id="join-room-status">Connecting…</p>
+        <h2 data-i18n="join.joiningTitle">Joining class</h2>
+        <p class="connection-status" id="join-room-status" data-i18n="join.joiningStatus">Connecting…</p>
         <p class="error" id="join-room-error"></p>
       </div>
     </section>
@@ -38,27 +38,27 @@
     <section id="screen-room-waiting" class="screen general-waiting-ui" aria-labelledby="room-waiting-title">
       <div class="general-waiting-ui__content">
         <header class="general-waiting-ui__header">
-          <h1 id="room-waiting-title">Waiting Room</h1>
+          <h1 id="room-waiting-title" data-i18n="join.waitingTitle">Waiting Room</h1>
         </header>
 
         <main class="general-waiting-ui__main">
           <div class="general-waiting-ui__message-card">
-            <p id="room-waiting-status" aria-live="polite">Please look at the digital whiteboard outside.</p>
+            <p id="room-waiting-status" aria-live="polite" data-i18n="join.waitingStatus">Please look at the digital whiteboard outside.</p>
           </div>
         </main>
       </div>
-      <button id="btn-leave-room" type="button" hidden>Leave waiting room</button>
+      <button id="btn-leave-room" type="button" hidden data-i18n="join.leaveWaiting">Leave waiting room</button>
     </section>
 
     <section id="screen-room-passive-waiting" class="screen passive-waiting-ui" aria-labelledby="room-passive-waiting-title">
       <div class="passive-waiting-ui__content">
         <header class="passive-waiting-ui__header">
-          <h1 id="room-passive-waiting-title">Watch the lesson</h1>
+          <h1 id="room-passive-waiting-title" data-i18n="join.watchTitle">Watch the lesson</h1>
         </header>
 
         <main class="passive-waiting-ui__main">
           <div class="passive-waiting-ui__message-card">
-            <p id="room-passive-waiting-status" aria-live="polite">No action is needed. Please watch the teacher's screen.</p>
+            <p id="room-passive-waiting-status" aria-live="polite" data-i18n="join.watchStatus">No action is needed. Please watch the teacher's screen.</p>
           </div>
         </main>
       </div>
@@ -68,7 +68,7 @@
       <div class="player-mcq-backdrop" aria-hidden="true"></div>
       <div class="player-mcq-shell">
         <header class="player-mcq-header">
-          <h1 class="player-mcq-title" id="player-mcq-title">MCQ Question</h1>
+          <h1 class="player-mcq-title" id="player-mcq-title" data-i18n="mcq.title">MCQ Question</h1>
         </header>
 
         <main class="player-mcq-main">
@@ -85,7 +85,7 @@
             <h2 class="question-text player-mcq-question" id="player-question-text"></h2>
           </section>
 
-          <p class="player-mcq-selected-label" id="player-selected-answer-label" hidden>Selected answer</p>
+          <p class="player-mcq-selected-label" id="player-selected-answer-label" hidden data-i18n="mcq.selectedAnswer">Selected answer</p>
           <div class="player-mcq-options-wrap">
             <div class="options-grid player-options" id="player-options"></div>
           </div>
@@ -98,21 +98,21 @@
       <div class="player-mcq-result-backdrop" aria-hidden="true"></div>
       <div class="player-mcq-result-shell">
         <header class="player-mcq-result-header">
-          <h1 class="player-mcq-result-title" id="player-result-screen-title">Quick Questions</h1>
+          <h1 class="player-mcq-result-title" id="player-result-screen-title" data-i18n="mcq.quickQuestions">Quick Questions</h1>
         </header>
 
         <main class="player-mcq-result-main">
           <section class="player-mcq-result-card">
-            <div id="player-result-msg" class="result-msg correct" data-text="You answered it correctly">You answered it correctly</div>
+            <div id="player-result-msg" class="result-msg correct" data-text="You answered it correctly" data-i18n="mcq.resultCorrect">You answered it correctly</div>
             <div class="player-mcq-result-icon" id="player-result-icon" aria-hidden="true">✅</div>
             <p class="player-mcq-result-points" id="player-result-points" data-text="500 pts">500 pts</p>
-            <p class="player-mcq-result-encouragement" id="player-result-encouragement" data-text="Keep going">Keep going</p>
+            <p class="player-mcq-result-encouragement" id="player-result-encouragement" data-text="Keep going" data-i18n="mcq.encourageKeepGoing">Keep going</p>
           </section>
         </main>
 
         <div class="player-mcq-result-data" aria-hidden="true">
           <div class="leaderboard compact">
-            <h3>Leaderboard</h3>
+            <h3 data-i18n="leaderboard.title">Leaderboard</h3>
             <ol id="player-leaderboard"></ol>
           </div>
         </div>
@@ -121,18 +121,18 @@
 
     <section id="screen-player-fast-results" class="screen player-fast-result" aria-labelledby="player-fast-result-title">
       <div class="player-fast-result__shell">
-        <h1 class="player-fast-result__title" id="player-fast-result-title">Result</h1>
+        <h1 class="player-fast-result__title" id="player-fast-result-title" data-i18n="fast.resultTitle">Result</h1>
 
         <main class="player-fast-result__panel">
           <header class="player-fast-result__summary">
-            <p class="player-fast-result__summary-label">Correct Answers</p>
+            <p class="player-fast-result__summary-label" data-i18n="fast.correctAnswers">Correct Answers</p>
             <p class="player-fast-result__summary-score" id="player-fast-correct-score">0 / 0</p>
           </header>
 
           <ol class="player-fast-result__answers" id="player-fast-answer-list" aria-label="Your answer review"></ol>
 
           <footer class="player-fast-result__footer">
-            <p class="player-fast-result__points-label">Your Current Points</p>
+            <p class="player-fast-result__points-label" data-i18n="fast.yourPoints">Your Current Points</p>
             <p class="player-fast-result__points" id="player-fast-current-points">0 pts</p>
           </footer>
         </main>
@@ -142,18 +142,28 @@
     <section id="screen-player-finished" class="screen player-leaderboard" aria-labelledby="player-leaderboard-title">
       <div class="player-leaderboard__backdrop" aria-hidden="true"></div>
       <div class="player-leaderboard__shell">
-        <h1 class="player-leaderboard__title" id="player-leaderboard-title">Leaderboard</h1>
+        <h1 class="player-leaderboard__title" id="player-leaderboard-title" data-i18n="leaderboard.title">Your results</h1>
 
         <main class="player-leaderboard__panel">
           <div class="player-leaderboard__tabs" role="tablist" aria-label="Leaderboard period">
-            <button class="player-leaderboard__tab is-active" id="leaderboard-current-tab" type="button" role="tab" aria-selected="true" aria-controls="player-exercise-leaderboard-wrap" data-leaderboard-view="current">
-              Current Session
+            <button class="player-leaderboard__tab is-active" id="leaderboard-current-tab" type="button" role="tab" aria-selected="true" aria-controls="player-exercise-leaderboard-wrap" data-leaderboard-view="current" data-i18n="leaderboard.currentSession">
+              This round
             </button>
-            <button class="player-leaderboard__tab" id="leaderboard-overall-tab" type="button" role="tab" aria-selected="false" aria-controls="player-semester-leaderboard-wrap" data-leaderboard-view="overall">
-              Overall
+            <button class="player-leaderboard__tab" id="leaderboard-overall-tab" type="button" role="tab" aria-selected="false" aria-controls="player-semester-leaderboard-wrap" data-leaderboard-view="overall" data-i18n="leaderboard.overall">
+              Class total
             </button>
           </div>
 
+          <div class="player-leaderboard__me" id="player-me-hero" aria-live="polite">
+            <span class="player-leaderboard__me-sparkle" aria-hidden="true"></span>
+            <p class="player-leaderboard__me-label" data-i18n="leaderboard.yourPlace">Your place</p>
+            <p class="player-leaderboard__rank-summary" id="player-current-rank">—</p>
+            <p class="player-leaderboard__points" id="player-current-points" data-score-value="0">0 pts</p>
+            <p class="player-leaderboard__accuracy" id="player-accuracy-line" hidden></p>
+            <p class="player-leaderboard__encouragement" id="player-encouragement" data-i18n="leaderboard.getOnBoard">Play the next round to get on the board.</p>
+          </div>
+
+          <p class="player-leaderboard__board-label" id="player-board-label" data-i18n="leaderboard.topOfClass">Top of class</p>
           <div class="player-leaderboard__board" id="player-exercise-leaderboard-wrap" role="tabpanel" aria-labelledby="leaderboard-current-tab">
             <ol class="player-leaderboard__list" id="player-final-leaderboard"></ol>
           </div>
@@ -162,12 +172,8 @@
           </div>
 
           <footer class="player-leaderboard__footer">
-            <p class="player-leaderboard__rank-summary" id="player-current-rank" hidden></p>
-            <p class="player-leaderboard__points-label">Your Current Points</p>
-            <p class="player-leaderboard__points" id="player-current-points">0 pts</p>
-            <p class="player-leaderboard__encouragement">Keep going!<br />You're making great progress.</p>
             <div class="player-leaderboard__actions">
-              <button class="player-leaderboard__action" id="btn-play-again" type="button">Play Again</button>
+              <button class="player-leaderboard__action" id="btn-play-again" type="button" data-i18n="leaderboard.playAgain">Play Again</button>
             </div>
           </footer>
         </main>
@@ -177,29 +183,29 @@
     <section id="screen-room-buzzin" class="screen buzzin-interaction-screen" aria-labelledby="room-buzzin-screen-title">
       <div class="buzzin-interaction-stage">
         <header class="buzzin-interaction-header">
-          <h1 class="buzzin-interaction-title" id="room-buzzin-screen-title">Buzz in Question</h1>
+          <h1 class="buzzin-interaction-title" id="room-buzzin-screen-title" data-i18n="buzzin.title">Buzz in Question</h1>
         </header>
 
         <main class="buzzin-interaction-main">
           <section class="buzzin-play-area" aria-label="Buzz in interaction">
             <div class="buzzin-card-title">
-              <h2 id="room-buzzin-card-title">Record your voice</h2>
+              <h2 id="room-buzzin-card-title" data-i18n="buzzin.recordTitle">Record your voice</h2>
               <p class="buzzin-topic" id="room-buzzin-topic"></p>
-              <p id="room-buzzin-status" class="buzzin-status">Get ready to buzz in…</p>
+              <p id="room-buzzin-status" class="buzzin-status" data-i18n="buzzin.getReadyBuzz">Get ready to buzz in…</p>
             </div>
 
             <div class="buzzin-join-timer" id="room-buzzin-timer-wrap" hidden>
-              <span class="buzzin-join-timer-label">Buzz in</span>
+              <span class="buzzin-join-timer-label" data-i18n="buzzin.timerLabel">Buzz in</span>
               <span id="room-buzzin-timer" class="buzzin-join-timer-value">20</span>
             </div>
 
-            <button class="btn buzzin-btn" id="btn-room-buzz-in" type="button" disabled>BUZZ IN!</button>
+            <button class="btn buzzin-btn" id="btn-room-buzz-in" type="button" disabled data-i18n="buzzin.buzzInBtn">BUZZ IN!</button>
             <p id="room-buzzin-result" class="buzzin-result" hidden></p>
 
             <div class="buzzin-watching-prompt" id="room-buzzin-watching-prompt" hidden aria-live="polite">
-              <p class="buzzin-watching-prompt__label" id="room-buzzin-watching-label">Watch &amp; listen</p>
+              <p class="buzzin-watching-prompt__label" id="room-buzzin-watching-label" data-i18n="buzzin.watchListen">Watch &amp; listen</p>
               <p class="buzzin-watching-prompt__question">
-                <span class="buzzin-watching-prompt__lead">Today's question:</span>
+                <span class="buzzin-watching-prompt__lead" data-i18n="buzzin.todaysQuestion">Today's question:</span>
                 <span id="room-buzzin-watching-topic"></span>
               </p>
               <p class="buzzin-watching-prompt__name" id="room-buzzin-watching-name"></p>
@@ -208,16 +214,16 @@
 
             <div class="buzzin-turn-area" id="room-buzzin-turn" hidden>
               <div class="buzzin-answer-prompt" id="room-buzzin-answer-prompt" hidden aria-live="polite">
-                <p class="buzzin-answer-prompt__label">Uncle Tommy says</p>
+                <p class="buzzin-answer-prompt__label" data-i18n="buzzin.uncleSays">Uncle Tommy says</p>
                 <p class="buzzin-answer-prompt__question">
-                  <span class="buzzin-answer-prompt__lead">Today's question:</span>
+                  <span class="buzzin-answer-prompt__lead" data-i18n="buzzin.todaysQuestion">Today's question:</span>
                   <span id="room-buzzin-answer-prompt-topic"></span>
                 </p>
                 <p class="buzzin-answer-prompt__name" id="room-buzzin-answer-prompt-name"></p>
                 <ol class="buzzin-answer-prompt__steps">
-                  <li>Tap <strong>Record</strong> below</li>
-                  <li>Speak your answer</li>
-                  <li>Tap <strong>Record</strong> again to submit</li>
+                  <li data-i18n="buzzin.stepRecord">Tap Record below</li>
+                  <li data-i18n="buzzin.stepSpeak">Speak your answer</li>
+                  <li data-i18n="buzzin.stepSubmit">Tap Record again to submit</li>
                 </ol>
               </div>
               <p id="room-buzzin-turn-status" class="buzzin-turn-status"></p>
@@ -232,7 +238,7 @@
                   </div>
                   <span class="buzzin-recording-time" id="room-buzzin-recording-time">00 : 30 s</span>
                 </div>
-                <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button">Record</button>
+                <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button" data-i18n="buzzin.record">Record</button>
                 <span id="room-buzzin-record-status" class="buzzin-record-status" hidden></span>
               </div>
               <p id="room-buzzin-submitted" class="buzzin-submitted" hidden></p>
@@ -247,6 +253,9 @@
   <script src="/lango-gsap.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/common.js"></script>
+  <script src="/i18n.js"></script>
+  <script src="/i18n-exercise.js"></script>
+  <script src="/i18n-world.js"></script>
   <script src="/exercise-utils.js"></script>
   <script src="/audio-wav-utils.js"></script>
   <script src="/join-room-quiz.js"></script>

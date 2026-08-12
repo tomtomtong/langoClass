@@ -17,6 +17,8 @@ let hostBuzzinTopicSpeaking = false;
 let hostQuestionTtsToken = 0;
 let hostBuzzinLuckyDrawRunning = false;
 let hostBuzzinLuckyStar = null;
+let hostBuzzinHasNextQuestion = false;
+let hostBuzzinAdvancingQuestion = false;
 const hostBuzzinPlayedAnnouncements = new Set();
 const hostBuzzinFeedbackAnim = {
   topic: "",
@@ -44,7 +46,7 @@ function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, r
       ? "pending"
       : "";
   const feedbackKey = response
-    ? `${response.analysisStatus || "none"}:${response.analysis || ""}:${response.spokenFeedback || ""}`
+    ? `${response.analysisStatus || "none"}:${response.answerVerdict || ""}:${response.analysis || ""}:${response.spokenFeedback || ""}`
     : "";
 
   const flags = {
@@ -67,12 +69,103 @@ function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, r
   return flags;
 }
 
-function syncHostBuzzinTopic(topic) {
+function syncHostBuzzinTopic(topic, meta = null) {
   const text = String(topic || "").trim();
   const questionTopic = $("#host-buzzin-topic");
   const feedbackTopic = $("#host-buzzin-feedback-topic");
   if (questionTopic) questionTopic.textContent = text;
   if (feedbackTopic) feedbackTopic.textContent = text;
+
+  const total = Math.max(1, Number(meta?.totalQuestions) || 1);
+  const index = Math.min(Math.max(0, Number(meta?.questionIndex) || 0), total - 1);
+  const label =
+    total > 1 ? uiT("buzzin.titleN", { n: index + 1, total: total }) : uiT("buzzin.title");
+
+  document
+    .querySelectorAll(
+      "#screen-host-buzzin .host-buzzin-title, #screen-host-buzzin-feedback .host-buzzin-feedback-title, #screen-host-buzzin-empty .host-buzzin-title"
+    )
+    .forEach((el) => {
+      el.textContent = label;
+    });
+
+  updateHostBuzzinAdvanceButtons(Boolean(meta?.hasNextQuestion));
+}
+
+function updateHostBuzzinAdvanceButtons(hasNext) {
+  hostBuzzinHasNextQuestion = Boolean(hasNext);
+  const label = hasNext ? uiT("quiz.nextQuestion") : uiT("common.next");
+  ["btn-host-buzzin-feedback-done", "btn-host-buzzin-empty-done"].forEach((id) => {
+    const btn = document.getElementById(id);
+    const span = btn?.querySelector("span");
+    if (span) span.textContent = label;
+  });
+}
+
+function hostBuzzinCanAdvanceQuestion() {
+  return hostBuzzinHasNextQuestion && Boolean(hostBuzzinRoomId) && !hostBuzzinAdvancingQuestion;
+}
+
+async function hostBuzzinAdvanceQuestion() {
+  if (!hostBuzzinCanAdvanceQuestion()) {
+    throw new Error("No more Buzz In questions.");
+  }
+
+  const socket = getHostSessionSocket();
+  hostBuzzinAdvancingQuestion = true;
+  resetHostBuzzinFeedbackAnim();
+  hostBuzzinPlayedSpokenFeedbackAudio.clear();
+  hostBuzzinLastResponses = [];
+  hostBuzzinActiveScreenPhase = null;
+  hostBuzzinLuckyStar = null;
+  hostBuzzinTopicSpeaking = true;
+  hideHostBuzzinJoinTimer();
+  setHostBuzzinStartButtonVisible(false);
+  setHostBuzzinPrompt(uiT("buzzin.promptReady"));
+  showHostBuzzinScreenForPhase("join", { force: true });
+
+  const joinStatus = $("#host-buzzin-join-status");
+  if (joinStatus) joinStatus.textContent = uiT("buzzin.uncleReading");
+
+  try {
+    if (!socket.connected) {
+      await new Promise((resolve, reject) => {
+        socket.once("connect", resolve);
+        socket.once("connect_error", () => reject(new Error("Could not connect to room.")));
+      });
+    }
+
+    const res = await new Promise((resolve, reject) => {
+      socket.emit("next_buzzin_question", { roomId: hostBuzzinRoomId }, (response) => {
+        if (!response?.ok) {
+          reject(new Error(response?.error || "Could not open next question."));
+          return;
+        }
+        resolve(response);
+      });
+    });
+
+    if (res.roundId != null) hostBuzzinRoundId = res.roundId;
+    updateHostBuzzinUi(res);
+    if (joinStatus) joinStatus.textContent = uiT("buzzin.uncleReading");
+    setHostBuzzinStartButtonVisible(false);
+
+    try {
+      if (res.topicAudio) {
+        await playHostUncleTommyTts(res.topicAudio, res.topicAudioFormat || "mp3");
+      }
+    } catch (err) {
+      console.warn(err?.message || "Could not play buzz-in topic TTS.");
+    } finally {
+      hostBuzzinTopicSpeaking = false;
+      if ((res.phase || "ready") === "ready") {
+        setHostBuzzinStartButtonVisible(true);
+        if (joinStatus) joinStatus.textContent = uiT("buzzin.tapGetReady");
+      }
+    }
+  } finally {
+    hostBuzzinAdvancingQuestion = false;
+  }
 }
 
 function hostBuzzinShowFeedbackPhase(payload) {
@@ -211,24 +304,24 @@ function updateHostBuzzinTurnUi(payload) {
   );
 
   if (!selectedStudent) {
-    if (turnStatus) turnStatus.textContent = "No one buzzed in.";
+    if (turnStatus) turnStatus.textContent = uiT("buzzin.noOneBuzzed");
     if (!hostBuzzinLuckyStar) {
       setHostBuzzinLeaderboardMode("winner");
       renderHostBuzzinWinnerCard(winnerEl, null, payload);
     }
     renderHostBuzzinFeedbackChat(chatEl, {
       topic: payload.topic,
-      emptyText: "No answer yet.",
+      emptyText: uiT("buzzin.noAnswerYet"),
     });
     return;
   }
 
   if (payload.typingComplete) {
-    if (turnStatus) turnStatus.textContent = `${chatStudent?.displayName || selectedStudent?.displayName || "Student"} has answered.`;
+    if (turnStatus) turnStatus.textContent = uiT("buzzin.hasAnswered", { name: chatStudent?.displayName || selectedStudent?.displayName || "Student" });
   } else if (chatCurrentTurn) {
-    if (turnStatus) turnStatus.textContent = `Waiting for ${chatCurrentTurn.displayName} to record their answer…`;
+    if (turnStatus) turnStatus.textContent = uiT("buzzin.waitingRecord", { name: chatCurrentTurn.displayName });
   } else {
-    if (turnStatus) turnStatus.textContent = `Waiting for ${(chatStudent || selectedStudent)?.displayName || "Student"} to answer…`;
+    if (turnStatus) turnStatus.textContent = uiT("buzzin.waitingToAnswer", { name: (chatStudent || selectedStudent)?.displayName || "Student" });
   }
 
   if (!hostBuzzinLuckyStar) {
@@ -243,7 +336,7 @@ function updateHostBuzzinTurnUi(payload) {
     student: chatStudent,
     response,
     currentTurn: chatCurrentTurn,
-    emptyText: "Waiting for answer…",
+    emptyText: uiT("buzzin.waitingAnswer"),
     animate: {
       topic: animate.topic,
       answer: animate.answer,
@@ -273,18 +366,22 @@ function setHostBuzzinStartButtonVisible(visible) {
 function updateHostBuzzinUi(payload) {
   const phase = payload.phase || "join";
   const showFeedback = hostBuzzinShowFeedbackPhase(payload);
-  if (payload.topic) syncHostBuzzinTopic(payload.topic);
+  if (payload.topic || payload.totalQuestions != null || payload.questionIndex != null) {
+    syncHostBuzzinTopic(payload.topic, payload);
+  } else {
+    updateHostBuzzinAdvanceButtons(Boolean(payload.hasNextQuestion));
+  }
 
   const joinStatus = $("#host-buzzin-join-status");
 
   if (phase === "ready") {
     hideHostBuzzinJoinTimer();
     setHostBuzzinStartButtonVisible(true);
-    setHostBuzzinPrompt("Get ready");
+    setHostBuzzinPrompt(uiT("buzzin.promptReady"));
     if (joinStatus) {
       joinStatus.textContent = hostBuzzinTopicSpeaking
-        ? "Uncle Tommy is reading the question…"
-        : "Tap Get Ready when students are ready.";
+        ? uiT("buzzin.uncleReading")
+        : uiT("buzzin.tapGetReady");
     }
     showHostBuzzinScreenForPhase("join", { force: true });
     updateHostBuzzinTurnUi(payload);
@@ -297,15 +394,15 @@ function updateHostBuzzinUi(payload) {
   if (joinStatus) {
     joinStatus.textContent = showFeedback
       ? ""
-      : `One student can buzz in — ${payload.joinSecondsRemaining ?? 20}s left`;
+      : uiT("buzzin.joinCountdown", { n: payload.joinSecondsRemaining ?? 20 });
   }
 
   if (showFeedback) {
     hideHostBuzzinJoinTimer();
-    setHostBuzzinPrompt("Buzz In Now");
+    setHostBuzzinPrompt(uiT("buzzin.promptNow"));
     showHostBuzzinScreenForPhase(hostBuzzinScreenPhase(payload), { force: true });
   } else {
-    setHostBuzzinPrompt("Buzz In Now");
+    setHostBuzzinPrompt(uiT("buzzin.promptNow"));
     startHostBuzzinJoinTimer(payload.joinEndsAt);
     showHostBuzzinScreenForPhase("join");
   }
@@ -318,13 +415,13 @@ function setHostBuzzinLeaderboardMode(mode = "winner") {
   if (!title || !sub) return;
 
   if (mode === "lucky") {
-    title.textContent = "Our lucky Students";
-    sub.textContent = "Today's Lucky Star";
+    title.textContent = uiT("buzzin.luckyStudents");
+    sub.textContent = uiT("buzzin.luckyStar");
     return;
   }
 
-  title.textContent = "Fastest Student";
-  sub.textContent = "Buzz In Winner";
+  title.textContent = uiT("buzzin.fastest");
+  sub.textContent = uiT("buzzin.winnerSub");
 }
 
 function applyHostBuzzinLuckyStar(winner, { animate = true } = {}) {
@@ -440,7 +537,7 @@ async function playHostBuzzinAnswerAnnouncement({ winner, announcementAudio, ann
   const turnStatus = $("#host-buzzin-turn-status");
   const winnerName = winner?.displayName || "Student";
   if (turnStatus) {
-    turnStatus.textContent = `Uncle Tommy is calling on ${winnerName}…`;
+    turnStatus.textContent = uiT("buzzin.callingOn", { name: winnerName });
     turnStatus.classList.remove("visually-hidden");
   }
 
@@ -454,7 +551,7 @@ async function playHostBuzzinAnswerAnnouncement({ winner, announcementAudio, ann
   } finally {
     hostBuzzinTopicSpeaking = false;
     if (turnStatus) {
-      turnStatus.textContent = `Waiting for ${winnerName} to record their answer…`;
+      turnStatus.textContent = uiT("buzzin.waitingRecord", { name: winnerName });
     }
   }
 }
@@ -555,6 +652,12 @@ function bindHostBuzzinSocketHandlers(socket) {
 
   const applyBuzzinPayload = (payload) => {
     if (payload?.roundId != null) hostBuzzinRoundId = payload.roundId;
+    if (payload?.phase === "ready") {
+      resetHostBuzzinFeedbackAnim();
+      hostBuzzinPlayedSpokenFeedbackAudio.clear();
+      hostBuzzinLastResponses = [];
+      hostBuzzinLuckyStar = null;
+    }
     updateHostBuzzinUi(payload);
     void maybePlayHostBuzzinAnswerAnnouncement(payload);
   };
@@ -589,11 +692,11 @@ function startHostBuzzinRound(roomId) {
   ensureHostBuzzinSocket();
   hideHostBuzzinJoinTimer();
   setHostBuzzinStartButtonVisible(false);
-  setHostBuzzinPrompt("Get ready");
+  setHostBuzzinPrompt(uiT("buzzin.promptReady"));
   showHostBuzzinScreenForPhase("join", { force: true });
 
   const joinStatus = $("#host-buzzin-join-status");
-  if (joinStatus) joinStatus.textContent = "Uncle Tommy is reading the question…";
+  if (joinStatus) joinStatus.textContent = uiT("buzzin.uncleReading");
 
   const socket = getHostSessionSocket();
 
@@ -617,7 +720,7 @@ function startHostBuzzinRound(roomId) {
             return;
           }
           updateHostBuzzinUi(res);
-          if (joinStatus) joinStatus.textContent = "Uncle Tommy is reading the question…";
+          if (joinStatus) joinStatus.textContent = uiT("buzzin.uncleReading");
           setHostBuzzinStartButtonVisible(false);
 
           try {
@@ -630,7 +733,7 @@ function startHostBuzzinRound(roomId) {
             hostBuzzinTopicSpeaking = false;
             if ((res.phase || "ready") === "ready") {
               setHostBuzzinStartButtonVisible(true);
-              if (joinStatus) joinStatus.textContent = "Tap Get Ready when students are ready.";
+              if (joinStatus) joinStatus.textContent = uiT("buzzin.tapGetReady");
             }
           }
           resolve();
@@ -649,8 +752,9 @@ async function openHostBuzzinJoin() {
   const socket = getHostSessionSocket();
   const startBtn = $("#btn-host-buzzin-start");
   const joinStatus = $("#host-buzzin-join-status");
+  const screen = $("#screen-host-buzzin");
   if (startBtn) startBtn.disabled = true;
-  if (joinStatus) joinStatus.textContent = "Starting…";
+  if (joinStatus) joinStatus.textContent = uiT("buzzin.openJoin");
 
   if (!socket.connected) {
     await new Promise((resolve, reject) => {
@@ -659,45 +763,31 @@ async function openHostBuzzinJoin() {
     });
   }
 
-  try {
-    await new Promise((resolve, reject) => {
-      socket.emit("start_buzzin_countdown", { roomId: hostBuzzinRoomId }, (res) => {
+  const emitOpenJoin = () =>
+    new Promise((resolve, reject) => {
+      socket.emit("open_buzzin_join", { roomId: hostBuzzinRoomId }, (res) => {
         if (!res?.ok) {
-          reject(new Error(res?.error || "Could not start buzz-in countdown."));
+          if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.classList.add("is-ready");
+          }
+          if (joinStatus) joinStatus.textContent = res?.error || "Could not start buzz in.";
+          reject(new Error(res?.error || "Could not start buzz in."));
           return;
         }
-        resolve();
+        updateHostBuzzinUi(res);
+        resolve(res);
       });
     });
 
-    if (typeof playExerciseCountdownVideo === "function") {
-      await playExerciseCountdownVideo();
-    } else if (typeof playCountdown321Video === "function") {
-      await playCountdown321Video({
-        root: document.querySelector("#app.lango-host") || document.body,
-        layerClass: "host-exercise-countdown",
-        videoClass: "host-exercise-countdown-video",
-        playingClass: "is-playing",
-      });
-    }
-  } catch (err) {
-    if (startBtn) startBtn.disabled = false;
-    if (joinStatus) joinStatus.textContent = err.message || "Could not start buzz in.";
-    throw err;
+  if (typeof window.LangoGsap?.playBuzzinStartEffect === "function" && screen) {
+    await window.LangoGsap.playBuzzinStartEffect(screen, {
+      onBurst: emitOpenJoin,
+    });
+    return;
   }
 
-  return new Promise((resolve, reject) => {
-    socket.emit("open_buzzin_join", { roomId: hostBuzzinRoomId }, (res) => {
-      if (!res?.ok) {
-        if (startBtn) startBtn.disabled = false;
-        if (joinStatus) joinStatus.textContent = res?.error || "Could not start buzz in.";
-        reject(new Error(res?.error || "Could not start buzz in."));
-        return;
-      }
-      updateHostBuzzinUi(res);
-      resolve();
-    });
-  });
+  await emitOpenJoin();
 }
 
 function getRoomQuizSocket() {
@@ -708,14 +798,14 @@ function getRoomQuizSocket() {
   return roomQuizSocket;
 }
 
-function renderHostQuizPreview(data) {
+function renderHostQuizPreview(data, { transition = true } = {}) {
   roomQuizCurrentQuestion = data;
   clearTimer();
-  showScreen("host-quiz-preview");
+  showScreen("host-quiz-preview", { transition });
 
   const points = data.points || 300;
-  $("#host-quiz-preview-title").textContent = `Question ${data.questionIndex + 1}`;
-  $("#host-quiz-preview-points").textContent = `${points} pts`;
+  $("#host-quiz-preview-title").textContent = uiT("mcq.questionN", { n: data.questionIndex + 1 });
+  $("#host-quiz-preview-points").textContent = uiT("mcq.pts", { n: points });
   $("#host-quiz-preview-question-text").textContent = data.text || "";
   setQuestionImage(
     $("#host-quiz-preview-image"),
@@ -730,7 +820,7 @@ function renderHostQuizSpeaking(data) {
     renderHostQuizQuestion(data, { preparing: true, transition: true });
     clearTimer();
     $("#host-quiz-countdown").textContent = "…";
-    $("#host-quiz-answered-count").textContent = "Uncle Tommy is reading the question…";
+    $("#host-quiz-answered-count").textContent = uiT("buzzin.uncleReading");
     return;
   }
   renderHostQuizPreview({ ...data, speaking: true });
@@ -772,9 +862,9 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
   const points = data.points || (data.fastMode ? 500 : 300);
   $("#host-quiz-progress").style.width = `${pct}%`;
   $("#host-quiz-q-meta").textContent = preparing
-    ? "Get ready…"
-    : `Question ${data.questionIndex + 1}`;
-  $("#host-quiz-points").textContent = `${points} pts`;
+    ? uiT("status.getReady")
+    : uiT("mcq.questionN", { n: data.questionIndex + 1 });
+  $("#host-quiz-points").textContent = uiT("mcq.pts", { n: points });
   setQuestionImage(
     $("#host-quiz-question-image"),
     $("#host-quiz-question-image-wrap"),
@@ -786,51 +876,90 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
     optionLabels: HOST_MCQ_OPTION_LABELS,
   });
   $("#host-quiz-answered-count").textContent = preparing
-    ? "Starting shortly…"
+    ? uiT("mcq.startingShortly")
     : isFastMode
-      ? "Quick answers in progress…"
-      : "Students are answering…";
+      ? uiT("fast.quickInProgress")
+      : uiT("mcq.studentsAnswering");
   startDeadlineTimer(data.endsAt, data.timeLimit || 5, (remaining) => {
     $("#host-quiz-countdown").textContent = String(Math.max(0, remaining));
   });
 }
 
 function resultResponseLabel(count) {
-  return `${count} Response${count === 1 ? "" : "s"}`;
+  return count === 1
+    ? uiT("mcq.responseCountOne", { n: count })
+    : uiT("mcq.responseCount", { n: count });
 }
 
 function renderHostResultDistribution(question, answerCounts, correctIndex) {
   const options = question?.options || [];
   const total = answerCounts.reduce((sum, count) => sum + count, 0);
+  const bars = $("#host-quiz-results-bars");
   const donut = $("#host-quiz-results-donut");
   const legend = $("#host-quiz-results-legend");
+  const totalEl = $("#host-quiz-results-total");
+  const pulse = $("#host-quiz-results-pulse");
 
-  $("#host-quiz-results-total").textContent = String(total);
+  if (totalEl) totalEl.textContent = String(total);
+  if (pulse) {
+    const correctCount = Number(answerCounts[correctIndex] || 0);
+    const pct = total ? Math.round((correctCount / total) * 100) : 0;
+    pulse.innerHTML = `
+      <div class="host-mcq-result-pulse-chip">
+        <strong>${total}</strong>
+        <span>${uiT("mcq.totalResponses")}</span>
+      </div>
+      <div class="host-mcq-result-pulse-chip">
+        <strong>${pct}%</strong>
+        <span>${uiT("mcq.classCorrect")}</span>
+      </div>`;
+  }
 
   const safeTotal = total || 1;
-  let offset = 0;
-  const stops = answerCounts.map((count, index) => {
-    const start = offset;
-    const end = offset + (count / safeTotal) * 100;
-    offset = end;
-    const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
-    return `${color} ${start}% ${end}%`;
-  });
-  donut.style.setProperty("--donut-fill", total ? stops.join(", ") : "#d1d5db 0% 100%");
+  if (donut) {
+    let offset = 0;
+    const stops = answerCounts.map((count, index) => {
+      const start = offset;
+      const end = offset + (count / safeTotal) * 100;
+      offset = end;
+      const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
+      return `${color} ${start}% ${end}%`;
+    });
+    donut.style.setProperty("--donut-fill", total ? stops.join(", ") : "#d1d5db 0% 100%");
+  }
 
-  legend.innerHTML = options
+  if (legend) {
+    legend.innerHTML = options
+      .map((option, index) => {
+        const label = HOST_MCQ_OPTION_LABELS[index] || `${index + 1}.`;
+        const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
+        const count = answerCounts[index] || 0;
+        const isCorrect = index === correctIndex;
+        const optionText = `${label} ${escapeHtml(option)}`;
+        return `<div class="host-mcq-legend-item${isCorrect ? " host-mcq-legend-item--correct" : ""}">
+          <span class="host-mcq-legend-label">
+            <span class="host-mcq-legend-dot" style="--dot-color: ${color}"></span>
+            <span${isCorrect ? ' class="host-mcq-correct-highlight"' : ""}>${optionText}</span>
+          </span>
+          <strong>${count}</strong>
+        </div>`;
+      })
+      .join("");
+  }
+
+  if (!bars) return;
+  bars.hidden = false;
+  bars.innerHTML = options
     .map((option, index) => {
       const label = HOST_MCQ_OPTION_LABELS[index] || `${index + 1}.`;
       const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
-      const count = answerCounts[index] || 0;
+      const count = Number(answerCounts[index] || 0);
+      const pct = total ? Math.round((count / total) * 100) : 0;
       const isCorrect = index === correctIndex;
-      const optionText = `${label} ${escapeHtml(option)}`;
-      return `<div class="host-mcq-legend-item${isCorrect ? " host-mcq-legend-item--correct" : ""}">
-        <span class="host-mcq-legend-label">
-          <span class="host-mcq-legend-dot" style="--dot-color: ${color}"></span>
-          <span${isCorrect ? ' class="host-mcq-correct-highlight"' : ""}>${optionText}</span>
-        </span>
-        <strong>${count} <span>Response${count === 1 ? "" : "s"}</span></strong>
+      return `<div class="host-mcq-bar-row${isCorrect ? " is-correct" : ""}" style="--bar-color:${color}">
+        <span class="host-mcq-bar-label"><strong>${escapeHtml(label)}</strong> ${escapeHtml(option)}</span>
+        <div class="host-mcq-bar-track" aria-hidden="true"><div class="host-mcq-bar-fill" style="width:${pct}%"></div></div>
+        <span class="host-mcq-bar-meta"><strong>${count}</strong><small>${pct}%</small></span>
       </div>`;
     })
     .join("");
@@ -843,18 +972,19 @@ function initialsForName(name) {
 
 function renderCorrectResponders(results) {
   const container = $("#host-quiz-correct-responders");
-  const correct = (results || []).filter((result) => result.correct).slice(0, 9);
+  if (!container) return;
+  const correct = (results || []).filter((result) => result.correct);
   if (!correct.length) {
-    container.innerHTML = `<p class="host-mcq-correct-empty">No correct responses yet</p>`;
+    container.innerHTML = `<p class="host-mcq-correct-empty">${uiT("mcq.noCorrectYet")}</p>`;
     return;
   }
 
   container.innerHTML = correct
     .map((result, index) => {
       const name = String(result.name || "Student").trim() || "Student";
-      return `<div class="host-mcq-correct-student" style="--student-i: ${index}">
-        <div class="host-mcq-correct-avatar">${escapeHtml(initialsForName(name))}</div>
-        <p>${escapeHtml(name)}</p>
+      return `<div class="host-mcq-correct-row" data-reveal="rank" style="--student-i: ${index}">
+        <span class="host-mcq-correct-avatar" aria-hidden="true">${escapeHtml(initialsForName(name))}</span>
+        <span class="host-mcq-correct-name">${escapeHtml(name)}</span>
       </div>`;
     })
     .join("");
@@ -862,46 +992,113 @@ function renderCorrectResponders(results) {
 
 function renderFastAccuracyLeaderboard(results, totalQuestions = 0) {
   const container = $("#host-fast-result-groups");
+  const pulse = $("#host-fast-result-pulse");
+  const screen = $("#screen-host-fast-results");
   if (!container) return;
 
-  const groups = new Map();
-  (results || []).forEach((student) => {
-    const count = Math.max(0, Number(student.correctAnswers) || 0);
-    if (!groups.has(count)) groups.set(count, []);
-    groups.get(count).push(student);
-  });
-
-  const sortedGroups = [...groups.entries()].sort(([a], [b]) => b - a);
-  if (!sortedGroups.length) {
-    container.innerHTML = '<p class="host-fast-result-empty">No responses yet</p>';
-    return;
-  }
-
-  let studentIndex = 0;
-  container.innerHTML = sortedGroups
-    .map(([correctAnswers, students]) => {
+  const rows = (results || [])
+    .map((student) => {
+      const correctAnswers = Math.max(0, Number(student.correctAnswers) || 0);
       const calculatedPercent = totalQuestions
         ? Math.round((correctAnswers / totalQuestions) * 100)
         : 0;
       const accuracyPercent = Math.max(
         0,
-        Math.min(100, Number(students[0]?.accuracyPercent) || calculatedPercent)
+        Math.min(100, Number(student.accuracyPercent) || calculatedPercent)
       );
-      const cards = students.map((student) => {
-        const name = String(student.name || "Student").trim() || "Student";
-        const index = studentIndex++;
-        return `<article class="host-fast-result-student">
-          <span class="host-fast-result-avatar" style="--student-i:${index}" aria-hidden="true">${escapeHtml(initialsForName(name))}</span>
-          <span class="host-fast-result-name">${escapeHtml(name)}</span>
-        </article>`;
-      }).join("");
+      return {
+        name: String(student.name || "Student").trim() || "Student",
+        correctAnswers,
+        accuracyPercent,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.correctAnswers - a.correctAnswers ||
+        b.accuracyPercent - a.accuracyPercent ||
+        a.name.localeCompare(b.name)
+    );
 
-      return `<section class="host-fast-result-group${students.length > 3 ? " is-expanded" : ""}">
-        <h3 class="host-fast-result-score" aria-label="${accuracyPercent}% accuracy, ${correctAnswers} correct"><strong>${accuracyPercent}%</strong><span>accuracy</span></h3>
-        <div class="host-fast-result-students">${cards}</div>
-      </section>`;
+  if (!rows.length) {
+    container.innerHTML = `<p class="host-fast-result-empty">${uiT("fast.noResponses")}</p>`;
+    if (pulse) pulse.innerHTML = "";
+    return;
+  }
+
+  const perfect = rows.filter((row) => totalQuestions && row.correctAnswers >= totalQuestions).length;
+  const classAvg = Math.round(
+    rows.reduce((sum, row) => sum + row.accuracyPercent, 0) / rows.length
+  );
+  if (pulse) {
+    pulse.innerHTML = `
+      <div class="host-fast-result-pulse-chip">
+        <strong>${perfect}</strong>
+        <span>${uiT("fast.perfectCount")}</span>
+      </div>
+      <div class="host-fast-result-pulse-chip">
+        <strong>${classAvg}%</strong>
+        <span>${uiT("fast.classAvg")}</span>
+      </div>`;
+  }
+
+  const podium = rows.slice(0, 3)
+    .map((row, index) => {
+      const rank = index + 1;
+      const initial = escapeHtml(initialsForName(row.name));
+      const detail = totalQuestions
+        ? uiT("leaderboard.correctOfTotal", { correct: row.correctAnswers, total: totalQuestions })
+        : uiT("leaderboard.correctCount", { correct: row.correctAnswers });
+      return `<li class="host-fast-result-podium-row host-fast-result-podium-row--${rank}" data-reveal="podium" data-reveal-order="${4 - rank}">
+        <div class="host-fast-result-podium-person">
+          ${rank === 1 ? '<span class="host-fast-result-crown" aria-hidden="true"></span>' : ""}
+          <span class="host-fast-result-avatar">${initial}</span>
+          <span class="host-fast-result-name">${escapeHtml(row.name)}</span>
+          <span class="host-fast-result-score-pill">
+            <span class="host-fast-result-score" data-score-value="${row.accuracyPercent}">${row.accuracyPercent}%</span>
+          </span>
+          <span class="host-fast-result-detail">${escapeHtml(detail)}</span>
+        </div>
+        <div class="host-fast-result-plinth" aria-hidden="true">
+          <span class="host-fast-result-plinth-num">${rank}</span>
+        </div>
+      </li>`;
     })
     .join("");
+
+  const sheet = rows.slice(3)
+    .map((row, index) => {
+      const rank = index + 4;
+      const initial = escapeHtml(initialsForName(row.name));
+      const detail = totalQuestions
+        ? uiT("leaderboard.correctOfTotal", { correct: row.correctAnswers, total: totalQuestions })
+        : uiT("leaderboard.correctCount", { correct: row.correctAnswers });
+      return `<li class="host-fast-result-ranking-row" data-reveal="rank">
+        <span class="host-fast-result-ranking-rank">${rank}</span>
+        <span class="host-fast-result-avatar host-fast-result-avatar--sm" aria-hidden="true">${initial}</span>
+        <span class="host-fast-result-ranking-name">${escapeHtml(row.name)}</span>
+        <span class="host-fast-result-ranking-meta">
+          <strong class="host-fast-result-score" data-score-value="${row.accuracyPercent}">${row.accuracyPercent}%</strong>
+          <small>${escapeHtml(detail)}</small>
+        </span>
+      </li>`;
+    })
+    .join("");
+
+  container.innerHTML = `<div class="host-fast-result-arena host-leaderboard__arena">
+    <div class="host-fast-result-spotlight">
+      <ol class="host-fast-result-podium" aria-label="${escapeHtml(uiT("leaderboard.topOfClass"))}">${podium}</ol>
+    </div>
+    <section class="host-fast-result-sheet">
+      <div class="host-fast-result-sheet-handle" aria-hidden="true"></div>
+      <ol class="host-fast-result-rankings" start="4">${sheet || `<li class="host-fast-result-empty host-fast-result-empty--sheet">${uiT("leaderboard.noOtherScores")}</li>`}</ol>
+    </section>
+  </div>`;
+
+  requestAnimationFrame(() => {
+    if (window.LangoGsap?.playLeaderboardReveal && screen) {
+      window.LangoGsap.playLeaderboardReveal(screen, { boardRoot: container });
+    }
+  });
 }
 
 function setupHostRoomQuizSocket(socket) {
@@ -940,8 +1137,8 @@ function setupHostRoomQuizSocket(socket) {
     $("#screen-host-quiz-question")?.classList.add("fast-mode");
     showScreen("host-quiz-question");
     $("#host-quiz-answered-count").textContent = isLast
-      ? "Calculating final results…"
-      : "Next question coming…";
+      ? uiT("fast.calculatingFinal")
+      : uiT("mcq.nextComing");
   });
 
   socket.on("question_results", ({ correctIndex, answerCounts, results, leaderboard }) => {
@@ -956,22 +1153,23 @@ function setupHostRoomQuizSocket(socket) {
       $("#host-quiz-results-image-wrap"),
       resolvedMediaUrl(q?.image)
     );
-    $("#host-quiz-results-points").textContent = `${points} pts`;
+    $("#host-quiz-results-points").textContent = uiT("mcq.pts", { n: points });
     $("#host-quiz-results-question-text").textContent = q?.text || "";
     const correctLabel = HOST_MCQ_OPTION_LABELS[correctIndex] || "";
     const correctAnswerEl = $("#host-quiz-results-correct-answer");
     if (correctAnswerEl) {
       const answerText = `${correctLabel} ${correctAnswer}`.trim();
       correctAnswerEl.innerHTML = answerText
-        ? `Correct Answer: <span class="host-mcq-correct-highlight">${escapeHtml(answerText)}</span>`
-        : "Correct Answer:";
+        ? `<span class="host-mcq-correct-highlight">${escapeHtml(answerText)}</span>`
+        : "";
     }
-    $("#host-quiz-results-bars").innerHTML = "";
     renderHostResultDistribution(q, answerCounts, correctIndex);
     renderCorrectResponders(results);
     renderLeaderboard($("#host-quiz-leaderboard"), leaderboard);
     const isLast = q && q.questionIndex + 1 >= q.totalQuestions;
-    $("#btn-host-quiz-next").textContent = isLast ? "Show final results" : "Next question";
+    $("#btn-host-quiz-next").textContent = isLast
+      ? uiT("quiz.showFinalResults")
+      : uiT("quiz.nextQuestion");
   });
 
   socket.on("game_finished", ({ leaderboard, accuracyLeaderboard, answerReview, semesterLeaderboard, exerciseLeaderboard }) => {
@@ -990,6 +1188,8 @@ function setupHostRoomQuizSocket(socket) {
     showExerciseLeaderboards({
       exerciseLeaderboard: exerciseLeaderboard || leaderboard,
       semesterLeaderboard,
+      accuracyLeaderboard,
+      totalQuestions: answerReview?.length || 0,
       exerciseListEl: $("#host-quiz-final-leaderboard"),
       semesterListEl: $("#host-semester-leaderboard"),
       semesterWrapEl: $("#host-semester-leaderboard-wrap"),
@@ -999,7 +1199,7 @@ function setupHostRoomQuizSocket(socket) {
   });
 
   socket.on("game_ended", ({ reason }) => {
-    alert(reason || "Quiz ended");
+    alert(reason || uiT("status.quizEnded"));
   });
 }
 
@@ -1169,9 +1369,9 @@ function syncHostVideoCaptionDisplay() {
     cc.classList.toggle("is-active", hasCaptions && hostVideoCaptionsEnabled);
     cc.title = hasCaptions
       ? hostVideoCaptionsEnabled
-        ? "Hide subtitles"
-        : "Show subtitles"
-      : "No subtitles for this video yet";
+        ? uiT("video.hideSubtitles")
+        : uiT("video.showSubtitles")
+      : uiT("video.noSubtitles");
   }
 }
 
@@ -1317,8 +1517,8 @@ function updateHostVideoControls() {
   if (duration) duration.textContent = formatHostVideoTime(videoDuration);
   screen.classList.toggle("is-playing", !video.paused && !video.ended);
   screen.classList.toggle("is-muted", video.muted || video.volume === 0);
-  if (play) play.setAttribute("aria-label", video.paused ? "Play video" : "Pause video");
-  if (mute) mute.setAttribute("aria-label", video.muted || video.volume === 0 ? "Unmute video" : "Mute video");
+  if (play) play.setAttribute("aria-label", video.paused ? uiT("video.play") : uiT("video.pause"));
+  if (mute) mute.setAttribute("aria-label", video.muted || video.volume === 0 ? uiT("video.unmute") : uiT("video.mute"));
 
   if (Number.isFinite(video.playbackRate) && video.playbackRate > 0) {
     const matched = HOST_VIDEO_SPEEDS.find((rate) => Math.abs(rate - video.playbackRate) < 0.001);
@@ -1550,12 +1750,16 @@ function showHostBuzzinExercise(exercise, roomId) {
   const buzzin = buzzinFromExercise(exercise);
   if (!buzzin) throw new Error("No Buzz In content in this exercise.");
 
-  syncHostBuzzinTopic(buzzin.topic);
+  syncHostBuzzinTopic(buzzin.topic, {
+    questionIndex: buzzin.questionIndex || 0,
+    totalQuestions: buzzin.totalQuestions || buzzin.topics?.length || 1,
+    hasNextQuestion: (buzzin.totalQuestions || buzzin.topics?.length || 1) > 1,
+  });
   const points = typeof exercisePointsValue === "function" ? exercisePointsValue(exercise) : 300;
   hostBuzzinExercisePoints = points;
   const pointsEl = $("#host-buzzin-points");
   if (pointsEl) {
-    pointsEl.textContent = `${points} pts`;
+    pointsEl.textContent = uiT("mcq.pts", { n: points });
   }
   if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
   showScreen("host-buzzin");
