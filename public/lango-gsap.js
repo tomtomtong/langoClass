@@ -80,9 +80,10 @@
     gsap.set(portal, { scale: 0, rotation: -28, autoAlpha: 0, force3D: true });
     gsap.set(sparks, { scale: 0.72, rotation: -8, autoAlpha: 0, force3D: true });
     if (tommy) {
+      // Cast uses CSS grid centering; animate from optical center (art bias compensated).
       gsap.set(tommy, {
-        xPercent: -50,
-        yPercent: 55,
+        x: "3%",
+        y: "42%",
         scale: 0.52,
         rotation: -5,
         autoAlpha: 0,
@@ -143,7 +144,7 @@
         tl.to(
           tommy,
           {
-            yPercent: -58,
+            y: "-8%",
             scale: 1.08,
             rotation: 1,
             autoAlpha: 1,
@@ -154,18 +155,18 @@
         )
           .to(
             tommy,
-            { yPercent: -47, scale: 0.98, rotation: -1, duration: duration * 0.22, ease: "power2.inOut" },
+            { y: "2%", scale: 0.98, rotation: -1, duration: duration * 0.2, ease: "power2.inOut" },
             duration * 0.34
           )
           .to(
             tommy,
-            { yPercent: -50, scale: 1, rotation: 0, duration: duration * 0.18, ease: "power2.out" },
-            duration * 0.56
+            { y: "0%", scale: 1, rotation: 0, duration: duration * 0.22, ease: "power2.out" },
+            duration * 0.52
           )
           .to(
             tommy,
             {
-              yPercent: -66,
+              y: "-14%",
               scale: 0.96,
               rotation: 2,
               autoAlpha: 0,

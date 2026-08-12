@@ -18,6 +18,8 @@
         id="btn-host-settings"
         aria-label="Settings"
         title="Settings"
+        data-i18n="settings.btnAria"
+        data-i18n-attr="aria-label,title"
       >
         <span class="host-settings-icon" aria-hidden="true"></span>
       </button>
@@ -33,14 +35,14 @@
         >
           <span class="host-sound-mute-icon" aria-hidden="true"></span>
         </button>
-        <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true">
+        <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true" data-i18n="sound.settings" data-i18n-attr="aria-label">
           <div class="host-sound-menu-row">
             <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
-              <span class="host-sound-menu-label">Background Music</span>
+              <span class="host-sound-menu-label" data-i18n="sound.bgm">Background Music</span>
               <span class="host-sound-menu-state" id="host-bgm-state">On</span>
             </button>
             <label class="host-sound-volume">
-              <span class="host-sound-volume-label">Volume</span>
+              <span class="host-sound-volume-label" data-i18n="sound.volume">Volume</span>
               <input
                 type="range"
                 class="host-sound-volume-slider"
@@ -55,7 +57,7 @@
           </div>
           <div class="host-sound-menu-row">
             <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
-              <span class="host-sound-menu-label">Sound Effects</span>
+              <span class="host-sound-menu-label" data-i18n="sound.effects">Sound Effects</span>
               <span class="host-sound-menu-state" id="host-effects-state">On</span>
             </button>
             <label class="host-sound-volume">
@@ -89,14 +91,14 @@
       <p class="host-persistent-room-code__hint" id="persistent-room-code-hint">Tap to copy</p>
     </div>
 
-    <nav class="flow-steps" id="flow-steps" aria-label="Progress">
-      <span class="step" data-step="login">1 Login</span>
-      <span class="step" data-step="class">2 Class</span>
-      <span class="step" data-step="course">3 Course</span>
-      <span class="step" data-step="section">4 Section</span>
-      <span class="step" data-step="journey">5 Exercise</span>
-      <span class="step" data-step="waiting">6 Waiting room</span>
-      <span class="step" data-step="quiz">7 Quiz</span>
+    <nav class="flow-steps" id="flow-steps" aria-label="Progress" data-i18n="flow.progress" data-i18n-attr="aria-label">
+      <span class="step" data-step="login" data-i18n="flow.login">1 Login</span>
+      <span class="step" data-step="class" data-i18n="flow.class">2 Class</span>
+      <span class="step" data-step="course" data-i18n="flow.course">3 Course</span>
+      <span class="step" data-step="section" data-i18n="flow.section">4 Section</span>
+      <span class="step" data-step="journey" data-i18n="flow.journey">5 Exercise</span>
+      <span class="step" data-step="waiting" data-i18n="flow.waiting">6 Waiting room</span>
+      <span class="step" data-step="quiz" data-i18n="flow.quiz">7 Quiz</span>
     </nav>
 
     <section id="screen-settings" class="screen settings-screen" aria-labelledby="host-settings-title">
@@ -105,14 +107,47 @@
         <div class="settings-page">
           <div class="settings-panel">
             <header class="settings-panel-header">
-              <h1 class="settings-page-title" id="host-settings-title">Settings</h1>
-              <p class="settings-page-subtitle">Audio preferences for the classroom host</p>
+              <h1 class="settings-page-title" id="host-settings-title" data-i18n="settings.title">Settings</h1>
+              <p class="settings-page-subtitle" data-i18n="settings.subtitle">Preferences for the classroom host</p>
             </header>
 
             <div class="settings-list">
               <div class="settings-card">
                 <div class="settings-card-copy">
-                  <h2 class="settings-card-title">音量隔離</h2>
+                  <h2 class="settings-card-title" data-i18n="settings.language.title">Language</h2>
+                  <p class="settings-card-desc" data-i18n="settings.language.desc">
+                    Choose the interface language for the host.
+                  </p>
+                </div>
+                <div class="settings-language" id="host-ui-language">
+                  <button
+                    type="button"
+                    class="settings-language-trigger"
+                    id="btn-host-ui-language"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="host-ui-language-menu"
+                    aria-describedby="host-ui-language-desc"
+                  >
+                    <span class="settings-language-value" id="host-ui-language-value">English</span>
+                    <span class="settings-language-caret" aria-hidden="true"></span>
+                  </button>
+                  <ul
+                    class="settings-language-menu"
+                    id="host-ui-language-menu"
+                    role="listbox"
+                    aria-labelledby="btn-host-ui-language"
+                    hidden
+                  ></ul>
+                </div>
+                <span id="host-ui-language-desc" class="visually-hidden" data-i18n="settings.language.desc">
+                  Choose the interface language for the host.
+                </span>
+              </div>
+
+              <div class="settings-card">
+                <div class="settings-card-copy">
+                  <h2 class="settings-card-title" data-i18n="settings.audioIsolation.title">Audio isolation</h2>
                   <p class="settings-card-desc" id="host-audio-isolation-desc">
                     Background music fades out when video or speech plays, so classroom audio stays clear.
                   </p>
@@ -138,7 +173,7 @@
         <footer class="settings-toolbar">
           <button type="button" class="class-back-btn settings-toolbar-back" id="btn-back-settings">
             <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-            <span>Back</span>
+            <span data-i18n="settings.back">Back</span>
           </button>
         </footer>
       </div>
@@ -155,7 +190,7 @@
             <img src="/assets/login/langoclass_logo.svg" alt="Lango Class" width="220" height="220" />
           </div>
           <div class="login-form-wrap">
-            <h1 class="login-title">Lango School Login</h1>
+            <h1 class="login-title" data-i18n="login.title">Lango School Login</h1>
             <div class="login-form">
               <label class="login-field">
                 <input
@@ -163,6 +198,8 @@
                   id="login-username"
                   placeholder="Your name or email"
                   autocomplete="username"
+                  data-i18n="login.usernamePlaceholder"
+                  data-i18n-attr="placeholder"
                 />
               </label>
               <label class="login-field">
@@ -171,10 +208,12 @@
                   id="login-password"
                   placeholder="Password"
                   autocomplete="current-password"
+                  data-i18n="login.passwordPlaceholder"
+                  data-i18n-attr="placeholder"
                 />
               </label>
-              <button class="login-btn" id="btn-login" type="button" aria-label="Login">
-                <span class="login-btn-text">Login</span>
+              <button class="login-btn" id="btn-login" type="button" aria-label="Login" data-i18n="login.button" data-i18n-attr="aria-label">
+                <span class="login-btn-text" data-i18n="login.button">Login</span>
                 <svg class="login-fingerprint login-fingerprint-base" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true">
                   <g class="login-fingerprint-out" fill="none" stroke-width="2" stroke-linecap="round">
                     <path class="login-fingerprint-odd" d="m 25.117139,57.142857 c 0,0 -1.968558,-7.660465 -0.643619,-13.149003 1.324939,-5.488538 4.659682,-8.994751 4.659682,-8.994751" />
@@ -237,24 +276,24 @@
 
         <div class="class-container">
           <header class="class-header">
-            <h1 class="class-page-title">
+            <h1 class="class-page-title" data-i18n="class.title">
               Select level &amp; Class
             </h1>
           </header>
 
           <p class="class-teacher-label" id="teacher-label-wrap" hidden>
-            Logged in as <strong id="teacher-label"></strong>
+            <span data-i18n="class.loggedInPrefix">Logged in as</span> <strong id="teacher-label"></strong>
           </p>
 
           <div id="class-sections" class="class-sections"></div>
 
-          <p class="class-status" id="class-status">Loading classes…</p>
+          <p class="class-status" id="class-status" data-i18n="class.loading">Loading classes…</p>
           <p class="class-error" id="class-error" role="alert"></p>
         </div>
 
         <button type="button" class="class-back-btn class-login-btn" id="btn-back-login">
           <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-          <span>Login</span>
+          <span data-i18n="common.login">Login</span>
         </button>
       </div>
     </section>
@@ -275,8 +314,8 @@
                 <span class="course-quest-line done"></span>
                 <span class="course-quest-dot active"></span>
               </div>
-              <p class="course-step">Step 2 Of 2</p>
-              <h1 class="course-page-title">Select Your Course</h1>
+              <p class="course-step" data-i18n="course.step">Step 2 Of 2</p>
+              <h1 class="course-page-title" data-i18n="course.title">Select Your Course</h1>
               <p class="course-class-label" id="course-class-label-wrap">
                 <strong id="class-label"></strong>
               </p>
@@ -287,7 +326,7 @@
               <div id="course-sections" class="course-grid"></div>
             </div>
 
-            <p class="course-status" id="course-status">Loading courses…</p>
+            <p class="course-status" id="course-status" data-i18n="course.loading">Loading courses…</p>
             <p class="course-error" id="course-error" role="alert"></p>
           </div>
         </div>
@@ -295,11 +334,11 @@
         <footer class="course-toolbar">
           <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-class">
             <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-            <span>Dashboard</span>
+            <span data-i18n="common.dashboard">Dashboard</span>
           </button>
           <div class="course-toolbar-actions">
-            <button type="button" class="course-toolbar-logout" id="btn-open-waiting-course">Waiting room</button>
-            <button type="button" class="course-toolbar-logout" id="btn-logout-course">Log out</button>
+            <button type="button" class="course-toolbar-logout" id="btn-open-waiting-course" data-i18n="common.waitingRoom">Waiting room</button>
+            <button type="button" class="course-toolbar-logout" id="btn-logout-course" data-i18n="common.logout">Log out</button>
           </div>
         </footer>
       </div>
@@ -319,10 +358,10 @@
                 <span class="course-quest-line done"></span>
                 <span class="course-quest-dot active"></span>
               </div>
-              <p class="course-step">Step 3 · Pick your section</p>
-              <h1 class="course-page-title">Continue Your Journey!</h1>
+              <p class="course-step" data-i18n="section.step">Step 3 · Pick your section</p>
+              <h1 class="course-page-title" data-i18n="section.title">Continue Your Journey!</h1>
               <p class="course-class-label" id="section-course-label-wrap">
-                Course: <strong id="section-course-label"></strong>
+                <span data-i18n="section.coursePrefix">Course:</span> <strong id="section-course-label"></strong>
               </p>
               <p class="course-count-badge" id="section-count-badge" hidden></p>
             </div>
@@ -338,14 +377,16 @@
                   <span class="section-current-progress-pct" id="section-current-progress-pct">0%</span>
                 </div>
                 <p class="section-current-progress-label">
-                  <span id="section-current-progress-completed">0</span> out of
-                  <span id="section-current-progress-total">0</span> Sections Completed
+                  <span id="section-current-progress-completed">0</span>
+                  <span data-i18n="section.progressOutOf">out of</span>
+                  <span id="section-current-progress-total">0</span>
+                  <span data-i18n="section.progressLabel">Sections Completed</span>
                 </p>
               </aside>
               <div id="section-grid" class="course-grid"></div>
             </div>
 
-            <p class="course-status" id="section-status">Loading sections…</p>
+            <p class="course-status" id="section-status" data-i18n="section.loading">Loading sections…</p>
             <p class="course-error" id="section-error" role="alert"></p>
           </div>
         </div>
@@ -356,7 +397,7 @@
             <div class="exercise-panel section-exercise-panel-card">
               <div class="exercise-panel-inner">
                 <header class="exercise-panel-header">
-                  <h2 class="exercise-page-title">Quizzes</h2>
+                  <h2 class="exercise-page-title" data-i18n="section.quizzes">Quizzes</h2>
                 </header>
 
                 <div class="exercise-list-scroll">
@@ -364,13 +405,13 @@
                 </div>
 
                 <footer class="exercise-panel-footer">
-                  <p class="exercise-status" id="journey-status">Loading exercises…</p>
+                  <p class="exercise-status" id="journey-status" data-i18n="section.exercisesLoading">Loading exercises…</p>
                   <p class="exercise-error" id="journey-error" role="alert"></p>
                   <div class="exercise-panel-actions">
-                    <button class="exercise-cancel-btn" id="btn-cancel-exercises" type="button">
+                    <button class="exercise-cancel-btn" id="btn-cancel-exercises" type="button" data-i18n="common.cancel">
                       Cancel
                     </button>
-                    <button class="exercise-start-btn" id="btn-start-session" type="button" disabled>
+                    <button class="exercise-start-btn" id="btn-start-session" type="button" disabled data-i18n="section.startExercise">
                       Start exercise
                     </button>
                   </div>
@@ -383,11 +424,11 @@
         <footer class="course-toolbar">
           <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-course-from-section">
             <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-            <span>Course</span>
+            <span data-i18n="common.course">Course</span>
           </button>
           <div class="course-toolbar-actions">
-            <button type="button" class="course-toolbar-logout" id="btn-open-waiting-section">Waiting room</button>
-            <button type="button" class="course-toolbar-logout" id="btn-logout-section">Log out</button>
+            <button type="button" class="course-toolbar-logout" id="btn-open-waiting-section" data-i18n="common.waitingRoom">Waiting room</button>
+            <button type="button" class="course-toolbar-logout" id="btn-logout-section" data-i18n="common.logout">Log out</button>
           </div>
         </footer>
 
@@ -405,20 +446,20 @@
         <img class="waiting-float waiting-float--star-1" src="/assets/login/star-1.png" alt="" />
         <img class="waiting-float waiting-float--star-2" src="/assets/login/star-2.png" alt="" />
 
-        <h1 class="waiting-page-title">Waiting Room</h1>
+        <h1 class="waiting-page-title" data-i18n="waiting.title">Waiting Room</h1>
 
         <div class="waiting-room-code-card" aria-label="Room code">
-          <p class="waiting-room-code-label">Room Code</p>
+          <p class="waiting-room-code-label" data-i18n="waiting.roomCode">Room Code</p>
           <button type="button" class="waiting-room-code-display" id="btn-copy-room-id" title="Copy room code">
             <span class="waiting-room-code-digits" id="waiting-room-id" aria-live="polite"></span>
           </button>
-          <p class="waiting-room-code-hint" id="waiting-room-code-hint">Tap to copy</p>
+          <p class="waiting-room-code-hint" id="waiting-room-code-hint" data-i18n="waiting.copyHint">Tap to copy</p>
         </div>
 
         <div class="waiting-timer" aria-live="polite">
           <div class="waiting-timer-ring">
             <div class="waiting-timer-watch" id="waiting-timer-watch-lottie" data-lottie-path="/assets/lottie/clock.json" aria-hidden="true"></div>
-            <p class="waiting-timer-label">Start In</p>
+            <p class="waiting-timer-label" data-i18n="waiting.startIn">Start In</p>
             <p class="waiting-timer-value" id="waiting-timer-value">05 : 00</p>
           </div>
         </div>
@@ -426,8 +467,8 @@
         <div class="waiting-students-panel">
           <header class="waiting-students-header">
             <div class="waiting-students-heading">
-              <h2 class="waiting-students-title">Connected Students</h2>
-              <p class="waiting-students-subtitle">Students can join and wait here until you start an exercise.</p>
+              <h2 class="waiting-students-title" data-i18n="waiting.studentsTitle">Connected Students</h2>
+              <p class="waiting-students-subtitle" data-i18n="waiting.studentsSubtitle">Students can join and wait here until you start an exercise.</p>
             </div>
             <div class="waiting-students-count" aria-label="Students connected">
               <span class="waiting-students-count-current" id="waiting-connected-count">0</span>
@@ -446,10 +487,10 @@
         <footer class="waiting-footer">
           <button type="button" class="waiting-dashboard-btn" id="btn-back-journey">
             <img class="waiting-dashboard-icon" src="/assets/class/arrow-left.svg" alt="" width="20" height="20" />
-            <span>Back</span>
+            <span data-i18n="common.back">Back</span>
           </button>
           <button type="button" class="waiting-start-session-btn" id="btn-start-class">
-            <span>Start</span>
+            <span data-i18n="common.start">Start</span>
           </button>
         </footer>
         <img
@@ -460,8 +501,8 @@
           aria-hidden="true"
         />
 
-        <button type="button" class="waiting-secondary-btn" id="btn-start-another" hidden>Start another session</button>
-        <button type="button" id="btn-logout-waiting" hidden>Log out</button>
+        <button type="button" class="waiting-secondary-btn" id="btn-start-another" hidden data-i18n="waiting.startAnother">Start another session</button>
+        <button type="button" id="btn-logout-waiting" hidden data-i18n="common.logout">Log out</button>
       </div>
     </section>
 
@@ -922,6 +963,7 @@
   <script src="/lango-gsap.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/common.js"></script>
+  <script src="/i18n.js"></script>
   <script src="/exercise-utils.js"></script>
   <script src="/host-room-quiz.js"></script>
   <script src="/host-session.js"></script>

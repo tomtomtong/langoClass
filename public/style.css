@@ -188,7 +188,13 @@ html:has(body.join-page) {
 .join-page .host-page-transition,
 #app.lango-host .host-page-transition {
   position: fixed;
+  inset: 0;
   background: rgba(116, 60, 155, 0.22);
+}
+
+/* Host stage already uses transform scale — keep transition inside the stage box. */
+#app.lango-host .host-page-transition {
+  position: absolute;
 }
 
 .join-page .host-page-transition::before,
@@ -304,23 +310,32 @@ html.lango-gsap-ready #app.lango-host .host-page-transition.is-playing .join-tra
   z-index: 3;
   overflow: hidden;
   pointer-events: none;
+  display: grid;
+  place-items: center;
 }
 
 .join-transition-tommy {
-  position: absolute;
-  left: 50%;
-  top: 50%;
+  position: relative;
+  grid-area: 1 / 1;
+  left: auto;
+  top: auto;
   width: clamp(280px, 88vw, 560px);
   max-height: 82vh;
   height: auto;
   opacity: 0;
+  visibility: hidden;
   object-fit: contain;
-  transform: translate(-50%, 55%) scale(0.52) rotate(-5deg);
-  transform-origin: 50% 50%;
+  /* Optical center: art sits slightly left/low in the PNG canvas. */
+  transform: translate(3%, 6%) scale(0.52) rotate(-5deg);
+  transform-origin: 50% 45%;
   filter:
     drop-shadow(0 10px 5px rgba(116, 60, 155, 0.34))
     drop-shadow(0 0 14px rgba(195, 152, 251, 0.75));
   will-change: transform, opacity;
+}
+
+.join-transition-tommy.is-active {
+  visibility: visible;
 }
 
 .join-page .host-page-transition.is-playing .join-transition-tommy.is-active,
@@ -336,23 +351,24 @@ html.lango-gsap-ready #app.lango-host .host-page-transition.is-playing .join-tra
 @keyframes joinTommyJump {
   0% {
     opacity: 0;
-    transform: translate(-50%, 55%) scale(0.52) rotate(-5deg);
+    transform: translate(3%, 42%) scale(0.52) rotate(-5deg);
   }
   34% {
     opacity: 1;
-    transform: translate(-50%, -58%) scale(1.08) rotate(1deg);
+    transform: translate(3%, -8%) scale(1.08) rotate(1deg);
   }
   58% {
     opacity: 1;
-    transform: translate(-50%, -47%) scale(0.98) rotate(-1deg);
+    transform: translate(3%, 2%) scale(0.98) rotate(-1deg);
   }
-  78% {
+  72%,
+  82% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    transform: translate(3%, 0) scale(1) rotate(0deg);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -66%) scale(0.96) rotate(2deg);
+    transform: translate(3%, -14%) scale(0.96) rotate(2deg);
   }
 }
 
@@ -9611,6 +9627,7 @@ body:has(#app.lango-host) {
   box-shadow:
     0 0 0 3px rgba(255, 255, 255, 0.55) inset,
     0 18px 40px rgba(0, 0, 0, 0.16);
+  overflow: visible;
 }
 
 #app.lango-host .settings-panel-header {
@@ -9638,9 +9655,11 @@ body:has(#app.lango-host) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow: visible;
 }
 
 #app.lango-host .settings-card {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -9649,6 +9668,11 @@ body:has(#app.lango-host) {
   border-radius: 22px;
   background: rgba(236, 72, 153, 0.07);
   border: 2px solid rgba(236, 72, 153, 0.12);
+  overflow: visible;
+}
+
+#app.lango-host .settings-card:has(.settings-language.is-open) {
+  z-index: 6;
 }
 
 #app.lango-host .settings-card-copy {
@@ -9672,6 +9696,173 @@ body:has(#app.lango-host) {
   font-size: 16px;
   font-weight: 700;
   line-height: 1.45;
+}
+
+#app.lango-host .settings-language {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  min-width: 240px;
+  max-width: 300px;
+  z-index: 5;
+}
+
+#app.lango-host .settings-language-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 14px 18px;
+  border-radius: 18px;
+  border: 2px solid rgba(162, 89, 255, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 245, 255, 0.96) 100%);
+  color: #1f2937;
+  font-family: "Nunito", sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.65) inset,
+    0 6px 16px rgba(124, 58, 237, 0.08);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+#app.lango-host .settings-language-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#app.lango-host .settings-language-caret {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  background: center / 20px 20px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M7 10l5 5 5-5' stroke='%23A259FF' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  transition: transform 180ms ease;
+}
+
+#app.lango-host .settings-language.is-open .settings-language-caret {
+  transform: rotate(180deg);
+}
+
+#app.lango-host .settings-language-trigger:hover {
+  border-color: rgba(162, 89, 255, 0.5);
+}
+
+#app.lango-host .settings-language-trigger:focus-visible,
+#app.lango-host .settings-language.is-open .settings-language-trigger {
+  outline: none;
+  border-color: rgba(162, 89, 255, 0.72);
+  box-shadow:
+    0 0 0 3px rgba(162, 89, 255, 0.18),
+    0 0 0 2px rgba(255, 255, 255, 0.65) inset,
+    0 8px 18px rgba(124, 58, 237, 0.12);
+}
+
+#app.lango-host .settings-language-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+  border-radius: 20px;
+  border: 2px solid rgba(162, 89, 255, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(252, 248, 255, 0.96) 100%);
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.55) inset,
+    0 18px 36px rgba(76, 29, 149, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  max-height: min(360px, 46vh);
+  overflow: auto;
+  animation: hostSettingsLanguageIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes hostSettingsLanguageIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+#app.lango-host .settings-language-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: #334155;
+  font-family: "Nunito", sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+#app.lango-host .settings-language-option + .settings-language-option {
+  margin-top: 4px;
+}
+
+#app.lango-host .settings-language-option:hover,
+#app.lango-host .settings-language-option:focus {
+  outline: none;
+  background: rgba(162, 89, 255, 0.1);
+  color: #5b21b6;
+}
+
+#app.lango-host .settings-language-option.is-selected {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.14), rgba(162, 89, 255, 0.16));
+  color: #6d28d9;
+  box-shadow: inset 0 0 0 1.5px rgba(162, 89, 255, 0.18);
+}
+
+#app.lango-host .settings-language-option-check {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(162, 89, 255, 0.12);
+  opacity: 0;
+  transform: scale(0.85);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+#app.lango-host .settings-language-option.is-selected .settings-language-option-check {
+  opacity: 1;
+  transform: scale(1);
+  background:
+    center / 12px 12px no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M5 12.5l5 5L19 7' stroke='%23A259FF' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #f5e9ff 0%, #ebe0ff 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(162, 89, 255, 0.28);
+}
+
+#app.lango-host .settings-language-option-label {
+  min-width: 0;
 }
 
 #app.lango-host .settings-toggle {

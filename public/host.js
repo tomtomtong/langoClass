@@ -290,22 +290,132 @@ function shouldIsolateHostBgmForMedia() {
   return hostAudioIsolationEnabled;
 }
 
+/** Preferred UI locale loaded from prefs; applied during i18n init. */
+let hostPreferredUiLocale = null;
+
+function hostT(key) {
+  return window.LangoI18n?.t?.(key) ?? key;
+}
+
+function getHostLanguageLabel(code) {
+  const locales = window.LangoI18n?.getLocales?.() || [];
+  return locales.find((locale) => locale.code === code)?.label || code;
+}
+
+function closeHostLanguageMenu() {
+  const wrap = $("#host-ui-language");
+  const trigger = $("#btn-host-ui-language");
+  const menu = $("#host-ui-language-menu");
+  if (!wrap || !trigger || !menu) return;
+  wrap.classList.remove("is-open");
+  trigger.setAttribute("aria-expanded", "false");
+  menu.hidden = true;
+}
+
+function openHostLanguageMenu() {
+  const wrap = $("#host-ui-language");
+  const trigger = $("#btn-host-ui-language");
+  const menu = $("#host-ui-language-menu");
+  if (!wrap || !trigger || !menu) return;
+  wrap.classList.add("is-open");
+  trigger.setAttribute("aria-expanded", "true");
+  menu.hidden = false;
+  const selected = menu.querySelector('[aria-selected="true"]');
+  (selected || menu.querySelector('[role="option"]'))?.focus?.();
+}
+
+function populateHostLanguageSelect() {
+  const menu = $("#host-ui-language-menu");
+  const valueEl = $("#host-ui-language-value");
+  const i18n = window.LangoI18n;
+  if (!menu || !i18n) return;
+
+  const locales = i18n.getLocales();
+  const current = i18n.getLocale();
+  menu.innerHTML = "";
+  locales.forEach((locale) => {
+    const option = document.createElement("li");
+    option.className = "settings-language-option";
+    option.setAttribute("role", "option");
+    option.setAttribute("tabindex", "-1");
+    option.dataset.value = locale.code;
+    option.setAttribute("aria-selected", locale.code === current ? "true" : "false");
+    if (locale.code === current) option.classList.add("is-selected");
+
+    const label = document.createElement("span");
+    label.className = "settings-language-option-label";
+    label.textContent = locale.label;
+
+    const check = document.createElement("span");
+    check.className = "settings-language-option-check";
+    check.setAttribute("aria-hidden", "true");
+
+    option.append(label, check);
+    menu.appendChild(option);
+  });
+
+  if (valueEl) valueEl.textContent = getHostLanguageLabel(current);
+}
+
 function updateHostSettingsControls() {
   const toggle = $("#btn-host-audio-isolation");
   const stateEl = $("#host-audio-isolation-state");
   const desc = $("#host-audio-isolation-desc");
+  const valueEl = $("#host-ui-language-value");
+  const menu = $("#host-ui-language-menu");
+  const current = window.LangoI18n?.getLocale?.();
 
   if (toggle) {
     toggle.classList.toggle("is-on", hostAudioIsolationEnabled);
     toggle.setAttribute("aria-checked", hostAudioIsolationEnabled ? "true" : "false");
   }
   if (stateEl) {
-    stateEl.textContent = hostAudioIsolationEnabled ? "On" : "Off";
+    stateEl.textContent = hostAudioIsolationEnabled ? hostT("settings.on") : hostT("settings.off");
   }
   if (desc) {
     desc.textContent = hostAudioIsolationEnabled
-      ? "Background music fades out when video or speech plays, so classroom audio stays clear."
-      : "Background music can keep playing under video and speech.";
+      ? hostT("settings.audioIsolation.descOn")
+      : hostT("settings.audioIsolation.descOff");
+  }
+  if (valueEl && current) {
+    valueEl.textContent = getHostLanguageLabel(current);
+  }
+  if (menu && current) {
+    menu.querySelectorAll('[role="option"]').forEach((option) => {
+      const selected = option.dataset.value === current;
+      option.classList.toggle("is-selected", selected);
+      option.setAttribute("aria-selected", selected ? "true" : "false");
+    });
+  }
+}
+
+function setHostUiLocale(locale, { persist = true } = {}) {
+  const i18n = window.LangoI18n;
+  if (!i18n) return;
+  i18n.setLocale(locale, { persist, apply: true });
+  populateHostLanguageSelect();
+  applyHostUiLanguage();
+  closeHostLanguageMenu();
+  if (persist) savePrefs();
+}
+
+function applyHostUiLanguage() {
+  window.LangoI18n?.applyDom?.();
+  updateHostSettingsControls();
+  updateHostSoundControls();
+  const loginBtnText = $("#btn-login .login-btn-text");
+  if (loginBtnText && !document.body.classList.contains("is-logging-in")) {
+    const current = loginBtnText.textContent?.trim();
+    // Don't clobber transient success/fail labels mid-login unless they match known keys.
+    if (
+      !current ||
+      current === "Login" ||
+      current === hostT("login.button") ||
+      current === hostT("login.success") ||
+      current === hostT("login.fail")
+    ) {
+      /* leave mid-login messaging; static labels refreshed by applyDom above */
+    }
   }
 }
 
@@ -317,16 +427,19 @@ function setHostAudioIsolationEnabled(enabled, { persist = true } = {}) {
 
 function openHostSettings() {
   closeHostSoundMenu();
+  closeHostLanguageMenu();
   const currentId = getActiveHostScreenId();
   if (currentId === "settings") return;
   if (currentId) {
     hostSettingsReturnScreenId = currentId;
   }
+  populateHostLanguageSelect();
   updateHostSettingsControls();
   showScreen("settings");
 }
 
 function closeHostSettings() {
+  closeHostLanguageMenu();
   const returnId = hostSettingsReturnScreenId || "login";
   hostSettingsReturnScreenId = "";
   showScreen(returnId);
@@ -353,10 +466,77 @@ function setupHostSettings() {
     setHostAudioIsolationEnabled(!hostAudioIsolationEnabled);
   });
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && getActiveHostScreenId() === "settings") {
-      closeHostSettings();
+  $("#btn-host-ui-language")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const wrap = $("#host-ui-language");
+    if (wrap?.classList.contains("is-open")) {
+      closeHostLanguageMenu();
+      return;
     }
+    openHostLanguageMenu();
+  });
+
+  $("#host-ui-language-menu")?.addEventListener("click", (event) => {
+    const option = event.target.closest('[role="option"]');
+    if (!option) return;
+    const next = option.dataset.value;
+    if (!next) return;
+    setHostUiLocale(next);
+  });
+
+  document.addEventListener("click", (event) => {
+    const wrap = $("#host-ui-language");
+    if (!wrap?.classList.contains("is-open")) return;
+    if (wrap.contains(event.target)) return;
+    closeHostLanguageMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const wrap = $("#host-ui-language");
+    const menuOpen = wrap?.classList.contains("is-open");
+
+    if (event.key === "Escape") {
+      if (menuOpen) {
+        event.preventDefault();
+        closeHostLanguageMenu();
+        $("#btn-host-ui-language")?.focus();
+        return;
+      }
+      if (getActiveHostScreenId() === "settings") {
+        closeHostSettings();
+      }
+      return;
+    }
+
+    if (!menuOpen) return;
+    const options = [...(wrap?.querySelectorAll('[role="option"]') || [])];
+    if (!options.length) return;
+    const active = document.activeElement;
+    const index = options.indexOf(active);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      options[(index + 1 + options.length) % options.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      options[(index - 1 + options.length) % options.length]?.focus();
+    } else if (event.key === "Enter" || event.key === " ") {
+      if (active?.getAttribute?.("role") === "option") {
+        event.preventDefault();
+        const next = active.dataset.value;
+        if (next) setHostUiLocale(next);
+      }
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      options[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      options[options.length - 1]?.focus();
+    }
+  });
+
+  window.LangoI18n?.onChange?.(() => {
+    applyHostUiLanguage();
   });
 }
 
@@ -375,16 +555,16 @@ function updateHostSoundControls() {
     btn.classList.toggle("is-muted", bothMuted);
     btn.classList.toggle("is-partial-muted", anyMuted && !bothMuted);
     btn.setAttribute("aria-expanded", hostSoundMenuOpen ? "true" : "false");
-    const label = bothMuted ? "Sound settings (all muted)" : "Sound settings";
+    const label = bothMuted ? hostT("sound.settingsMuted") : hostT("sound.settings");
     btn.setAttribute("aria-label", label);
     btn.title = label;
   }
 
   if (bgmState) {
-    bgmState.textContent = hostBgmMuted ? "Muted" : "On";
+    bgmState.textContent = hostBgmMuted ? hostT("sound.muted") : hostT("sound.on");
   }
   if (effectsState) {
-    effectsState.textContent = hostSoundEffectsMuted ? "Muted" : "On";
+    effectsState.textContent = hostSoundEffectsMuted ? hostT("sound.muted") : hostT("sound.on");
   }
   if (bgmBtn) {
     bgmBtn.classList.toggle("is-muted", hostBgmMuted);
@@ -616,6 +796,9 @@ function loadPrefs() {
     if (typeof data.audioIsolationEnabled === "boolean") {
       hostAudioIsolationEnabled = data.audioIsolationEnabled;
     }
+    if (data.uiLocale) {
+      hostPreferredUiLocale = data.uiLocale;
+    }
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
@@ -642,6 +825,7 @@ function savePrefs() {
       bgmVolume: HOST_BGM_VOLUME,
       soundEffectsVolume: hostSoundEffectsVolume,
       audioIsolationEnabled: hostAudioIsolationEnabled,
+      uiLocale: window.LangoI18n?.getLocale?.() || "en",
     })
   );
 }
@@ -1728,7 +1912,7 @@ function renderExercises() {
   updateExerciseContextLabel();
 
   if (!exercises.length) {
-    container.innerHTML = '<p class="exercise-empty">No exercises in this section.</p>';
+    container.innerHTML = `<p class="exercise-empty">${hostT("section.exercisesEmpty")}</p>`;
     $("#btn-start-session").disabled = true;
     return;
   }
@@ -1774,11 +1958,11 @@ async function handleLogin() {
   const password = $("#login-password").value;
   $("#login-error").textContent = "";
   btn.classList.remove("is-success", "is-fail");
-  if (btnText) btnText.textContent = "Login";
-  btn.setAttribute("aria-label", "Login");
+  if (btnText) btnText.textContent = hostT("login.button");
+  btn.setAttribute("aria-label", hostT("login.button"));
 
   if (!username || !password) {
-    $("#login-error").textContent = "Enter username and password.";
+    $("#login-error").textContent = hostT("login.enterCredentials");
     return;
   }
 
@@ -1800,16 +1984,16 @@ async function handleLogin() {
     await waitForLoginScanCycle(scanStartedAt);
     btn.classList.remove("is-scanning");
     btn.classList.add("is-success");
-    if (btnText) btnText.textContent = "Success";
-    btn.setAttribute("aria-label", "Login success");
+    if (btnText) btnText.textContent = hostT("login.success");
+    btn.setAttribute("aria-label", hostT("login.success"));
     playLoginSuccessSound();
     await enterClassStep();
   } catch (err) {
     await waitForLoginScanCycle(scanStartedAt);
     btn.classList.remove("is-scanning", "is-success");
     btn.classList.add("is-fail");
-    if (btnText) btnText.textContent = "Login fail";
-    btn.setAttribute("aria-label", "Login failed");
+    if (btnText) btnText.textContent = hostT("login.fail");
+    btn.setAttribute("aria-label", hostT("login.fail"));
     playLoginFailSound();
     $("#login-error").textContent = err.message;
   } finally {
@@ -1823,7 +2007,7 @@ async function enterClassStep() {
   $("#teacher-label").textContent = teacherName;
   $("#teacher-label-wrap").hidden = !teacherName;
   $("#class-error").textContent = "";
-  $("#class-status").textContent = "Loading classes…";
+  $("#class-status").textContent = hostT("class.loading");
   $("#class-sections").innerHTML = "";
   goTo("class", "class");
 
@@ -1833,7 +2017,7 @@ async function enterClassStep() {
     state.classes = classes;
 
     if (!classes.length) {
-      $("#class-status").textContent = "No classes returned for this teacher.";
+      $("#class-status").textContent = hostT("class.none");
       return;
     }
 
@@ -1877,7 +2061,7 @@ async function enterCourseStep({ resume = false, keepCourse = false } = {}) {
 
   $("#class-label").textContent = state.classItem?.name || "";
   $("#course-error").textContent = "";
-  $("#course-status").textContent = "Loading courses…";
+  $("#course-status").textContent = hostT("course.loading");
   $("#course-sections").innerHTML = "";
   $("#course-sections").className = "course-grid";
   updateCourseCountBadge(0);
@@ -1966,7 +2150,7 @@ async function enterSectionStep({ resume = false } = {}) {
   state.selectedExercise = null;
 
   $("#section-error").textContent = "";
-  $("#section-status").textContent = "Loading sections…";
+  $("#section-status").textContent = hostT("section.loading");
   const sectionGrid = $("#section-grid");
   if (sectionGrid) {
     sectionGrid.innerHTML = "";
@@ -2024,7 +2208,7 @@ function renderSectionPicker() {
   if (label) label.textContent = courseTitle(state.course);
 
   if (!sections.length) {
-    $("#section-status").textContent = "No sections in this course.";
+    $("#section-status").textContent = hostT("section.none");
     renderSectionPickerGrid(grid, [], { selectedId: null, onSelect: () => {} });
     updateSectionCountBadge(0);
     updateSectionProgressCard([]);
@@ -2063,7 +2247,7 @@ async function showSectionExercises() {
   state.selectedExercise = null;
   updateExerciseContextLabel();
   $("#journey-error").textContent = "";
-  $("#journey-status").textContent = "Loading exercises…";
+  $("#journey-status").textContent = hostT("section.exercisesLoading");
   destroyExerciseLotties();
   $("#exercise-list").innerHTML = "";
   $("#btn-start-session").disabled = true;
@@ -2097,7 +2281,7 @@ async function showSectionExercises() {
       }
     }
 
-    $("#journey-status").textContent = exercises.length ? "" : "No exercises in this section.";
+    $("#journey-status").textContent = exercises.length ? "" : hostT("section.exercisesEmpty");
     renderExercises();
     $("#btn-start-session").disabled = !state.selectedExercise;
   } catch (err) {
@@ -2405,7 +2589,7 @@ function renderParticipants(participants) {
       : participants.length;
 
     if (!connected) {
-      statusEl.textContent = "Waiting for students to join…";
+      statusEl.textContent = hostT("waiting.forStudents");
     } else {
       const readyCount = participants.filter((p) => p.isReady).length;
       statusEl.textContent =
@@ -2450,7 +2634,7 @@ function updateWaitingStartButton() {
   if (!startBtn) return;
   startBtn.disabled = false;
   const label = startBtn.querySelector("span");
-  if (label) label.textContent = "Start";
+  if (label) label.textContent = hostT("common.start");
 }
 
 async function setupClassSession(roomId, apiResponse) {
@@ -2535,7 +2719,7 @@ async function createWaitingRoomForClass() {
 
   classSessionCreating = true;
   $("#class-error").textContent = "";
-  $("#class-status").textContent = "Creating waiting room…";
+  $("#class-status").textContent = hostT("class.creating");
 
   stopWaitingPoll();
   disconnectHostSession();
@@ -2583,7 +2767,7 @@ async function launchHostExercise(exercise, {
   if (errorElement) errorElement.textContent = "";
   if (button) {
     button.disabled = true;
-    button.textContent = "Starting…";
+    button.textContent = hostT("section.starting");
   }
 
   try {
@@ -2829,15 +3013,15 @@ async function copyRoomCode({ sourceId, buttonId, hintId, errorId }) {
     const btn = buttonId ? $(`#${buttonId}`) : null;
     const hint = hintId ? $(`#${hintId}`) : null;
     const prevTitle = btn?.title;
-    if (btn) btn.title = "Copied!";
-    if (hint) hint.textContent = "Copied!";
+    if (btn) btn.title = hostT("waiting.copied");
+    if (hint) hint.textContent = hostT("waiting.copied");
     setTimeout(() => {
-      if (btn) btn.title = prevTitle || "Copy room code";
-      if (hint) hint.textContent = "Tap to copy";
+      if (btn) btn.title = prevTitle || hostT("waiting.roomCode");
+      if (hint) hint.textContent = hostT("waiting.copyHint");
     }, 1500);
   } catch {
     const errorEl = errorId ? $(`#${errorId}`) : $("#waiting-error");
-    if (errorEl) errorEl.textContent = "Could not copy room code.";
+    if (errorEl) errorEl.textContent = hostT("waiting.copyFail");
   }
 }
 
@@ -3020,6 +3204,11 @@ $("#login-username").addEventListener("change", () => {
 });
 
 loadPrefs();
+window.LangoI18n?.init?.({
+  locale: hostPreferredUiLocale || undefined,
+});
+populateHostLanguageSelect();
+applyHostUiLanguage();
 applyLoginUsernameToForm();
 setupHostMuteButton();
 updateHostMuteButton();
