@@ -2517,11 +2517,12 @@ app.post("/api/cms/courses/import-all/complete", async (req, res) => {
 
   try {
     const uploadId = String(req.body?.uploadId || "");
-    const courses = courseImportChunked.completeSession(uploadId, auth.teacherId);
+    const result = courseImportChunked.completeSession(uploadId, auth.teacherId);
     return res.json({
       ok: true,
-      imported: courses.length,
-      courses,
+      imported: result.courses.length,
+      replaced: result.replaced,
+      courses: result.courses,
     });
   } catch (err) {
     return res.status(400).json({ message: err.message || "Import failed." });
@@ -2541,11 +2542,12 @@ app.post("/api/cms/courses/import-all", async (req, res) => {
     }
 
     try {
-      const courses = courseImport.importCoursesFromZip(req.file.buffer, auth.teacherId);
+      const result = courseImport.importCoursesFromZip(req.file.buffer, auth.teacherId);
       return res.json({
         ok: true,
-        imported: courses.length,
-        courses,
+        imported: result.courses.length,
+        replaced: result.replaced,
+        courses: result.courses,
       });
     } catch (importErr) {
       return res.status(400).json({ message: importErr.message || "Import failed." });

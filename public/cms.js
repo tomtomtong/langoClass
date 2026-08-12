@@ -234,13 +234,28 @@ async function importAllCourses(file) {
   const status = $("#cms-list-status");
   const error = $("#cms-list-error");
   error.textContent = "";
+  $("#import-all-file").value = "";
+
+  if (
+    !confirm(
+      "Import will replace ALL of your courses, exercises, uploaded media, scores, and student progress for those courses.\n\nContinue?"
+    )
+  ) {
+    return;
+  }
+
   btn.disabled = true;
   status.textContent = "Preparing import…";
 
   try {
     const data = await importAllCoursesChunked(file, status);
     const count = data?.imported || 0;
-    status.textContent = `Imported ${count} course${count === 1 ? "" : "s"}.`;
+    const replaced = data?.replaced || 0;
+    if (replaced > 0) {
+      status.textContent = `Replaced ${replaced} course${replaced === 1 ? "" : "s"} with ${count} imported course${count === 1 ? "" : "s"}.`;
+    } else {
+      status.textContent = `Imported ${count} course${count === 1 ? "" : "s"}.`;
+    }
     await enterCourseList();
   } catch (err) {
     status.textContent = "";
