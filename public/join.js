@@ -57,23 +57,274 @@ function clearStoredParticipant() {
 
 let roomSessionSocket = null;
 let joinSessionLocale = "en";
+const FAST_RESULT_OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
+let joinWaitingStatusKey = "join.waitingStatus";
+let joinLastMcqResult = null;
+let joinLastFastResult = null;
+let joinLastLeaderboard = null;
+let joinLastBuzzinPayload = null;
+const JOIN_ENDED_STORAGE_KEY = "lango_join_ended";
+let joinEndedStatusKey = "join.endedStatus";
+let lastJoinDisplayName = urlNickname.slice(0, 40);
 
-function joinT(key) {
-  return window.LangoI18n?.t?.(key) ?? key;
+function isClosedRoomJoinError(data) {
+  const code = data?.errorCode;
+  if (code === "room_not_found" || code === "session_ended") return true;
+  const msg = String(data?.error || "");
+  return /room not found/i.test(msg) || /session has ended/i.test(msg);
+}
+
+function isOnEndedScreen() {
+  return $("#screen-room-ended")?.classList.contains("active");
+}
+
+function setJoinEndedError(text) {
+  const el = $("#join-ended-error");
+  if (el) el.textContent = text || "";
+}
+
+function setEndedSubmitBusy(busy) {
+  const btn = $("#btn-join-ended");
+  if (!btn) return;
+  btn.disabled = !!busy;
+  btn.textContent = busy ? joinT("join.joiningRoom") : joinT("join.rejoin");
+}
+
+function persistJoinEndedState() {
+  try {
+    sessionStorage.setItem(
+      JOIN_ENDED_STORAGE_KEY,
+      JSON.stringify({
+        name: lastJoinDisplayName,
+        statusKey: joinEndedStatusKey,
+      })
+    );
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+function loadJoinEndedState() {
+  try {
+    return JSON.parse(sessionStorage.getItem(JOIN_ENDED_STORAGE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function clearJoinEndedState() {
+  try {
+    sessionStorage.removeItem(JOIN_ENDED_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function stripDeadRoomFromUrl() {
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.delete("room");
+  nextUrl.searchParams.delete("roomId");
+  nextUrl.searchParams.delete("token");
+  nextUrl.searchParams.delete("studentId");
+  nextUrl.searchParams.delete("userId");
+  history.replaceState(null, "", `${nextUrl.pathname}${nextUrl.search}`);
+}
+
+function teardownJoinSockets() {
+  if (typeof stopRoomQuizJoinRetry === "function") stopRoomQuizJoinRetry();
+  if (roomSessionSocket) {
+    roomSessionSocket.disconnect();
+    roomSessionSocket = null;
+  }
+  if (typeof roomQuizSocket !== "undefined" && roomQuizSocket) {
+    roomQuizSocket.disconnect();
+    roomQuizSocket = null;
+  }
+  if (typeof roomBuzzinSocketReady !== "undefined") {
+    roomBuzzinSocketReady = false;
+  }
+}
+
+function rememberJoinDisplayName(name) {
+  const next = String(name || "").trim().slice(0, 40);
+  if (next) lastJoinDisplayName = next;
+}
+
+function showClassEnded({ statusKey = "join.endedStatus" } = {}) {
+  joinEndedStatusKey = statusKey || "join.endedStatus";
+  rememberJoinDisplayName(
+    roomParticipant?.displayName || urlNickname || lastJoinDisplayName
+  );
+  if (typeof stopRoomStatusPoll === "function") stopRoomStatusPoll();
+  if (typeof clearTimer === "function") clearTimer();
+  if (typeof resetStudentBuzzinUi === "function") resetStudentBuzzinUi();
+  teardownJoinSockets();
+  clearStoredParticipant();
+  roomParticipant = null;
+  persistJoinEndedState();
+  stripDeadRoomFromUrl();
+  wireJoinEndedForm();
+
+  const status = $("#room-ended-status");
+  if (status) status.textContent = joinT(joinEndedStatusKey);
+
+  const codeInput = $("#join-ended-code");
+  if (codeInput) codeInput.value = "";
+  setJoinEndedError("");
+  setEndedSubmitBusy(false);
+
+  showScreen("room-ended");
+  requestAnimationFrame(() => codeInput?.focus());
+}
+
+function wireJoinEndedForm() {
+  const form = $("#join-ended-form");
+  const codeInput = $("#join-ended-code");
+  if (!form || form.dataset.wired === "1") return;
+  form.dataset.wired = "1";
+
+  codeInput?.addEventListener("input", () => {
+    const digits = normalizePin(codeInput.value);
+    codeInput.value = formatRoomCode(digits);
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const code = normalizePin(codeInput?.value);
+    const name = String(lastJoinDisplayName || urlNickname || "").trim().slice(0, 40);
+    setJoinEndedError("");
+
+    if (code.length !== 6) {
+      setJoinEndedError(joinT("join.invalidRoomCode"));
+      codeInput?.focus();
+      return;
+    }
+    if (!name) {
+      setJoinEndedError(joinT("join.nameMissingAsk"));
+      return;
+    }
+
+    rememberJoinDisplayName(name);
+    persistJoinEndedState();
+    if (urlParams.has("preview") || document.body.classList.contains("join-preview-mode")) {
+      setJoinEndedError(joinT("join.previewJoinDisabled"));
+      return;
+    }
+    void doJoinRoom(code, name);
+  });
+}
+
+function joinT(key, vars) {
+  return window.LangoI18n?.t?.(key, vars) ?? key;
+}
+
+function showPlayerLateJoinWelcome(displayName) {
+  const toast = $("#player-join-welcome");
+  const copyEl = $("#player-join-welcome-copy");
+  const name = String(displayName || "").trim() || joinT("join.button");
+  if (!toast || !copyEl) return;
+
+  copyEl.textContent = joinT("join.youreIn", { name });
+  toast.hidden = false;
+  toast.setAttribute("aria-hidden", "false");
+  if (window.LangoGsap?.playPlayerJoinWelcome) {
+    window.LangoGsap.playPlayerJoinWelcome(toast);
+    return;
+  }
+  window.setTimeout(() => {
+    toast.hidden = true;
+    toast.setAttribute("aria-hidden", "true");
+  }, 1200);
+}
+
+function rememberLateJoinWelcome(roomId, userId) {
+  const key = `lango_late_join_welcome:${roomId}:${userId || "anon"}`;
+  try {
+    if (sessionStorage.getItem(key)) return false;
+    sessionStorage.setItem(key, "1");
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 function applyJoinUiLocale(locale, { persist = false } = {}) {
   const i18n = window.LangoI18n;
   if (!i18n || !locale) return;
   joinSessionLocale = i18n.setLocale(locale, { persist, apply: true });
+  refreshJoinLocalizedUi();
+}
+
+function setJoinWaitingStatus(key) {
+  joinWaitingStatusKey = key || "join.waitingStatus";
+  const el = $("#room-waiting-status");
+  if (el) el.textContent = joinT(joinWaitingStatusKey);
+}
+
+function refreshJoinLocalizedUi() {
+  const activeId = document.querySelector(".screen.active")?.id || "";
+
+  const waitingStatus = $("#room-waiting-status");
+  if (waitingStatus && joinWaitingStatusKey) {
+    waitingStatus.textContent = joinT(joinWaitingStatusKey);
+  }
+
+  const passiveTitle = $("#room-passive-waiting-title");
+  const passiveStatus = $("#room-passive-waiting-status");
+  if (activeId === "screen-room-passive-waiting") {
+    if (passiveTitle && !passiveTitle.dataset.customTitle) {
+      passiveTitle.textContent = joinT("join.watchTitle");
+    }
+    if (passiveStatus) passiveStatus.textContent = joinT("join.watchStatus");
+  }
+
+  if (activeId === "screen-player-results" && joinLastMcqResult && typeof renderPlayerMcqResult === "function") {
+    renderPlayerMcqResult(
+      joinLastMcqResult.mine,
+      joinLastMcqResult.leaderboard,
+      joinLastMcqResult.playerId
+    );
+  }
+
+  if (activeId === "screen-player-fast-results" && joinLastFastResult && typeof renderPlayerFastMcResult === "function") {
+    renderPlayerFastMcResult(joinLastFastResult);
+  }
+
+  if (activeId === "screen-player-finished" && joinLastLeaderboard && typeof showExerciseLeaderboards === "function") {
+    showExerciseLeaderboards(joinLastLeaderboard);
+    const playBtn = $("#btn-play-again");
+    if (playBtn) playBtn.hidden = true;
+  }
+
+  if (activeId === "screen-room-buzzin" && joinLastBuzzinPayload && typeof updateStudentBuzzinUi === "function") {
+    updateStudentBuzzinUi(joinLastBuzzinPayload);
+  }
+
+  if (activeId === "screen-room-ended") {
+    const endedStatus = $("#room-ended-status");
+    if (endedStatus) endedStatus.textContent = joinT(joinEndedStatusKey);
+    const endedBtn = $("#btn-join-ended");
+    if (endedBtn && !endedBtn.disabled) endedBtn.textContent = joinT("join.rejoin");
+  }
+
+  if (activeId === "screen-player-question") {
+    const label = $("#player-selected-answer-label");
+    if (label && !label.hidden) label.textContent = joinT("mcq.selectedAnswer");
+  }
 }
 
 function showPlayerPassiveWaiting({
   title = joinT("join.watchTitle"),
   message = joinT("join.watchStatus"),
 } = {}) {
-  $("#room-passive-waiting-title").textContent = title;
-  $("#room-passive-waiting-status").textContent = message;
+  const titleEl = $("#room-passive-waiting-title");
+  const statusEl = $("#room-passive-waiting-status");
+  if (titleEl) {
+    titleEl.textContent = title;
+    if (title && title !== joinT("join.watchTitle")) titleEl.dataset.customTitle = "1";
+    else delete titleEl.dataset.customTitle;
+  }
+  if (statusEl) statusEl.textContent = message;
   showScreen("room-passive-waiting");
 }
 
@@ -94,6 +345,9 @@ function renderPlayerFastMcResult({
   const correctCount = mineByQuestion.filter((entry) => entry?.correct).length;
   const scoreRow = (leaderboard || []).find((row) => row.id === playerId || row.playerId === playerId);
 
+  $("#player-fast-correct-score").dataset.correctCount = String(correctCount);
+  $("#player-fast-correct-score").dataset.total = String(rows.length);
+  $("#player-fast-current-points").dataset.scoreValue = String(scoreRow?.score || 0);
   $("#player-fast-correct-score").textContent = `${correctCount} / ${rows.length}`;
   $("#player-fast-current-points").textContent = uiT("mcq.pts", { n: scoreRow?.score || 0 });
 
@@ -101,7 +355,12 @@ function renderPlayerFastMcResult({
   if (!list) return;
 
   if (!rows.length) {
-    list.innerHTML = '<li class="player-leaderboard__empty">No answer review yet</li>';
+    list.innerHTML = `<li class="player-leaderboard__empty">${uiT("fast.noReview")}</li>`;
+    window.requestAnimationFrame?.(() => {
+      window.LangoGsap?.playPlayerFastResultEnter?.(
+        document.querySelector("#screen-player-fast-results")
+      );
+    });
     return;
   }
 
@@ -116,37 +375,47 @@ function renderPlayerFastMcResult({
       const answerText =
         question.correctAnswer ||
         (Array.isArray(question.options) ? question.options[correctIndex] : "") ||
-        "Correct answer";
+        uiT("fast.correctAnswer");
       const answered = answerIndex != null;
       const isCorrect = Boolean(mine?.correct);
       const resultClass = isCorrect ? "is-correct" : answered ? "is-incorrect" : "is-unanswered";
-      const resultLabel = isCorrect ? "✓ Correct" : answered ? "✕ Incorrect" : "– No answer";
+      const resultLabel = isCorrect
+        ? uiT("fast.statusCorrect")
+        : answered
+          ? uiT("fast.statusIncorrect")
+          : uiT("fast.statusNoAnswer");
       const selectedText = answered
         ? (Array.isArray(question.options) ? question.options[Number(answerIndex)] : "") || `Option ${answerLabel}`
-        : "No answer submitted";
+        : uiT("fast.noAnswerSubmitted");
       const answerLines = isCorrect
         ? `<div class="player-fast-result__answer-line player-fast-result__answer-line--correct">
-            <span class="player-fast-result__answer-label">Your answer — Correct</span>
+            <span class="player-fast-result__answer-label">${uiT("fast.yourAnswerCorrect")}</span>
             <span class="player-fast-result__answer-value"><strong>${escapeHtml(correctLabel)}.</strong> ${escapeHtml(answerText)}</span>
           </div>`
         : `<div class="player-fast-result__answer-line player-fast-result__answer-line--correct">
-            <span class="player-fast-result__answer-label">Correct answer</span>
+            <span class="player-fast-result__answer-label">${uiT("fast.correctAnswer")}</span>
             <span class="player-fast-result__answer-value"><strong>${escapeHtml(correctLabel)}.</strong> ${escapeHtml(answerText)}</span>
           </div>
           <div class="player-fast-result__answer-line player-fast-result__answer-line--yours">
-            <span class="player-fast-result__answer-label">Your answer</span>
+            <span class="player-fast-result__answer-label">${uiT("fast.yourAnswer")}</span>
             <span class="player-fast-result__answer-value">${answered ? `<strong>${escapeHtml(answerLabel)}.</strong> ` : ""}${escapeHtml(selectedText)}</span>
           </div>`;
 
       return `<li class="player-fast-result__answer ${resultClass}">
         <div class="player-fast-result__answer-head">
-          <span class="player-fast-result__answer-number">Question ${index + 1}</span>
+          <span class="player-fast-result__answer-number">${uiT("fast.questionN", { n: index + 1 })}</span>
           <span class="player-fast-result__answer-status">${resultLabel}</span>
         </div>
         ${answerLines}
       </li>`;
     })
     .join("");
+
+  window.requestAnimationFrame?.(() => {
+    window.LangoGsap?.playPlayerFastResultEnter?.(
+      document.querySelector("#screen-player-fast-results")
+    );
+  });
 }
 
 function getRoomSessionSocket() {
@@ -164,7 +433,7 @@ function getRoomSessionSocket() {
     roomSessionSocket.on("session_started", ({ exercise }) => {
       if (!roomParticipant) return;
       window.roomFastQuizCompleted = false;
-      $("#room-waiting-status").textContent = joinT("join.classStarting");
+      setJoinWaitingStatus("join.classStarting");
       startRoomExercise(
         roomParticipant.roomId,
         roomParticipant.displayName,
@@ -174,11 +443,7 @@ function getRoomSessionSocket() {
     });
 
     roomSessionSocket.on("session_ended", () => {
-      location.href = roomJoinUrl({
-        roomId: roomParticipant?.roomId || "",
-        token: roomParticipant?.userId || urlToken || "",
-        name: roomParticipant?.displayName || "",
-      });
+      showClassEnded({ statusKey: "join.endedStatus" });
     });
 
     roomSessionSocket.on("room_exercise_wrap_up", (payload) => {
@@ -196,7 +461,7 @@ function getRoomSessionSocket() {
 
       if (hasScores) {
         showScreen("player-finished");
-        showExerciseLeaderboards({
+        joinLastLeaderboard = {
           exerciseLeaderboard: payload.exerciseLeaderboard,
           semesterLeaderboard: payload.semesterLeaderboard,
           highlightId: roomParticipant.userId,
@@ -204,13 +469,14 @@ function getRoomSessionSocket() {
           semesterListEl: $("#player-semester-leaderboard"),
           semesterWrapEl: $("#player-semester-leaderboard-wrap"),
           exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
-        });
+        };
+        showExerciseLeaderboards(joinLastLeaderboard);
         const playBtn = $("#btn-play-again");
         if (playBtn) playBtn.hidden = true;
         return;
       }
 
-      $("#room-waiting-status").textContent = joinT("join.inClassWaiting");
+      setJoinWaitingStatus("join.inClassWaiting");
       showScreen("room-waiting");
     });
   }
@@ -241,26 +507,19 @@ function initRoomJoin() {
     stopRoomQuizJoinRetry();
     if (roomSessionSocket) roomSessionSocket.disconnect();
     roomSessionSocket = null;
-    clearStoredParticipant();
-    location.href = roomJoinUrl({
-      roomId: roomParticipant?.roomId || urlRoom || "",
-      token: roomParticipant?.userId || urlToken || "",
-      name: roomParticipant?.displayName || urlNickname || "",
-    });
+    showClassEnded({ statusKey: "join.endedStatus" });
   });
 
   if (!activeRoom) {
     $("#join-room-status").textContent = "";
-    $("#join-room-error").textContent =
-      "Open the join link from your teacher's notification.";
+    $("#join-room-error").textContent = joinT("join.classHint");
     return;
   }
 
   const displayName = resolveDisplayName(activeRoom, stored);
   if (!displayName) {
     $("#join-room-status").textContent = "";
-    $("#join-room-error").textContent =
-      "Your name is missing from the join link. Ask your teacher for a new link.";
+    $("#join-room-error").textContent = joinT("join.nameMissingAsk");
     return;
   }
 
@@ -270,18 +529,31 @@ function initRoomJoin() {
 function doJoinRoom(roomId, displayNameOverride) {
   const stored = loadStoredParticipant();
   const displayName = (displayNameOverride || resolveDisplayName(roomId, stored)).trim();
-  $("#join-room-error").textContent = "";
-  $("#join-room-status").textContent = "Joining waiting room…";
+  const fromEnded = isOnEndedScreen();
+  if (fromEnded) {
+    setJoinEndedError("");
+    setEndedSubmitBusy(true);
+  } else {
+    $("#join-room-error").textContent = "";
+    $("#join-room-status").textContent = joinT("join.joiningRoom");
+  }
+
+  const failJoin = (message) => {
+    if (fromEnded || isOnEndedScreen()) {
+      setEndedSubmitBusy(false);
+      setJoinEndedError(message);
+    } else {
+      $("#join-room-status").textContent = "";
+      $("#join-room-error").textContent = message;
+    }
+  };
 
   if (!roomId) {
-    $("#join-room-status").textContent = "";
-    $("#join-room-error").textContent =
-      "Open the join link from your teacher's notification.";
+    failJoin(joinT("join.classHint"));
     return;
   }
   if (!displayName) {
-    $("#join-room-status").textContent = "";
-    $("#join-room-error").textContent = "Your name is missing from the join link.";
+    failJoin(joinT("join.nameMissing"));
     return;
   }
 
@@ -297,8 +569,18 @@ function doJoinRoom(roomId, displayNameOverride) {
       },
       (data) => {
         if (!data?.ok) {
-          $("#join-room-status").textContent = "";
-          $("#join-room-error").textContent = data?.error || "Failed to join room.";
+          const closed = isClosedRoomJoinError(data);
+          const statusKey =
+            data.errorCode === "session_ended" ? "join.endedStatus" : "join.roomGone";
+          if (closed && (fromEnded || isOnEndedScreen())) {
+            failJoin(joinT(statusKey));
+            return;
+          }
+          if (closed) {
+            showClassEnded({ statusKey });
+            return;
+          }
+          failJoin(data?.error || joinT("join.failedRoom"));
           return;
         }
 
@@ -309,14 +591,22 @@ function doJoinRoom(roomId, displayNameOverride) {
         };
         saveStoredParticipant(participant);
         roomParticipant = participant;
+        rememberJoinDisplayName(participant.displayName);
+        clearJoinEndedState();
+        setEndedSubmitBusy(false);
 
         if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
 
-        $("#room-waiting-status").textContent =
-          data.sessionStatus === "start"
-            ? joinT("join.classStarting")
-            : joinT("join.inClassWaiting");
+        setJoinWaitingStatus(
+          data.sessionStatus === "start" ? "join.classStarting" : "join.inClassWaiting"
+        );
         showScreen("room-waiting");
+        if (
+          data.sessionStatus === "start" &&
+          rememberLateJoinWelcome(data.roomId, data.userId)
+        ) {
+          showPlayerLateJoinWelcome(participant.displayName);
+        }
 
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set("room", data.roomId);
@@ -337,8 +627,7 @@ function doJoinRoom(roomId, displayNameOverride) {
   else {
     socket.once("connect", attemptJoin);
     socket.once("connect_error", () => {
-      $("#join-room-status").textContent = "";
-      $("#join-room-error").textContent = "Could not connect to class server.";
+      failJoin(joinT("join.connectFail"));
     });
   }
 }
@@ -369,17 +658,17 @@ function initQuizJoin() {
   }
 
   socket.on("connect", () => {
-    setConnectionStatus("Connected — enter your nickname", "ok");
+    setConnectionStatus(joinT("join.connectedEnter"), "ok");
     updateJoinButton();
   });
 
   socket.on("disconnect", () => {
-    setConnectionStatus("Disconnected — reconnecting…", "err");
+    setConnectionStatus(joinT("join.reconnecting"), "err");
     updateJoinButton();
   });
 
   socket.on("connect_error", () => {
-    setConnectionStatus("Cannot reach server — check the join link from the host", "err");
+    setConnectionStatus(joinT("join.cannotReach"), "err");
     updateJoinButton();
   });
 
@@ -388,7 +677,7 @@ function initQuizJoin() {
     $("#join-error").textContent = "";
 
     if (!nickname) {
-      $("#join-error").textContent = "Enter a nickname.";
+      $("#join-error").textContent = joinT("join.enterNickname");
       return;
     }
 
@@ -398,15 +687,15 @@ function initQuizJoin() {
       joinBtn.disabled = !socket.connected;
 
       if (!res?.ok) {
-        let msg = res?.error || "Failed to join";
+        let msg = res?.error || joinT("join.failedGame");
         if (res?.hint) msg += ` ${res.hint}`;
         $("#join-error").textContent = msg;
         return;
       }
 
       myPlayerId = res.playerId;
-      $("#room-waiting-title").textContent = res.quizTitle || "Waiting Room";
-      $("#room-waiting-status").textContent = uiT("status.waitHost");
+      $("#room-waiting-title").textContent = res.quizTitle || joinT("join.waitingTitle");
+      setJoinWaitingStatus("status.waitHost");
       $("#btn-leave-room").hidden = true;
       showScreen("room-waiting");
     });
@@ -414,8 +703,7 @@ function initQuizJoin() {
 
   joinBtn.addEventListener("click", () => {
     if (!socket.connected) {
-      $("#join-error").textContent =
-        "Still connecting to the server. Wait a moment and try again.";
+      $("#join-error").textContent = joinT("join.stillConnecting");
       return;
     }
     doJoin();
@@ -423,7 +711,7 @@ function initQuizJoin() {
 
   socket.on("game_starting", ({ fastMode } = {}) => {
     quizFastMode = !!fastMode;
-    $("#room-waiting-status").textContent = uiT("status.getReady");
+    setJoinWaitingStatus("status.getReady");
   });
 
   socket.on("question_speaking", (data) => {
@@ -514,12 +802,14 @@ function initQuizJoin() {
     clearTimer();
     if (wasFastMode) {
       showScreen("player-fast-results");
-      renderPlayerFastMcResult({
+      const fastPayload = {
         answerReview,
         answerHistory,
         leaderboard: exerciseLeaderboard || leaderboard,
         playerId: myPlayerId,
-      });
+      };
+      joinLastFastResult = fastPayload;
+      renderPlayerFastMcResult(fastPayload);
       return;
     }
     showScreen("player-finished");
@@ -561,18 +851,36 @@ function initJoinLinkRequired() {
   $("#join-panel-link-required").hidden = false;
 }
 
+window.LangoI18n?.init?.();
+window.LangoI18n?.applyDom?.();
+wireJoinEndedForm();
+
+function bindPlayAgain() {
+  $("#btn-play-again")?.addEventListener("click", () => {
+    location.href = "/join.html";
+  });
+}
+
 if (urlParams.has("preview")) {
   /* Layout preview mode — join-preview.js drives the UI. */
 } else if (urlPin) {
   initQuizJoin();
-} else if (urlRoom || loadStoredParticipant()?.roomId || urlToken || urlNickname) {
+} else if (urlRoom || loadStoredParticipant()?.roomId) {
   initRoomJoin();
-  $("#btn-play-again")?.addEventListener("click", () => {
-    location.href = "/join.html";
-  });
+  bindPlayAgain();
 } else {
-  initJoinLinkRequired();
+  const endedState = loadJoinEndedState();
+  if (endedState) {
+    if (endedState.name) lastJoinDisplayName = endedState.name;
+    showClassEnded({ statusKey: endedState.statusKey || "join.endedStatus" });
+  } else if (urlToken || urlNickname) {
+    initRoomJoin();
+    bindPlayAgain();
+  } else {
+    initJoinLinkRequired();
+  }
 }
 
-window.LangoI18n?.init?.();
-window.LangoI18n?.applyDom?.();
+window.LangoI18n?.onChange?.(() => {
+  refreshJoinLocalizedUi();
+});

@@ -1,0 +1,111 @@
+/* Uncle Tommy sprite: idle blink/breath, talking while TTS plays. */
+.uncle-tommy-sprite {
+  --tommy-idle-frames: 10;
+  --tommy-talk-frames: 6;
+  --tommy-idle-duration: 1800ms;
+  --tommy-talk-duration: 660ms;
+  --tommy-frame-w: 476;
+  --tommy-frame-h: 812;
+  position: relative;
+  display: block;
+  width: 180px;
+  height: auto;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.uncle-tommy-sprite__clip {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--tommy-frame-w) / var(--tommy-frame-h);
+  overflow: hidden;
+  transform-origin: 50% 100%;
+  animation: uncle-tommy-breathe 2400ms ease-in-out infinite;
+}
+
+.uncle-tommy-sprite__film {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--tommy-idle-frames) * 100%);
+  height: 100%;
+  background-image: url("/assets/buzzin/uncle-tommy-idle.webp");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  animation: uncle-tommy-film var(--tommy-idle-duration) steps(10) infinite;
+}
+
+.uncle-tommy-sprite--avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.uncle-tommy-sprite--avatar .uncle-tommy-sprite__clip {
+  aspect-ratio: auto;
+  height: 100%;
+}
+
+.uncle-tommy-sprite--avatar .uncle-tommy-sprite__film {
+  background-image: url("/assets/buzzin/uncle-tommy-idle-head.webp");
+}
+
+html.uncle-tommy-is-speaking .uncle-tommy-sprite__clip {
+  animation: none;
+}
+
+html.uncle-tommy-is-speaking .uncle-tommy-sprite__film {
+  width: calc(var(--tommy-talk-frames) * 100%);
+  background-image: url("/assets/buzzin/uncle-tommy-talk.webp");
+  animation: uncle-tommy-film var(--tommy-talk-duration) steps(6) infinite;
+}
+
+html.uncle-tommy-is-speaking .uncle-tommy-sprite--avatar .uncle-tommy-sprite__film {
+  background-image: url("/assets/buzzin/uncle-tommy-talk-head.webp");
+}
+
+@keyframes uncle-tommy-film {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes uncle-tommy-breathe {
+  0%,
+  100% {
+    transform: scale3d(1, 1, 1);
+  }
+  50% {
+    transform: scale3d(1.015, 1.03, 1);
+  }
+}
+
+#app.lango-host .host-buzzin-feedback-character.uncle-tommy-sprite {
+  left: 268px;
+  top: 214px;
+  width: 250px;
+  height: calc(250px * 812 / 476);
+  filter: drop-shadow(0 16px 18px rgba(35, 22, 65, 0.22));
+}
+
+#app.lango-host .host-buzzin-empty-character.uncle-tommy-sprite {
+  left: 24px;
+  bottom: 0;
+  width: 280px;
+  height: calc(280px * 812 / 476);
+  max-height: none;
+  filter: drop-shadow(0 16px 18px rgba(35, 22, 65, 0.22));
+}
+
+#app.lango-host .host-buzzin-chat-avatar--teacher .uncle-tommy-sprite {
+  width: 100%;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uncle-tommy-sprite__clip,
+  .uncle-tommy-sprite__film {
+    animation: none !important;
+  }
+}

@@ -3244,12 +3244,20 @@ io.on("connection", (socket) => {
 
     const session = sessionStore.getSession(pin);
     if (!session) {
-      callback?.({ ok: false, error: "Room not found. Check the 6-digit code with your teacher." });
+      callback?.({
+        ok: false,
+        errorCode: "room_not_found",
+        error: "Room not found. Check the 6-digit code with your teacher.",
+      });
       return;
     }
 
     if (session.status === "ended") {
-      callback?.({ ok: false, error: "This class session has ended." });
+      callback?.({
+        ok: false,
+        errorCode: "session_ended",
+        error: "This class session has ended.",
+      });
       return;
     }
 

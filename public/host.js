@@ -1113,7 +1113,7 @@ function setNextStepButtonLabel(btn, buttonLabel) {
   if (!btn) return;
   if (buttonLabel) {
     btn.hidden = false;
-    const span = btn.querySelector("span");
+    const span = btn.querySelector(".host-btn-label") || btn.querySelector("span:not(.host-btn-face)");
     if (span) span.textContent = buttonLabel;
     else btn.textContent = buttonLabel;
   } else {
@@ -1267,6 +1267,8 @@ function getVisibleRoomCode() {
   return normalizePin(state.activeRoomId || $("#waiting-room-id")?.textContent || "");
 }
 
+let hostUtilityDockEnterPending = false;
+
 function updatePersistentRoomCode(screenId) {
   const card = $("#host-persistent-room-code");
   const value = $("#persistent-room-id");
@@ -1286,10 +1288,14 @@ function updatePersistentRoomCode(screenId) {
   ];
   const roomCode = getVisibleRoomCode();
   const shouldShow = Boolean(roomCode && roomScreenIds.includes(screenId));
+  const wasVisible = card.classList.contains("is-visible");
   card.classList.toggle("is-visible", shouldShow);
   card.setAttribute("aria-hidden", shouldShow ? "false" : "true");
   if (shouldShow) {
     value.textContent = formatRoomCode(roomCode);
+  }
+  if (!wasVisible && shouldShow && !hostUtilityDockEnterPending) {
+    window.LangoGsap?.playHostUtilityChipIn?.(card);
   }
 }
 
@@ -1323,28 +1329,37 @@ function initPersistentRoomCodeSync() {
 }
 
 window.addEventListener("lango:screen-change", (event) => {
-  updatePersistentRoomCode(event.detail?.screenId);
+  const screenId = event.detail?.screenId;
+  hostUtilityDockEnterPending = true;
+  syncHostClassLabel(screenId);
+  updatePersistentRoomCode(screenId);
+  syncHostOnlineCountVisibility(screenId);
+  syncHostChromeLayout(screenId);
+  requestAnimationFrame(() => {
+    hostUtilityDockEnterPending = false;
+  });
 });
 
 function goTo(screenId, stepId) {
   showScreen(screenId);
   setActiveStep(stepId);
-  updatePersistentRoomCode(screenId);
 }
 
-function renderClassCard(classItem, { selectedId, onSelect }) {
+function renderClassCard(classItem, { selectedId, index = 0 }) {
   const active = classItem.id === selectedId ? " active" : "";
   const title = classItem.name || classItem.class_name || `Class ${classItem.id}`;
   const studentCount = classStudentCount(classItem);
   const meta =
     studentCount != null
-      ? `${studentCount} student${studentCount === 1 ? "" : "s"}`
+      ? hostT(studentCount === 1 ? "class.studentCountOne" : "class.studentCount", { n: studentCount })
       : "";
 
-  return `<button type="button" class="class-card${active}" data-id="${classItem.id}">
-    <span class="class-card-shine" aria-hidden="true"></span>
-    <span class="class-card-name">${escapeHtml(title)}</span>
-    ${meta ? `<span class="class-card-meta">${escapeHtml(meta)}</span>` : ""}
+  return `<button type="button" class="class-card${active}" data-id="${classItem.id}" style="--card-i: ${index}">
+    <span class="class-card-inner">
+      <span class="class-card-name">${escapeHtml(title)}</span>
+      ${meta ? `<span class="class-card-meta">${escapeHtml(meta)}</span>` : ""}
+      <span class="class-card-go">${escapeHtml(hostT("class.select"))}</span>
+    </span>
   </button>`;
 }
 
@@ -1353,25 +1368,25 @@ function courseDescription(course) {
   if (description) return description;
   const count = course?.exerciseCount || 0;
   if (count) {
-    return `${count} exercise${count === 1 ? "" : "s"} in this course.`;
+    return uiT(count === 1 ? "course.exerciseCountOne" : "course.exerciseCount", { n: count });
   }
-  return "Choose this course to continue your journey.";
+  return uiT("course.chooseHint");
 }
 
 function courseLevelLabel() {
   const level = getClassLevelLabel(state.classItem);
   if (!level || level === "Classes") {
-    return state.classItem?.name ? `Class — ${state.classItem.name}` : "";
+    return state.classItem?.name ? uiT("course.classDash", { name: state.classItem.name }) : "";
   }
-  return `English level — ${level}`;
+  return uiT("course.englishLevel", { level });
 }
 
 function sectionDescription(section) {
   const count = (section.exercises || []).length;
   if (count) {
-    return `${count} exercise${count === 1 ? "" : "s"} in this section.`;
+    return uiT(count === 1 ? "section.exerciseCountOne" : "section.exerciseCount", { n: count });
   }
-  return "Choose this section to continue your journey.";
+  return uiT("section.chooseHint");
 }
 
 function sectionXpValue(section) {
@@ -1418,6 +1433,29 @@ function updateSectionProgressCard(sections, selectedId = state.selectedSection?
   }
   card.dataset.progressKey = progressKey;
   card.hidden = false;
+}
+
+function getHostChromeCompactScreens() {
+  return [
+    "settings",
+    "section",
+    "host-quiz-preview",
+    "host-quiz-question",
+    "host-quiz-results",
+    "host-fast-results",
+    "host-quiz-finished",
+    "host-video",
+    "host-buzzin",
+    "host-buzzin-feedback",
+    "host-buzzin-empty",
+  ];
+}
+
+function syncHostChromeLayout(screenId = getActiveHostScreenId()) {
+  $("#app")?.classList.toggle(
+    "is-host-chrome-compact",
+    getHostChromeCompactScreens().includes(screenId)
+  );
 }
 
 function setSectionExercisePanelVisible(visible) {
@@ -1744,12 +1782,26 @@ function renderCourseGrid(container, courses, { selectedId, onSelect }) {
   });
 }
 
+function updateClassCountBadge(count) {
+  const badge = $("#class-count-badge");
+  if (!badge) return;
+  if (!count) {
+    badge.hidden = true;
+    badge.textContent = "";
+    return;
+  }
+  badge.hidden = false;
+  badge.textContent = hostT(count === 1 ? "class.countOne" : "class.count", { n: count });
+}
+
 function renderClassGrid(container, classes, { selectedId, onSelect }) {
   if (!classes.length) {
     container.innerHTML = "";
+    updateClassCountBadge(0);
     return;
   }
 
+  let cardIndex = 0;
   const sections = groupClassesByLevel(classes);
   container.innerHTML = sections
     .map((section) => {
@@ -1757,11 +1809,12 @@ function renderClassGrid(container, classes, { selectedId, onSelect }) {
         ? `<h2 class="class-section-title">${escapeHtml(section.label)}</h2>`
         : "";
       const cards = section.items
-        .map((classItem) => renderClassCard(classItem, { selectedId, onSelect }))
+        .map((classItem) => renderClassCard(classItem, { selectedId, index: cardIndex++ }))
         .join("");
       return `<section class="class-section">${heading}<div class="class-grid">${cards}</div></section>`;
     })
     .join("");
+  updateClassCountBadge(classes.length);
 
   container.querySelectorAll(".class-card").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1804,12 +1857,12 @@ function flattenSections(sections) {
 function exerciseSubtitle(exercise) {
   const subtitle = String(exercise?.subTitle || "").trim();
   if (subtitle) return subtitle;
-  if (isVideoExercise(exercise)) return "Watch the lesson video.";
-  if (isBuzzinExercise(exercise)) return "First to buzz in answers.";
-  if (isFastMcQuizExercise(exercise)) return "Answer quickly — results at the end.";
+  if (isVideoExercise(exercise)) return uiT("exercise.videoFallback");
+  if (isBuzzinExercise(exercise)) return uiT("exercise.buzzinFallback");
+  if (isFastMcQuizExercise(exercise)) return uiT("exercise.fastFallback");
   if (isMcQuizExercise(exercise)) {
     const questionCount = (exercise.items || []).length;
-    return questionCount >= 5 ? "Answer as many as you can!" : "Choose the correct answer.";
+    return questionCount >= 5 ? uiT("exercise.mcqMany") : uiT("exercise.mcqChoose");
   }
   return "";
 }
@@ -2113,6 +2166,7 @@ async function enterClassStep() {
   $("#class-error").textContent = "";
   $("#class-status").textContent = hostT("class.loading");
   $("#class-sections").innerHTML = "";
+  updateClassCountBadge(0);
   goTo("class", "class");
 
   try {
@@ -2122,6 +2176,7 @@ async function enterClassStep() {
 
     if (!classes.length) {
       $("#class-status").textContent = hostT("class.none");
+      updateClassCountBadge(0);
       return;
     }
 
@@ -2152,6 +2207,41 @@ async function enterClassStep() {
   }
 }
 
+function syncHostClassLabel(screenId = getActiveHostScreenId()) {
+  const wrap = $("#course-class-label-wrap");
+  const nameEl = $("#class-label");
+  const text = String(state.classItem?.name || "").trim();
+  if (nameEl) {
+    nameEl.textContent = text;
+    if (text) nameEl.setAttribute("title", text);
+    else nameEl.removeAttribute("title");
+  }
+  const hideOn = new Set([
+    "login",
+    "class",
+    "",
+    "host-quiz-preview",
+    "host-quiz-question",
+    "host-quiz-results",
+    "host-fast-results",
+    "host-quiz-finished",
+    "host-video",
+    "host-buzzin",
+    "host-buzzin-feedback",
+    "host-buzzin-empty",
+  ]);
+  const shouldShow = Boolean(text) && !hideOn.has(screenId);
+  if (!wrap) return;
+  const wasVisible = !wrap.hidden && !wrap.classList.contains("is-empty");
+  wrap.hidden = !shouldShow;
+  wrap.classList.toggle("is-empty", !shouldShow);
+  if (text) wrap.setAttribute("title", text);
+  else wrap.removeAttribute("title");
+  if (!wasVisible && shouldShow && !hostUtilityDockEnterPending) {
+    window.LangoGsap?.playHostUtilityChipIn?.(wrap);
+  }
+}
+
 async function enterCourseStep({ resume = false, keepCourse = false } = {}) {
   if (!resume && !keepCourse) {
     state.course = null;
@@ -2163,7 +2253,6 @@ async function enterCourseStep({ resume = false, keepCourse = false } = {}) {
     state.selectedExercise = null;
   }
 
-  $("#class-label").textContent = state.classItem?.name || "";
   $("#course-error").textContent = "";
   $("#course-status").textContent = hostT("course.loading");
   $("#course-sections").innerHTML = "";
@@ -2308,9 +2397,6 @@ function renderSectionPicker() {
   const sections = getSortedSections();
   const playableSections = getPlayableSections(sections);
   const grid = $("#section-grid");
-  const label = $("#section-course-label");
-  if (label) label.textContent = courseTitle(state.course);
-
   if (!sections.length) {
     $("#section-status").textContent = hostT("section.none");
     renderSectionPickerGrid(grid, [], { selectedId: null, onSelect: () => {} });
@@ -2570,6 +2656,24 @@ function participantDisplayName(participant) {
   return String(participant?.displayName || "Student").trim() || "Student";
 }
 
+function formatWaitingDisplayName(name) {
+  const raw = String(name || "").trim();
+  if (!raw) return "Student";
+  const letters = raw.replace(/[^A-Za-z]/g, "");
+  // Soften shouty ALL-CAPS Latin names for the tile; keep mixed/CJK as-is.
+  if (letters.length >= 3 && letters === letters.toUpperCase()) {
+    return raw
+      .toLowerCase()
+      .split(/([\s\-'+.]+)/)
+      .map((part) => {
+        if (!part || /^[\s\-'+.]+$/.test(part)) return part;
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      })
+      .join("");
+  }
+  return raw;
+}
+
 function waitingAvatarInitials(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "?";
@@ -2585,7 +2689,12 @@ function waitingAvatarHue(name) {
   return hash;
 }
 
-function renderWaitingAvatar(name, { placeholder = false } = {}) {
+function waitingStudentKey(name, studentId) {
+  if (studentId != null && String(studentId)) return `id:${studentId}`;
+  return `name:${normalizePersonName(name) || "student"}`;
+}
+
+function renderWaitingAvatar(name, { placeholder = false, connected = false } = {}) {
   if (placeholder) {
     return `<div class="waiting-student-avatar waiting-student-avatar--placeholder" aria-hidden="true">
       <span class="waiting-student-initials">?</span>
@@ -2595,30 +2704,132 @@ function renderWaitingAvatar(name, { placeholder = false } = {}) {
   const safeName = escapeHtml(name);
   const initials = escapeHtml(waitingAvatarInitials(name));
   return `<div class="waiting-student-avatar" role="img" aria-label="${safeName} avatar" style="--waiting-avatar-hue: ${waitingAvatarHue(name)}">
+    <span class="waiting-student-shine" aria-hidden="true"></span>
     <span class="waiting-student-initials" aria-hidden="true">${initials}</span>
+    <span class="waiting-student-presence${connected ? " is-online" : ""}" aria-hidden="true"></span>
   </div>`;
 }
 
 function renderWaitingStudentCard(student, participant) {
   const connected = Boolean(participant);
-  const name = connected ? participantDisplayName(participant) : studentDisplayName(student);
-  return `<li class="waiting-student${connected ? " connected" : " pending"}">
-    ${renderWaitingAvatar(name)}
-    <span class="waiting-student-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+  const rawName = connected ? participantDisplayName(participant) : studentDisplayName(student);
+  const name = formatWaitingDisplayName(rawName);
+  const key = waitingStudentKey(rawName, student?.id ?? participant?.userId);
+  return `<li class="waiting-student${connected ? " connected" : " pending"}" data-student-key="${escapeHtml(key)}" data-connected="${connected ? "true" : "false"}">
+    <div class="waiting-student-shell">
+      ${renderWaitingAvatar(rawName, { connected })}
+      <span class="waiting-student-name" title="${escapeHtml(rawName)}">${escapeHtml(name)}</span>
+    </div>
   </li>`;
 }
 
 function renderJoinedStudentCard(participant) {
-  const name = participantDisplayName(participant);
-  return `<li class="waiting-student connected">
-    ${renderWaitingAvatar(name)}
-    <span class="waiting-student-name" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+  const rawName = participantDisplayName(participant);
+  const name = formatWaitingDisplayName(rawName);
+  const key = waitingStudentKey(rawName, participant?.userId);
+  return `<li class="waiting-student connected" data-student-key="${escapeHtml(key)}" data-connected="true">
+    <div class="waiting-student-shell">
+      ${renderWaitingAvatar(rawName, { connected: true })}
+      <span class="waiting-student-name" title="${escapeHtml(rawName)}">${escapeHtml(name)}</span>
+    </div>
   </li>`;
+}
+
+function shouldAnnounceLateJoinOnHost() {
+  const screenId = getActiveHostScreenId();
+  return screenId !== "waiting" && getHostOnlineCountScreens().includes(screenId);
+}
+
+function queueHostLateJoinNotice(people) {
+  if (!shouldAnnounceLateJoinOnHost() || !people?.length) return;
+  for (const person of people) {
+    if (!person?.name || !person?.key) continue;
+    if (pendingLateJoins.some((item) => item.key === person.key)) continue;
+    pendingLateJoins.push(person);
+  }
+  if (lateJoinFlushTimer || !pendingLateJoins.length) return;
+  lateJoinFlushTimer = window.setTimeout(flushHostLateJoinNotice, LATE_JOIN_COALESCE_MS);
+}
+
+function flushHostLateJoinNotice() {
+  lateJoinFlushTimer = 0;
+  const people = pendingLateJoins;
+  pendingLateJoins = [];
+  if (!people.length || !shouldAnnounceLateJoinOnHost()) return;
+  showHostLateJoinToast(people);
+}
+
+function showHostLateJoinToast(people) {
+  const toast = $("#host-join-toast");
+  const copyEl = $("#host-join-toast-copy");
+  const avatarEl = $("#host-join-toast-avatar");
+  const initialsEl = $("#host-join-toast-initials");
+  if (!toast || !copyEl || !people.length) return;
+
+  const firstName = people[0].name;
+  const extra = people.length - 1;
+  copyEl.textContent =
+    extra > 0
+      ? hostT("waiting.joinedMore", { name: firstName, n: extra })
+      : hostT("waiting.joinedOne", { name: firstName });
+
+  if (avatarEl) {
+    avatarEl.style.setProperty("--waiting-avatar-hue", String(waitingAvatarHue(firstName)));
+  }
+  if (initialsEl) initialsEl.textContent = waitingAvatarInitials(firstName);
+
+  toast.hidden = false;
+  toast.setAttribute("aria-hidden", "false");
+  if (window.LangoGsap?.playHostJoinToast) {
+    window.LangoGsap.playHostJoinToast(toast);
+  } else {
+    window.setTimeout(() => {
+      toast.hidden = true;
+      toast.setAttribute("aria-hidden", "true");
+    }, 2200);
+  }
+  window.LangoGsap?.playHostOnlineCountPop?.(
+    $("#host-online-count .host-online-count__value") || $("#host-online-count")
+  );
+}
+
+function getHostOnlineCountScreens() {
+  return [
+    "section",
+    "host-quiz-preview",
+    "host-quiz-question",
+    "host-quiz-results",
+    "host-fast-results",
+    "host-quiz-finished",
+    "host-video",
+    "host-buzzin",
+    "host-buzzin-feedback",
+    "host-buzzin-empty",
+  ];
+}
+
+function syncHostOnlineCountVisibility(screenId = getActiveHostScreenId()) {
+  const chip = $("#host-online-count");
+  if (!chip) return;
+  const connected = Number($("#host-online-connected")?.textContent || 0);
+  const total = Number($("#host-online-total")?.textContent || 0);
+  const shouldShow =
+    getHostOnlineCountScreens().includes(screenId) &&
+    (total > 0 || connected > 0 || Boolean(getVisibleRoomCode()));
+  const wasVisible = !chip.hidden && chip.classList.contains("is-visible");
+  chip.hidden = !shouldShow;
+  chip.classList.toggle("is-visible", shouldShow);
+  chip.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+  if (!wasVisible && shouldShow && !hostUtilityDockEnterPending) {
+    window.LangoGsap?.playHostUtilityChipIn?.(chip);
+  }
 }
 
 function updateWaitingStudentCount(connected, totalOverride) {
   const currentEl = $("#waiting-connected-count");
   const totalEl = $("#waiting-total-target");
+  const dockCurrentEl = $("#host-online-connected");
+  const dockTotalEl = $("#host-online-total");
   const roster = getWaitingClassRoster();
   const total =
     totalOverride ??
@@ -2628,36 +2839,68 @@ function updateWaitingStudentCount(connected, totalOverride) {
         ? state.waitingTotalTarget
         : connected);
 
-  if (currentEl) currentEl.textContent = String(connected);
-  if (totalEl) totalEl.textContent = String(total);
+  const connectedText = String(Math.max(0, Number(connected) || 0));
+  const totalText = String(Math.max(0, Number(total) || 0));
+  if (currentEl) currentEl.textContent = connectedText;
+  if (totalEl) totalEl.textContent = totalText;
+  if (dockCurrentEl) dockCurrentEl.textContent = connectedText;
+  if (dockTotalEl) dockTotalEl.textContent = totalText;
+  syncHostOnlineCountVisibility();
 }
 
-function updateWaitingGridLayout(slotCount) {
+let waitingGridSlotCount = 1;
+
+function updateWaitingGridLayout(slotCount = waitingGridSlotCount) {
   const panel = document.querySelector(".waiting-students-panel");
+  const grid = $("#waiting-participants");
   if (!panel) return;
 
-  const count = Math.max(1, Number(slotCount) || 1);
+  const count = Math.max(1, Number(slotCount) || waitingGridSlotCount || 1);
+  waitingGridSlotCount = count;
   const columns = 6;
   const rows = Math.ceil(count / columns);
   const maxAvatar = 112;
-  const minAvatar = 52;
-  const gapMax = 30;
-  const gapMin = 10;
-  const nameLine = 52;
-  const gridMaxHeight = 380;
+  const minAvatar = 48;
+  const gapMax = 28;
+  const gapMin = 12;
+  const nameLines = 2;
+  const nameLineHeight = 1.2;
+  const itemGap = 10;
+  const shellPad = 22;
 
-  let avatar = Math.floor((gridMaxHeight - (rows - 1) * gapMax - rows * nameLine) / rows);
-  avatar = Math.max(minAvatar, Math.min(maxAvatar, avatar));
+  // Prefer the live grid height; fall back to the authored Figma panel budget.
+  const measuredGridHeight = grid?.clientHeight || 0;
+  const gridMaxHeight = measuredGridHeight > 80 ? measuredGridHeight : 360;
 
-  const gap = Math.max(gapMin, Math.min(gapMax, Math.round(avatar * 0.27)));
-  const nameSize = Math.max(14, Math.min(22, Math.round(avatar * 0.2)));
+  // Solve avatar size so rows of (avatar + gap + name block) fit the grid.
+  const estimate = (avatarSize) => {
+    const nameSize = Math.max(15, Math.min(22, Math.round(avatarSize * 0.2)));
+    const nameBlock = Math.ceil(nameSize * nameLineHeight * nameLines);
+    const gap = Math.max(gapMin, Math.min(gapMax, Math.round(avatarSize * 0.24)));
+    const rowHeight = avatarSize + itemGap + nameBlock + shellPad;
+    const total = rows * rowHeight + Math.max(0, rows - 1) * gap;
+    return { nameSize, nameBlock, gap, rowHeight, total };
+  };
+
+  let avatar = maxAvatar;
+  for (let size = maxAvatar; size >= minAvatar; size -= 1) {
+    if (estimate(size).total <= gridMaxHeight) {
+      avatar = size;
+      break;
+    }
+    avatar = size;
+  }
+
+  const fit = estimate(avatar);
   const photoPadding = Math.max(6, Math.round(avatar * 0.11));
 
   panel.style.setProperty("--waiting-grid-cols", String(columns));
   panel.style.setProperty("--waiting-avatar-size", `${avatar}px`);
   panel.style.setProperty("--waiting-avatar-padding", `${photoPadding}px`);
-  panel.style.setProperty("--waiting-grid-gap", `${gap}px`);
-  panel.style.setProperty("--waiting-name-size", `${nameSize}px`);
+  panel.style.setProperty("--waiting-grid-gap", `${fit.gap}px`);
+  panel.style.setProperty("--waiting-item-gap", `${itemGap}px`);
+  panel.style.setProperty("--waiting-name-size", `${fit.nameSize}px`);
+  panel.style.setProperty("--waiting-name-block", `${fit.nameBlock}px`);
 }
 
 let hostSessionParticipants = [];
@@ -2666,7 +2909,12 @@ function getHostSessionParticipants() {
   return hostSessionParticipants.slice();
 }
 
-function renderParticipants(participants) {
+let previousWaitingConnectedKeys = new Set();
+let pendingLateJoins = [];
+let lateJoinFlushTimer = 0;
+const LATE_JOIN_COALESCE_MS = 1200;
+
+function renderParticipants(participants, { announceJoins = false } = {}) {
   hostSessionParticipants = Array.isArray(participants) ? participants.slice() : [];
   const list = $("#waiting-participants");
   const statusEl = $("#waiting-participant-status");
@@ -2674,7 +2922,10 @@ function renderParticipants(participants) {
 
   if (!list) return;
 
+  const priorKeys = previousWaitingConnectedKeys;
   let displaySlots = 0;
+  const nextConnectedKeys = new Set();
+  const newlyJoinedPeople = [];
 
   if (roster.length) {
     const connectedCount = countConnectedRosterStudents(participants, roster);
@@ -2686,6 +2937,19 @@ function renderParticipants(participants) {
         const participant = participants.find((participant) =>
           participantMatchesStudent(participant, student)
         );
+        if (participant) {
+          const key = waitingStudentKey(
+            participantDisplayName(participant),
+            student?.id ?? participant?.userId
+          );
+          nextConnectedKeys.add(key);
+          if (!priorKeys.has(key)) {
+            newlyJoinedPeople.push({
+              key,
+              name: formatWaitingDisplayName(participantDisplayName(participant)),
+            });
+          }
+        }
         return renderWaitingStudentCard(student, participant);
       })
       .join("");
@@ -2697,11 +2961,25 @@ function renderParticipants(participants) {
 
     updateWaitingStudentCount(connected);
 
-    const connectedMarkup = participants.map((p) => renderJoinedStudentCard(p)).join("");
+    const connectedMarkup = participants
+      .map((p) => {
+        const key = waitingStudentKey(participantDisplayName(p), p?.userId);
+        nextConnectedKeys.add(key);
+        if (!priorKeys.has(key)) {
+          newlyJoinedPeople.push({
+            key,
+            name: formatWaitingDisplayName(participantDisplayName(p)),
+          });
+        }
+        return renderJoinedStudentCard(p);
+      })
+      .join("");
     const pendingMarkup = Array.from({ length: pendingCount }, () =>
       `<li class="waiting-student pending" aria-hidden="true">
-        ${renderWaitingAvatar("", { placeholder: true })}
-        <span class="waiting-student-name">—</span>
+        <div class="waiting-student-shell">
+          ${renderWaitingAvatar("", { placeholder: true })}
+          <span class="waiting-student-name">—</span>
+        </div>
       </li>`
     ).join("");
 
@@ -2709,6 +2987,11 @@ function renderParticipants(participants) {
   }
 
   updateWaitingGridLayout(displaySlots);
+
+  const newlyJoined = newlyJoinedPeople.map((person) => person.key);
+  previousWaitingConnectedKeys = nextConnectedKeys;
+  window.LangoGsap?.playWaitingStudentsUpdate?.(list, { newlyJoined });
+  if (announceJoins) queueHostLateJoinNotice(newlyJoinedPeople);
 
   if (statusEl) {
     const connected = roster.length
@@ -3355,6 +3638,13 @@ setupHostSettings();
 updateHostSettingsControls();
 setupHostBgm({ autostart: !hostBgmMuted });
 initPersistentRoomCodeSync();
+syncHostChromeLayout();
+window.updateWaitingGridLayout = updateWaitingGridLayout;
+window.addEventListener("resize", () => {
+  if (document.querySelector("#screen-waiting.active")) {
+    updateWaitingGridLayout();
+  }
+});
 if (state.token && state.user) savePrefs();
 
 const hostPreviewMode = new URLSearchParams(window.location.search).has("preview");

@@ -342,9 +342,14 @@ function buzzinTypingIndicatorHtml() {
   return `<span class="host-buzzin-chat-typing" aria-label="Speaking"><span></span><span></span><span></span></span>`;
 }
 
+function uncleTommySpriteHtml(extraClass = "") {
+  const cls = ["uncle-tommy-sprite", extraClass].filter(Boolean).join(" ");
+  return `<div class="${cls}" data-uncle-tommy-sprite aria-hidden="true"><span class="uncle-tommy-sprite__clip"><span class="uncle-tommy-sprite__film"></span></span></div>`;
+}
+
 function buzzinTeacherAvatarHtml() {
   return `<div class="host-buzzin-chat-avatar host-buzzin-chat-avatar--teacher" aria-hidden="true">
-    <img src="/assets/buzzin/uncle-tommy-icon.png" alt="" />
+    ${uncleTommySpriteHtml("uncle-tommy-sprite--avatar")}
   </div>`;
 }
 
@@ -372,6 +377,16 @@ function scrollHostBuzzinChatToBottom(container) {
   });
 }
 
+function buzzinQuestionBubbleHtml(topicText, askedName) {
+  const topic = String(topicText || "").trim();
+  const name = String(askedName || "").trim();
+  if (!topic) return "";
+  const body = name
+    ? `<p><strong>${escapeHtml(name)}</strong> — ${escapeHtml(topic)}</p>`
+    : `<p>${escapeHtml(topic)}</p>`;
+  return `<div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--question">${body}</div>`;
+}
+
 function renderHostBuzzinFeedbackChat(container, {
   topic = "",
   student = null,
@@ -384,6 +399,7 @@ function renderHostBuzzinFeedbackChat(container, {
 
   const topicText = String(topic || "").trim();
   const studentName = student?.displayName || currentTurn?.displayName || "Student";
+  const askedName = String(student?.displayName || currentTurn?.displayName || "").trim();
   const initials = buzzinAvatarInitials(studentName);
   const isRecording = Boolean(response?.pending);
   const isWaitingToAnswer = Boolean(currentTurn && !response?.text && !isRecording);
@@ -426,7 +442,7 @@ function renderHostBuzzinFeedbackChat(container, {
   container.innerHTML = `
     ${topicText ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${topicEnter}">
       ${buzzinTeacherAvatarHtml()}
-      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--question"><p>${escapeHtml(topicText)}</p></div>
+      ${buzzinQuestionBubbleHtml(topicText, askedName)}
     </div>` : ""}
     ${student || currentTurn ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--student${answerEnter}">
       <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--answer${pendingClass}">
@@ -598,6 +614,7 @@ function setupBuzzinSpokenFeedbackPlayDelegation(container, getResponses) {
 let buzzinPlaybackAudioEl = null;
 let buzzinPlaybackFinish = null;
 let buzzinSpeechBgmDuckDepth = 0;
+let uncleTommySpeakToken = 0;
 const BUZZIN_SPEECH_BGM_VOLUME = 0.06;
 const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 3.5;
 
@@ -791,12 +808,23 @@ function playBuzzinBase64Audio(base64, format, { duckBgm = false, gain = 1, useE
   });
 }
 
+function setUncleTommySpeaking(speaking) {
+  document.documentElement.classList.toggle("uncle-tommy-is-speaking", Boolean(speaking));
+}
+
 /** Host-only Uncle Tommy TTS playback. Resolves when audio ends or fails. */
 function playUncleTommyTts(base64, format) {
+  if (!base64) return Promise.resolve();
+  if (getUncleTommyTtsPlaybackVolume() <= 0) return Promise.resolve();
+
+  const token = ++uncleTommySpeakToken;
+  setUncleTommySpeaking(true);
   return playBuzzinBase64Audio(base64, format, {
     duckBgm: true,
     gain: UNCLE_TOMMY_TTS_PLAYBACK_GAIN,
     useEffectsVolume: false,
+  }).finally(() => {
+    if (token === uncleTommySpeakToken) setUncleTommySpeaking(false);
   });
 }
 

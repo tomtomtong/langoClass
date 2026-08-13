@@ -503,6 +503,7 @@ function updateStudentBuzzinTurnUi(payload) {
 }
 
 function updateStudentBuzzinUi(payload) {
+  if (payload) joinLastBuzzinPayload = payload;
   const btn = $("#btn-room-buzz-in");
   const status = $("#room-buzzin-status");
   const result = $("#room-buzzin-result");
@@ -727,7 +728,8 @@ function setupRoomPlayerQuiz(socket) {
   socket.on("game_starting", ({ fastMode } = {}) => {
     roomQuizFastMode = !!fastMode;
     if (roomQuizFastMode) window.roomFastQuizCompleted = false;
-    $("#room-waiting-status").textContent = uiT("status.getReady");
+    if (typeof setJoinWaitingStatus === "function") setJoinWaitingStatus("status.getReady");
+    else $("#room-waiting-status").textContent = uiT("status.getReady");
   });
 
   socket.on("question_preview", (data) => {
@@ -849,6 +851,9 @@ function setupRoomPlayerQuiz(socket) {
     clearTimer();
     showScreen("player-results");
     const mine = results.find((r) => r.playerId === roomQuizPlayerId);
+    if (typeof joinLastMcqResult !== "undefined") {
+      joinLastMcqResult = { mine, leaderboard, playerId: roomQuizPlayerId };
+    }
     renderPlayerMcqResult(mine, leaderboard, roomQuizPlayerId);
   });
 
@@ -860,17 +865,19 @@ function setupRoomPlayerQuiz(socket) {
       window.roomFastQuizCompleted = true;
       showScreen("player-fast-results");
       if (typeof renderPlayerFastMcResult === "function") {
-        renderPlayerFastMcResult({
+        const fastPayload = {
           answerReview,
           answerHistory,
           leaderboard: exerciseLeaderboard || leaderboard,
           playerId: roomQuizPlayerId,
-        });
+        };
+        if (typeof joinLastFastResult !== "undefined") joinLastFastResult = fastPayload;
+        renderPlayerFastMcResult(fastPayload);
       }
       return;
     }
     showScreen("player-finished");
-    showExerciseLeaderboards({
+    joinLastLeaderboard = {
       exerciseLeaderboard: exerciseLeaderboard || leaderboard,
       semesterLeaderboard,
       accuracyLeaderboard,
@@ -880,13 +887,18 @@ function setupRoomPlayerQuiz(socket) {
       semesterListEl: $("#player-semester-leaderboard"),
       semesterWrapEl: $("#player-semester-leaderboard-wrap"),
       exerciseWrapEl: $("#player-exercise-leaderboard-wrap"),
-    });
+    };
+    showExerciseLeaderboards(joinLastLeaderboard);
     const playBtn = $("#btn-play-again");
     if (playBtn) playBtn.hidden = true;
   });
 
   socket.on("game_ended", () => {
     clearTimer();
+    if (typeof showClassEnded === "function") {
+      showClassEnded({ statusKey: "join.endedStatus" });
+      return;
+    }
     location.href = roomJoinUrl({
       roomId: roomParticipant?.roomId || "",
       token: roomParticipant?.userId || urlToken || "",
@@ -911,7 +923,8 @@ function tryJoinRoomQuiz(roomId, displayName, userId) {
         if (!res?.ok) return;
         roomQuizPlayerId = res.playerId;
         stopRoomQuizJoinRetry();
-        $("#room-waiting-status").textContent = uiT("status.waitNextQ");
+        if (typeof setJoinWaitingStatus === "function") setJoinWaitingStatus("status.waitNextQ");
+        else $("#room-waiting-status").textContent = uiT("status.waitNextQ");
       }
     );
   };
@@ -930,7 +943,12 @@ function showStudentVideoExercise(exercisePayload) {
   const exercise = exerciseFromSessionRecord(exercisePayload);
   const title = exercise?.title || uiT("join.watchTitle");
 
-  $("#room-passive-waiting-title").textContent = title;
+  const titleEl = $("#room-passive-waiting-title");
+  if (titleEl) {
+    titleEl.textContent = title;
+    if (exercise?.title) titleEl.dataset.customTitle = "1";
+    else delete titleEl.dataset.customTitle;
+  }
   $("#room-passive-waiting-status").textContent = uiT("join.watchStatus");
   showScreen("room-passive-waiting");
 }

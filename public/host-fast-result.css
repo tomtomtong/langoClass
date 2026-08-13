@@ -7,7 +7,7 @@
   overflow: hidden;
   color: #fff;
   font-family: "Nunito", sans-serif;
-  background: #c8882a;
+  background: #7a2f7a;
 }
 
 .lango-host #screen-host-fast-results.host-fast-result-screen.active {
@@ -35,8 +35,8 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 50% 16%, rgba(255, 220, 140, 0.28), transparent 44%),
-    linear-gradient(180deg, rgba(90, 45, 8, 0.2), rgba(70, 35, 6, 0.42));
+    radial-gradient(circle at 50% 16%, rgba(255, 160, 220, 0.32), transparent 44%),
+    linear-gradient(180deg, rgba(90, 20, 70, 0.22), rgba(55, 12, 55, 0.45));
   pointer-events: none;
 }
 
@@ -46,18 +46,24 @@
   width: min(100%, 1100px);
   height: 100%;
   margin: 0 auto;
-  padding: 14px 20px 12px;
+  padding: var(--host-chrome-top, 96px) 20px 120px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-header {
-  display: flex;
+  position: absolute;
+  top: 22px;
+  left: 36px;
+  right: 22px;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto var(--host-utility-slot, 480px);
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex: 0 0 auto;
+  gap: 16px;
+  min-height: 64px;
+  pointer-events: none;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-title {
@@ -65,34 +71,43 @@
   max-width: 10ch;
   margin: 0;
   padding: 0;
-  font-size: clamp(28px, 3vw, 40px);
+  justify-self: start;
+  pointer-events: auto;
+  font-size: clamp(32px, 3.6vw, 48px);
   font-weight: 900;
-  line-height: 1.05;
+  line-height: 1;
   letter-spacing: -0.01em;
   text-align: left;
-  text-shadow: 0 2px 0 rgba(120, 55, 8, 0.35);
-  -webkit-text-stroke: 3px rgba(180, 90, 20, 0.45);
+  color: #fff;
+  -webkit-text-fill-color: #fff;
+  -webkit-text-stroke: 0.075em rgba(177, 25, 128, 0.88);
   paint-order: stroke fill;
+  text-shadow:
+    0 4px 0 rgba(116, 60, 155, 0.4),
+    0 10px 22px rgba(15, 23, 42, 0.28);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-pulse {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  align-items: center;
   gap: 6px;
+  grid-column: 2;
+  pointer-events: auto;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-pulse-chip {
-  min-height: 34px;
-  padding: 4px 12px;
+  min-height: 44px;
+  padding: 6px 12px;
   border: 2px solid rgba(255, 255, 255, 0.55);
   border-radius: 999px;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
-  background: rgba(255, 248, 230, 0.95);
-  color: #4a2a12;
-  box-shadow: 0 3px 0 rgba(120, 60, 10, 0.12);
+  background: rgba(255, 245, 252, 0.95);
+  color: #5b1848;
+  box-shadow: 0 3px 0 rgba(140, 40, 110, 0.14);
   font-variant-numeric: tabular-nums;
 }
 
@@ -105,6 +120,7 @@
 .lango-host #screen-host-fast-results .host-fast-result-pulse-chip span {
   font-size: 11px;
   font-weight: 800;
+  line-height: 1;
   opacity: 0.72;
 }
 
@@ -130,37 +146,62 @@
 
 .lango-host #screen-host-fast-results .host-fast-result-tommy {
   position: absolute;
-  left: 0;
-  bottom: 36%;
-  z-index: 3;
-  width: 100px;
+  left: 8px;
+  bottom: 42%;
+  z-index: 4;
+  width: 110px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 0;
   pointer-events: none;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-tommy-img {
   width: 100%;
   height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 12px rgba(60, 30, 0, 0.28));
+  filter: drop-shadow(0 8px 12px rgba(70, 15, 55, 0.28));
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-tommy-caption {
-  margin: 0;
-  max-width: 9em;
+  position: relative;
+  z-index: 2;
+  margin: 0 0 -2px;
+  max-width: 11em;
   padding: 6px 10px;
   border: 2px solid #fff;
-  border-radius: 14px 14px 14px 4px;
-  background: #fff8ef;
-  color: #4a2a12;
+  border-radius: 16px;
+  background: #fff5fb;
+  color: #5b1848;
   font-size: 11px;
   font-weight: 900;
   line-height: 1.2;
   text-align: center;
-  box-shadow: 0 3px 0 rgba(120, 60, 10, 0.14);
+  filter: drop-shadow(0 3px 0 rgba(140, 40, 110, 0.16));
+}
+
+.lango-host #screen-host-fast-results .host-fast-result-tommy-caption::before,
+.lango-host #screen-host-fast-results .host-fast-result-tommy-caption::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+}
+
+.lango-host #screen-host-fast-results .host-fast-result-tommy-caption::before {
+  bottom: -9px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid #fff;
+}
+
+.lango-host #screen-host-fast-results .host-fast-result-tommy-caption::after {
+  bottom: -6px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #fff5fb;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-board,
@@ -190,7 +231,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 8px 3% 0 6%;
+  padding: 8px 3% 0 16%;
   min-height: 0;
 }
 
@@ -246,18 +287,18 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #f0a35a, #e07830);
+  background: linear-gradient(145deg, #f0a3d0, #b11980);
   color: #fff;
   font-weight: 900;
   font-size: 22px;
-  box-shadow: 0 4px 0 rgba(120, 55, 10, 0.24);
+  box-shadow: 0 4px 0 rgba(140, 35, 110, 0.26);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-podium-row--1 .host-fast-result-avatar {
   width: 76px;
   height: 76px;
   font-size: 26px;
-  box-shadow: 0 0 0 3px rgba(255, 214, 102, 0.55), 0 4px 0 rgba(120, 55, 10, 0.24);
+  box-shadow: 0 0 0 3px rgba(252, 125, 186, 0.65), 0 4px 0 rgba(140, 35, 110, 0.26);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-avatar--sm {
@@ -275,25 +316,25 @@
   background: none;
   background-clip: border-box;
   -webkit-background-clip: border-box;
-  color: #fff8ef;
+  color: #fff5fb;
   font-size: 15px;
   font-weight: 900;
   line-height: 1.15;
   letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(60, 25, 0, 0.55);
+  text-shadow: 0 1px 2px rgba(70, 15, 55, 0.5);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-score-pill {
   padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(255, 248, 230, 0.96);
-  box-shadow: 0 2px 0 rgba(90, 40, 0, 0.12);
+  background: rgba(255, 245, 252, 0.96);
+  box-shadow: 0 2px 0 rgba(120, 30, 90, 0.14);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-score-pill .host-fast-result-score {
-  color: #4a2a12;
+  color: #5b1848;
   font-size: 15px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
@@ -302,10 +343,10 @@
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-detail {
-  color: rgba(255, 248, 230, 0.92);
+  color: rgba(255, 245, 252, 0.94);
   font-size: 12px;
   font-weight: 800;
-  text-shadow: 0 1px 2px rgba(60, 25, 0, 0.4);
+  text-shadow: 0 1px 2px rgba(70, 15, 55, 0.4);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-plinth {
@@ -314,7 +355,7 @@
   display: grid;
   place-items: center;
   border: 2px solid rgba(255, 255, 255, 0.45);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 6px 0 rgba(120, 60, 10, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 6px 0 rgba(140, 40, 110, 0.18);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-podium-row--1 .host-fast-result-plinth {
@@ -337,7 +378,7 @@
   font-weight: 900;
   line-height: 1;
   color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 3px 0 rgba(90, 45, 0, 0.22);
+  text-shadow: 0 3px 0 rgba(90, 20, 70, 0.22);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-sheet {
@@ -346,9 +387,13 @@
   min-height: 0;
   margin-top: -4px;
   padding: 16px 14px 8px;
+  border: 4px solid rgba(162, 89, 255, 0.45);
   border-radius: 22px 22px 14px 14px;
-  background: #fffdf8;
-  box-shadow: 0 -6px 20px rgba(80, 40, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  background: #fffafd;
+  box-shadow:
+    0 -6px 20px rgba(120, 30, 90, 0.14),
+    2px 4px 28px rgba(255, 177, 237, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -361,7 +406,7 @@
   width: 40px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(180, 120, 50, 0.22);
+  background: rgba(177, 25, 128, 0.22);
   transform: translateX(-50%);
 }
 
@@ -376,7 +421,7 @@
   flex-direction: column;
   gap: 2px;
   scrollbar-width: thin;
-  scrollbar-color: #e89a1c transparent;
+  scrollbar-color: #c866da transparent;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-ranking-row {
@@ -387,12 +432,12 @@
   grid-template-columns: 28px 32px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  color: #4a2a12;
+  color: #5b1848;
   border-radius: 12px;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-ranking-row:nth-child(odd) {
-  background: rgba(255, 236, 200, 0.35);
+  background: rgba(255, 200, 230, 0.35);
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-ranking-rank {
@@ -401,8 +446,8 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: rgba(180, 120, 50, 0.12);
-  color: rgba(90, 50, 20, 0.75);
+  background: rgba(177, 25, 128, 0.14);
+  color: rgba(120, 30, 90, 0.75);
   font-size: 12px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
@@ -410,7 +455,7 @@
 
 .lango-host #screen-host-fast-results .host-fast-result-ranking-name {
   overflow: hidden;
-  color: #5a3010;
+  color: #5b1848;
   font-size: 15px;
   font-weight: 900;
   text-overflow: ellipsis;
@@ -428,7 +473,7 @@
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-ranking-meta .host-fast-result-score {
-  color: #b86a12;
+  color: #b11980;
   font-size: 14px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
@@ -437,7 +482,7 @@
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-ranking-meta small {
-  color: rgba(90, 50, 20, 0.65);
+  color: rgba(120, 30, 90, 0.65);
   font-size: 11px;
   font-weight: 800;
 }
@@ -454,73 +499,119 @@
 
 .lango-host #screen-host-fast-results .host-fast-result-empty--sheet {
   min-height: 48px;
-  color: rgba(90, 50, 20, 0.65);
+  color: rgba(120, 30, 90, 0.65);
   font-size: 14px;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-footer {
-  position: relative;
-  left: auto;
-  bottom: auto;
-  z-index: 4;
-  width: 100%;
+  position: absolute;
+  left: 36px;
+  right: auto;
+  bottom: 28px;
+  z-index: 8;
+  width: auto;
   height: auto;
-  min-height: 46px;
+  min-height: 84px;
   margin: 0;
-  padding: 0;
-  border-radius: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: transparent;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(116, 60, 155, 0.08) inset,
+    0 16px 32px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   transform: none;
   transform-origin: initial;
   flex: 0 0 auto;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-button {
-  min-width: 0;
-  min-height: 42px;
+  min-width: 168px;
+  min-height: 64px;
   height: auto;
-  padding: 8px 14px 10px;
-  border: 3px solid rgba(255, 255, 255, 0.55);
-  border-radius: 100px;
-  display: inline-flex;
+  padding: 4px 16px 2px;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  grid-template-columns: minmax(36px, 1fr) auto minmax(36px, 1fr);
   align-items: center;
-  gap: 8px;
-  background: linear-gradient(180deg, #feca57, #ff9f43);
-  color: #fff;
+  justify-content: stretch;
+  justify-items: stretch;
+  gap: 0 8px;
+  background: linear-gradient(180deg, #f5e9ff 0%, #e9d5ff 100%);
+  color: #4c1d95;
   font: inherit;
-  font-size: 15px;
+  font-size: 26px;
   font-weight: 900;
-  letter-spacing: 0;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.14);
-  box-shadow: 0 4px 0 rgba(90, 40, 0, 0.2), inset 0 -2px 2px rgba(0, 0, 0, 0.08);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: none;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.7),
+    0 6px 0 rgba(124, 58, 237, 0.22),
+    0 10px 16px rgba(88, 28, 135, 0.16);
   cursor: pointer;
   filter: none;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-button--back {
-  background: rgba(255, 248, 230, 0.92);
-  color: #4a2a12;
+  background: linear-gradient(180deg, #f5e9ff 0%, #e9d5ff 100%);
+  color: #4c1d95;
   text-shadow: none;
-  box-shadow: 0 3px 0 rgba(90, 40, 0, 0.12);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.7),
+    0 6px 0 rgba(124, 58, 237, 0.22),
+    0 10px 16px rgba(88, 28, 135, 0.16);
   filter: none;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-button--next {
-  margin-left: auto;
-  box-shadow: 0 0 0 2px rgba(255, 214, 102, 0.4), 0 4px 0 rgba(90, 40, 0, 0.22);
+  margin-left: 0;
+  color: #fff;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  box-shadow:
+    inset 0 -3px 3px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 4px rgba(255, 255, 255, 0.5),
+    0 8px 0 rgba(217, 119, 6, 0.85),
+    0 12px 20px rgba(255, 140, 42, 0.28);
 }
 
-.lango-host #screen-host-fast-results .host-fast-result-button img {
-  width: 18px;
-  height: 18px;
+.lango-host #screen-host-fast-results .host-fast-result-button > .host-btn-face {
+  grid-column: 1;
+  justify-self: start;
+  align-self: center;
+}
+
+.lango-host #screen-host-fast-results .host-fast-result-button > .host-btn-label {
+  grid-column: 2;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
+
+.lango-host #screen-host-fast-results .host-fast-result-button > img {
+  grid-column: 3;
+  justify-self: end;
+  align-self: center;
+}
+
+.lango-host #screen-host-fast-results .host-fast-result-button--next[hidden] {
+  display: none;
 }
 
 .lango-host #screen-host-fast-results .host-fast-result-next-icon {
   transform: rotate(180deg);
+  filter: brightness(0) invert(1);
 }
 
 @media (max-width: 700px) {
@@ -531,7 +622,13 @@
     padding-left: 0;
   }
   .lango-host #screen-host-fast-results .host-fast-result-header {
-    flex-direction: column;
-    align-items: flex-start;
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    grid-template-columns: 1fr;
+    justify-items: start;
+    min-height: 0;
+    pointer-events: auto;
   }
 }

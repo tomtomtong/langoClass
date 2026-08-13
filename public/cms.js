@@ -1,4 +1,6 @@
 const STORAGE_KEY = "lango_host_prefs";
+const CMS_THEME_KEY = "lango_cms_theme";
+const CMS_EMPTY_COVER = "/assets/cms/cover-empty.svg";
 
 const state = {
   token: null,
@@ -9,6 +11,7 @@ const state = {
   editingCourse: null,
   sections: [],
   editingSectionIndex: null,
+  expandedExerciseIndex: null,
 };
 
 function loadPrefs() {
@@ -48,6 +51,60 @@ function savePrefs() {
       user: state.user,
     })
   );
+}
+
+function systemCmsTheme() {
+  return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
+}
+
+function storedCmsTheme() {
+  try {
+    const value = localStorage.getItem(CMS_THEME_KEY);
+    if (value === "dark" || value === "light") return value;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function currentCmsTheme() {
+  return document.documentElement.dataset.cmsTheme === "dark" ? "dark" : "light";
+}
+
+function syncCmsThemeButton(theme) {
+  const btn = $("#btn-cms-theme");
+  if (!btn) return;
+  const dark = theme === "dark";
+  btn.setAttribute("aria-pressed", dark ? "true" : "false");
+  btn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+}
+
+function applyCmsTheme(theme, { persist = false } = {}) {
+  const next = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.cmsTheme = next;
+  syncCmsThemeButton(next);
+  if (persist) {
+    try {
+      localStorage.setItem(CMS_THEME_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
+  window.LangoGsap?.playCmsTabGlider?.();
+}
+
+function toggleCmsTheme() {
+  applyCmsTheme(currentCmsTheme() === "dark" ? "light" : "dark", { persist: true });
+  const btn = $("#btn-cms-theme");
+  window.LangoGsap?.playCmsSavePulse?.(btn);
+}
+
+function initCmsTheme() {
+  applyCmsTheme(storedCmsTheme() || systemCmsTheme());
+  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+  media?.addEventListener?.("change", () => {
+    if (!storedCmsTheme()) applyCmsTheme(systemCmsTheme());
+  });
 }
 
 function teacherDisplayName() {
@@ -374,16 +431,13 @@ function courseBannerUrl(course) {
 function updateBannerPreview(url) {
   const preview = $("#course-banner-preview");
   const img = $("#course-banner-img");
+  const removeBtn = $("#btn-remove-banner");
   const bannerUrl = (url || "").trim();
   if (!preview || !img) return;
 
-  if (bannerUrl) {
-    img.src = bannerUrl;
-    preview.hidden = false;
-  } else {
-    img.removeAttribute("src");
-    preview.hidden = true;
-  }
+  img.src = bannerUrl || CMS_EMPTY_COVER;
+  preview.hidden = false;
+  if (removeBtn) removeBtn.hidden = !bannerUrl;
 }
 
 function uploadAuthHeaders() {
@@ -511,7 +565,10 @@ function renderCourseList() {
       <div class="cms-empty">
         <p class="cms-empty-title">No courses yet</p>
         <p class="cms-empty-copy">Create your first course, then add sections and exercises for class.</p>
-        <button type="button" class="btn primary" id="btn-empty-new-course">New course</button>
+        <button type="button" class="btn primary cms-cta" id="btn-empty-new-course">
+          <span>New course</span>
+          <span class="cms-btn-glyph" aria-hidden="true">+</span>
+        </button>
       </div>`;
     $("#btn-empty-new-course")?.addEventListener("click", createNewCourse);
     cmsMotion()?.playCmsListReveal?.(container);
@@ -519,17 +576,20 @@ function renderCourseList() {
   }
 
   container.innerHTML = state.courses
-    .map((course) => {
+    .map((course, index) => {
       const banner = courseBannerUrl(course);
+      const featured = index === 0 ? " cms-course-card--featured" : "";
       const thumb = banner
         ? `<img class="cms-course-card-thumb" src="${escapeHtml(banner)}" alt="" />`
         : `<span class="cms-course-card-thumb cms-course-card-thumb--empty" aria-hidden="true"></span>`;
-      return `<button type="button" class="cms-course-card" data-id="${course.id}">
-        ${thumb}
-        <span class="cms-course-card-body">
-          <span class="cms-course-card-title">${escapeHtml(course.name)}</span>
-          <span class="cms-course-card-meta">${course.exerciseCount || 0} exercise${course.exerciseCount === 1 ? "" : "s"} · ${escapeHtml(assignedClassesLabel(course))}</span>
-          ${course.description ? `<span class="cms-course-card-desc">${escapeHtml(course.description)}</span>` : ""}
+      return `<button type="button" class="cms-course-card${featured}" data-id="${course.id}">
+        <span class="cms-course-card-inner">
+          <span class="cms-course-card-media">${thumb}</span>
+          <span class="cms-course-card-body">
+            <span class="cms-course-card-title">${escapeHtml(course.name)}</span>
+            <span class="cms-course-card-meta">${course.exerciseCount || 0} exercise${course.exerciseCount === 1 ? "" : "s"} · ${escapeHtml(assignedClassesLabel(course))}</span>
+            ${course.description ? `<span class="cms-course-card-desc">${escapeHtml(course.description)}</span>` : ""}
+          </span>
         </span>
       </button>`;
     })
@@ -651,6 +711,13 @@ function exerciseSubTitleForType(type) {
   return "MC Quiz";
 }
 
+function exerciseTypeShortLabel(type) {
+  if (type === "video") return "Video";
+  if (type === "buzzin") return "Buzz In";
+  if (type === "fastmcquiz") return "Fast";
+  return "Quiz";
+}
+
 function ensureSingleCorrectOption(options) {
   if (!Array.isArray(options) || !options.length) return [];
   const firstCorrectIdx = options.findIndex((o) => o.isCorrect);
@@ -716,7 +783,7 @@ function isExercisesSubpageOpen() {
   return state.editingSectionIndex != null;
 }
 
-function openSectionExercises(sectionIndex) {
+function openSectionExercises(sectionIndex, { focusComposer = false } = {}) {
   syncSectionsMetadataFromDom();
   const section = state.sections[sectionIndex];
   if (!section) return;
@@ -724,6 +791,7 @@ function openSectionExercises(sectionIndex) {
   const resolvedIndex =
     section.id != null ? state.sections.findIndex((s) => s.id === section.id) : sectionIndex;
   state.editingSectionIndex = resolvedIndex >= 0 ? resolvedIndex : sectionIndex;
+  state.expandedExerciseIndex = null;
 
   const activeSection = state.sections[state.editingSectionIndex];
   $("#cms-exercises-section-title").textContent =
@@ -732,13 +800,21 @@ function openSectionExercises(sectionIndex) {
   $("#cms-exercises-view").hidden = false;
   $("#cms-exercises-error").textContent = "";
   $("#cms-exercises-status").textContent = "";
-  renderExerciseEditors();
+  renderExerciseEditors({ skipReveal: true });
   cmsMotion()?.playCmsTabEnter?.($("#cms-exercises-view"));
+  if (focusComposer) {
+    requestAnimationFrame(() => {
+      const composer = $("#cms-exercise-composer");
+      composer?.scrollIntoView({ block: "end", behavior: "smooth" });
+      composer?.querySelector(".cms-type-tile")?.focus();
+    });
+  }
 }
 
 function closeSectionExercises({ reRender = true } = {}) {
   if (state.editingSectionIndex != null) syncExercisesFromDom();
   state.editingSectionIndex = null;
+  state.expandedExerciseIndex = null;
   $("#cms-sections-view").hidden = false;
   $("#cms-exercises-view").hidden = true;
   if (reRender) renderSectionEditors();
@@ -763,6 +839,7 @@ function switchTab(tabId) {
   document.querySelectorAll(".cms-tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === `cms-tab-${tabId}`);
   });
+  cmsMotion()?.playCmsTabGlider?.();
 
   if (tabId === "sections") {
     renderSectionEditors();
@@ -1062,7 +1139,7 @@ function updateSectionBannerPreview(sectionCard, url) {
     img.src = bannerUrl;
     preview.hidden = false;
   } else {
-    img.removeAttribute("src");
+    img.src = CMS_EMPTY_COVER;
     preview.hidden = true;
   }
 }
@@ -1658,6 +1735,8 @@ function applyExerciseTypeChange(card, newType) {
   card.dataset.type = newType;
   const subTitleInput = card.querySelector('[data-field="subTitle"]');
   if (subTitleInput) subTitleInput.value = exercise.subTitle;
+  const chip = card.querySelector(".cms-type-chip");
+  if (chip) chip.textContent = exerciseTypeShortLabel(newType);
   renderExerciseBody(card, exercise);
 
   const previewLink = card.querySelector(".cms-exercise-preview");
@@ -1666,12 +1745,84 @@ function applyExerciseTypeChange(card, newType) {
   }
 }
 
+function setExerciseExpanded(card, open) {
+  const container = card.closest("#cms-exercise-list");
+  if (open && container) {
+    container.querySelectorAll(".cms-exercise-card.is-open").forEach((other) => {
+      if (other !== card) setExerciseExpanded(other, false);
+    });
+  }
+
+  card.classList.toggle("is-open", open);
+  const editor = card.querySelector(".cms-exercise-editor");
+  const toggle = card.querySelector(".cms-exercise-toggle");
+  if (editor) editor.hidden = !open;
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    toggle.textContent = open ? "Done" : "Edit";
+  }
+
+  if (open) {
+    state.expandedExerciseIndex = Number(card.dataset.exerciseIndex);
+  } else if (Number(card.dataset.exerciseIndex) === state.expandedExerciseIndex) {
+    state.expandedExerciseIndex = null;
+  }
+}
+
+function refreshExerciseRowChrome(container) {
+  const cards = container.querySelectorAll(".cms-exercise-card");
+  cards.forEach((card, index) => {
+    card.dataset.exerciseIndex = String(index);
+    const indexEl = card.querySelector(".cms-playlist-index");
+    if (indexEl) indexEl.textContent = String(index + 1);
+    const up = card.querySelector(".cms-move-up");
+    const down = card.querySelector(".cms-move-down");
+    if (up) up.disabled = index === 0;
+    if (down) down.disabled = index === cards.length - 1;
+  });
+  const open = container.querySelector(".cms-exercise-card.is-open");
+  state.expandedExerciseIndex = open ? Number(open.dataset.exerciseIndex) : null;
+}
+
+function fillSectionOutline(sectionCard, section) {
+  const outline = sectionCard.querySelector(".cms-section-outline");
+  const countEl = sectionCard.querySelector(".cms-section-exercise-count");
+  const exercises = section.exercises || [];
+  if (countEl) {
+    countEl.textContent = exercises.length
+      ? `${exercises.length} exercise${exercises.length === 1 ? "" : "s"}`
+      : "No exercises";
+  }
+  if (!outline) return;
+
+  outline.replaceChildren();
+  const max = 6;
+  exercises.slice(0, max).forEach((exercise) => {
+    const chip = document.createElement("span");
+    chip.className = "cms-type-chip cms-type-chip--ghost";
+    chip.textContent = exerciseTypeShortLabel(exercise.type);
+    outline.appendChild(chip);
+  });
+  if (exercises.length > max) {
+    const more = document.createElement("span");
+    more.className = "cms-type-chip cms-type-chip--ghost";
+    more.textContent = `+${exercises.length - max}`;
+    outline.appendChild(more);
+  }
+}
+
 function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesContainer) {
   const tpl = document.getElementById("tpl-exercise-editor");
   const card = tpl.content.firstElementChild.cloneNode(true);
   card.dataset.sectionIndex = String(sectionIndex);
   card.dataset.exerciseIndex = String(exerciseIndex);
+  card.dataset.type = exercise.type || "mcquiz";
   if (exercise.id != null) card.dataset.exerciseId = String(exercise.id);
+
+  const indexEl = card.querySelector(".cms-playlist-index");
+  if (indexEl) indexEl.textContent = String(exerciseIndex + 1);
+  const chip = card.querySelector(".cms-type-chip");
+  if (chip) chip.textContent = exerciseTypeShortLabel(exercise.type);
 
   card.querySelector('[data-field="title"]').value = exercise.title || "";
   card.querySelector(".cms-exercise-order").value = String(exercise.order ?? exerciseIndex + 1);
@@ -1683,10 +1834,6 @@ function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesCont
       applyExerciseTypeChange(card, typeSelect.value);
     });
   }
-  card.querySelector(".cms-exercise-order").addEventListener("change", () => {
-    syncExercisesFromDom();
-    renderExerciseEditors();
-  });
 
   renderExerciseBody(card, exercise);
 
@@ -1695,6 +1842,19 @@ function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesCont
     previewLink.href = joinPreviewUrl(joinPreviewLayoutForExercise(exercise));
   }
 
+  const shouldOpen = state.expandedExerciseIndex === exerciseIndex;
+
+  card.querySelector(".cms-exercise-toggle")?.addEventListener("click", () => {
+    setExerciseExpanded(card, !card.classList.contains("is-open"));
+  });
+
+  card.querySelector(".cms-move-up")?.addEventListener("click", () => {
+    moveExercise(Number(card.dataset.exerciseIndex), -1);
+  });
+  card.querySelector(".cms-move-down")?.addEventListener("click", () => {
+    moveExercise(Number(card.dataset.exerciseIndex), 1);
+  });
+
   card.querySelector(".cms-remove-exercise").addEventListener("click", () => {
     const exerciseId = card.dataset.exerciseId;
     syncExercisesFromDom();
@@ -1702,11 +1862,16 @@ function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesCont
     let removeIndex =
       exerciseId != null ? exercises.findIndex((ex) => String(ex.id) === exerciseId) : exerciseIndex;
     if (removeIndex >= 0) exercises.splice(removeIndex, 1);
-    renderExerciseEditors();
+    if (state.expandedExerciseIndex === removeIndex) state.expandedExerciseIndex = null;
+    else if (state.expandedExerciseIndex != null && state.expandedExerciseIndex > removeIndex) {
+      state.expandedExerciseIndex -= 1;
+    }
+    renderExerciseEditors({ skipReveal: true });
   });
 
   setupExerciseDrag(card, exercisesContainer);
   exercisesContainer.appendChild(card);
+  if (shouldOpen) setExerciseExpanded(card, true);
 }
 
 function renderSectionEditors() {
@@ -1733,7 +1898,7 @@ function renderSectionEditors() {
 
       const sectionId = Number(sectionCard.dataset.sectionId);
       if (!sectionId) {
-        statusEl.textContent = "Section needs an ID — save sections first.";
+        statusEl.textContent = "Section needs an ID. Save sections first.";
         e.target.value = "";
         return;
       }
@@ -1780,12 +1945,13 @@ function renderSectionEditors() {
       renderSectionEditors();
     });
 
-    const exerciseCount = (section.exercises || []).length;
-    sectionCard.querySelector(".cms-section-exercise-count").textContent =
-      `${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"}`;
+    fillSectionOutline(sectionCard, section);
 
     sectionCard.querySelector(".cms-manage-exercises").addEventListener("click", () => {
       openSectionExercises(sectionIndex);
+    });
+    sectionCard.querySelector(".cms-add-section-exercise")?.addEventListener("click", () => {
+      openSectionExercises(sectionIndex, { focusComposer: true });
     });
 
     setupSectionDrag(sectionCard, container);
@@ -1794,7 +1960,7 @@ function renderSectionEditors() {
   cmsMotion()?.playCmsListReveal?.(container);
 }
 
-function renderExerciseEditors() {
+function renderExerciseEditors({ skipReveal = false, insertedIndex = null } = {}) {
   const container = $("#cms-exercise-list");
   if (!container) return;
   container.innerHTML = "";
@@ -1810,21 +1976,48 @@ function renderExerciseEditors() {
     container.innerHTML = `
       <div class="cms-empty">
         <p class="cms-empty-title">No exercises yet</p>
-        <p class="cms-empty-copy">Pick a blank template or demo above, then click Add exercise.</p>
+        <p class="cms-empty-copy">Pick a type below to add the first one.</p>
       </div>`;
-    cmsMotion()?.playCmsListReveal?.(container);
+    if (!skipReveal) cmsMotion()?.playCmsListReveal?.(container);
     return;
   }
 
   exercises.forEach((exercise, exerciseIndex) => {
     renderExerciseCard(exercise, sectionIndex, exerciseIndex, container);
   });
-  cmsMotion()?.playCmsListReveal?.(container);
+  refreshExerciseRowChrome(container);
+
+  if (insertedIndex != null) {
+    const card = container.querySelector(`[data-exercise-index="${insertedIndex}"]`);
+    cmsMotion()?.playCmsInsert?.(card);
+    requestAnimationFrame(() => {
+      card?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      card?.querySelector(".cms-exercise-title")?.focus();
+    });
+    return;
+  }
+
+  if (!skipReveal) cmsMotion()?.playCmsListReveal?.(container);
 }
 
 function setupSectionDrag(sectionCard, container) {
+  sectionCard.draggable = false;
+  const handle = sectionCard.querySelector(".cms-drag-handle");
+  handle?.addEventListener("pointerdown", () => {
+    sectionCard.draggable = true;
+    const stop = () => {
+      if (!sectionCard.classList.contains("dragging-section")) sectionCard.draggable = false;
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointerup", stop);
+  });
+
   sectionCard.addEventListener("dragstart", (e) => {
     if (e.target.closest(".cms-exercise-card")) return;
+    if (!sectionCard.draggable) {
+      e.preventDefault();
+      return;
+    }
     sectionCard.classList.add("dragging-section");
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", sectionCard.dataset.sectionIndex);
@@ -1832,6 +2025,7 @@ function setupSectionDrag(sectionCard, container) {
 
   sectionCard.addEventListener("dragend", () => {
     sectionCard.classList.remove("dragging-section");
+    sectionCard.draggable = false;
     reorderSectionsFromDom(container);
   });
 
@@ -1855,7 +2049,22 @@ function reorderSectionsFromDom(container) {
 }
 
 function setupExerciseDrag(card, container) {
+  card.draggable = false;
+  const handle = card.querySelector(".cms-drag-handle");
+  handle?.addEventListener("pointerdown", () => {
+    card.draggable = true;
+    const stop = () => {
+      if (!card.classList.contains("dragging")) card.draggable = false;
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointerup", stop);
+  });
+
   card.addEventListener("dragstart", (e) => {
+    if (!card.draggable) {
+      e.preventDefault();
+      return;
+    }
     e.stopPropagation();
     card.classList.add("dragging");
     e.dataTransfer.effectAllowed = "move";
@@ -1864,6 +2073,7 @@ function setupExerciseDrag(card, container) {
 
   card.addEventListener("dragend", () => {
     card.classList.remove("dragging");
+    card.draggable = false;
     reorderExercisesFromDom(container);
   });
 
@@ -1883,7 +2093,30 @@ function reorderExercisesFromDom(exercisesContainer) {
     const orderInput = card.querySelector(".cms-exercise-order");
     if (orderInput) orderInput.value = String(index + 1);
   });
+  refreshExerciseRowChrome(exercisesContainer);
   syncExercisesFromDom();
+}
+
+function moveExercise(index, delta) {
+  const container = $("#cms-exercise-list");
+  if (!container) return;
+
+  const cards = [...container.querySelectorAll(".cms-exercise-card")];
+  const card = cards[index];
+  const target = cards[index + delta];
+  if (!card || !target) return;
+
+  const mutate = () => {
+    if (delta < 0) container.insertBefore(card, target);
+    else container.insertBefore(card, target.nextSibling);
+  };
+
+  if (cmsMotion()?.playCmsReorder) {
+    cmsMotion().playCmsReorder(container, mutate);
+  } else {
+    mutate();
+  }
+  reorderExercisesFromDom(container);
 }
 
 function buildSectionsPayload() {
@@ -1912,15 +2145,45 @@ async function saveCourseStructure({ errorEl, statusEl, btn, successMessage }) {
       method: "PUT",
       body: { sections },
     });
+    const stayInExercises = isExercisesSubpageOpen();
+    const sectionId =
+      stayInExercises && state.sections[state.editingSectionIndex]
+        ? state.sections[state.editingSectionIndex].id
+        : null;
+    const expandedIndex = state.expandedExerciseIndex;
+
     state.sections = sortSectionsByOrder(
       (data.sections || []).map((section) => ({
         ...section,
         exercises: (section.exercises || []).map((exercise) => ({ ...exercise })),
       }))
     );
-    closeSectionExercises({ reRender: false });
-    renderSectionEditors();
+
+    if (stayInExercises) {
+      const nextIndex =
+        sectionId != null
+          ? state.sections.findIndex((section) => section.id === sectionId)
+          : 0;
+      state.editingSectionIndex = nextIndex >= 0 ? nextIndex : 0;
+      state.expandedExerciseIndex = expandedIndex;
+      const activeSection = state.sections[state.editingSectionIndex];
+      const titleEl = $("#cms-exercises-section-title");
+      if (titleEl) {
+        titleEl.textContent =
+          activeSection?.title?.trim() || `Section ${state.editingSectionIndex + 1}`;
+      }
+      $("#cms-sections-view").hidden = true;
+      $("#cms-exercises-view").hidden = false;
+      renderExerciseEditors({ skipReveal: true });
+    } else {
+      state.editingSectionIndex = null;
+      state.expandedExerciseIndex = null;
+      $("#cms-sections-view").hidden = false;
+      $("#cms-exercises-view").hidden = true;
+      renderSectionEditors();
+    }
     statusEl.textContent = successMessage;
+    cmsMotion()?.playCmsSavePulse?.(btn);
   } catch (err) {
     errorEl.textContent = err.message;
   } finally {
@@ -1958,12 +2221,12 @@ function addSection() {
   }
 }
 
-function addExercise() {
+function addExercise(type = "mcquiz") {
   const sectionIndex = state.editingSectionIndex;
   if (sectionIndex == null) return;
 
   syncExercisesFromDom();
-  const { type, demo } = parseNewExerciseSelection($("#cms-new-exercise-type")?.value);
+  const demo = Boolean($("#cms-add-demo")?.checked);
   const section = state.sections[sectionIndex];
   if (!section) return;
 
@@ -1971,7 +2234,8 @@ function addExercise() {
   const exercise = demo ? demoExercise(type) : defaultExercise(type);
   exercise.order = section.exercises.length + 1;
   section.exercises.push(exercise);
-  renderExerciseEditors();
+  state.expandedExerciseIndex = section.exercises.length - 1;
+  renderExerciseEditors({ insertedIndex: state.expandedExerciseIndex });
 }
 
 $("#btn-cms-login").addEventListener("click", handleLogin);
@@ -1979,6 +2243,7 @@ $("#cms-login-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleLogin();
 });
 $("#btn-cms-logout").addEventListener("click", handleLogout);
+$("#btn-cms-theme")?.addEventListener("click", toggleCmsTheme);
 $("#btn-new-course").addEventListener("click", createNewCourse);
 $("#btn-import-all-courses").addEventListener("click", triggerImportAllCourses);
 $("#import-all-file").addEventListener("change", async (event) => {
@@ -1993,7 +2258,12 @@ $("#btn-delete-course").addEventListener("click", deleteCourse);
 $("#course-banner-file").addEventListener("change", handleBannerFileChange);
 $("#btn-remove-banner").addEventListener("click", handleRemoveBanner);
 $("#btn-add-section").addEventListener("click", addSection);
-$("#btn-add-exercise").addEventListener("click", addExercise);
+$("#cms-exercise-composer")?.addEventListener("click", (event) => {
+  const tile = event.target.closest(".cms-type-tile");
+  if (!tile) return;
+  cmsMotion()?.playCmsTypePress?.(tile);
+  addExercise(tile.dataset.type || "mcquiz");
+});
 $("#btn-back-sections").addEventListener("click", () => closeSectionExercises());
 $("#btn-save-sections").addEventListener("click", saveSections);
 $("#btn-save-exercises").addEventListener("click", saveExercises);
@@ -2003,6 +2273,7 @@ document.querySelectorAll(".cms-tab").forEach((tab) => {
 });
 
 loadPrefs();
+initCmsTheme();
 updateAuthUi();
 applyTeacherLoginDefaults(
   $("#cms-login-username"),

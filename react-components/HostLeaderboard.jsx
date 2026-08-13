@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import "../public/host-leaderboard.css";
+import "../public/uncle-tommy-sprite.css";
 
 function normalize(entries = []) {
   return entries.map((entry) => ({
@@ -51,8 +52,12 @@ export default function HostLeaderboard({ currentSession = [], overall = [], onD
 
         <div className="host-leaderboard__stage">
           <aside className="host-leaderboard__tommy" data-reveal="tommy" aria-hidden="true">
-            <img className="host-leaderboard__tommy-img" src="/assets/buzzin/uncle-tommy-buzzin.png" alt="" />
             <p className="host-leaderboard__tommy-caption">Great work, class!</p>
+            <div className="uncle-tommy-sprite host-leaderboard__tommy-img" data-uncle-tommy-sprite aria-hidden="true">
+              <span className="uncle-tommy-sprite__clip">
+                <span className="uncle-tommy-sprite__film" />
+              </span>
+            </div>
           </aside>
 
           <main className="host-leaderboard__main">

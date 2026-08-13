@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/player-leaderboard.css" />
+  <link rel="stylesheet" href="/join-ended.css" />
 </head>
 <body class="join-page">
   <div id="app">
@@ -30,7 +31,7 @@
 
       <div id="join-panel-room" hidden>
         <h2 data-i18n="join.joiningTitle">Joining class</h2>
-        <p class="connection-status" id="join-room-status" data-i18n="join.joiningStatus">Connecting…</p>
+        <p class="connection-status" id="join-room-status" data-i18n="join.joiningStatus" data-i18n-dynamic>Connecting…</p>
         <p class="error" id="join-room-error"></p>
       </div>
     </section>
@@ -43,22 +44,59 @@
 
         <main class="general-waiting-ui__main">
           <div class="general-waiting-ui__message-card">
-            <p id="room-waiting-status" aria-live="polite" data-i18n="join.waitingStatus">Please look at the digital whiteboard outside.</p>
+            <p id="room-waiting-status" aria-live="polite" data-i18n="join.waitingStatus" data-i18n-dynamic>Please look at the digital whiteboard outside.</p>
           </div>
         </main>
       </div>
       <button id="btn-leave-room" type="button" hidden data-i18n="join.leaveWaiting">Leave waiting room</button>
     </section>
 
+    <section id="screen-room-ended" class="screen general-waiting-ui join-ended-ui" aria-labelledby="room-ended-title">
+      <div class="general-waiting-ui__content">
+        <header class="general-waiting-ui__header">
+          <h1 id="room-ended-title" data-i18n="join.endedTitle">Class has ended</h1>
+        </header>
+
+        <main class="general-waiting-ui__main">
+          <div class="general-waiting-ui__message-card join-ended-card">
+            <p id="room-ended-status" aria-live="polite" data-i18n="join.endedStatus" data-i18n-dynamic>
+              This class is over. Look at the teacher, or enter a new room code if another class starts.
+            </p>
+            <form id="join-ended-form" class="join-ended-form" autocomplete="off">
+              <label class="join-ended-field">
+                <span data-i18n="join.roomCode">Room code</span>
+                <input
+                  id="join-ended-code"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="7"
+                  autocomplete="one-time-code"
+                  enterkeyhint="go"
+                  aria-describedby="join-ended-error"
+                  data-i18n="join.roomCodePlaceholder"
+                  data-i18n-attr="placeholder"
+                  placeholder="123 456"
+                />
+              </label>
+              <button class="btn primary join-ended-submit" id="btn-join-ended" type="submit" data-i18n="join.rejoin">
+                Join class
+              </button>
+              <p class="join-ended-error" id="join-ended-error" role="alert"></p>
+            </form>
+          </div>
+        </main>
+      </div>
+    </section>
+
     <section id="screen-room-passive-waiting" class="screen passive-waiting-ui" aria-labelledby="room-passive-waiting-title">
       <div class="passive-waiting-ui__content">
         <header class="passive-waiting-ui__header">
-          <h1 id="room-passive-waiting-title" data-i18n="join.watchTitle">Watch the lesson</h1>
+          <h1 id="room-passive-waiting-title" data-i18n="join.watchTitle" data-i18n-dynamic>Watch the lesson</h1>
         </header>
 
         <main class="passive-waiting-ui__main">
           <div class="passive-waiting-ui__message-card">
-            <p id="room-passive-waiting-status" aria-live="polite" data-i18n="join.watchStatus">No action is needed. Please watch the teacher's screen.</p>
+            <p id="room-passive-waiting-status" aria-live="polite" data-i18n="join.watchStatus" data-i18n-dynamic>No action is needed. Please watch the teacher's screen.</p>
           </div>
         </main>
       </div>
@@ -68,7 +106,7 @@
       <div class="player-mcq-backdrop" aria-hidden="true"></div>
       <div class="player-mcq-shell">
         <header class="player-mcq-header">
-          <h1 class="player-mcq-title" id="player-mcq-title" data-i18n="mcq.title">MCQ Question</h1>
+          <h1 class="player-mcq-title" id="player-mcq-title" data-i18n="mcq.title" data-i18n-dynamic>MCQ Question</h1>
         </header>
 
         <main class="player-mcq-main">
@@ -80,7 +118,7 @@
             </aside>
             <p class="q-meta player-mcq-q-meta" id="player-q-meta" hidden></p>
             <div class="question-image-wrap player-mcq-image-wrap" id="player-question-image-wrap" hidden aria-hidden="true">
-              <img class="question-image" id="player-question-image" alt="" hidden />
+              <img class="question-image" id="player-question-image" src="/assets/login/sparkle.png" alt="" hidden />
             </div>
             <h2 class="question-text player-mcq-question" id="player-question-text"></h2>
           </section>
@@ -103,10 +141,10 @@
 
         <main class="player-mcq-result-main">
           <section class="player-mcq-result-card">
-            <div id="player-result-msg" class="result-msg correct" data-text="You answered it correctly" data-i18n="mcq.resultCorrect">You answered it correctly</div>
+            <div id="player-result-msg" class="result-msg correct" data-text="You answered it correctly" data-i18n="mcq.resultCorrect" data-i18n-dynamic>You answered it correctly</div>
             <div class="player-mcq-result-icon" id="player-result-icon" aria-hidden="true">✅</div>
             <p class="player-mcq-result-points" id="player-result-points" data-text="500 pts">500 pts</p>
-            <p class="player-mcq-result-encouragement" id="player-result-encouragement" data-text="Keep going" data-i18n="mcq.encourageKeepGoing">Keep going</p>
+            <p class="player-mcq-result-encouragement" id="player-result-encouragement" data-text="Keep going" data-i18n="mcq.encourageKeepGoing" data-i18n-dynamic>Keep going</p>
           </section>
         </main>
 
@@ -160,10 +198,10 @@
             <p class="player-leaderboard__rank-summary" id="player-current-rank">—</p>
             <p class="player-leaderboard__points" id="player-current-points" data-score-value="0">0 pts</p>
             <p class="player-leaderboard__accuracy" id="player-accuracy-line" hidden></p>
-            <p class="player-leaderboard__encouragement" id="player-encouragement" data-i18n="leaderboard.getOnBoard">Play the next round to get on the board.</p>
+            <p class="player-leaderboard__encouragement" id="player-encouragement" data-i18n="leaderboard.getOnBoard" data-i18n-dynamic>Play the next round to get on the board.</p>
           </div>
 
-          <p class="player-leaderboard__board-label" id="player-board-label" data-i18n="leaderboard.topOfClass">Top of class</p>
+          <p class="player-leaderboard__board-label" id="player-board-label" data-i18n="leaderboard.topOfClass" data-i18n-dynamic>Top of class</p>
           <div class="player-leaderboard__board" id="player-exercise-leaderboard-wrap" role="tabpanel" aria-labelledby="leaderboard-current-tab">
             <ol class="player-leaderboard__list" id="player-final-leaderboard"></ol>
           </div>
@@ -189,9 +227,9 @@
         <main class="buzzin-interaction-main">
           <section class="buzzin-play-area" aria-label="Buzz in interaction">
             <div class="buzzin-card-title">
-              <h2 id="room-buzzin-card-title" data-i18n="buzzin.recordTitle">Record your voice</h2>
+              <h2 id="room-buzzin-card-title" data-i18n="buzzin.recordTitle" data-i18n-dynamic>Record your voice</h2>
               <p class="buzzin-topic" id="room-buzzin-topic"></p>
-              <p id="room-buzzin-status" class="buzzin-status" data-i18n="buzzin.getReadyBuzz">Get ready to buzz in…</p>
+              <p id="room-buzzin-status" class="buzzin-status" data-i18n="buzzin.getReadyBuzz" data-i18n-dynamic>Get ready to buzz in…</p>
             </div>
 
             <div class="buzzin-join-timer" id="room-buzzin-timer-wrap" hidden>
@@ -238,7 +276,7 @@
                   </div>
                   <span class="buzzin-recording-time" id="room-buzzin-recording-time">00 : 30 s</span>
                 </div>
-                <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button" data-i18n="buzzin.record">Record</button>
+                <button class="btn buzzin-record-btn" id="btn-room-buzzin-record" type="button" data-i18n="buzzin.record" data-i18n-dynamic>Record</button>
                 <span id="room-buzzin-record-status" class="buzzin-record-status" hidden></span>
               </div>
               <p id="room-buzzin-submitted" class="buzzin-submitted" hidden></p>
@@ -247,6 +285,16 @@
         </main>
       </div>
     </section>
+  </div>
+
+  <div
+    class="player-join-welcome"
+    id="player-join-welcome"
+    hidden
+    aria-live="polite"
+    aria-hidden="true"
+  >
+    <p class="player-join-welcome__copy" id="player-join-welcome-copy"></p>
   </div>
 
   <script src="/vendor/gsap/gsap.min.js"></script>

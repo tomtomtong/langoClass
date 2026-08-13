@@ -5,34 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lango — Push notification config</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@600;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body class="cms-light">
   <div id="app" class="cms-app config-app">
     <nav class="cms-topbar" aria-label="Config">
-      <a class="cms-brand" href="/config.html">
-        <span class="cms-brand-mark">Lango</span>
-        <span class="cms-brand-sep" aria-hidden="true"></span>
-        <span class="cms-brand-product">Notifications</span>
-      </a>
-      <div class="cms-topbar-actions">
-        <div class="cms-nav-group" aria-label="Shortcuts">
-          <a class="cms-link" href="/host.html">Host</a>
-          <a class="cms-link" href="/cms.html">Course CMS</a>
-        </div>
-        <div class="cms-nav-group cms-nav-account">
-          <span class="cms-teacher" id="config-teacher-label" hidden></span>
-          <button type="button" class="btn secondary small cms-logout" id="btn-config-logout" hidden>Log out</button>
+      <div class="cms-island">
+        <a class="cms-brand" href="/config.html">
+          <span class="cms-brand-mark">Lango</span>
+          <span class="cms-brand-sep" aria-hidden="true"></span>
+          <span class="cms-brand-product">Notifications</span>
+        </a>
+        <div class="cms-topbar-actions">
+          <div class="cms-nav-group" aria-label="Shortcuts">
+            <a class="cms-link" href="/host.html">Host</a>
+            <a class="cms-link" href="/cms.html">Course CMS</a>
+          </div>
+          <div class="cms-nav-group cms-nav-account">
+            <span class="cms-teacher" id="config-teacher-label" hidden></span>
+            <button type="button" class="btn secondary small cms-logout" id="btn-config-logout" hidden>Log out</button>
+          </div>
         </div>
       </div>
     </nav>
 
     <section id="screen-config-login" class="screen active">
+      <div class="cms-login-stage">
+        <video class="cms-login-bg" autoplay muted loop playsinline aria-hidden="true">
+          <source src="/assets/login/BG_Video.mp4" type="video/mp4" />
+        </video>
+        <div class="cms-login-copy">
+          <p class="cms-kicker">Teachers</p>
+          <h1>Push settings, kept simple.</h1>
+          <p class="hint">Change the notification base endpoint for class alerts.</p>
+        </div>
       <div class="cms-panel config-panel cms-panel-login">
-        <p class="cms-kicker">Teachers</p>
-        <h1>Sign in</h1>
-        <p class="hint">Change the push notification base endpoint.</p>
+        <div class="cms-login-logo">
+          <img src="/assets/login/langoclass_logo.svg" alt="Lango Class" width="160" height="160" />
+        </div>
+        <h2>Sign in</h2>
         <label class="field">
           <span>Username or email</span>
           <input type="text" id="config-login-username" autocomplete="username" />
@@ -41,8 +53,12 @@
           <span>Password</span>
           <input type="password" id="config-login-password" autocomplete="current-password" />
         </label>
-        <button type="button" class="btn primary" id="btn-config-login">Login</button>
+        <button type="button" class="btn primary cms-cta" id="btn-config-login">
+          <span>Login</span>
+          <span class="cms-btn-glyph" aria-hidden="true">→</span>
+        </button>
         <p class="error" id="config-login-error"></p>
+      </div>
       </div>
     </section>
 

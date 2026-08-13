@@ -16,6 +16,7 @@ let hostBuzzinExercisePoints = 300;
 let hostBuzzinTopicSpeaking = false;
 let hostQuestionTtsToken = 0;
 let hostBuzzinLuckyDrawRunning = false;
+let hostBuzzinLuckyDrawScramble = 0;
 let hostBuzzinLuckyStar = null;
 let hostBuzzinHasNextQuestion = false;
 let hostBuzzinAdvancingQuestion = false;
@@ -435,12 +436,43 @@ function waitHostBuzzin(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function stopHostBuzzinLuckyDrawScramble() {
+  if (hostBuzzinLuckyDrawScramble) {
+    window.clearInterval(hostBuzzinLuckyDrawScramble);
+    hostBuzzinLuckyDrawScramble = 0;
+  }
+}
+
+function startHostBuzzinLuckyDrawScramble(nameEl) {
+  stopHostBuzzinLuckyDrawScramble();
+  if (!nameEl) return;
+
+  const names = getHostBuzzinLuckyDrawCandidates()
+    .map((entry) => entry.displayName)
+    .filter(Boolean);
+  nameEl.setAttribute("aria-live", "off");
+  if (names.length < 2) {
+    if (new URLSearchParams(window.location.search).has("preview")) {
+      names.push("Sophia Patel", "Liam Chen", "Ava Williams", "Emma Smith", "Noah Brown");
+    } else {
+      nameEl.textContent = "???";
+      return;
+    }
+  }
+
+  nameEl.textContent = names[Math.floor(Math.random() * names.length)];
+  hostBuzzinLuckyDrawScramble = window.setInterval(() => {
+    nameEl.textContent = names[Math.floor(Math.random() * names.length)];
+  }, 70);
+}
+
 function resetHostBuzzinLuckyDrawUi() {
   const modal = $("#host-buzzin-lucky-draw");
   const wheel = $("#host-buzzin-lucky-draw-wheel");
   const avatar = $("#host-buzzin-lucky-draw-avatar");
   const nameEl = $("#host-buzzin-lucky-draw-name");
 
+  stopHostBuzzinLuckyDrawScramble();
   if (modal) {
     modal.hidden = true;
     modal.setAttribute("aria-hidden", "true");
@@ -448,7 +480,10 @@ function resetHostBuzzinLuckyDrawUi() {
   }
   if (wheel) wheel.classList.remove("is-spinning", "is-revealed");
   if (avatar) avatar.innerHTML = "";
-  if (nameEl) nameEl.textContent = "????????";
+  if (nameEl) {
+    nameEl.textContent = "???";
+    nameEl.setAttribute("aria-live", "polite");
+  }
 }
 
 function getHostBuzzinLuckyDrawPreviewWinner() {
@@ -590,15 +625,17 @@ async function playHostBuzzinLuckyDraw(winner) {
   modal.setAttribute("aria-hidden", "false");
   modal.classList.add("is-spinning");
   wheel.classList.add("is-spinning");
-  nameEl.textContent = "????????";
+  startHostBuzzinLuckyDrawScramble(nameEl);
 
   if (spinMs > 0) await waitHostBuzzin(spinMs);
 
+  stopHostBuzzinLuckyDrawScramble();
   modal.classList.remove("is-spinning");
   modal.classList.add("is-revealed");
   wheel.classList.remove("is-spinning");
   wheel.classList.add("is-revealed");
   avatar.innerHTML = buzzinLuckyDrawAvatarHtml(winner.displayName);
+  nameEl.setAttribute("aria-live", "polite");
   nameEl.textContent = winner.displayName;
 
   await waitHostBuzzin(revealHoldMs);
@@ -894,72 +931,38 @@ function resultResponseLabel(count) {
 function renderHostResultDistribution(question, answerCounts, correctIndex) {
   const options = question?.options || [];
   const total = answerCounts.reduce((sum, count) => sum + count, 0);
-  const bars = $("#host-quiz-results-bars");
   const donut = $("#host-quiz-results-donut");
   const legend = $("#host-quiz-results-legend");
-  const totalEl = $("#host-quiz-results-total");
-  const pulse = $("#host-quiz-results-pulse");
 
-  if (totalEl) totalEl.textContent = String(total);
-  if (pulse) {
-    const correctCount = Number(answerCounts[correctIndex] || 0);
-    const pct = total ? Math.round((correctCount / total) * 100) : 0;
-    pulse.innerHTML = `
-      <div class="host-mcq-result-pulse-chip">
-        <strong>${total}</strong>
-        <span>${uiT("mcq.totalResponses")}</span>
-      </div>
-      <div class="host-mcq-result-pulse-chip">
-        <strong>${pct}%</strong>
-        <span>${uiT("mcq.classCorrect")}</span>
-      </div>`;
-  }
+  $("#host-quiz-results-total").textContent = String(total);
 
   const safeTotal = total || 1;
+  let offset = 0;
+  const stops = answerCounts.map((count, index) => {
+    const start = offset;
+    const end = offset + (count / safeTotal) * 100;
+    offset = end;
+    const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
+    return `${color} ${start}% ${end}%`;
+  });
   if (donut) {
-    let offset = 0;
-    const stops = answerCounts.map((count, index) => {
-      const start = offset;
-      const end = offset + (count / safeTotal) * 100;
-      offset = end;
-      const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
-      return `${color} ${start}% ${end}%`;
-    });
     donut.style.setProperty("--donut-fill", total ? stops.join(", ") : "#d1d5db 0% 100%");
   }
 
-  if (legend) {
-    legend.innerHTML = options
-      .map((option, index) => {
-        const label = HOST_MCQ_OPTION_LABELS[index] || `${index + 1}.`;
-        const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
-        const count = answerCounts[index] || 0;
-        const isCorrect = index === correctIndex;
-        const optionText = `${label} ${escapeHtml(option)}`;
-        return `<div class="host-mcq-legend-item${isCorrect ? " host-mcq-legend-item--correct" : ""}">
-          <span class="host-mcq-legend-label">
-            <span class="host-mcq-legend-dot" style="--dot-color: ${color}"></span>
-            <span${isCorrect ? ' class="host-mcq-correct-highlight"' : ""}>${optionText}</span>
-          </span>
-          <strong>${count}</strong>
-        </div>`;
-      })
-      .join("");
-  }
-
-  if (!bars) return;
-  bars.hidden = false;
-  bars.innerHTML = options
+  if (!legend) return;
+  legend.innerHTML = options
     .map((option, index) => {
       const label = HOST_MCQ_OPTION_LABELS[index] || `${index + 1}.`;
       const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
-      const count = Number(answerCounts[index] || 0);
-      const pct = total ? Math.round((count / total) * 100) : 0;
+      const count = answerCounts[index] || 0;
       const isCorrect = index === correctIndex;
-      return `<div class="host-mcq-bar-row${isCorrect ? " is-correct" : ""}" style="--bar-color:${color}">
-        <span class="host-mcq-bar-label"><strong>${escapeHtml(label)}</strong> ${escapeHtml(option)}</span>
-        <div class="host-mcq-bar-track" aria-hidden="true"><div class="host-mcq-bar-fill" style="width:${pct}%"></div></div>
-        <span class="host-mcq-bar-meta"><strong>${count}</strong><small>${pct}%</small></span>
+      const optionText = `${label} ${escapeHtml(option)}`;
+      return `<div class="host-mcq-legend-item${isCorrect ? " host-mcq-legend-item--correct" : ""}">
+        <span class="host-mcq-legend-label">
+          <span class="host-mcq-legend-dot" style="--dot-color: ${color}"></span>
+          <span${isCorrect ? ' class="host-mcq-correct-highlight"' : ""}>${optionText}</span>
+        </span>
+        <strong>${escapeHtml(resultResponseLabel(count))}</strong>
       </div>`;
     })
     .join("");
@@ -973,7 +976,7 @@ function initialsForName(name) {
 function renderCorrectResponders(results) {
   const container = $("#host-quiz-correct-responders");
   if (!container) return;
-  const correct = (results || []).filter((result) => result.correct);
+  const correct = (results || []).filter((result) => result.correct).slice(0, 9);
   if (!correct.length) {
     container.innerHTML = `<p class="host-mcq-correct-empty">${uiT("mcq.noCorrectYet")}</p>`;
     return;
@@ -982,9 +985,9 @@ function renderCorrectResponders(results) {
   container.innerHTML = correct
     .map((result, index) => {
       const name = String(result.name || "Student").trim() || "Student";
-      return `<div class="host-mcq-correct-row" data-reveal="rank" style="--student-i: ${index}">
-        <span class="host-mcq-correct-avatar" aria-hidden="true">${escapeHtml(initialsForName(name))}</span>
-        <span class="host-mcq-correct-name">${escapeHtml(name)}</span>
+      return `<div class="host-mcq-correct-student" style="--student-i: ${index}">
+        <div class="host-mcq-correct-avatar">${escapeHtml(initialsForName(name))}</div>
+        <p>${escapeHtml(name)}</p>
       </div>`;
     })
     .join("");
@@ -1159,17 +1162,23 @@ function setupHostRoomQuizSocket(socket) {
     const correctAnswerEl = $("#host-quiz-results-correct-answer");
     if (correctAnswerEl) {
       const answerText = `${correctLabel} ${correctAnswer}`.trim();
+      const label = uiT("mcq.correctAnswer");
       correctAnswerEl.innerHTML = answerText
-        ? `<span class="host-mcq-correct-highlight">${escapeHtml(answerText)}</span>`
-        : "";
+        ? `${escapeHtml(label)} <span class="host-mcq-correct-highlight">${escapeHtml(answerText)}</span>`
+        : escapeHtml(label);
     }
+    $("#host-quiz-results-bars").innerHTML = "";
     renderHostResultDistribution(q, answerCounts, correctIndex);
     renderCorrectResponders(results);
     renderLeaderboard($("#host-quiz-leaderboard"), leaderboard);
     const isLast = q && q.questionIndex + 1 >= q.totalQuestions;
-    $("#btn-host-quiz-next").textContent = isLast
-      ? uiT("quiz.showFinalResults")
-      : uiT("quiz.nextQuestion");
+    const nextBtn = $("#btn-host-quiz-next");
+    const nextLabel = nextBtn?.querySelector(".host-btn-label") || nextBtn;
+    if (nextLabel) {
+      nextLabel.textContent = isLast
+        ? uiT("quiz.showFinalResults")
+        : uiT("quiz.nextQuestion");
+    }
   });
 
   socket.on("game_finished", ({ leaderboard, accuracyLeaderboard, answerReview, semesterLeaderboard, exerciseLeaderboard }) => {

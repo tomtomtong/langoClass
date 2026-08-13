@@ -70,7 +70,8 @@ function hideQuestionImage(imgEl, wrapperEl) {
   imgEl.hidden = true;
   imgEl.onload = null;
   imgEl.onerror = null;
-  imgEl.removeAttribute("src");
+  // Keep a real asset path so markup never ships a broken empty <img src>.
+  imgEl.src = "/assets/login/sparkle.png";
   imgEl.alt = "";
 }
 
@@ -797,8 +798,8 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
   }
 
   const totalScore = scoreRow?.score || 0;
-  if (score) score.textContent = `Score : ${totalScore}`;
-  if (questionScore) questionScore.textContent = `Score : ${totalScore}`;
+  if (score) score.textContent = uiT("mcq.scoreLabel", { n: totalScore });
+  if (questionScore) questionScore.textContent = uiT("mcq.scoreLabel", { n: totalScore });
   renderLeaderboard($("#player-leaderboard"), leaderboard, playerId);
 }
 

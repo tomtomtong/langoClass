@@ -7,96 +7,153 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@600;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/uncle-tommy-sprite.css" />
   <link rel="stylesheet" href="/host-leaderboard.css" />
   <link rel="stylesheet" href="/host-fast-result.css" />
-  <link rel="stylesheet" href="/host-mcq-result.css" />
+  <link rel="stylesheet" href="/host-class.css" />
+  <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-idle.webp" />
+  <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-talk.webp" />
+  <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-idle-head.webp" />
+  <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-talk-head.webp" />
 </head>
 <body>
   <div id="app" class="lango-host">
     <div class="host-utility-controls" id="host-utility-controls">
-      <button
-        type="button"
-        class="host-settings-btn host-utility-btn"
-        id="btn-host-settings"
-        aria-label="Settings"
-        title="Settings"
-        data-i18n="settings.btnLabel"
-        data-i18n-attr="aria-label,title"
-      >
-        <span class="host-utility-btn-face" aria-hidden="true">
-          <span class="host-settings-icon"></span>
-        </span>
-        <span class="host-utility-btn-label" data-i18n="settings.btnLabel">Settings</span>
-      </button>
-      <div class="host-sound-controls" id="host-sound-controls">
-        <button
-          type="button"
-          class="host-sound-mute-btn host-utility-btn"
-          id="btn-host-mute"
-          aria-label="Sound"
-          aria-expanded="false"
-          aria-haspopup="true"
-          title="Sound"
-        >
-          <span class="host-utility-btn-face" aria-hidden="true">
-            <span class="host-sound-mute-icon"></span>
-          </span>
-          <span class="host-utility-btn-label" data-i18n="sound.btnLabel">Sound</span>
-        </button>
-        <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true" data-i18n="sound.settings" data-i18n-attr="aria-label">
-          <div class="host-sound-menu-row">
-            <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
-              <span class="host-sound-menu-label" data-i18n="sound.bgm">Background Music</span>
-              <span class="host-sound-menu-state" id="host-bgm-state">On</span>
-            </button>
-            <label class="host-sound-volume">
-              <span class="host-sound-volume-label" data-i18n="sound.volume">Volume</span>
-              <input
-                type="range"
-                class="host-sound-volume-slider"
-                id="host-bgm-volume"
-                min="0"
-                max="100"
-                step="1"
-                value="30"
-                aria-label="Background music volume"
-              />
-            </label>
+      <div class="host-utility-dock">
+        <div class="host-utility-meta">
+          <div class="course-class-label" id="course-class-label-wrap" hidden>
+            <span class="course-class-label__eyebrow" data-i18n="course.classPrefix">Class</span>
+            <strong class="course-class-label__name" id="class-label"></strong>
           </div>
-          <div class="host-sound-menu-row">
-            <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
-              <span class="host-sound-menu-label" data-i18n="sound.effects">Sound Effects</span>
-              <span class="host-sound-menu-state" id="host-effects-state">On</span>
+
+          <div
+            class="host-persistent-room-code"
+            id="host-persistent-room-code"
+            aria-label="Room code"
+            aria-hidden="true"
+            data-i18n="waiting.roomCode"
+            data-i18n-attr="aria-label"
+          >
+            <span class="host-persistent-room-code__label" data-i18n="waiting.roomCode">Room Code</span>
+            <button
+              type="button"
+              class="host-persistent-room-code__display"
+              id="btn-copy-persistent-room-id"
+              title="Copy room code"
+              data-i18n="waiting.copyHint"
+              data-i18n-attr="title"
+            >
+              <span id="persistent-room-id" aria-live="polite"></span>
             </button>
-            <label class="host-sound-volume">
-              <span class="host-sound-volume-label" data-i18n="sound.volume">Volume</span>
-              <input
-                type="range"
-                class="host-sound-volume-slider"
-                id="host-effects-volume"
-                min="0"
-                max="100"
-                step="1"
-                value="100"
-                aria-label="Sound effects volume"
-              />
-            </label>
+            <span class="host-persistent-room-code__hint" id="persistent-room-code-hint" hidden data-i18n="waiting.copyHint">Tap to copy</span>
+          </div>
+
+          <div
+            class="host-online-count"
+            id="host-online-count"
+            hidden
+            aria-live="polite"
+            aria-label="Online students"
+            data-i18n="waiting.onlinePrefix"
+            data-i18n-attr="aria-label"
+          >
+            <span class="host-online-count__eyebrow" data-i18n="waiting.onlinePrefix">Online</span>
+            <strong class="host-online-count__value">
+              <span id="host-online-connected">0</span><span class="host-online-count__sep">/</span><span id="host-online-total">0</span>
+            </strong>
+          </div>
+        </div>
+
+        <div class="host-utility-actions">
+          <button
+            type="button"
+            class="host-settings-btn host-utility-btn"
+            id="btn-host-settings"
+            aria-label="Settings"
+            title="Settings"
+            data-i18n="settings.btnLabel"
+            data-i18n-attr="aria-label,title"
+          >
+            <span class="host-utility-btn-face" aria-hidden="true">
+              <span class="host-settings-icon"></span>
+            </span>
+            <span class="host-utility-btn-label" data-i18n="settings.btnLabel">Settings</span>
+          </button>
+
+          <div class="host-sound-controls" id="host-sound-controls">
+            <button
+              type="button"
+              class="host-sound-mute-btn host-utility-btn"
+              id="btn-host-mute"
+              aria-label="Sound"
+              aria-expanded="false"
+              aria-haspopup="true"
+              title="Sound"
+              data-i18n="sound.btnLabel"
+              data-i18n-attr="aria-label,title"
+            >
+              <span class="host-utility-btn-face" aria-hidden="true">
+                <span class="host-sound-mute-icon"></span>
+              </span>
+              <span class="host-utility-btn-label" data-i18n="sound.btnLabel">Sound</span>
+            </button>
+            <div class="host-sound-menu" id="host-sound-menu" role="menu" aria-label="Sound settings" aria-hidden="true" data-i18n="sound.settings" data-i18n-attr="aria-label">
+              <div class="host-sound-menu-row">
+                <button type="button" class="host-sound-menu-item" id="btn-host-toggle-bgm" role="menuitem">
+                  <span class="host-sound-menu-label" data-i18n="sound.bgm">Background Music</span>
+                  <span class="host-sound-menu-state" id="host-bgm-state">On</span>
+                </button>
+                <label class="host-sound-volume">
+                  <span class="host-sound-volume-label" data-i18n="sound.volume">Volume</span>
+                  <input
+                    type="range"
+                    class="host-sound-volume-slider"
+                    id="host-bgm-volume"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="30"
+                    aria-label="Background music volume"
+                  />
+                </label>
+              </div>
+              <div class="host-sound-menu-row">
+                <button type="button" class="host-sound-menu-item" id="btn-host-toggle-effects" role="menuitem">
+                  <span class="host-sound-menu-label" data-i18n="sound.effects">Sound Effects</span>
+                  <span class="host-sound-menu-state" id="host-effects-state">On</span>
+                </button>
+                <label class="host-sound-volume">
+                  <span class="host-sound-volume-label" data-i18n="sound.volume">Volume</span>
+                  <input
+                    type="range"
+                    class="host-sound-volume-slider"
+                    id="host-effects-volume"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="100"
+                    aria-label="Sound effects volume"
+                  />
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="host-persistent-room-code" id="host-persistent-room-code" aria-label="Room code" aria-hidden="true">
-      <p class="host-persistent-room-code__label">Room Code</p>
-      <button
-        type="button"
-        class="host-persistent-room-code__display"
-        id="btn-copy-persistent-room-id"
-        title="Copy room code"
+      <div
+        class="host-join-toast"
+        id="host-join-toast"
+        hidden
+        aria-live="polite"
+        aria-hidden="true"
       >
-        <span id="persistent-room-id" aria-live="polite"></span>
-      </button>
-      <p class="host-persistent-room-code__hint" id="persistent-room-code-hint">Tap to copy</p>
+        <span class="host-join-toast__avatar" id="host-join-toast-avatar" aria-hidden="true">
+          <span class="host-join-toast__shine"></span>
+          <span class="host-join-toast__initials" id="host-join-toast-initials">?</span>
+        </span>
+        <p class="host-join-toast__copy" id="host-join-toast-copy"></p>
+      </div>
     </div>
 
     <nav class="flow-steps" id="flow-steps" aria-label="Progress" data-i18n="flow.progress" data-i18n-attr="aria-label">
@@ -180,8 +237,10 @@
 
         <footer class="settings-toolbar">
           <button type="button" class="class-back-btn settings-toolbar-back" id="btn-back-settings">
-            <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-            <span data-i18n="settings.back">Back</span>
+            <span class="host-btn-face" aria-hidden="true">
+              <img class="class-back-icon host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+            </span>
+            <span class="host-btn-label" data-i18n="settings.back">Back</span>
           </button>
         </footer>
       </div>
@@ -282,27 +341,38 @@
       <div class="class-scene">
         <img class="class-bg" src="/assets/class/bg.jpg" alt="" />
 
-        <div class="class-container">
-          <header class="class-header">
-            <h1 class="class-page-title" data-i18n="class.title">
-              Select level &amp; Class
-            </h1>
-          </header>
+        <img class="course-decor course-decor--star" src="/assets/login/star-1.png" alt="" />
+        <img class="course-decor course-decor--sparkle-1" src="/assets/login/sparkle.png" alt="" />
+        <img class="course-decor course-decor--sparkle-2" src="/assets/login/sparkle.png" alt="" />
 
-          <p class="class-teacher-label" id="teacher-label-wrap" hidden>
-            <span data-i18n="class.loggedInPrefix">Logged in as</span> <strong id="teacher-label"></strong>
-          </p>
+        <div class="course-page">
+          <div class="course-panel">
+            <div class="course-panel-header">
+              <p class="course-step" data-i18n="class.step">Step 1 · Pick your class</p>
+              <h1 class="course-page-title" data-i18n="class.title">Select level &amp; Class</h1>
+              <p class="class-teacher-chip" id="teacher-label-wrap" hidden>
+                <span data-i18n="class.loggedInPrefix">Logged in as</span>
+                <strong id="teacher-label"></strong>
+              </p>
+            </div>
 
-          <div id="class-sections" class="class-sections"></div>
+            <div class="course-grid-scroll">
+              <div id="class-sections" class="class-sections"></div>
+            </div>
 
-          <p class="class-status" id="class-status" data-i18n="class.loading">Loading classes…</p>
-          <p class="class-error" id="class-error" role="alert"></p>
+            <p class="course-status" id="class-status" data-i18n="class.loading">Loading classes…</p>
+            <p class="course-error" id="class-error" role="alert"></p>
+          </div>
         </div>
 
-        <button type="button" class="class-back-btn class-login-btn" id="btn-back-login">
-          <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-          <span data-i18n="common.login">Login</span>
-        </button>
+        <footer class="course-toolbar">
+          <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-login">
+            <span class="host-btn-face" aria-hidden="true">
+              <img class="class-back-icon host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+            </span>
+            <span class="host-btn-label" data-i18n="common.login">Login</span>
+          </button>
+        </footer>
       </div>
     </section>
 
@@ -321,12 +391,11 @@
                 <span class="course-quest-dot done"></span>
                 <span class="course-quest-line done"></span>
                 <span class="course-quest-dot active"></span>
+                <span class="course-quest-line"></span>
+                <span class="course-quest-dot"></span>
               </div>
-              <p class="course-step" data-i18n="course.step">Step 2 Of 2</p>
+              <p class="course-step" data-i18n="course.step">Step 2 · Pick your course</p>
               <h1 class="course-page-title" data-i18n="course.title">Select Your Course</h1>
-              <p class="course-class-label" id="course-class-label-wrap">
-                <strong id="class-label"></strong>
-              </p>
               <p class="course-count-badge" id="course-count-badge" hidden></p>
             </div>
 
@@ -341,8 +410,10 @@
 
         <footer class="course-toolbar">
           <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-class">
-            <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-            <span data-i18n="common.dashboard">Dashboard</span>
+            <span class="host-btn-face" aria-hidden="true">
+              <img class="class-back-icon host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+            </span>
+            <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
           </button>
           <div class="course-toolbar-actions">
             <button type="button" class="course-toolbar-logout" id="btn-open-waiting-course" data-i18n="common.waitingRoom">Waiting room</button>
@@ -368,9 +439,6 @@
               </div>
               <p class="course-step" data-i18n="section.step">Step 3 · Pick your section</p>
               <h1 class="course-page-title" data-i18n="section.title">Continue Your Journey!</h1>
-              <p class="course-class-label" id="section-course-label-wrap">
-                <span data-i18n="section.coursePrefix">Course:</span> <strong id="section-course-label"></strong>
-              </p>
               <p class="course-count-badge" id="section-count-badge" hidden></p>
             </div>
 
@@ -436,8 +504,10 @@
 
         <footer class="course-toolbar">
           <button type="button" class="class-back-btn course-toolbar-back" id="btn-back-course-from-section">
-            <img class="class-back-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-            <span data-i18n="common.course">Course</span>
+            <span class="host-btn-face" aria-hidden="true">
+              <img class="class-back-icon host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+            </span>
+            <span class="host-btn-label" data-i18n="common.course">Course</span>
           </button>
           <div class="course-toolbar-actions">
             <button type="button" class="course-toolbar-logout" id="btn-open-waiting-section" data-i18n="common.waitingRoom">Waiting room</button>
@@ -453,6 +523,7 @@
     <section id="screen-waiting" class="screen waiting-screen">
       <div class="waiting-scene">
         <img class="waiting-bg" src="/assets/course/courseBG.png" alt="" />
+        <div class="waiting-scene-veil" aria-hidden="true"></div>
 
         <img class="waiting-float waiting-float--gift-1" src="/assets/login/gift.png" alt="" />
         <img class="waiting-float waiting-float--gift-2" src="/assets/login/gift.png" alt="" />
@@ -478,33 +549,39 @@
         </div>
 
         <div class="waiting-students-panel">
-          <header class="waiting-students-header">
-            <div class="waiting-students-heading">
-              <h2 class="waiting-students-title" data-i18n="waiting.studentsTitle">Connected Students</h2>
-              <p class="waiting-students-subtitle" data-i18n="waiting.studentsSubtitle">Students can join and wait here until you start an exercise.</p>
-            </div>
-            <div class="waiting-students-count" aria-label="Students connected">
-              <span class="waiting-students-count-current" id="waiting-connected-count">0</span>
-              <span class="waiting-students-count-sep">/</span>
-              <span class="waiting-students-count-total" id="waiting-total-target">0</span>
-            </div>
-          </header>
+          <div class="waiting-students-panel-inner">
+            <header class="waiting-students-header">
+              <div class="waiting-students-heading">
+                <h2 class="waiting-students-title" data-i18n="waiting.studentsTitle">Connected Students</h2>
+                <p class="waiting-students-subtitle" data-i18n="waiting.studentsSubtitle">Students can join and wait here until you start an exercise.</p>
+              </div>
+              <div class="waiting-students-count" aria-label="Students connected">
+                <span class="waiting-students-count-current" id="waiting-connected-count">0</span>
+                <span class="waiting-students-count-sep">/</span>
+                <span class="waiting-students-count-total" id="waiting-total-target">0</span>
+              </div>
+            </header>
 
-          <ul id="waiting-participants" class="waiting-students-grid"></ul>
-          <p class="waiting-participant-status" id="waiting-participant-status" hidden></p>
-          <p class="waiting-error" id="waiting-error"></p>
+            <ul id="waiting-participants" class="waiting-students-grid"></ul>
+            <p class="waiting-participant-status" id="waiting-participant-status" hidden></p>
+            <p class="waiting-error" id="waiting-error"></p>
+          </div>
         </div>
 
         <img class="waiting-wizard" src="/assets/login/wizard.png" alt="" />
 
         <footer class="waiting-footer">
-          <button type="button" class="waiting-dashboard-btn" id="btn-back-journey">
-            <img class="waiting-dashboard-icon" src="/assets/class/arrow-left.svg" alt="" width="20" height="20" />
-            <span data-i18n="common.back">Back</span>
-          </button>
-          <button type="button" class="waiting-start-session-btn" id="btn-start-class">
-            <span data-i18n="common.start">Start</span>
-          </button>
+          <div class="waiting-footer-dock">
+            <button type="button" class="waiting-dashboard-btn" id="btn-back-journey">
+              <span class="waiting-dashboard-face host-btn-face" aria-hidden="true">
+                <img class="waiting-dashboard-icon host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+              </span>
+              <span class="host-btn-label" data-i18n="common.back">Back</span>
+            </button>
+            <button type="button" class="waiting-start-session-btn" id="btn-start-class">
+              <span class="host-btn-label" data-i18n="common.start">Start</span>
+            </button>
+          </div>
         </footer>
         <img
           class="waiting-start-session-art"
@@ -531,7 +608,7 @@
             <p class="host-mcq-preview-points" id="host-quiz-preview-points">300 pts</p>
             <h2 class="host-mcq-preview-question" id="host-quiz-preview-question-text"></h2>
             <div class="host-mcq-preview-image-wrap" id="host-quiz-preview-image-wrap" hidden>
-              <img class="host-mcq-preview-image" id="host-quiz-preview-image" alt="" />
+              <img class="host-mcq-preview-image" id="host-quiz-preview-image" src="/assets/login/sparkle.png" alt="" hidden />
             </div>
           </section>
 
@@ -543,12 +620,14 @@
 
       <footer class="host-mcq-preview-footer">
         <button type="button" class="host-mcq-preview-footer-btn" id="btn-back-waiting-preview">
-          <img class="host-mcq-preview-footer-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-          <span data-i18n="common.dashboard">Dashboard</span>
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-mcq-preview-footer-icon host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
         </button>
         <button type="button" class="host-mcq-preview-footer-btn host-mcq-preview-next-btn" disabled>
-          <span data-i18n="common.next">Next</span>
-          <img class="host-mcq-preview-footer-icon host-mcq-preview-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-mcq-preview-footer-icon host-mcq-preview-footer-icon--next host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
         </button>
       </footer>
     </section>
@@ -567,7 +646,7 @@
             <div class="host-mcq-sparkle" aria-hidden="true"></div>
             <h2 class="question-text host-mcq-question" id="host-quiz-question-text"></h2>
             <div class="question-image-wrap host-mcq-image-wrap" id="host-quiz-question-image-wrap" hidden>
-              <img class="question-image host-mcq-image" id="host-quiz-question-image" alt="" />
+              <img class="question-image host-mcq-image" id="host-quiz-question-image" src="/assets/login/sparkle.png" alt="" hidden />
             </div>
           </section>
 
@@ -577,126 +656,141 @@
         <aside class="host-mcq-countdown" aria-label="Question countdown">
           <span id="host-quiz-countdown">5</span>
         </aside>
-
-        <footer class="host-mcq-footer">
-          <button type="button" class="host-mcq-footer-btn" id="btn-back-waiting-quiz">
-            <span aria-hidden="true">←</span>
-            <span data-i18n="common.dashboard">Dashboard</span>
-          </button>
-          <p class="answered-count host-mcq-status" id="host-quiz-answered-count"></p>
-          <button type="button" class="host-mcq-footer-btn host-mcq-next-btn" disabled>
-            <span data-i18n="common.next">Next</span>
-            <span aria-hidden="true">→</span>
-          </button>
-          <button type="button" class="host-mcq-hidden-logout" id="btn-logout-quiz" hidden>Log out</button>
-        </footer>
       </div>
+
+      <p class="answered-count host-mcq-status" id="host-quiz-answered-count"></p>
+      <footer class="host-mcq-footer">
+        <button type="button" class="host-mcq-footer-btn" id="btn-back-waiting-quiz">
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
+        </button>
+        <button type="button" class="host-mcq-footer-btn host-mcq-next-btn" disabled>
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+        </button>
+        <button type="button" class="host-mcq-hidden-logout" id="btn-logout-quiz" hidden>Log out</button>
+      </footer>
     </section>
 
     <section id="screen-host-quiz-results" class="screen host-mcq-result-screen">
       <img class="host-mcq-bg" src="/assets/course/courseBG.png" alt="" />
-      <div class="host-mcq-result-overlay" aria-hidden="true"></div>
       <div class="host-mcq-result-container">
         <header class="host-mcq-result-header">
-          <h2 class="host-mcq-result-title" data-i18n="mcq.answerReveal">Answer reveal</h2>
-          <div class="host-mcq-result-pulse" id="host-quiz-results-pulse" data-reveal="pulse" aria-live="polite"></div>
+          <h2 class="host-mcq-result-title" data-i18n="mcq.resultsTitle">Quiz Results</h2>
         </header>
 
         <main class="host-mcq-result-main">
-          <section class="host-mcq-result-reveal" data-reveal="answer">
-            <p class="host-mcq-result-points" id="host-quiz-results-points">300 pts</p>
-            <p class="host-mcq-result-eyebrow" data-i18n="mcq.correctAnswer">Correct answer</p>
-            <h3 class="host-mcq-result-answer" id="host-quiz-results-correct-answer"></h3>
-            <p class="host-mcq-result-question-soft" id="host-quiz-results-question-text"></p>
-            <div class="question-image-wrap host-mcq-result-image-wrap" id="host-quiz-results-image-wrap" hidden>
-              <img class="question-image host-mcq-result-image" id="host-quiz-results-image" alt="" />
-            </div>
-            <span class="host-mcq-sparkle" aria-hidden="true"></span>
-          </section>
+          <div class="host-mcq-result-left">
+            <section class="host-mcq-result-question-box">
+              <p class="host-mcq-result-points" id="host-quiz-results-points">300 pts</p>
+              <h3 class="question-text host-quiz-results-question" id="host-quiz-results-question-text"></h3>
+              <div class="host-mcq-result-correct">
+                <span class="host-mcq-result-check" aria-hidden="true">✓</span>
+                <p id="host-quiz-results-correct-answer" data-i18n="mcq.correctAnswer">Correct Answer:</p>
+              </div>
+              <div class="question-image-wrap host-mcq-result-image-wrap" id="host-quiz-results-image-wrap" hidden>
+                <img class="question-image host-mcq-result-image" id="host-quiz-results-image" src="/assets/login/sparkle.png" alt="" hidden />
+              </div>
+              <div class="host-mcq-sparkle" aria-hidden="true"></div>
+            </section>
 
-          <section class="host-mcq-result-bars-card">
-            <h3 class="host-mcq-result-bars-title" data-i18n="mcq.howClassAnswered">How the class answered</h3>
-            <div class="host-mcq-result-bars" id="host-quiz-results-bars"></div>
-            <div class="host-mcq-donut" id="host-quiz-results-donut" hidden>
-              <span class="host-mcq-donut-label" data-i18n="mcq.totalResponses">Total Responses</span>
-              <strong id="host-quiz-results-total">0</strong>
-            </div>
-            <div class="host-mcq-legend" id="host-quiz-results-legend" hidden></div>
-          </section>
+            <section class="host-mcq-distribution">
+              <h3 class="host-mcq-distribution-title" data-i18n="mcq.answerDistribution">Answer Distribution</h3>
+              <div class="host-mcq-distribution-body">
+                <div class="host-mcq-donut" id="host-quiz-results-donut">
+                  <span class="host-mcq-donut-label" data-i18n="mcq.totalResponses">Total Responses</span>
+                  <strong id="host-quiz-results-total">0</strong>
+                </div>
+                <div class="host-mcq-legend" id="host-quiz-results-legend"></div>
+              </div>
+              <div class="options-grid results-grid" id="host-quiz-results-bars" hidden></div>
+            </section>
+          </div>
 
-          <section class="host-mcq-result-sheet">
-            <div class="host-mcq-result-sheet-handle" aria-hidden="true"></div>
+          <aside class="host-mcq-correct-board">
             <header class="host-mcq-correct-board-header">
-              <h3 data-i18n="mcq.gotItRight">Got it right</h3>
-              <p data-i18n="mcq.correctRespondersSub">Students who answered correctly</p>
+              <h3 data-i18n="mcq.correctResponses">Correct Responses</h3>
+              <p data-i18n="mcq.correctRespondersSub">Students Who Answered Correctly</p>
             </header>
             <div class="host-mcq-correct-grid" id="host-quiz-correct-responders"></div>
             <div class="leaderboard host-mcq-result-leaderboard" hidden>
               <h3 data-i18n="leaderboard.title">Leaderboard</h3>
               <ol id="host-quiz-leaderboard"></ol>
             </div>
-          </section>
+          </aside>
         </main>
-
-        <footer class="host-mcq-footer host-mcq-result-footer">
-          <button type="button" class="host-mcq-footer-btn" id="btn-back-waiting-results">
-            <span aria-hidden="true">←</span>
-            <span data-i18n="common.dashboard">Dashboard</span>
-          </button>
-          <button type="button" class="host-mcq-footer-btn host-mcq-next-btn" id="btn-host-quiz-next">
-            <span data-i18n="common.next">Next</span>
-            <span aria-hidden="true">→</span>
-          </button>
-          <button type="button" class="host-mcq-hidden-logout" id="btn-logout-results" hidden>Log out</button>
-        </footer>
       </div>
+
+      <footer class="host-mcq-footer host-mcq-result-footer">
+        <button type="button" class="host-mcq-footer-btn" id="btn-back-waiting-results">
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
+        </button>
+        <button type="button" class="host-mcq-footer-btn host-mcq-next-btn" id="btn-host-quiz-next">
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+        </button>
+        <button type="button" class="host-mcq-hidden-logout" id="btn-logout-results" hidden>Log out</button>
+      </footer>
     </section>
 
     <section id="screen-host-fast-results" class="screen host-fast-result-screen" aria-labelledby="host-fast-result-title">
       <img class="host-fast-result-bg" src="/assets/course/courseBG.png" alt="" />
       <div class="host-fast-result-overlay" aria-hidden="true"></div>
+      <header class="host-fast-result-header">
+        <h2 class="host-fast-result-title" id="host-fast-result-title" data-i18n="fast.accuracyTitle">Accuracy</h2>
+        <div class="host-fast-result-pulse" id="host-fast-result-pulse" data-reveal="pulse" aria-live="polite"></div>
+      </header>
       <div class="host-fast-result-container">
-        <header class="host-fast-result-header">
-          <h2 class="host-fast-result-title" id="host-fast-result-title" data-i18n="fast.accuracyTitle">Accuracy</h2>
-          <div class="host-fast-result-pulse" id="host-fast-result-pulse" data-reveal="pulse" aria-live="polite"></div>
-        </header>
-
         <div class="host-fast-result-stage">
           <aside class="host-fast-result-tommy" data-reveal="tommy" aria-hidden="true">
-            <img class="host-fast-result-tommy-img" src="/assets/buzzin/uncle-tommy-buzzin.png" alt="" />
             <p class="host-fast-result-tommy-caption" data-i18n="leaderboard.tommyCheer">Great work, class!</p>
+            <div class="uncle-tommy-sprite host-fast-result-tommy-img" data-uncle-tommy-sprite aria-hidden="true">
+              <span class="uncle-tommy-sprite__clip">
+                <span class="uncle-tommy-sprite__film"></span>
+              </span>
+            </div>
           </aside>
           <main class="host-fast-result-board">
             <div id="host-fast-result-groups"></div>
           </main>
         </div>
-
-        <footer class="host-fast-result-footer">
-          <button type="button" class="host-fast-result-button host-fast-result-button--back" id="btn-host-fast-results-done">
-            <img src="/assets/class/arrow-left.svg" alt="" />
-            <span data-i18n="common.dashboard">Dashboard</span>
-          </button>
-          <button type="button" class="host-fast-result-button host-fast-result-button--next" id="btn-host-fast-results-next-exercise" hidden>
-            <span data-i18n="quiz.nextExercise">Next exercise</span>
-            <img class="host-fast-result-next-icon" src="/assets/class/arrow-left.svg" alt="" />
-          </button>
-        </footer>
       </div>
+
+      <footer class="host-fast-result-footer">
+        <button type="button" class="host-fast-result-button host-fast-result-button--back" id="btn-host-fast-results-done">
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
+        </button>
+        <button type="button" class="host-fast-result-button host-fast-result-button--next" id="btn-host-fast-results-next-exercise" hidden>
+          <span class="host-btn-label" data-i18n="quiz.nextExercise">Next exercise</span>
+          <img class="host-fast-result-next-icon host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" />
+        </button>
+      </footer>
     </section>
 
     <section id="screen-host-quiz-finished" class="screen host-leaderboard" aria-labelledby="host-leaderboard-title">
       <img class="host-leaderboard__bg" src="/assets/course/courseBG.png" alt="" />
       <div class="host-leaderboard__overlay" aria-hidden="true"></div>
+      <header class="host-leaderboard__header">
+        <h1 class="host-leaderboard__title" id="host-leaderboard-title" data-i18n="leaderboard.exerciseResults">Round complete!</h1>
+        <div class="host-leaderboard__pulse" id="host-leaderboard-pulse" data-reveal="pulse" aria-live="polite"></div>
+      </header>
       <div class="host-leaderboard__container">
-        <header class="host-leaderboard__header">
-          <h1 class="host-leaderboard__title" id="host-leaderboard-title" data-i18n="leaderboard.exerciseResults">Round complete!</h1>
-          <div class="host-leaderboard__pulse" id="host-leaderboard-pulse" data-reveal="pulse" aria-live="polite"></div>
-        </header>
-
         <div class="host-leaderboard__stage">
           <aside class="host-leaderboard__tommy" data-reveal="tommy" aria-hidden="true">
-            <img class="host-leaderboard__tommy-img" src="/assets/buzzin/uncle-tommy-buzzin.png" alt="" />
             <p class="host-leaderboard__tommy-caption" data-i18n="leaderboard.tommyCheer">Great work, class!</p>
+            <div class="uncle-tommy-sprite host-leaderboard__tommy-img" data-uncle-tommy-sprite aria-hidden="true">
+              <span class="uncle-tommy-sprite__clip">
+                <span class="uncle-tommy-sprite__film"></span>
+              </span>
+            </div>
           </aside>
 
           <main class="host-leaderboard__main">
@@ -709,21 +803,31 @@
           </main>
         </div>
 
-        <footer class="host-leaderboard__footer">
-          <button class="host-leaderboard__button" id="btn-host-quiz-done" type="button" data-i18n="common.dashboard">Dashboard</button>
-          <div class="host-leaderboard__tabs" role="tablist" aria-label="Leaderboard period">
-            <button class="host-leaderboard__button is-active" id="host-leaderboard-current-tab" type="button" role="tab" aria-selected="true" aria-controls="host-exercise-leaderboard-wrap" data-host-leaderboard-view="current" data-i18n="leaderboard.currentSession">This round</button>
-            <button class="host-leaderboard__button" id="host-leaderboard-overall-tab" type="button" role="tab" aria-selected="false" aria-controls="host-semester-leaderboard-wrap" data-host-leaderboard-view="overall" data-i18n="leaderboard.overall">Class total</button>
-          </div>
-          <button class="host-leaderboard__next" id="btn-host-quiz-next-exercise" type="button" hidden data-i18n="quiz.nextExercise">Next exercise</button>
-        </footer>
-
         <div class="host-leaderboard__legacy-actions" hidden>
           <button id="btn-start-another-quiz" type="button" data-i18n="waiting.startAnother">Start another session</button>
           <button id="btn-back-waiting-finished" type="button" data-i18n="common.dashboard">Dashboard</button>
           <button id="btn-logout-finished" type="button" data-i18n="common.logout">Log out</button>
         </div>
       </div>
+
+      <footer class="host-leaderboard__footer">
+        <div class="host-leaderboard__nav">
+          <button class="host-leaderboard__back" id="btn-host-quiz-done" type="button">
+            <span class="host-btn-face" aria-hidden="true">
+              <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+            </span>
+            <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
+          </button>
+          <button class="host-leaderboard__next" id="btn-host-quiz-next-exercise" type="button" hidden>
+            <span class="host-btn-label" data-i18n="quiz.nextExercise">Next exercise</span>
+            <img class="host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </button>
+        </div>
+        <div class="host-leaderboard__tabs" role="tablist" aria-label="Leaderboard period">
+          <button class="host-leaderboard__tab is-active" id="host-leaderboard-current-tab" type="button" role="tab" aria-selected="true" aria-controls="host-exercise-leaderboard-wrap" data-host-leaderboard-view="current" data-i18n="leaderboard.currentSession">This round</button>
+          <button class="host-leaderboard__tab" id="host-leaderboard-overall-tab" type="button" role="tab" aria-selected="false" aria-controls="host-semester-leaderboard-wrap" data-host-leaderboard-view="overall" data-i18n="leaderboard.overall">Class total</button>
+        </div>
+      </footer>
     </section>
 
     <section id="screen-host-video" class="screen host-video-screen">
@@ -817,12 +921,14 @@
 
       <footer class="host-video-footer">
         <button type="button" class="host-video-footer-btn" id="btn-back-waiting-video">
-          <img class="host-video-footer-icon" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-          <span data-i18n="common.dashboard">Dashboard</span>
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-video-footer-icon host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
         </button>
         <button type="button" class="host-video-footer-btn" id="btn-host-video-next-exercise" hidden>
-          <span data-i18n="common.next">Next</span>
-          <img class="host-video-footer-icon host-video-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-video-footer-icon host-video-footer-icon--next host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
         </button>
       </footer>
     </section>
@@ -862,12 +968,14 @@
 
       <footer class="host-buzzin-footer">
         <button type="button" class="host-buzzin-footer-btn" id="btn-back-waiting-buzzin">
-          <img src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-          <span data-i18n="common.dashboard">Dashboard</span>
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-done">
-          <span data-i18n="common.next">Next</span>
-          <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-buzzin-footer-icon--next host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
         </button>
       </footer>
     </section>
@@ -900,12 +1008,15 @@
             </div>
           </section>
 
-          <img
-            class="host-buzzin-feedback-character"
-            src="/assets/buzzin/uncle-tommy-buzzin.png"
-            alt=""
+          <div
+            class="uncle-tommy-sprite host-buzzin-feedback-character"
+            data-uncle-tommy-sprite
             aria-hidden="true"
-          />
+          >
+            <span class="uncle-tommy-sprite__clip">
+              <span class="uncle-tommy-sprite__film"></span>
+            </span>
+          </div>
         </div>
 
         <p id="host-buzzin-turn-status" class="host-buzzin-feedback-status visually-hidden" aria-live="polite"></p>
@@ -914,15 +1025,17 @@
 
       <footer class="host-buzzin-footer host-buzzin-footer--feedback">
         <button type="button" class="host-buzzin-footer-btn" id="btn-back-waiting-buzzin-feedback">
-          <img src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-          <span data-i18n="common.dashboard">Dashboard</span>
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--random" id="btn-host-buzzin-random">
-          <span data-i18n="buzzin.random">Random</span>
+          <span class="host-btn-label" data-i18n="buzzin.random">Random</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-feedback-done">
-          <span data-i18n="common.next">Next</span>
-          <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-buzzin-footer-icon--next host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
         </button>
       </footer>
     </section>
@@ -942,27 +1055,32 @@
               Since you guys are so focused, let's keep this momentum going.
             </h2>
             <p class="host-buzzin-empty-subhead" data-i18n="buzzin.emptySub">Let me test you guys again on the next one!</p>
-            <img
-              class="host-buzzin-empty-character"
-              src="/assets/buzzin/uncle-tommy-empty.png"
-              alt=""
+            <div
+              class="uncle-tommy-sprite host-buzzin-empty-character"
+              data-uncle-tommy-sprite
               aria-hidden="true"
-            />
+            >
+              <span class="uncle-tommy-sprite__clip">
+                <span class="uncle-tommy-sprite__film"></span>
+              </span>
+            </div>
           </section>
         </main>
       </div>
 
       <footer class="host-buzzin-footer host-buzzin-footer--feedback">
         <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--muted" id="btn-back-waiting-buzzin-empty">
-          <img src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
-          <span data-i18n="common.dashboard">Dashboard</span>
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn host-buzzin-footer-btn--random" id="btn-host-buzzin-empty-random">
-          <span data-i18n="buzzin.random">Random</span>
+          <span class="host-btn-label" data-i18n="buzzin.random">Random</span>
         </button>
         <button type="button" class="host-buzzin-footer-btn" id="btn-host-buzzin-empty-done">
-          <span data-i18n="common.next">Next</span>
-          <img class="host-buzzin-footer-icon--next" src="/assets/class/arrow-left.svg" alt="" width="24" height="24" />
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-buzzin-footer-icon--next host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
         </button>
       </footer>
     </section>
@@ -975,16 +1093,15 @@
         aria-modal="true"
         aria-labelledby="host-buzzin-lucky-draw-title"
       >
-        <header class="host-buzzin-lucky-draw__header">
-          <h2 id="host-buzzin-lucky-draw-title" class="host-buzzin-lucky-draw__title" data-i18n="buzzin.luckyDraw">Lucky Draw</h2>
-        </header>
+        <h2 id="host-buzzin-lucky-draw-title" class="host-buzzin-lucky-draw__title" data-i18n="buzzin.luckyDraw">Lucky Draw</h2>
         <div class="host-buzzin-lucky-draw__body">
           <div class="host-buzzin-lucky-draw__wheel-wrap">
+            <span class="host-buzzin-lucky-draw__pointer" aria-hidden="true"></span>
             <div class="host-buzzin-lucky-draw__wheel" id="host-buzzin-lucky-draw-wheel">
               <div class="host-buzzin-lucky-draw__wheel-face" id="host-buzzin-lucky-draw-avatar"></div>
             </div>
           </div>
-          <p class="host-buzzin-lucky-draw__name" id="host-buzzin-lucky-draw-name" aria-live="polite">????????</p>
+          <p class="host-buzzin-lucky-draw__name" id="host-buzzin-lucky-draw-name" aria-live="polite">???</p>
         </div>
       </div>
     </div>

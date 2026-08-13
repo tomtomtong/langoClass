@@ -297,17 +297,24 @@
     if (typeof setActiveStep === "function") setActiveStep(stepId);
   }
 
+  function previewT(key, vars) {
+    return typeof uiT === "function" ? uiT(key, vars) : key;
+  }
+
   function buildToolbar() {
     const bar = document.createElement("div");
     bar.className = "join-preview-toolbar";
     bar.innerHTML = `
-      <p class="join-preview-title">Host layout preview</p>
+      <p class="join-preview-title" data-preview-i18n="preview.hostTitle"></p>
       <label class="join-preview-field">
-        <span>Screen</span>
+        <span data-preview-i18n="preview.screen"></span>
         <select id="host-layout-select"></select>
       </label>
-      <p class="join-preview-hint">Add <code>?preview=1</code> to the URL. Login and socket sessions are disabled in preview mode.</p>
-      <button type="button" class="btn secondary small" id="host-preview-exit">Exit preview</button>
+      <p class="join-preview-hint" data-preview-i18n="preview.hostHint"></p>
+      <div class="join-preview-actions">
+        <button type="button" class="btn secondary small" id="host-preview-late-join" data-preview-i18n="preview.lateJoin">Replay late join</button>
+        <button type="button" class="btn secondary small" id="host-preview-exit" data-preview-i18n="preview.exit"></button>
+      </div>
     `;
     document.body.appendChild(bar);
 
@@ -315,24 +322,8 @@
     toggle.className = "join-preview-toggle";
     toggle.type = "button";
     toggle.setAttribute("aria-controls", "host-preview-toolbar");
-    toggle.setAttribute("aria-label", "Toggle host layout preview controls");
     document.body.appendChild(toggle);
     bar.id = "host-preview-toolbar";
-
-    const setToolbarOpen = (open) => {
-      bar.classList.toggle("is-hidden", !open);
-      document.body.classList.toggle("join-preview-toolbar-open", open);
-      toggle.classList.toggle("is-open", open);
-      toggle.setAttribute("aria-expanded", String(open));
-      toggle.textContent = open ? "Hide preview" : "Show preview";
-      localStorage.setItem(TOOLBAR_OPEN_KEY, open ? "1" : "0");
-    };
-
-    toggle.addEventListener("click", () => {
-      setToolbarOpen(!document.body.classList.contains("join-preview-toolbar-open"));
-    });
-
-    setToolbarOpen(localStorage.getItem(TOOLBAR_OPEN_KEY) === "1");
 
     const layoutSelect = bar.querySelector("#host-layout-select");
     LAYOUTS.forEach(({ id, label }) => {
@@ -342,9 +333,38 @@
       layoutSelect.appendChild(opt);
     });
 
+    const refreshToolbarCopy = () => {
+      bar.querySelectorAll("[data-preview-i18n]").forEach((el) => {
+        el.textContent = previewT(el.getAttribute("data-preview-i18n"));
+      });
+      toggle.setAttribute("aria-label", previewT("preview.toggleAria"));
+      const open = document.body.classList.contains("join-preview-toolbar-open");
+      toggle.textContent = previewT(open ? "preview.hide" : "preview.show");
+    };
+
+    const setToolbarOpen = (open) => {
+      bar.classList.toggle("is-hidden", !open);
+      document.body.classList.toggle("join-preview-toolbar-open", open);
+      toggle.classList.toggle("is-open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.textContent = previewT(open ? "preview.hide" : "preview.show");
+      localStorage.setItem(TOOLBAR_OPEN_KEY, open ? "1" : "0");
+    };
+
+    toggle.addEventListener("click", () => {
+      setToolbarOpen(!document.body.classList.contains("join-preview-toolbar-open"));
+    });
+
+    refreshToolbarCopy();
+    setToolbarOpen(localStorage.getItem(TOOLBAR_OPEN_KEY) === "1");
+
     layoutSelect.addEventListener("change", () => {
       localStorage.setItem(STORAGE_KEY, layoutSelect.value);
       applyLayout(layoutSelect.value);
+    });
+
+    bar.querySelector("#host-preview-late-join").addEventListener("click", (event) => {
+      previewHostLateJoin({ many: event.shiftKey });
     });
 
     bar.querySelector("#host-preview-exit").addEventListener("click", () => {
@@ -354,7 +374,7 @@
       window.location.href = next.pathname + next.search;
     });
 
-    return { layoutSelect };
+    return { layoutSelect, refreshToolbarCopy };
   }
 
   function renderPreviewLeaderboard(view = "current") {
@@ -379,6 +399,61 @@
     }
   }
 
+  function seedPreviewOnlineCount() {
+    if (typeof updateWaitingStudentCount === "function") {
+      updateWaitingStudentCount(SAMPLE.participants.length, SAMPLE.roster.length);
+    }
+    if (typeof syncHostOnlineCountVisibility === "function") {
+      syncHostOnlineCountVisibility();
+    } else {
+      const chip = document.getElementById("host-online-count");
+      if (!chip) return;
+      chip.hidden = false;
+      chip.classList.add("is-visible");
+      chip.setAttribute("aria-hidden", "false");
+    }
+  }
+
+  function previewHostLateJoin({ many = false } = {}) {
+    seedPreviewOnlineCount();
+    const people = many
+      ? [
+          { key: "preview:maya", name: "Maya Lopez" },
+          { key: "preview:owen", name: "Owen Park" },
+          { key: "preview:zoe", name: "Zoe Lin" },
+        ]
+      : [{ key: "preview:maya", name: "Maya Lopez" }];
+    if (typeof showHostLateJoinToast === "function") {
+      showHostLateJoinToast(people);
+    }
+  }
+
+  const HOST_LATE_JOIN_LAYOUTS = new Set([
+    "mc-preview",
+    "mc-question",
+    "mc-fast",
+    "mc-results",
+    "fast-results",
+    "leaderboard",
+    "leaderboard-overall",
+    "video",
+    "buzzin-ready",
+    "buzzin-join",
+    "buzzin-responses",
+    "buzzin-empty",
+    "buzzin-lucky-draw",
+  ]);
+
+  let lateJoinPreviewTimer = 0;
+
+  function scheduleHostLateJoinPreview(layoutId) {
+    window.clearTimeout(lateJoinPreviewTimer);
+    if (!HOST_LATE_JOIN_LAYOUTS.has(layoutId)) return;
+    lateJoinPreviewTimer = window.setTimeout(() => {
+      previewHostLateJoin();
+    }, 450);
+  }
+
   function applyLayout(layoutId) {
     if (typeof cancelScreenTransition === "function") cancelScreenTransition();
     seedPreviewState();
@@ -393,7 +468,9 @@
         if ($("#class-status")) $("#class-status").textContent = "";
         if ($("#class-error")) $("#class-error").textContent = "";
         if ($("#teacher-label-wrap")) $("#teacher-label-wrap").hidden = false;
-        if ($("#teacher-label")) $("#teacher-label").textContent = "Preview Teacher";
+        if ($("#teacher-label")) $("#teacher-label").textContent = previewT("preview.teacher");
+        if (typeof updateClassCountBadge === "function") updateClassCountBadge(SAMPLE.classes.length);
+        if (typeof syncHostClassLabel === "function") syncHostClassLabel("class");
         showHostPreviewScreen("class", "class");
         break;
 
@@ -401,7 +478,14 @@
         renderCourseGrid($("#course-sections"), SAMPLE.courses, { selectedId: 1, onSelect: () => {} });
         $("#course-status").textContent = "";
         $("#course-error").textContent = "";
-        $("#class-label").textContent = SAMPLE.classItem.name;
+        if (typeof syncHostClassLabel === "function") {
+          state.classItem = SAMPLE.classItem;
+          syncHostClassLabel("course");
+        } else {
+          $("#class-label").textContent = SAMPLE.classItem.name;
+          const wrap = $("#course-class-label-wrap");
+          if (wrap) wrap.hidden = false;
+        }
         updateCourseCountBadge(SAMPLE.courses.length);
         showHostPreviewScreen("course", "course");
         break;
@@ -515,17 +599,20 @@
           $("#host-quiz-results-image-wrap"),
           SAMPLE.image
         );
-        $("#host-quiz-results-points").textContent = "300 pts";
+        $("#host-quiz-results-points").textContent = previewT("mcq.pts", { n: 300 });
         $("#host-quiz-results-question-text").textContent = SAMPLE.question;
         const correctAnswerEl = $("#host-quiz-results-correct-answer");
         if (correctAnswerEl) {
           correctAnswerEl.innerHTML =
-            '<span class="host-mcq-correct-highlight">A. Photosynthesis</span>';
+            `${previewT("mcq.correctAnswer")} <span class="host-mcq-correct-highlight">A. Photosynthesis</span>`;
         }
+        $("#host-quiz-results-bars").innerHTML = "";
         renderHostResultDistribution(roomQuizCurrentQuestion, [3, 1, 1, 0], 0);
         renderCorrectResponders(SAMPLE.quizResults);
         renderLeaderboard($("#host-quiz-leaderboard"), SAMPLE.leaderboard.slice(0, 5));
-        $("#btn-host-quiz-next").textContent = "Next question";
+        const nextBtn = $("#btn-host-quiz-next");
+        const nextLabel = nextBtn?.querySelector(".host-btn-label") || nextBtn;
+        if (nextLabel) nextLabel.textContent = previewT("quiz.nextQuestion");
         break;
       }
 
@@ -546,7 +633,7 @@
 
       case "video":
         $("#host-video-title").textContent = "Coral Reef Video";
-        $("#host-video-subtitle").textContent = "Watch the lesson video.";
+        $("#host-video-subtitle").textContent = previewT("exercise.videoFallback");
         $("#host-video-current").textContent = "1:24";
         $("#host-video-duration").textContent = "4:30";
         $("#host-video-scrubber")?.style.setProperty("--host-video-progress", "31%");
@@ -558,7 +645,7 @@
       case "buzzin-ready":
         showHostPreviewScreen("host-buzzin", "quiz");
         syncHostBuzzinTopic(SAMPLE.buzzTopic);
-        $("#host-buzzin-points").textContent = "300 pts";
+        $("#host-buzzin-points").textContent = previewT("mcq.pts", { n: 300 });
         updateHostBuzzinUi({
           phase: "ready",
           topic: SAMPLE.buzzTopic,
@@ -571,7 +658,7 @@
       case "buzzin-join":
         showHostPreviewScreen("host-buzzin", "quiz");
         syncHostBuzzinTopic(SAMPLE.buzzTopic);
-        $("#host-buzzin-points").textContent = "300 pts";
+        $("#host-buzzin-points").textContent = previewT("mcq.pts", { n: 300 });
         updateHostBuzzinUi({
           phase: "join",
           joinSeconds: 20,
@@ -588,7 +675,7 @@
         showHostPreviewScreen("host-buzzin-feedback", "quiz");
         triggerHostBuzzinFeedbackEnter();
         syncHostBuzzinTopic(SAMPLE.buzzTopic);
-        $("#host-buzzin-points").textContent = "300 pts";
+        $("#host-buzzin-points").textContent = previewT("mcq.pts", { n: 300 });
         updateHostBuzzinUi({
           phase: "done",
           topic: SAMPLE.buzzTopic,
@@ -610,7 +697,7 @@
         showHostPreviewScreen("host-buzzin-empty", "quiz");
         triggerHostBuzzinEmptyEnter();
         syncHostBuzzinTopic(SAMPLE.buzzTopic);
-        $("#host-buzzin-points").textContent = "300 pts";
+        $("#host-buzzin-points").textContent = previewT("mcq.pts", { n: 300 });
         updateHostBuzzinUi({
           phase: "done",
           topic: SAMPLE.buzzTopic,
@@ -623,11 +710,13 @@
       default:
         break;
     }
+
+    scheduleHostLateJoinPreview(layoutId);
   }
 
   document.body.classList.add("join-preview-mode");
 
-  const { layoutSelect } = buildToolbar();
+  const { layoutSelect, refreshToolbarCopy } = buildToolbar();
 
   const previewParam = params.get("preview");
   const initial =
@@ -638,4 +727,9 @@
   const valid = LAYOUTS.some((layout) => layout.id === initial);
   layoutSelect.value = valid ? initial : "mc-preview";
   applyLayout(layoutSelect.value);
+
+  window.LangoI18n?.onChange?.(() => {
+    refreshToolbarCopy();
+    applyLayout(layoutSelect.value);
+  });
 })();

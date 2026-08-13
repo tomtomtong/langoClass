@@ -1,0 +1,184 @@
+/* Host class picker — same shell as course selection / join game cards. */
+
+.class-screen {
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.class-screen .class-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  height: 100%;
+  min-height: 100%;
+}
+
+.class-teacher-chip {
+  margin: 0.2rem auto 0;
+  padding: 0.35rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #4c1d95;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.3;
+  display: inline-block;
+}
+
+.class-teacher-chip strong {
+  color: #9d174d;
+}
+
+.class-screen .course-grid-scroll {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.class-screen .class-sections {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+.class-screen .class-section {
+  gap: 0.85rem;
+  width: 100%;
+  align-items: stretch;
+}
+
+.class-screen .class-section-title {
+  margin: 0;
+  color: #6b21a8;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  text-shadow: none;
+  text-align: center;
+  width: 100%;
+}
+
+.class-screen .class-grid {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 1rem 1.1rem;
+}
+
+.class-screen .class-card,
+.class-screen .class-card.active {
+  min-height: 0;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #e9b4ff 0%, #ff9ecb 100%);
+  color: #5b1848;
+  overflow: visible;
+  box-shadow: 0 10px 22px rgba(146, 64, 178, 0.22);
+  animation: course-card-pop 0.45s ease backwards;
+  animation-delay: calc(var(--card-i, 0) * 0.06s);
+}
+
+.class-screen .class-card-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 148px;
+  padding: 18px 14px 16px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 4px 8px rgba(52, 67, 86, 0.08);
+}
+
+.class-screen .class-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 28px rgba(146, 64, 178, 0.28);
+}
+
+.class-screen .class-card:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.class-screen .class-card.active {
+  background: linear-gradient(180deg, #d98cff 0%, #ff8dbd 100%);
+  box-shadow: 0 16px 28px rgba(190, 24, 93, 0.28);
+}
+
+.class-screen .class-card-name,
+.class-screen .class-card.active .class-card-name {
+  font-size: clamp(1.05rem, 1.8vw, 1.32rem);
+  font-weight: 900;
+  color: #c05621;
+  text-shadow: none;
+}
+
+.class-screen .class-card-meta,
+.class-screen .class-card.active .class-card-meta {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #6b21a8;
+  opacity: 1;
+}
+
+.class-screen .class-card-go {
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.5rem 1rem;
+  border-radius: 19px;
+  background: linear-gradient(180deg, #ffb347 0%, #ea580c 100%);
+  color: #fff;
+  font-size: clamp(0.92rem, 1.2vw, 1.05rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  text-shadow: 0 1px 0 rgba(124, 45, 18, 0.35);
+  box-shadow: 0 4px 0 #c2410c;
+}
+
+@media (max-width: 720px) {
+  .class-screen .class-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.85rem;
+  }
+
+  .class-screen .class-card-inner {
+    min-height: 128px;
+    padding: 14px 12px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .class-screen .class-card {
+    animation: none;
+  }
+
+  .class-screen .class-card:hover {
+    transform: none;
+  }
+}
+
+/* Host stage: Figma course overlay was leaking onto class picker. */
+#app.lango-host .class-screen .course-panel-header::before,
+#app.lango-host .course-screen .course-panel-header::before {
+  content: none;
+  display: none;
+}
+
+#app.lango-host .course-class-label__name {
+  max-width: min(280px, 28vw);
+}
+
+#app.lango-host.is-host-chrome-compact .course-class-label__name {
+  max-width: min(240px, 26vw);
+}

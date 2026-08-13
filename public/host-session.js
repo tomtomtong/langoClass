@@ -13,7 +13,7 @@ function emitHostSessionJoin(socket, roomId, { resolve, reject } = {}) {
       return;
     }
     if (typeof renderParticipants === "function") {
-      renderParticipants(res.participants || []);
+      renderParticipants(res.participants || [], { announceJoins: false });
     }
     resolve?.(res);
   });
@@ -37,7 +37,7 @@ function getHostSessionSocket() {
     hostSessionSocket = io({ transports: ["websocket", "polling"] });
     hostSessionSocket.on("session_lobby_update", (data) => {
       if (typeof renderParticipants === "function") {
-        renderParticipants(data.participants || []);
+        renderParticipants(data.participants || [], { announceJoins: true });
       }
     });
     hostSessionSocket.on("session_ended", ({ reason }) => {
