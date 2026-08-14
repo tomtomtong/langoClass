@@ -1217,14 +1217,15 @@ let hostVideoScrubbing = false;
 let hostVideoControlsHideTimer = null;
 let hostVideoPlaybackRate = 1;
 let hostVideoCaptionsEnabled = true;
-let hostVideoCaptionCues = [];
+let hostVideoCaptionCuesByLang = {};
 let hostVideoCaptionTracks = [];
-let hostVideoCaptionLanguage = "en";
+let hostVideoCaptionLanguages = [];
 let hostVideoCaptionLoadToken = 0;
 let hostVideoSpeedMenuOpen = false;
 let hostVideoLangMenuOpen = false;
 
 const HOST_VIDEO_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const HOST_VIDEO_MAX_CAPTION_LANGS = 2;
 
 function formatHostVideoSpeedLabel(rate) {
   const value = Number(rate);
@@ -1238,6 +1239,31 @@ function hostVideoCaptionLanguageLabel(code) {
     return captionLanguageMeta(code).label;
   }
   return String(code || "EN").toUpperCase();
+}
+
+function hostVideoActiveCaptionLanguages() {
+  return hostVideoCaptionLanguages.filter((language) =>
+    hostVideoCaptionTracks.some((track) => track.language === language)
+  );
+}
+
+function hostVideoHasLoadedCaptionCues() {
+  return hostVideoActiveCaptionLanguages().some(
+    (language) => (hostVideoCaptionCuesByLang[language] || []).length > 0
+  );
+}
+
+function formatHostVideoCaptionLangLabel(languages) {
+  const active = (languages || []).filter(Boolean);
+  if (!active.length) return "EN";
+  return active.map((language) => hostVideoCaptionLanguageLabel(language)).join(" + ");
+}
+
+function cueTextAtTime(cues, currentTime) {
+  return (cues || [])
+    .filter((cue) => currentTime >= cue.start && currentTime <= cue.end)
+    .map((cue) => cue.text)
+    .join("\n");
 }
 
 function parseHostVideoVttTimestamp(value) {
@@ -1320,32 +1346,40 @@ function renderHostVideoLanguageMenu() {
   const label = $("#host-video-lang-label");
   if (!menu || !button) return;
 
-  menu.innerHTML = hostVideoCaptionTracks
+  const active = new Set(hostVideoActiveCaptionLanguages());
+  const canPickDual = hostVideoCaptionTracks.length > 1;
+  const options = hostVideoCaptionTracks
     .map((track) => {
-      const isActive = track.language === hostVideoCaptionLanguage;
-      return `<button type="button" class="host-video-lang-option${isActive ? " is-active" : ""}" role="menuitemradio" data-lang="${escapeHtml(track.language)}" aria-checked="${isActive ? "true" : "false"}">${escapeHtml(track.label || hostVideoCaptionLanguageLabel(track.language))}</button>`;
+      const isActive = active.has(track.language);
+      return `<button type="button" class="host-video-lang-option${isActive ? " is-active" : ""}" role="menuitemcheckbox" data-lang="${escapeHtml(track.language)}" aria-checked="${isActive ? "true" : "false"}">${escapeHtml(track.label || hostVideoCaptionLanguageLabel(track.language))}</button>`;
     })
     .join("");
+
+  menu.innerHTML = `${
+    canPickDual
+      ? `<p class="host-video-lang-hint">${escapeHtml(uiT("video.pickTwoLanguages"))}</p>`
+      : ""
+  }${options}`;
 
   const hasTracks = hostVideoCaptionTracks.length > 0;
   button.disabled = !hasTracks;
   if (label) {
     label.textContent = hasTracks
-      ? hostVideoCaptionLanguageLabel(hostVideoCaptionLanguage)
+      ? formatHostVideoCaptionLangLabel(hostVideoActiveCaptionLanguages())
       : "EN";
   }
 }
 
 function clearHostVideoCaptions({ keepTracks = false } = {}) {
   hostVideoCaptionLoadToken += 1;
-  hostVideoCaptionCues = [];
+  hostVideoCaptionCuesByLang = {};
   if (!keepTracks) {
     hostVideoCaptionTracks = [];
-    hostVideoCaptionLanguage = "en";
+    hostVideoCaptionLanguages = [];
   }
   const captionEl = $("#host-video-captions");
   if (captionEl) {
-    captionEl.textContent = "";
+    captionEl.innerHTML = "";
     captionEl.hidden = true;
   }
   renderHostVideoLanguageMenu();
@@ -1359,18 +1393,26 @@ function syncHostVideoCaptionDisplay() {
   const video = $("#host-video-player");
   if (!captionEl) return;
 
-  const hasCaptions = hostVideoCaptionCues.length > 0;
-  let text = "";
+  const languages = hostVideoActiveCaptionLanguages();
+  const hasCaptions = hostVideoHasLoadedCaptionCues();
+  const lines = [];
+
   if (hasCaptions && hostVideoCaptionsEnabled && video) {
     const current = Number(video.currentTime) || 0;
-    text = hostVideoCaptionCues
-      .filter((cue) => current >= cue.start && current <= cue.end)
-      .map((cue) => cue.text)
-      .join("\n");
+    for (const language of languages) {
+      const text = cueTextAtTime(hostVideoCaptionCuesByLang[language], current).trim();
+      if (text) lines.push({ language, text });
+    }
   }
 
-  captionEl.textContent = text;
-  captionEl.hidden = !text;
+  captionEl.innerHTML = lines
+    .map(
+      (line, index) =>
+        `<div class="host-video-caption-line${index === 0 ? " is-primary" : " is-secondary"}" data-lang="${escapeHtml(line.language)}">${escapeHtml(line.text)}</div>`
+    )
+    .join("");
+  captionEl.hidden = !lines.length;
+  captionEl.classList.toggle("is-dual", lines.length > 1);
   screen?.classList.toggle("has-captions-on", hasCaptions && hostVideoCaptionsEnabled);
   if (cc) {
     cc.disabled = !hasCaptions && !hostVideoCaptionTracks.length;
@@ -1384,41 +1426,86 @@ function syncHostVideoCaptionDisplay() {
   }
 }
 
-async function loadHostVideoCaptionLanguage(language) {
+async function ensureHostVideoCaptionLanguageLoaded(language) {
   const nextLanguage =
     typeof normalizeCaptionLanguage === "function"
-      ? normalizeCaptionLanguage(language, hostVideoCaptionLanguage)
-      : String(language || hostVideoCaptionLanguage || "en");
-  const track =
-    hostVideoCaptionTracks.find((entry) => entry.language === nextLanguage) ||
-    hostVideoCaptionTracks[0];
-  if (!track?.url) {
-    clearHostVideoCaptions({ keepTracks: true });
-    return;
-  }
+      ? normalizeCaptionLanguage(language, hostVideoCaptionLanguages[0] || "en")
+      : String(language || hostVideoCaptionLanguages[0] || "en");
+  const track = hostVideoCaptionTracks.find((entry) => entry.language === nextLanguage);
+  if (!track?.url) return false;
+  if ((hostVideoCaptionCuesByLang[track.language] || []).length) return true;
 
-  hostVideoCaptionLanguage = track.language;
-  renderHostVideoLanguageMenu();
-
-  const loadToken = ++hostVideoCaptionLoadToken;
+  const loadToken = hostVideoCaptionLoadToken;
   try {
     const res = await fetch(track.url, { cache: "no-store" });
     if (!res.ok) throw new Error(`Caption fetch failed (${res.status})`);
     const text = await res.text();
-    if (loadToken !== hostVideoCaptionLoadToken) return;
-    hostVideoCaptionCues = parseHostVideoWebVtt(text);
-    if (!hostVideoCaptionCues.length) {
-      throw new Error("Caption file has no cues.");
-    }
-    hostVideoCaptionsEnabled = true;
-    syncHostVideoCaptionDisplay();
+    if (loadToken !== hostVideoCaptionLoadToken) return false;
+    const cues = parseHostVideoWebVtt(text);
+    if (!cues.length) throw new Error("Caption file has no cues.");
+    hostVideoCaptionCuesByLang[track.language] = cues;
+    return true;
   } catch (err) {
     console.warn("Could not load video captions:", err);
     if (loadToken === hostVideoCaptionLoadToken) {
-      hostVideoCaptionCues = [];
-      syncHostVideoCaptionDisplay();
+      hostVideoCaptionCuesByLang[track.language] = [];
     }
+    return false;
   }
+}
+
+async function setHostVideoCaptionLanguages(languages, { enable = true } = {}) {
+  const normalized = [];
+  const seen = new Set();
+  for (const language of languages || []) {
+    const code =
+      typeof normalizeCaptionLanguage === "function"
+        ? normalizeCaptionLanguage(language, "")
+        : String(language || "").trim().toLowerCase();
+    if (!code || seen.has(code)) continue;
+    if (!hostVideoCaptionTracks.some((track) => track.language === code)) continue;
+    seen.add(code);
+    normalized.push(code);
+    if (normalized.length >= HOST_VIDEO_MAX_CAPTION_LANGS) break;
+  }
+
+  hostVideoCaptionLanguages = normalized;
+  renderHostVideoLanguageMenu();
+
+  if (!normalized.length) {
+    syncHostVideoCaptionDisplay();
+    return;
+  }
+
+  const loadToken = ++hostVideoCaptionLoadToken;
+  await Promise.all(normalized.map((language) => ensureHostVideoCaptionLanguageLoaded(language)));
+  if (loadToken !== hostVideoCaptionLoadToken) return;
+
+  if (enable) hostVideoCaptionsEnabled = true;
+  syncHostVideoCaptionDisplay();
+}
+
+async function toggleHostVideoCaptionLanguage(language) {
+  const code =
+    typeof normalizeCaptionLanguage === "function"
+      ? normalizeCaptionLanguage(language, "")
+      : String(language || "").trim().toLowerCase();
+  if (!code || !hostVideoCaptionTracks.some((track) => track.language === code)) return;
+
+  const current = hostVideoActiveCaptionLanguages();
+  const index = current.indexOf(code);
+  let next = current.slice();
+
+  if (index >= 0) {
+    if (current.length === 1) return;
+    next.splice(index, 1);
+  } else if (current.length < HOST_VIDEO_MAX_CAPTION_LANGS) {
+    next.push(code);
+  } else {
+    next = [current[0], code];
+  }
+
+  await setHostVideoCaptionLanguages(next);
 }
 
 async function attachHostVideoCaptions(video, exercise) {
@@ -1436,7 +1523,7 @@ async function attachHostVideoCaptions(video, exercise) {
     (typeof normalizeCaptionLanguage === "function"
       ? normalizeCaptionLanguage(exercise?.items?.[0]?.captionLanguage, hostVideoCaptionTracks[0].language)
       : hostVideoCaptionTracks[0].language) || hostVideoCaptionTracks[0].language;
-  await loadHostVideoCaptionLanguage(preferred);
+  await setHostVideoCaptionLanguages([preferred]);
 }
 
 function setHostVideoControlsVisible(visible, { autoHide = false } = {}) {
@@ -1621,14 +1708,13 @@ function setupHostVideoControls() {
     if (!option) return;
     event.stopPropagation();
     const nextLang = option.dataset.lang;
-    setHostVideoLangMenuOpen(false);
-    void loadHostVideoCaptionLanguage(nextLang);
-    setHostVideoControlsVisible(true, { autoHide: true });
+    void toggleHostVideoCaptionLanguage(nextLang);
+    setHostVideoControlsVisible(true);
   });
 
   ccBtn?.addEventListener("click", (event) => {
     event.stopPropagation();
-    if (!hostVideoCaptionCues.length && !hostVideoCaptionTracks.length) return;
+    if (!hostVideoHasLoadedCaptionCues() && !hostVideoCaptionTracks.length) return;
     hostVideoCaptionsEnabled = !hostVideoCaptionsEnabled;
     syncHostVideoCaptionDisplay();
     setHostVideoControlsVisible(true, { autoHide: true });

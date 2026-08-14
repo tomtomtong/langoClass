@@ -80,6 +80,7 @@
     "video.hideSubtitles": "Hide subtitles",
     "video.showSubtitles": "Show subtitles",
     "video.noSubtitles": "No subtitles for this video yet",
+    "video.pickTwoLanguages": "Select up to 2 languages",
 
     "buzzin.title": "Buzz in question",
     "buzzin.titleN": "Buzz in question {n} / {total}",
@@ -270,6 +271,7 @@
     "video.hideSubtitles": "隱藏字幕",
     "video.showSubtitles": "顯示字幕",
     "video.noSubtitles": "此影片尚未有字幕",
+    "video.pickTwoLanguages": "最多可選 2 種語言",
     "buzzin.title": "搶答題",
     "buzzin.titleN": "搶答題 {n} / {total}",
     "buzzin.promptNow": "立即搶答",
@@ -549,6 +551,7 @@
     "video.hideSubtitles": "隐藏字幕",
     "video.showSubtitles": "显示字幕",
     "video.noSubtitles": "此视频尚未有字幕",
+    "video.pickTwoLanguages": "最多可选 2 种语言",
     "buzzin.title": "抢答题",
     "buzzin.titleN": "抢答题 {n} / {total}",
     "buzzin.promptNow": "立即抢答",
