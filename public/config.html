@@ -347,12 +347,37 @@
           <p><strong>Environment default:</strong> <span id="config-openrouter-buzzin-model-env-default">—</span></p>
         </div>
 
+        <label class="field">
+          <span>Course AI generate model</span>
+          <input
+            type="text"
+            id="config-openrouter-generate-model"
+            list="config-openrouter-generate-models"
+            placeholder="x-ai/grok-4.3"
+            autocomplete="off"
+          />
+          <datalist id="config-openrouter-generate-models">
+            <option value="x-ai/grok-4.3"></option>
+            <option value="x-ai/grok-4"></option>
+          </datalist>
+          <p class="hint">
+            OpenRouter model for CMS exercise generation and image-to-markdown conversion.
+          </p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Active generate model:</strong> <span id="config-openrouter-generate-model-effective">—</span></p>
+          <p><strong>Environment default:</strong> <span id="config-openrouter-generate-model-env-default">—</span></p>
+        </div>
+
         <div class="config-actions">
           <button type="button" class="btn primary" id="btn-config-save-openrouter">Save key</button>
-          <button type="button" class="btn primary" id="btn-config-save-openrouter-model">Save model</button>
+          <button type="button" class="btn primary" id="btn-config-save-openrouter-model">Save Buzz In model</button>
+          <button type="button" class="btn primary" id="btn-config-save-openrouter-generate-model">Save generate model</button>
           <button type="button" class="btn secondary" id="btn-config-test-openrouter">Test API</button>
           <button type="button" class="btn secondary" id="btn-config-clear-openrouter">Clear saved key</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-openrouter-model">Reset model to env default</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-openrouter-model">Reset Buzz In model</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-openrouter-generate-model">Reset generate model</button>
         </div>
 
         <div class="config-preview config-inworld-test-preview" id="config-openrouter-test-wrap" hidden>

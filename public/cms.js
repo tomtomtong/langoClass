@@ -12,6 +12,12 @@ const state = {
   sections: [],
   editingSectionIndex: null,
   expandedExerciseIndex: null,
+  aiMaterialText: "",
+  aiDraftExercises: [],
+  batchDraftResults: [],
+  batchPreparedMaterials: {},
+  dashboardClassId: null,
+  dashboardCourses: [],
 };
 
 function loadPrefs() {
@@ -23,6 +29,10 @@ function loadPrefs() {
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
+    }
+    if (data.dashboardClassId != null) {
+      const id = Number(data.dashboardClassId);
+      state.dashboardClassId = Number.isFinite(id) && id > 0 ? id : null;
     }
   } catch {
     /* ignore */
@@ -49,6 +59,7 @@ function savePrefs() {
       loginUsername: state.loginUsername,
       token: state.token,
       user: state.user,
+      dashboardClassId: state.dashboardClassId,
     })
   );
 }
@@ -313,7 +324,7 @@ async function importAllCourses(file) {
     } else {
       status.textContent = `Imported ${count} course${count === 1 ? "" : "s"}.`;
     }
-    await enterCourseList();
+    await enterDashboard();
   } catch (err) {
     status.textContent = "";
     error.textContent = err.message;
@@ -391,7 +402,7 @@ async function handleLogin() {
     state.loginUsername = username;
     savePrefs();
     updateAuthUi();
-    await enterCourseList();
+    await enterDashboard();
   } catch (err) {
     $("#cms-login-error").textContent = err.message;
   } finally {
@@ -532,8 +543,217 @@ function renderAssignedClasses() {
     .join("");
 }
 
+
+function formatDashboardRelativeTime(iso) {
+  if (!iso) return "";
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return "";
+  const diffMs = Date.now() - then;
+  if (diffMs < 0) return "just now";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return new Date(then).toLocaleDateString();
+}
+
+function renderDashboardClassPicker() {
+  const select = $("#cms-dashboard-class");
+  if (!select) return;
+
+  if (!state.classes.length) {
+    select.innerHTML = '<option value="">No classes found</option>';
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
+  const options = ['<option value="">Select a class</option>'];
+  for (const section of groupClassesByLevel(state.classes)) {
+    if (section.label) {
+      options.push(`<optgroup label="${escapeHtml(section.label)}">`);
+    }
+    for (const classItem of section.items) {
+      const selected = state.dashboardClassId === classItem.id ? " selected" : "";
+      const label = classItem.name || `Class ${classItem.id}`;
+      options.push(`<option value="${classItem.id}"${selected}>${escapeHtml(label)}</option>`);
+    }
+    if (section.label) options.push("</optgroup>");
+  }
+  select.innerHTML = options.join("");
+  if (state.dashboardClassId) select.value = String(state.dashboardClassId);
+}
+
+function renderDashboardSummary(courses) {
+  const summary = $("#cms-dashboard-summary");
+  if (!summary) return;
+
+  const started = courses.filter((course) => course.started);
+  const completed = courses.filter(
+    (course) => course.totalExercises > 0 && course.completedCount >= course.totalExercises
+  );
+  const inProgress = started.filter(
+    (course) => !(course.totalExercises > 0 && course.completedCount >= course.totalExercises)
+  );
+
+  if (!state.dashboardClassId || !courses.length) {
+    summary.hidden = true;
+    summary.innerHTML = "";
+    return;
+  }
+
+  summary.hidden = false;
+  summary.innerHTML = `
+    <article class="cms-dashboard-stat">
+      <span class="cms-dashboard-stat-value">${courses.length}</span>
+      <span class="cms-dashboard-stat-label">Courses</span>
+    </article>
+    <article class="cms-dashboard-stat">
+      <span class="cms-dashboard-stat-value">${inProgress.length}</span>
+      <span class="cms-dashboard-stat-label">In progress</span>
+    </article>
+    <article class="cms-dashboard-stat">
+      <span class="cms-dashboard-stat-value">${completed.length}</span>
+      <span class="cms-dashboard-stat-label">Completed</span>
+    </article>`;
+}
+
+function renderDashboardCourseList(courses) {
+  const container = $("#cms-dashboard-list");
+  const statusEl = $("#cms-dashboard-status");
+  if (!container) return;
+
+  if (!state.dashboardClassId) {
+    container.innerHTML = `
+      <div class="cms-empty cms-dashboard-empty">
+        <p class="cms-empty-title">Choose a class</p>
+        <p class="cms-empty-copy">Pick a class above to see course journey progress for that group.</p>
+      </div>`;
+    if (statusEl) statusEl.textContent = "";
+    return;
+  }
+
+  if (!courses.length) {
+    container.innerHTML = `
+      <div class="cms-empty cms-dashboard-empty">
+        <p class="cms-empty-title">No courses for this class</p>
+        <p class="cms-empty-copy">Assign courses to this class in My courses, or create a new course.</p>
+        <button type="button" class="btn secondary" id="btn-dashboard-go-courses">Go to My courses</button>
+      </div>`;
+    $("#btn-dashboard-go-courses")?.addEventListener("click", () => enterCourseList());
+    if (statusEl) statusEl.textContent = "";
+    return;
+  }
+
+  container.innerHTML = courses
+    .map((course) => {
+      const banner = (course.banner || "").trim();
+      const thumb = banner
+        ? `<img class="cms-dashboard-card-thumb" src="${escapeHtml(banner)}" alt="" />`
+        : `<span class="cms-dashboard-card-thumb cms-dashboard-card-thumb--empty" aria-hidden="true"></span>`;
+      const complete =
+        course.totalExercises > 0 && course.completedCount >= course.totalExercises;
+      const statusClass = complete
+        ? " cms-dashboard-card--complete"
+        : course.started
+          ? " cms-dashboard-card--started"
+          : "";
+      const current =
+        course.lastSectionTitle || course.lastExerciseTitle
+          ? `${escapeHtml(course.lastSectionTitle || "Section")} · ${escapeHtml(course.lastExerciseTitle || "Exercise")}`
+          : course.started
+            ? "Started"
+            : "Not started";
+      const updated = course.updatedAt ? formatDashboardRelativeTime(course.updatedAt) : "No activity yet";
+      const progressLabel =
+        course.totalExercises > 0
+          ? `${course.completedCount} / ${course.totalExercises} exercises`
+          : "No exercises yet";
+
+      return `<article class="cms-dashboard-card${statusClass}" data-id="${course.courseId}">
+        <div class="cms-dashboard-card-media">${thumb}</div>
+        <div class="cms-dashboard-card-body">
+          <div class="cms-dashboard-card-head">
+            <h2 class="cms-dashboard-card-title">${escapeHtml(course.name)}</h2>
+            <span class="cms-dashboard-card-updated">${escapeHtml(updated)}</span>
+          </div>
+          <div class="cms-dashboard-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${course.percent}" aria-label="${escapeHtml(course.name)} progress">
+            <span class="cms-dashboard-progress-bar" style="--progress: ${course.percent}%"></span>
+          </div>
+          <p class="cms-dashboard-card-meta">${escapeHtml(progressLabel)} · ${course.percent}%</p>
+          <p class="cms-dashboard-card-current">Current: ${current}</p>
+          <button type="button" class="btn secondary small cms-dashboard-edit" data-id="${course.courseId}">Edit course</button>
+        </div>
+      </article>`;
+    })
+    .join("");
+
+  container.querySelectorAll(".cms-dashboard-edit").forEach((btn) => {
+    btn.addEventListener("click", () => openCourseEditor(Number(btn.dataset.id)));
+  });
+
+  const activeCount = courses.filter((course) => course.started).length;
+  if (statusEl) {
+    statusEl.textContent = activeCount
+      ? `${activeCount} course${activeCount === 1 ? "" : "s"} with activity`
+      : "No progress recorded yet for this class";
+  }
+}
+
+async function loadDashboardProgress() {
+  $("#cms-dashboard-error").textContent = "";
+  if (!state.dashboardClassId) {
+    state.dashboardCourses = [];
+    renderDashboardSummary([]);
+    renderDashboardCourseList([]);
+    return;
+  }
+
+  const data = await api(`/api/cms/dashboard/progress?classId=${state.dashboardClassId}`);
+  state.dashboardCourses = data.courses || [];
+  renderDashboardSummary(state.dashboardCourses);
+  renderDashboardCourseList(state.dashboardCourses);
+}
+
+async function enterDashboard() {
+  showCmsScreen("dashboard");
+  syncCmsNavScreen("dashboard");
+  $("#cms-dashboard-error").textContent = "";
+  $("#cms-dashboard-status").textContent = "";
+  $("#cms-dashboard-list").innerHTML = `
+    <div class="cms-list-loading" aria-hidden="true">
+      <div class="cms-skeleton-card"></div>
+      <div class="cms-skeleton-card"></div>
+      <div class="cms-skeleton-card"></div>
+    </div>`;
+  $("#cms-dashboard-summary").hidden = true;
+
+  try {
+    await loadClasses();
+    renderDashboardClassPicker();
+    await loadDashboardProgress();
+  } catch (err) {
+    $("#cms-dashboard-list").innerHTML = "";
+    $("#cms-dashboard-error").textContent = err.message;
+  }
+}
+
+function syncCmsNavScreen(screenId) {
+  document.querySelectorAll(".cms-link-nav").forEach((link) => {
+    const active = link.dataset.screen === screenId;
+    link.classList.toggle("is-active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+
 async function enterCourseList() {
   showCmsScreen("list");
+  syncCmsNavScreen("list");
   $("#cms-list-error").textContent = "";
   $("#cms-list-status").textContent = "";
   $("#cms-course-list").innerHTML = `
@@ -624,6 +844,7 @@ async function openCourseEditor(courseId) {
     renderAssignedClasses();
     closeSectionExercises({ reRender: false });
     renderSectionEditors();
+    resetBatchAiPanel();
     $("#cms-edit-title").textContent = state.editingCourse.name || "Edit course";
     showCmsScreen("edit");
     switchTab("details");
@@ -783,6 +1004,635 @@ function isExercisesSubpageOpen() {
   return state.editingSectionIndex != null;
 }
 
+function resetAiGeneratePanel() {
+  state.aiMaterialText = "";
+  state.aiDraftExercises = [];
+  const preview = $("#cms-ai-material-preview");
+  if (preview) {
+    preview.value = "";
+    preview.hidden = true;
+  }
+  $("#cms-ai-extract-status") && ($("#cms-ai-extract-status").textContent = "");
+  $("#cms-ai-generate-status") && ($("#cms-ai-generate-status").textContent = "");
+  $("#cms-ai-error") && ($("#cms-ai-error").textContent = "");
+  $("#cms-ai-preview-section")?.setAttribute("hidden", "");
+  $("#cms-ai-preview") && ($("#cms-ai-preview").innerHTML = "");
+  const fileInput = $("#cms-ai-file");
+  if (fileInput) fileInput.value = "";
+}
+
+function getAiTypeCounts(prefix = "cms-ai") {
+  const count = Math.max(1, Math.min(10, Number($(`#${prefix}-count`)?.value) || 3));
+  const types = {};
+  if ($(`#${prefix}-type-mcquiz`)?.checked) types.mcquiz = count;
+  if ($(`#${prefix}-type-fastmcquiz`)?.checked) types.fastmcquiz = count;
+  if ($(`#${prefix}-type-buzzin`)?.checked) types.buzzin = count;
+  return types;
+}
+
+function getAiGenerationSettings(prefix = "cms-ai") {
+  return {
+    langCode: state.editingCourse?.langCode || "en",
+    difficulty: $(`#${prefix}-difficulty`)?.value || "medium",
+    types: getAiTypeCounts(prefix),
+  };
+}
+
+function downloadJsonFile(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function extractMaterialRequest({ file, pasted, videoUrl, language }) {
+  if (file) {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("language", language || state.editingCourse?.langCode || "en");
+    const headers = { Accept: "application/json" };
+    if (state.token) headers.Authorization = `Bearer ${state.token}`;
+    headers["X-Teacher-Id"] = String(state.user?.id || "");
+    const res = await fetch("/api/cms/extract-material", { method: "POST", headers, body: form });
+    const text = await res.text();
+    let parsed = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = { message: text || res.statusText };
+    }
+    if (!res.ok) throw new Error(parsed?.message || `Request failed (${res.status})`);
+    return parsed;
+  }
+
+  return api("/api/cms/extract-material", {
+    method: "POST",
+    body: {
+      text: pasted || undefined,
+      videoUrl: videoUrl || undefined,
+      language: language || state.editingCourse?.langCode || "en",
+    },
+  });
+}
+
+function summarizeAiItem(item, type) {
+  if (type === "buzzin") return String(item?.topic || "").trim();
+  return String(item?.title || "").trim();
+}
+
+function renderAiPreviewCard(exercise, index, { selectClass = "cms-ai-select", indexAttr = "data-ai-index", extraAttrs = {} } = {}) {
+  const extra = Object.entries(extraAttrs)
+    .map(([key, value]) => `${key}="${escapeHtml(String(value))}"`)
+    .join(" ");
+  const items = (exercise.items || [])
+    .map((item) => `<li>${escapeHtml(summarizeAiItem(item, exercise.type))}</li>`)
+    .join("");
+  return `
+    <article class="cms-ai-preview-card" ${indexAttr}="${index}">
+      <div class="cms-ai-preview-head">
+        <input type="checkbox" class="${selectClass}" ${indexAttr}="${index}" ${extra} checked aria-label="Include ${escapeHtml(exercise.title || "exercise")}" />
+        <div class="cms-ai-preview-meta">
+          <p class="cms-ai-preview-title">${escapeHtml(exercise.title || "Exercise")}</p>
+          <p class="cms-ai-preview-sub">${escapeHtml(exercise.subTitle || exercise.type)} · ${(exercise.items || []).length} item(s)</p>
+        </div>
+      </div>
+      <ol class="cms-ai-preview-items">${items}</ol>
+    </article>`;
+}
+
+function getSelectedExerciseIndexes(selector) {
+  return new Set(
+    [...document.querySelectorAll(`${selector}:checked`)].map((el) => Number(el.dataset.aiIndex))
+  );
+}
+
+async function exportExercisesJson({ mode = "section", exercises, sectionIndex, batchResults }) {
+  let payload;
+  if (mode === "batch") {
+    const sections = (batchResults || [])
+      .filter((entry) => entry.ok && entry.exercises?.length)
+      .map((entry) => ({
+        sectionId: entry.sectionId ?? null,
+        sectionTitle: entry.sectionTitle || "",
+        sectionIndex: entry.sectionIndex ?? null,
+        exercises: entry.exercises,
+      }));
+    if (!sections.length) throw new Error("Nothing to export yet.");
+    const data = await api("/api/cms/export-exercises-json", {
+      method: "POST",
+      body: {
+        mode: "batch",
+        course: state.editingCourse,
+        sections,
+      },
+    });
+    payload = data.payload;
+  } else {
+    const list = exercises || state.aiDraftExercises || [];
+    if (!list.length) throw new Error("Nothing to export yet.");
+    const section = state.sections[state.editingSectionIndex];
+    const data = await api("/api/cms/export-exercises-json", {
+      method: "POST",
+      body: {
+        mode: "section",
+        course: state.editingCourse,
+        section,
+        sectionIndex: state.editingSectionIndex,
+        exercises: list,
+      },
+    });
+    payload = data.payload;
+  }
+
+  const slug = slugifyFilename(state.editingCourse?.name || "course");
+  downloadJsonFile(`${slug}-exercises-${Date.now()}.json`, payload);
+}
+
+async function importExercisesJsonFromFile(file, { applyTarget = "preview" } = {}) {
+  const text = await file.text();
+  let raw = null;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error("Import file is not valid JSON.");
+  }
+
+  const data = await api("/api/cms/import-exercises-json", {
+    method: "POST",
+    body: raw,
+  });
+
+  if (applyTarget === "preview") {
+    const first = data.sections?.[0];
+    state.aiDraftExercises = first?.exercises || [];
+    renderAiPreview(state.aiDraftExercises);
+    $("#cms-ai-preview-section").hidden = !state.aiDraftExercises.length;
+    $("#cms-ai-generate-status").textContent = `Imported ${state.aiDraftExercises.length} exercise(s). Review and add below.`;
+    $("#cms-ai-error").textContent = "";
+    return data;
+  }
+
+  applyImportedSections(data, { replace: false });
+  $("#cms-batch-generate-status").textContent = `Imported exercises into ${data.sections.length} section(s). Save sections when ready.`;
+  $("#cms-batch-error").textContent = "";
+  return data;
+}
+
+function resolveImportSectionIndex(entry) {
+  if (entry.sectionId != null) {
+    const byId = state.sections.findIndex((section) => section.id === entry.sectionId);
+    if (byId >= 0) return byId;
+  }
+  if (entry.sectionIndex != null && state.sections[entry.sectionIndex]) {
+    return entry.sectionIndex;
+  }
+  const title = String(entry.sectionTitle || "").trim();
+  if (title) {
+    const byTitle = state.sections.findIndex((section) => String(section.title || "").trim() === title);
+    if (byTitle >= 0) return byTitle;
+  }
+  return -1;
+}
+
+function applyImportedSections(parsed, { replace = false } = {}) {
+  syncSectionsMetadataFromDom();
+  let appliedSections = 0;
+  let appliedExercises = 0;
+
+  for (const entry of parsed.sections || []) {
+    const sectionIndex = resolveImportSectionIndex(entry);
+    if (sectionIndex < 0) continue;
+    const section = state.sections[sectionIndex];
+    if (!section) continue;
+    if (replace) section.exercises = [];
+    if (!section.exercises) section.exercises = [];
+    for (const exercise of entry.exercises || []) {
+      section.exercises.push({
+        ...exercise,
+        order: section.exercises.length + 1,
+      });
+      appliedExercises += 1;
+    }
+    appliedSections += 1;
+  }
+
+  if (!appliedExercises) {
+    throw new Error("No matching sections found for this import file.");
+  }
+
+  if (isExercisesSubpageOpen()) {
+    renderExerciseEditors({ skipReveal: true });
+  } else {
+    renderSectionEditors();
+  }
+
+  return { appliedSections, appliedExercises };
+}
+
+function resetBatchAiPanel() {
+  state.batchDraftResults = [];
+  state.batchPreparedMaterials = {};
+  $("#cms-batch-generate-status") && ($("#cms-batch-generate-status").textContent = "");
+  $("#cms-batch-error") && ($("#cms-batch-error").textContent = "");
+  $("#cms-batch-preview-section")?.setAttribute("hidden", "");
+  $("#cms-batch-preview") && ($("#cms-batch-preview").innerHTML = "");
+  renderBatchAiRows();
+}
+
+function renderBatchAiRows() {
+  const container = $("#cms-batch-ai-rows");
+  if (!container) return;
+  syncSectionsMetadataFromDom();
+
+  if (!state.sections.length) {
+    container.innerHTML = `<p class="hint">Add at least one section first.</p>`;
+    return;
+  }
+
+  container.innerHTML = state.sections
+    .map((section, sectionIndex) => {
+      const title = section.title?.trim() || `Section ${sectionIndex + 1}`;
+      const prepared = state.batchPreparedMaterials[sectionIndex];
+      const preparedHint = prepared
+        ? `<span class="status-msg">Prepared (${prepared.length} chars)</span>`
+        : "";
+      return `
+        <article class="cms-batch-row" data-section-index="${sectionIndex}">
+          <div class="cms-batch-row-head">
+            <p class="cms-batch-row-title">${escapeHtml(title)}</p>
+            <label class="cms-batch-row-include">
+              <input type="checkbox" class="cms-batch-include" data-section-index="${sectionIndex}" checked />
+              Include
+            </label>
+          </div>
+          <textarea class="cms-batch-paste" data-section-index="${sectionIndex}" placeholder="Paste material for this section…">${escapeHtml(prepared || "")}</textarea>
+          <div class="cms-batch-row-actions">
+            <label class="btn secondary small cms-ai-file-label">
+              <input type="file" class="cms-batch-file" data-section-index="${sectionIndex}" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,audio/*,image/*" />
+              Upload
+            </label>
+            <button type="button" class="btn secondary small cms-batch-prepare" data-section-index="${sectionIndex}">Prepare</button>
+            ${preparedHint}
+            <span class="status-msg cms-batch-row-status" data-section-index="${sectionIndex}"></span>
+          </div>
+        </article>`;
+    })
+    .join("");
+}
+
+function renderBatchPreview(results) {
+  const sectionEl = $("#cms-batch-preview-section");
+  const container = $("#cms-batch-preview");
+  if (!sectionEl || !container) return;
+
+  const okResults = (results || []).filter((entry) => entry.ok && entry.exercises?.length);
+  if (!okResults.length) {
+    sectionEl.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+
+  sectionEl.hidden = false;
+  container.innerHTML = okResults
+    .map((result, resultIndex) => {
+      const cards = (result.exercises || [])
+        .map((exercise, exerciseIndex) =>
+          renderAiPreviewCard(exercise, exerciseIndex, {
+            selectClass: "cms-batch-select",
+            indexAttr: "data-batch-exercise-index",
+            extraAttrs: {
+              "data-batch-result-index": resultIndex,
+              "data-ai-index": exerciseIndex,
+            },
+          })
+        )
+        .join("");
+      const title = result.sectionTitle || `Section ${Number(result.sectionIndex) + 1}`;
+      return `
+        <section class="cms-batch-preview-group" data-batch-result-index="${resultIndex}">
+          <p class="cms-batch-preview-group-title">${escapeHtml(title)}</p>
+          <div class="cms-ai-preview-list">${cards}</div>
+        </section>`;
+    })
+    .join("");
+
+}
+
+async function prepareBatchRowMaterial(sectionIndex) {
+  const row = document.querySelector(`.cms-batch-row[data-section-index="${sectionIndex}"]`);
+  if (!row) return "";
+
+  const statusEl = row.querySelector(`.cms-batch-row-status[data-section-index="${sectionIndex}"]`);
+  const pasted = row.querySelector(".cms-batch-paste")?.value.trim();
+  const file = row.querySelector(".cms-batch-file")?.files?.[0];
+
+  if (pasted) {
+    state.batchPreparedMaterials[sectionIndex] = pasted;
+    if (statusEl) statusEl.textContent = `Ready (${pasted.length} chars).`;
+    return pasted;
+  }
+
+  if (!file) {
+    throw new Error("Paste material or upload a file for this section.");
+  }
+
+  if (statusEl) statusEl.textContent = "Preparing…";
+  const data = await extractMaterialRequest({ file, language: state.editingCourse?.langCode || "en" });
+  const text = data.text || "";
+  state.batchPreparedMaterials[sectionIndex] = text;
+  const textarea = row.querySelector(".cms-batch-paste");
+  if (textarea) textarea.value = text;
+  if (statusEl) {
+    statusEl.textContent = data.truncated
+      ? `Ready (${data.originalLength} chars, truncated).`
+      : `Ready (${text.length} chars).`;
+  }
+  return text;
+}
+
+async function batchGenerateAllSections() {
+  const statusEl = $("#cms-batch-generate-status");
+  const errorEl = $("#cms-batch-error");
+  const btn = $("#btn-cms-batch-generate");
+  if (!statusEl || !errorEl || !btn) return;
+
+  syncSectionsMetadataFromDom();
+  errorEl.textContent = "";
+  const settings = getAiGenerationSettings("cms-batch");
+  if (!Object.keys(settings.types).length) {
+    errorEl.textContent = "Select at least one exercise type.";
+    return;
+  }
+
+  const jobs = [];
+  for (const row of document.querySelectorAll(".cms-batch-row")) {
+    const sectionIndex = Number(row.dataset.sectionIndex);
+    const include = row.querySelector(".cms-batch-include")?.checked;
+    if (!include) continue;
+
+    const section = state.sections[sectionIndex];
+    if (!section) continue;
+
+    let material =
+      row.querySelector(".cms-batch-paste")?.value.trim() ||
+      state.batchPreparedMaterials[sectionIndex] ||
+      "";
+    const file = row.querySelector(".cms-batch-file")?.files?.[0];
+
+    try {
+      if (!material && file) {
+        material = await prepareBatchRowMaterial(sectionIndex);
+      }
+    } catch (err) {
+      errorEl.textContent = err.message;
+      return;
+    }
+
+    if (!material) continue;
+
+    jobs.push({
+      key: String(sectionIndex),
+      sectionIndex,
+      sectionId: section.id ?? null,
+      sectionTitle: section.title || `Section ${sectionIndex + 1}`,
+      material,
+    });
+  }
+
+  if (!jobs.length) {
+    errorEl.textContent = "Add material to at least one included section.";
+    return;
+  }
+
+  statusEl.textContent = `Generating ${jobs.length} section(s)…`;
+  btn.disabled = true;
+
+  try {
+    const data = await api("/api/cms/batch-generate-exercises", {
+      method: "POST",
+      body: {
+        ...settings,
+        sections: jobs,
+      },
+    });
+
+    state.batchDraftResults = data.results || [];
+    renderBatchPreview(state.batchDraftResults);
+    const stats = data.stats || {};
+    statusEl.textContent = `Done: ${stats.succeeded || 0} succeeded, ${stats.failed || 0} failed. Review and apply below.`;
+    if ((stats.failed || 0) > 0) {
+      const failed = state.batchDraftResults.filter((entry) => !entry.ok).map((entry) => entry.sectionTitle).join(", ");
+      errorEl.textContent = failed ? `Failed: ${failed}` : "";
+    }
+  } catch (err) {
+    statusEl.textContent = "";
+    errorEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function applyBatchResultsToSections() {
+  syncSectionsMetadataFromDom();
+  const selected = new Map();
+
+  document.querySelectorAll(".cms-batch-select:checked").forEach((input) => {
+    const resultIndex = Number(input.dataset.batchResultIndex);
+    const exerciseIndex = Number(input.dataset.batchExerciseIndex);
+    if (!selected.has(resultIndex)) selected.set(resultIndex, new Set());
+    selected.get(resultIndex).add(exerciseIndex);
+  });
+
+  if (!selected.size) {
+    $("#cms-batch-error").textContent = "Select at least one generated exercise.";
+    return;
+  }
+
+  let appliedExercises = 0;
+  for (const [resultIndex, exerciseIndexes] of selected.entries()) {
+    const result = state.batchDraftResults[resultIndex];
+    if (!result?.ok) continue;
+    const sectionIndex =
+      result.sectionIndex != null && state.sections[result.sectionIndex]
+        ? result.sectionIndex
+        : resolveImportSectionIndex(result);
+    if (sectionIndex < 0) continue;
+
+    const section = state.sections[sectionIndex];
+    if (!section.exercises) section.exercises = [];
+    (result.exercises || []).forEach((exercise, exerciseIndex) => {
+      if (!exerciseIndexes.has(exerciseIndex)) return;
+      section.exercises.push({
+        ...exercise,
+        order: section.exercises.length + 1,
+      });
+      appliedExercises += 1;
+    });
+  }
+
+  if (!appliedExercises) {
+    $("#cms-batch-error").textContent = "Could not apply selected exercises.";
+    return;
+  }
+
+  renderSectionEditors();
+  $("#cms-batch-error").textContent = "";
+  $("#cms-batch-generate-status").textContent = `Applied ${appliedExercises} exercise(s). Save sections when ready.`;
+  state.batchDraftResults = [];
+  renderBatchPreview([]);
+}
+
+function renderAiPreview(exercises) {
+  const section = $("#cms-ai-preview-section");
+  const container = $("#cms-ai-preview");
+  if (!section || !container) return;
+
+  if (!exercises?.length) {
+    section.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+
+  section.hidden = false;
+  container.innerHTML = exercises
+    .map((exercise, index) => renderAiPreviewCard(exercise, index))
+    .join("");
+}
+
+async function extractAiMaterial() {
+  const statusEl = $("#cms-ai-extract-status");
+  const errorEl = $("#cms-ai-error");
+  const previewEl = $("#cms-ai-material-preview");
+  const btn = $("#btn-cms-ai-extract");
+  if (!statusEl || !errorEl || !previewEl || !btn) return;
+
+  errorEl.textContent = "";
+  statusEl.textContent = "Preparing material…";
+  btn.disabled = true;
+
+  try {
+    const file = $("#cms-ai-file")?.files?.[0];
+    const pasted = $("#cms-ai-paste")?.value.trim();
+    const videoUrl = $("#cms-ai-video-url")?.value.trim();
+
+    if (!file && !pasted && !videoUrl) {
+      throw new Error("Paste text, upload a file, or provide a video URL.");
+    }
+
+    let data = await extractMaterialRequest({
+      file,
+      pasted,
+      videoUrl,
+      language: state.editingCourse?.langCode || "en",
+    });
+
+    state.aiMaterialText = data.text || "";
+    previewEl.value = state.aiMaterialText;
+    previewEl.hidden = !state.aiMaterialText;
+    statusEl.textContent = data.truncated
+      ? `Ready (${data.originalLength} chars, truncated for generation).`
+      : `Ready (${state.aiMaterialText.length} chars).`;
+    if (data.source === "video" && data.captionUrl) {
+      statusEl.textContent += " Video transcribed.";
+    } else if (data.source === "audio") {
+      statusEl.textContent += " Audio transcribed.";
+    } else if (data.source === "image") {
+      statusEl.textContent += " Image converted to markdown.";
+    }
+  } catch (err) {
+    statusEl.textContent = "";
+    errorEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function generateAiExercises() {
+  const statusEl = $("#cms-ai-generate-status");
+  const errorEl = $("#cms-ai-error");
+  const btn = $("#btn-cms-ai-generate");
+  if (!statusEl || !errorEl || !btn) return;
+
+  const material =
+    state.aiMaterialText ||
+    $("#cms-ai-material-preview")?.value.trim() ||
+    $("#cms-ai-paste")?.value.trim();
+  const types = getAiTypeCounts();
+
+  errorEl.textContent = "";
+  if (!material) {
+    errorEl.textContent = "Prepare or paste source material first.";
+    return;
+  }
+  if (!Object.keys(types).length) {
+    errorEl.textContent = "Select at least one exercise type.";
+    return;
+  }
+
+  statusEl.textContent = "Generating exercises…";
+  btn.disabled = true;
+
+  try {
+    const data = await api("/api/cms/generate-exercises", {
+      method: "POST",
+      body: {
+        material,
+        langCode: state.editingCourse?.langCode || "en",
+        difficulty: $("#cms-ai-difficulty")?.value || "medium",
+        types,
+      },
+    });
+
+    state.aiDraftExercises = data.exercises || [];
+    renderAiPreview(state.aiDraftExercises);
+    const stats = data.stats || {};
+    statusEl.textContent = stats.partial
+      ? `Generated ${stats.generated || state.aiDraftExercises.length} item(s) (partial). Review before adding.`
+      : `Generated ${stats.generated || state.aiDraftExercises.length} item(s). Review and add below.`;
+  } catch (err) {
+    statusEl.textContent = "";
+    errorEl.textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function addAiExercisesToSection() {
+  const sectionIndex = state.editingSectionIndex;
+  if (sectionIndex == null) return;
+
+  syncExercisesFromDom();
+  const section = state.sections[sectionIndex];
+  if (!section) return;
+
+  const selected = new Set(
+    [...document.querySelectorAll(".cms-ai-select:checked")].map((el) => Number(el.dataset.aiIndex))
+  );
+  const picks = (state.aiDraftExercises || []).filter((_exercise, index) => selected.has(index));
+  if (!picks.length) {
+    $("#cms-ai-error").textContent = "Select at least one generated exercise.";
+    return;
+  }
+
+  if (!section.exercises) section.exercises = [];
+  picks.forEach((exercise) => {
+    section.exercises.push({
+      ...exercise,
+      order: section.exercises.length + 1,
+    });
+  });
+
+  state.expandedExerciseIndex = section.exercises.length - 1;
+  renderExerciseEditors({ insertedIndex: state.expandedExerciseIndex });
+  $("#cms-ai-error").textContent = "";
+  $("#cms-ai-generate-status").textContent = `Added ${picks.length} exercise(s) to this section. Save when ready.`;
+  state.aiDraftExercises = [];
+  renderAiPreview([]);
+}
+
 function openSectionExercises(sectionIndex, { focusComposer = false } = {}) {
   syncSectionsMetadataFromDom();
   const section = state.sections[sectionIndex];
@@ -800,6 +1650,7 @@ function openSectionExercises(sectionIndex, { focusComposer = false } = {}) {
   $("#cms-exercises-view").hidden = false;
   $("#cms-exercises-error").textContent = "";
   $("#cms-exercises-status").textContent = "";
+  resetAiGeneratePanel();
   renderExerciseEditors({ skipReveal: true });
   cmsMotion()?.playCmsTabEnter?.($("#cms-exercises-view"));
   if (focusComposer) {
@@ -1442,6 +2293,18 @@ function renderVideoBody(container, exercise) {
         : "Upload a .vtt file, generate STT captions, or translate an existing caption for the player language menu."
     }</p>
     ${trackSummary ? `<pre class="hint cms-caption-track-list">${escapeHtml(trackSummary)}</pre>` : ""}
+  </div>
+  <div class="cms-caption-editor"${tracks.length ? "" : " hidden"}>
+    <div class="cms-caption-editor-head">
+      <label class="field cms-field-inline">
+        <span>Check / edit captions</span>
+        <select class="cms-caption-edit-language" aria-label="Caption track to edit"></select>
+      </label>
+      <button type="button" class="btn secondary small cms-caption-reload">Reload</button>
+      <button type="button" class="btn primary small cms-caption-save">Save VTT</button>
+    </div>
+    <textarea class="cms-caption-vtt-editor" rows="14" spellcheck="false" placeholder="WEBVTT&#10;&#10;00:00:00.000 --> 00:00:02.000&#10;Hello"></textarea>
+    <p class="hint cms-caption-editor-status">Load a saved caption track to review or edit the WebVTT text.</p>
   </div>`;
 
   const languageSelect = container.querySelector(".cms-video-caption-target-language");
@@ -1477,10 +2340,163 @@ function renderVideoBody(container, exercise) {
     const status = container.querySelector(".cms-caption-status");
     if (status && normalized.length) {
       status.textContent = `Saved languages: ${normalized
-        .map((track) => track.language.toUpperCase())
-        .join(", ")}. Click Save Course to keep them.`;
+        .map((track) =>
+          typeof captionLanguageMeta === "function"
+            ? captionLanguageMeta(track.language).label
+            : track.language.toUpperCase()
+        )
+        .join(", ")}. Upload/generate/translate into another language, then Save Course.`;
     }
+    refreshCaptionEditorTracks(activeLanguage);
   };
+
+  const captionEditor = container.querySelector(".cms-caption-editor");
+  const captionEditLanguage = container.querySelector(".cms-caption-edit-language");
+  const captionVttEditor = container.querySelector(".cms-caption-vtt-editor");
+  const captionEditorStatus = container.querySelector(".cms-caption-editor-status");
+  let captionEditorDirty = false;
+  let captionEditorLoadedUrl = "";
+
+  const captionTrackLabel = (language) =>
+    typeof captionLanguageMeta === "function"
+      ? captionLanguageMeta(language).label
+      : String(language || "en").toUpperCase();
+
+  const selectedCaptionEditTrack = () => {
+    const language = captionEditLanguage?.value || "";
+    return readTracks().find((track) => track.language === language) || readTracks()[0] || null;
+  };
+
+  const setCaptionEditorDirty = (dirty) => {
+    captionEditorDirty = Boolean(dirty);
+    const saveBtn = container.querySelector(".cms-caption-save");
+    if (saveBtn) saveBtn.disabled = !captionEditorDirty;
+  };
+
+  function refreshCaptionEditorTracks(preferredLanguage) {
+    const tracks = readTracks();
+    if (!captionEditor || !captionEditLanguage) return;
+
+    captionEditor.hidden = !tracks.length;
+    if (!tracks.length) {
+      if (captionVttEditor) captionVttEditor.value = "";
+      captionEditorLoadedUrl = "";
+      setCaptionEditorDirty(false);
+      if (captionEditorStatus) {
+        captionEditorStatus.textContent = "Load a saved caption track to review or edit the WebVTT text.";
+      }
+      return;
+    }
+
+    const previous = captionEditLanguage.value;
+    captionEditLanguage.innerHTML = tracks
+      .map(
+        (track) =>
+          `<option value="${escapeHtml(track.language)}">${escapeHtml(captionTrackLabel(track.language))}</option>`
+      )
+      .join("");
+
+    const nextLanguage =
+      tracks.find((track) => track.language === preferredLanguage)?.language ||
+      tracks.find((track) => track.language === previous)?.language ||
+      tracks[0].language;
+    captionEditLanguage.value = nextLanguage;
+
+    if (previous !== nextLanguage || !captionEditorLoadedUrl) {
+      void loadCaptionEditorTrack();
+    }
+  }
+
+  async function loadCaptionEditorTrack() {
+    const track = selectedCaptionEditTrack();
+    if (!track?.url || !captionVttEditor) return;
+
+    const reloadBtn = container.querySelector(".cms-caption-reload");
+    if (reloadBtn) reloadBtn.disabled = true;
+    if (captionEditorStatus) captionEditorStatus.textContent = `Loading ${captionTrackLabel(track.language)}…`;
+
+    try {
+      const data = await api(
+        `/api/cms/video-captions?captionUrl=${encodeURIComponent(track.url)}`
+      );
+      captionVttEditor.value = data.text || "";
+      captionEditorLoadedUrl = track.url;
+      setCaptionEditorDirty(false);
+      if (captionEditorStatus) {
+        const editableNote = data.editable
+          ? "Edit the WebVTT below, then Save VTT."
+          : "This file is read-only here (external URL). Download, edit locally, then re-upload.";
+        captionEditorStatus.textContent = `${captionTrackLabel(track.language)}: ${data.cueCount || 0} cues. ${editableNote}`;
+      }
+      const saveBtn = container.querySelector(".cms-caption-save");
+      if (saveBtn) saveBtn.disabled = !data.editable;
+    } catch (err) {
+      captionVttEditor.value = "";
+      captionEditorLoadedUrl = "";
+      setCaptionEditorDirty(false);
+      if (captionEditorStatus) captionEditorStatus.textContent = err.message || "Could not load captions.";
+    } finally {
+      if (reloadBtn) reloadBtn.disabled = false;
+    }
+  }
+
+  async function saveCaptionEditorTrack() {
+    const track = selectedCaptionEditTrack();
+    if (!track?.url || !captionVttEditor) return;
+
+    const saveBtn = container.querySelector(".cms-caption-save");
+    if (saveBtn) saveBtn.disabled = true;
+    if (captionEditorStatus) {
+      captionEditorStatus.textContent = `Saving ${captionTrackLabel(track.language)}…`;
+    }
+
+    try {
+      const data = await api("/api/cms/video-captions", {
+        method: "PUT",
+        body: { captionUrl: track.url, text: captionVttEditor.value },
+      });
+      captionEditorLoadedUrl = track.url;
+      setCaptionEditorDirty(false);
+      if (captionEditorStatus) {
+        captionEditorStatus.textContent = `Saved ${captionTrackLabel(track.language)} (${data.cueCount || 0} cues). Changes apply immediately on replay.`;
+      }
+    } catch (err) {
+      if (captionEditorStatus) captionEditorStatus.textContent = err.message || "Could not save captions.";
+      setCaptionEditorDirty(true);
+    } finally {
+      if (saveBtn && captionEditorDirty) saveBtn.disabled = false;
+    }
+  }
+
+  captionEditLanguage?.addEventListener("change", () => {
+    if (captionEditorDirty) {
+      const ok = confirm("You have unsaved caption edits. Switch language anyway?");
+      if (!ok) {
+        const track = readTracks().find((entry) => entry.url === captionEditorLoadedUrl);
+        if (track) captionEditLanguage.value = track.language;
+        return;
+      }
+    }
+    void loadCaptionEditorTrack();
+  });
+
+  captionVttEditor?.addEventListener("input", () => {
+    setCaptionEditorDirty(true);
+  });
+
+  container.querySelector(".cms-caption-reload")?.addEventListener("click", () => {
+    if (captionEditorDirty) {
+      const ok = confirm("Discard unsaved caption edits and reload?");
+      if (!ok) return;
+    }
+    void loadCaptionEditorTrack();
+  });
+
+  container.querySelector(".cms-caption-save")?.addEventListener("click", () => {
+    void saveCaptionEditorTrack();
+  });
+
+  refreshCaptionEditorTracks(captionLanguage);
 
   const captionFileInput = container.querySelector(".cms-video-caption-file");
   container.querySelector(".cms-upload-captions")?.addEventListener("click", () => {
@@ -1518,6 +2534,8 @@ function renderVideoBody(container, exercise) {
         const next = readTracks().filter((track) => track.language !== language);
         next.push({ language, url: data.captionUrl });
         writeTracks(next, language);
+        captionEditLanguage.value = language;
+        void loadCaptionEditorTrack();
       }
       if (status) {
         status.textContent = `Uploaded ${data.cueCount || 0} ${language.toUpperCase()} cues. Click Save Course, then reopen the video.`;
@@ -1552,6 +2570,8 @@ function renderVideoBody(container, exercise) {
         const next = readTracks().filter((track) => track.language !== language);
         next.push({ language, url: data.captionUrl });
         writeTracks(next, language);
+        captionEditLanguage.value = language;
+        void loadCaptionEditorTrack();
       }
       if (status) {
         status.textContent = `Generated ${data.cueCount || 0} ${language.toUpperCase()} cues. Click Save Course, then reopen the video.`;
@@ -1590,6 +2610,8 @@ function renderVideoBody(container, exercise) {
         const next = readTracks().filter((track) => track.language !== targetLanguage);
         next.push({ language: targetLanguage, url: data.captionUrl });
         writeTracks(next, targetLanguage);
+        captionEditLanguage.value = targetLanguage;
+        void loadCaptionEditorTrack();
       }
       if (status) {
         status.textContent = `Translated to ${targetLanguage.toUpperCase()}. Click Save Course, then use the language menu on the video page.`;
@@ -2006,6 +3028,7 @@ function renderSectionEditors() {
     setupSectionDrag(sectionCard, container);
     container.appendChild(sectionCard);
   });
+  renderBatchAiRows();
   cmsMotion()?.playCmsListReveal?.(container);
 }
 
@@ -2287,6 +3310,34 @@ function addExercise(type = "mcquiz") {
   renderExerciseEditors({ insertedIndex: state.expandedExerciseIndex });
 }
 
+
+$("#nav-cms-dashboard")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (!state.token || !state.user) return;
+  enterDashboard();
+});
+$("#nav-cms-courses")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (!state.token || !state.user) return;
+  enterCourseList();
+});
+$("#cms-dashboard-class")?.addEventListener("change", async (event) => {
+  const nextId = Number(event.target.value);
+  state.dashboardClassId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
+  savePrefs();
+  $("#cms-dashboard-list").innerHTML = `
+    <div class="cms-list-loading" aria-hidden="true">
+      <div class="cms-skeleton-card"></div>
+      <div class="cms-skeleton-card"></div>
+    </div>`;
+  try {
+    await loadDashboardProgress();
+  } catch (err) {
+    $("#cms-dashboard-list").innerHTML = "";
+    $("#cms-dashboard-error").textContent = err.message;
+  }
+});
+
 $("#btn-cms-login").addEventListener("click", handleLogin);
 $("#cms-login-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleLogin();
@@ -2316,6 +3367,58 @@ $("#cms-exercise-composer")?.addEventListener("click", (event) => {
 $("#btn-back-sections").addEventListener("click", () => closeSectionExercises());
 $("#btn-save-sections").addEventListener("click", saveSections);
 $("#btn-save-exercises").addEventListener("click", saveExercises);
+$("#btn-cms-ai-extract")?.addEventListener("click", extractAiMaterial);
+$("#btn-cms-ai-generate")?.addEventListener("click", generateAiExercises);
+$("#btn-cms-ai-add")?.addEventListener("click", addAiExercisesToSection);
+$("#btn-cms-ai-export-json")?.addEventListener("click", async () => {
+  try {
+    await exportExercisesJson({ mode: "section" });
+  } catch (err) {
+    $("#cms-ai-error").textContent = err.message;
+  }
+});
+$("#cms-ai-import-json")?.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    await importExercisesJsonFromFile(file, { applyTarget: "preview" });
+  } catch (err) {
+    $("#cms-ai-error").textContent = err.message;
+  }
+});
+$("#btn-cms-batch-generate")?.addEventListener("click", batchGenerateAllSections);
+$("#btn-cms-batch-apply")?.addEventListener("click", applyBatchResultsToSections);
+$("#btn-cms-batch-export-json")?.addEventListener("click", async () => {
+  try {
+    await exportExercisesJson({ mode: "batch", batchResults: state.batchDraftResults });
+  } catch (err) {
+    $("#cms-batch-error").textContent = err.message;
+  }
+});
+$("#cms-batch-import-json")?.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    await importExercisesJsonFromFile(file, { applyTarget: "sections" });
+  } catch (err) {
+    $("#cms-batch-error").textContent = err.message;
+  }
+});
+$("#cms-batch-ai-panel")?.addEventListener("click", async (event) => {
+  const prepareBtn = event.target.closest(".cms-batch-prepare");
+  if (!prepareBtn) return;
+  const sectionIndex = Number(prepareBtn.dataset.sectionIndex);
+  if (!Number.isFinite(sectionIndex)) return;
+  const errorEl = $("#cms-batch-error");
+  if (errorEl) errorEl.textContent = "";
+  try {
+    await prepareBatchRowMaterial(sectionIndex);
+  } catch (err) {
+    if (errorEl) errorEl.textContent = err.message;
+  }
+});
 
 document.querySelectorAll(".cms-tab").forEach((tab) => {
   tab.addEventListener("click", () => switchTab(tab.dataset.tab));
@@ -2331,7 +3434,7 @@ applyTeacherLoginDefaults(
 );
 
 if (state.token && state.user) {
-  enterCourseList();
+  enterDashboard();
 } else {
   showCmsScreen("login");
 }

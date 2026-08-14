@@ -19,6 +19,9 @@ const sessionStore = require("./lib/session-store");
 const paths = require("./lib/paths");
 const settingsStore = require("./lib/settings-store");
 const videoCaptions = require("./lib/video-captions");
+const materialExtract = require("./lib/material-extract");
+const exerciseGenerator = require("./lib/exercise-generator");
+const exerciseImport = require("./lib/exercise-import");
 const courseExport = require("./lib/course-export");
 const courseImport = require("./lib/course-import");
 const courseImportChunked = require("./lib/course-import-chunked");
@@ -44,6 +47,9 @@ const ENV_QWEN_MODEL = String(process.env.QWEN_MODEL || "qwen-plus").trim();
 const ENV_OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
 const ENV_OPENROUTER_BUZZIN_MODEL = String(
   process.env.OPENROUTER_BUZZIN_MODEL || "mistralai/voxtral-small-24b-2507"
+).trim();
+const ENV_OPENROUTER_GENERATE_MODEL = String(
+  process.env.OPENROUTER_GENERATE_MODEL || "x-ai/grok-4.3"
 ).trim();
 const INWORLD_API_BASE = "https://api.inworld.ai";
 const INWORLD_BUZZIN_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
@@ -108,6 +114,11 @@ function getOpenRouterApiKey() {
 function getOpenRouterBuzzinModel() {
   const saved = settingsStore.readSettings().openrouterBuzzinModel;
   return saved || ENV_OPENROUTER_BUZZIN_MODEL || "mistralai/voxtral-small-24b-2507";
+}
+
+function getOpenRouterGenerateModel() {
+  const saved = settingsStore.readSettings().openrouterGenerateModel;
+  return saved || ENV_OPENROUTER_GENERATE_MODEL || exerciseGenerator.DEFAULT_GENERATE_MODEL;
 }
 
 function maskApiKey(key) {
@@ -228,6 +239,28 @@ const courseImportUpload = multer({
 const courseImportChunkUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: courseImportChunked.IMPORT_CHUNK_BYTES + 1024 * 1024 },
+});
+
+const MATERIAL_MAX_BYTES = 25 * 1024 * 1024;
+const MATERIAL_ALLOWED_EXTS = new Set([
+  ...materialExtract.SUPPORTED_EXTENSIONS,
+]);
+
+const materialUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MATERIAL_MAX_BYTES },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(String(file.originalname || "")).toLowerCase();
+    const ok = MATERIAL_ALLOWED_EXTS.has(ext);
+    cb(
+      ok
+        ? null
+        : new Error(
+            "Supported formats: .txt, .md, .pdf, .docx, .pptx, .vtt, audio (.mp3, .wav, .m4a, .ogg, .webm, .flac, .aac), images (.jpg, .jpeg, .png, .webp, .gif)"
+          ),
+      ok
+    );
+  },
 });
 
 function handleQuestionImageUpload(req, res) {
@@ -592,6 +625,36 @@ function openRouterErrorMessage(data, status) {
   return parts.join(" — ") || `OpenRouter API returned ${status}.`;
 }
 
+async function openRouterGenerateComplete(apiKey, model, messages, maxTokens = 2048) {
+  const key = String(apiKey || getOpenRouterApiKey() || "").trim();
+  if (!key) {
+    throw new Error("OpenRouter is not configured. Add an API key in Config.");
+  }
+
+  const llmModel = String(model || getOpenRouterGenerateModel()).trim() || getOpenRouterGenerateModel();
+  const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": getPublicBaseUrl(),
+      "X-Title": "Lango Course Generator",
+    },
+    body: JSON.stringify({
+      model: llmModel,
+      messages,
+      max_tokens: maxTokens,
+    }),
+  });
+  const data = await parseOpenRouterResponse(res);
+
+  if (!res.ok) {
+    throw new Error(`LLM (${llmModel}): ${openRouterErrorMessage(data, res.status)}`);
+  }
+
+  return extractOpenRouterMessageText(data);
+}
+
 async function openRouterLlmComplete(apiKey, model, messages, maxTokens = 256) {
   const key = String(apiKey || getOpenRouterApiKey() || "").trim();
   if (!key) {
@@ -899,6 +962,114 @@ async function transcribeOpenRouterAudio({ apiKey, model, audioBuffer, format, p
     throw new Error("Could not transcribe the audio. Try another file or model.");
   }
   return text;
+}
+
+const MATERIAL_IMAGE_PROMPT =
+  "Convert this lesson image into clean markdown for a language-learning course generator.\n" +
+  "Include:\n" +
+  "- A short ## heading describing the image topic\n" +
+  "- All visible text verbatim (preserve vocabulary lists, headings, labels)\n" +
+  "- Brief descriptions of diagrams or illustrations only when needed for context\n" +
+  "- Use markdown headings, bullet lists, and tables where appropriate\n" +
+  "Return markdown only, no commentary.";
+
+const MATERIAL_AUDIO_PROMPT =
+  "Transcribe all spoken words in this audio verbatim. " +
+  "Return only the transcript as plain text suitable for lesson material. " +
+  "Preserve paragraph breaks where the speaker pauses.";
+
+async function transcribeMaterialAudioBuffer(buffer, filename, language) {
+  if (!buffer?.length) {
+    throw new Error("Audio file is empty.");
+  }
+  if (buffer.length > TRANSCRIBE_MAX_AUDIO_BYTES) {
+    throw new Error("Audio file is too large (max 25 MB).");
+  }
+
+  const format = audioFormatFromFilename(filename);
+  const inworldKey = getInworldApiKey();
+  const openRouterKey = getOpenRouterApiKey();
+
+  if (inworldKey && buffer.length <= BUZZIN_AUDIO_MAX_BYTES) {
+    try {
+      const base64 = buffer.toString("base64");
+      return await transcribeBuzzinAudioWithInworld(base64, format, undefined, language);
+    } catch (inworldErr) {
+      if (!openRouterKey) throw inworldErr;
+    }
+  }
+
+  if (openRouterKey) {
+    return transcribeOpenRouterAudio({
+      audioBuffer: buffer,
+      format,
+      prompt: MATERIAL_AUDIO_PROMPT,
+      maxTokens: 4096,
+    });
+  }
+
+  throw new Error("Configure Inworld or OpenRouter STT in Config before transcribing audio.");
+}
+
+async function describeMaterialImageBuffer(buffer, mimeType, filename) {
+  const apiKey = getOpenRouterApiKey();
+  if (!apiKey) {
+    throw new Error("Configure OpenRouter in Config before converting images to markdown.");
+  }
+  if (!buffer?.length) {
+    throw new Error("Image file is empty.");
+  }
+  if (buffer.length > 10 * 1024 * 1024) {
+    throw new Error("Image file is too large (max 10 MB).");
+  }
+
+  const mime = String(mimeType || "image/jpeg").toLowerCase();
+  const base64 = buffer.toString("base64");
+  const label = path.basename(String(filename || "image"));
+
+  const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": getPublicBaseUrl(),
+      "X-Title": "Lango Material Extract",
+    },
+    body: JSON.stringify({
+      model: getOpenRouterGenerateModel(),
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mime};base64,${base64}`,
+              },
+            },
+            {
+              type: "text",
+              text: `${MATERIAL_IMAGE_PROMPT}\n\nImage filename: ${label}`,
+            },
+          ],
+        },
+      ],
+      max_tokens: 2048,
+    }),
+  });
+
+  const data = await parseOpenRouterResponse(res);
+  if (!res.ok) {
+    throw new Error(
+      `Image conversion (${getOpenRouterGenerateModel()}): ${openRouterErrorMessage(data, res.status)}`
+    );
+  }
+
+  const markdown = extractOpenRouterMessageText(data);
+  if (!markdown) {
+    throw new Error("Could not extract markdown from this image.");
+  }
+  return materialExtract.normalizeWhitespace(markdown);
 }
 
 function clearBuzzInJoinTimer(round) {
@@ -2043,6 +2214,9 @@ function buildConfigResponse() {
     openrouterBuzzinModelSaved: settings.openrouterBuzzinModel || "",
     openrouterBuzzinModelEnvDefault: ENV_OPENROUTER_BUZZIN_MODEL,
     effectiveOpenRouterBuzzinModel: getOpenRouterBuzzinModel(),
+    openrouterGenerateModelSaved: settings.openrouterGenerateModel || "",
+    openrouterGenerateModelEnvDefault: ENV_OPENROUTER_GENERATE_MODEL,
+    effectiveOpenRouterGenerateModel: getOpenRouterGenerateModel(),
     notificationPreview: buildNotificationData({
       session_id: "123456",
       class_name: "Example class",
@@ -2314,6 +2488,7 @@ app.put("/api/config", async (req, res) => {
     qwenModel,
     openrouterApiKey,
     openrouterBuzzinModel,
+    openrouterGenerateModel,
   } = req.body || {};
   const updates = {};
 
@@ -2358,6 +2533,10 @@ app.put("/api/config", async (req, res) => {
 
   if (openrouterBuzzinModel !== undefined) {
     updates.openrouterBuzzinModel = String(openrouterBuzzinModel || "").trim();
+  }
+
+  if (openrouterGenerateModel !== undefined) {
+    updates.openrouterGenerateModel = String(openrouterGenerateModel || "").trim();
   }
 
   if (!Object.keys(updates).length) {
@@ -2576,6 +2755,53 @@ async function streamCourseExportZip(res, details, { teacherId } = {}) {
   archive.pipe(res);
 }
 
+
+function flattenCourseExercises(course) {
+  const sections = [...(course.sections || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const exercises = [];
+  for (const section of sections) {
+    const sorted = [...(section.exercises || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+    for (const exercise of sorted) {
+      exercises.push({
+        id: exercise.id,
+        title: exercise.title,
+        sectionId: section.id,
+        sectionTitle: section.title,
+      });
+    }
+  }
+  return { sections, exercises };
+}
+
+function buildDashboardCourseProgress(course, progress) {
+  const { sections, exercises } = flattenCourseExercises(course);
+  const completedSet = new Set((progress?.completedExerciseIds || []).map(Number));
+  const completedCount = exercises.filter((entry) => completedSet.has(Number(entry.id))).length;
+  const totalExercises = exercises.length;
+  const percent = totalExercises ? Math.round((completedCount / totalExercises) * 100) : 0;
+  const lastSection = sections.find((section) => section.id === progress?.lastSectionId);
+  const lastExercise = exercises.find((entry) => entry.id === progress?.lastExerciseId);
+  const hasActivity =
+    completedCount > 0 ||
+    progress?.lastSectionId != null ||
+    progress?.lastExerciseId != null ||
+    (progress?.visitedSectionIds || []).length > 0;
+
+  return {
+    courseId: course.id,
+    name: course.name,
+    banner: course.banner || null,
+    description: course.description || "",
+    totalExercises,
+    completedCount,
+    percent,
+    lastSectionTitle: lastSection?.title || null,
+    lastExerciseTitle: lastExercise?.title || null,
+    updatedAt: progress?.updatedAt || null,
+    started: hasActivity,
+  };
+}
+
 app.get("/api/cms/courses", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
@@ -2586,6 +2812,42 @@ app.get("/api/cms/courses", async (req, res) => {
     }),
   });
 });
+
+
+app.get("/api/cms/dashboard/progress", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const classId = Number(req.query.classId);
+  if (!Number.isFinite(classId) || classId <= 0) {
+    return res.status(400).json({ message: "classId query parameter is required." });
+  }
+
+  const progressRecords = hostProgressStore.listProgressForClass(auth.teacherId, classId);
+  const progressByCourseId = new Map(progressRecords.map((record) => [Number(record.courseId), record]));
+
+  const courses = cmsStore
+    .listCoursesForTeacher(auth.teacherId, { classId })
+    .map((listItem) => {
+      const course = cmsStore.getCourseForTeacher(listItem.id, auth.teacherId);
+      if (!course) return null;
+      const progress =
+        progressByCourseId.get(Number(course.id)) ||
+        hostProgressStore.emptyProgress(auth.teacherId, classId, course.id);
+      return buildDashboardCourseProgress(course, progress);
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const aTime = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+      const bTime = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+      if (a.started !== b.started) return a.started ? -1 : 1;
+      if (aTime !== bTime) return bTime - aTime;
+      return String(a.name).localeCompare(String(b.name));
+    });
+
+  return res.json({ classId, courses });
+});
+
 
 app.get("/api/cms/courses/export-all", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
@@ -2955,6 +3217,359 @@ async function readCaptionSourceText(captionUrl) {
   }
   return res.text();
 }
+
+function resolveWritableCaptionPath(captionUrl) {
+  const url = String(captionUrl || "").trim();
+  if (!url.startsWith("/uploads/captions/")) return null;
+  const filePath = paths.uploadFilePath(url);
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return filePath;
+}
+
+app.get("/api/cms/video-captions", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const captionUrl = String(req.query?.captionUrl || "").trim();
+  if (!captionUrl) {
+    return res.status(400).json({ message: "Caption URL is required." });
+  }
+
+  try {
+    const text = await readCaptionSourceText(captionUrl);
+    const cueCount = videoCaptions.parseWebVtt(text).length;
+    return res.json({
+      ok: true,
+      captionUrl,
+      text,
+      cueCount,
+      editable: Boolean(resolveWritableCaptionPath(captionUrl)),
+    });
+  } catch (err) {
+    console.error("read-video-captions failed:", err);
+    return res.status(500).json({
+      message: err.message || "Could not load captions.",
+    });
+  }
+});
+
+app.put("/api/cms/video-captions", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const captionUrl = String(req.body?.captionUrl || "").trim();
+  const text = String(req.body?.text ?? "");
+  if (!captionUrl) {
+    return res.status(400).json({ message: "Caption URL is required." });
+  }
+
+  const filePath = resolveWritableCaptionPath(captionUrl);
+  if (!filePath) {
+    return res.status(400).json({
+      message: "Only local /uploads/captions/ files on this server can be edited.",
+    });
+  }
+  if (!/^WEBVTT/i.test(text.trim())) {
+    return res.status(400).json({
+      message: "Content must be a WebVTT file starting with WEBVTT.",
+    });
+  }
+
+  try {
+    fs.writeFileSync(filePath, text, "utf8");
+    const cueCount = videoCaptions.parseWebVtt(text).length;
+    return res.json({
+      ok: true,
+      captionUrl,
+      cueCount,
+    });
+  } catch (err) {
+    console.error("save-video-captions failed:", err);
+    return res.status(500).json({
+      message: err.message || "Could not save captions.",
+    });
+  }
+});
+
+app.post("/api/cms/extract-material", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  materialUpload.single("file")(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return res.status(400).json({ message: uploadErr.message || "Upload failed." });
+    }
+
+    try {
+      if (req.file?.buffer?.length) {
+        const language = normalizeBuzzinSttLanguage(req.body?.language, getInworldSttLanguage());
+        const format = materialExtract.detectFormat(req.file.originalname, req.file.mimetype);
+
+        if (materialExtract.isAudioFormat(format) && !getInworldApiKey() && !getOpenRouterApiKey()) {
+          return res.status(400).json({
+            message: "Configure Inworld or OpenRouter STT in Config before transcribing audio.",
+          });
+        }
+        if (materialExtract.isImageFormat(format) && !getOpenRouterApiKey()) {
+          return res.status(400).json({
+            message: "Configure OpenRouter in Config before converting images to markdown.",
+          });
+        }
+
+        const result = await materialExtract.extractFromBuffer(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype,
+          {
+            language,
+            transcribeAudio: async (buffer, audioFormat) =>
+              transcribeMaterialAudioBuffer(buffer, req.file.originalname || `audio.${audioFormat}`, language),
+            describeImage: async (buffer, mime) =>
+              describeMaterialImageBuffer(buffer, mime, req.file.originalname),
+          }
+        );
+        return res.json({
+          ok: true,
+          source: materialExtract.isAudioFormat(result.format)
+            ? "audio"
+            : materialExtract.isImageFormat(result.format)
+              ? "image"
+              : "file",
+          filename: result.filename,
+          format: result.format,
+          text: result.text,
+          truncated: result.truncated,
+          originalLength: result.originalLength,
+        });
+      }
+
+      const pastedText = String(req.body?.text || "").trim();
+      if (pastedText) {
+        const result = materialExtract.truncateMaterial(pastedText);
+        return res.json({
+          ok: true,
+          source: "text",
+          text: result.text,
+          truncated: result.truncated,
+          originalLength: result.originalLength,
+        });
+      }
+
+      const captionUrl = String(req.body?.captionUrl || "").trim();
+      if (captionUrl) {
+        const vttText = await readCaptionSourceText(captionUrl);
+        const result = materialExtract.truncateMaterial(materialExtract.extractVtt(vttText));
+        if (!result.text) {
+          return res.status(400).json({ message: "Caption file has no readable text." });
+        }
+        return res.json({
+          ok: true,
+          source: "caption",
+          captionUrl,
+          text: result.text,
+          truncated: result.truncated,
+          originalLength: result.originalLength,
+        });
+      }
+
+      const videoUrl = String(req.body?.videoUrl || "").trim();
+      if (videoUrl) {
+        if (!getInworldApiKey() && !getOpenRouterApiKey()) {
+          return res.status(400).json({
+            message: "Configure Inworld or OpenRouter STT in Config before transcribing video.",
+          });
+        }
+        const language = normalizeBuzzinSttLanguage(req.body?.language, getInworldSttLanguage());
+        const captionResult = await videoCaptions.generateVideoCaptions({
+          videoUrl,
+          language,
+          captionsDir: CAPTIONS_UPLOADS_DIR,
+          uploadFilePath: paths.uploadFilePath,
+          transcribeChunk: async (audioBase64, format, meta) =>
+            transcribeCaptionAudioChunk(audioBase64, format, meta?.language || language),
+        });
+        const vttText = await readCaptionSourceText(captionResult.captionUrl);
+        const result = materialExtract.truncateMaterial(materialExtract.extractVtt(vttText));
+        return res.json({
+          ok: true,
+          source: "video",
+          videoUrl,
+          captionUrl: captionResult.captionUrl,
+          cueCount: captionResult.cueCount,
+          text: result.text,
+          truncated: result.truncated,
+          originalLength: result.originalLength,
+        });
+      }
+
+      return res.status(400).json({
+        message: "Provide a file, pasted text, captionUrl, or videoUrl.",
+      });
+    } catch (err) {
+      console.error("extract-material failed:", err);
+      return res.status(500).json({ message: err.message || "Material extraction failed." });
+    }
+  });
+});
+
+app.post("/api/cms/generate-exercises", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  if (!getOpenRouterApiKey()) {
+    return res.status(400).json({
+      message: "Configure OpenRouter in Config before generating exercises.",
+    });
+  }
+
+  const material = String(req.body?.material || "").trim();
+  if (!material) {
+    return res.status(400).json({ message: "Material text is required." });
+  }
+
+  try {
+    const result = await exerciseGenerator.generateExercisesFromMaterial(
+      {
+        material,
+        langCode: String(req.body?.langCode || "en").trim(),
+        difficulty: String(req.body?.difficulty || "medium").trim(),
+        types: req.body?.types,
+        countPerType: req.body?.countPerType,
+        model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
+        apiKey: getOpenRouterApiKey(),
+      },
+      openRouterGenerateComplete
+    );
+
+    return res.json({
+      ok: true,
+      exercises: result.exercises,
+      model: result.model,
+      stats: result.stats,
+    });
+  } catch (err) {
+    console.error("generate-exercises failed:", err);
+    return res.status(500).json({ message: err.message || "Exercise generation failed." });
+  }
+});
+
+app.post("/api/cms/batch-generate-exercises", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  if (!getOpenRouterApiKey()) {
+    return res.status(400).json({
+      message: "Configure OpenRouter in Config before generating exercises.",
+    });
+  }
+
+  const jobs = Array.isArray(req.body?.sections) ? req.body.sections : [];
+  if (!jobs.length) {
+    return res.status(400).json({ message: "Provide at least one section job in sections[]." });
+  }
+  if (jobs.length > 20) {
+    return res.status(400).json({ message: "Batch generation supports up to 20 sections at once." });
+  }
+
+  const shared = {
+    langCode: String(req.body?.langCode || "en").trim(),
+    difficulty: String(req.body?.difficulty || "medium").trim(),
+    types: req.body?.types,
+    countPerType: req.body?.countPerType,
+    model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
+    apiKey: getOpenRouterApiKey(),
+  };
+
+  const results = [];
+  for (const job of jobs) {
+    const key = String(job?.key ?? job?.sectionIndex ?? job?.sectionId ?? results.length);
+    const sectionId = job?.sectionId != null ? Number(job.sectionId) : null;
+    const sectionIndex = job?.sectionIndex != null ? Number(job.sectionIndex) : null;
+    const sectionTitle = String(job?.sectionTitle || "").trim();
+    const material = String(job?.material || "").trim();
+
+    if (!material) {
+      results.push({
+        key,
+        sectionId,
+        sectionIndex,
+        sectionTitle,
+        ok: false,
+        message: "Material text is required for this section.",
+      });
+      continue;
+    }
+
+    try {
+      const result = await exerciseGenerator.generateExercisesFromMaterial(
+        { ...shared, material },
+        openRouterGenerateComplete
+      );
+      results.push({
+        key,
+        sectionId,
+        sectionIndex,
+        sectionTitle,
+        ok: true,
+        exercises: result.exercises,
+        model: result.model,
+        stats: result.stats,
+      });
+    } catch (err) {
+      results.push({
+        key,
+        sectionId,
+        sectionIndex,
+        sectionTitle,
+        ok: false,
+        message: err.message || "Exercise generation failed.",
+      });
+    }
+  }
+
+  const succeeded = results.filter((entry) => entry.ok).length;
+  return res.json({
+    ok: succeeded > 0,
+    results,
+    stats: {
+      requested: jobs.length,
+      succeeded,
+      failed: results.length - succeeded,
+    },
+  });
+});
+
+app.post("/api/cms/import-exercises-json", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  try {
+    const parsed = exerciseImport.parseImportPayload(req.body);
+    return res.json({ ok: true, ...parsed });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Invalid exercises JSON." });
+  }
+});
+
+app.post("/api/cms/export-exercises-json", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  try {
+    const mode = String(req.body?.mode || "section").trim() === "batch" ? "batch" : "section";
+    const payload = exerciseImport.buildExportPayload({
+      course: req.body?.course || null,
+      section: req.body?.section || null,
+      sectionIndex: req.body?.sectionIndex,
+      exercises: req.body?.exercises,
+      mode,
+      sections: req.body?.sections,
+    });
+    return res.json({ ok: true, payload });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not build export JSON." });
+  }
+});
 
 app.post("/api/cms/translate-video-captions", async (req, res) => {
   const auth = await requireCmsAuth(req, res);

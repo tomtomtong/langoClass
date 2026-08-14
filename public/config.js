@@ -175,6 +175,12 @@ function renderConfig(data) {
   $("#config-openrouter-buzzin-model-env-default").textContent =
     data.openrouterBuzzinModelEnvDefault || "—";
 
+  $("#config-openrouter-generate-model").value = data.openrouterGenerateModelSaved || "";
+  $("#config-openrouter-generate-model-effective").textContent =
+    data.effectiveOpenRouterGenerateModel || "—";
+  $("#config-openrouter-generate-model-env-default").textContent =
+    data.openrouterGenerateModelEnvDefault || "—";
+
   renderStudentDatabaseStats(data.studentDatabase);
 }
 
@@ -370,6 +376,29 @@ async function testQwenKey() {
     $("#config-qwen-save-status").textContent = `API test succeeded (LLM ${llmMs} ms).`;
   } catch (err) {
     $("#config-qwen-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveOpenRouterGenerateModel(openrouterGenerateModel) {
+  $("#config-openrouter-error").textContent = "";
+  $("#config-openrouter-save-status").textContent = "";
+  clearOpenRouterTestResult();
+
+  const btn = $("#btn-config-save-openrouter-generate-model");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { openrouterGenerateModel },
+    });
+    renderConfig(data);
+    $("#config-openrouter-save-status").textContent = openrouterGenerateModel
+      ? `Generate model saved: ${data.effectiveOpenRouterGenerateModel}`
+      : "Saved generate model cleared. Using environment default.";
+  } catch (err) {
+    $("#config-openrouter-error").textContent = err.message;
   } finally {
     btn.disabled = false;
   }
@@ -629,6 +658,9 @@ async function init() {
   $("#btn-config-save-openrouter-model").addEventListener("click", () => {
     saveOpenRouterBuzzinModel($("#config-openrouter-buzzin-model").value.trim());
   });
+  $("#btn-config-save-openrouter-generate-model").addEventListener("click", () => {
+    saveOpenRouterGenerateModel($("#config-openrouter-generate-model").value.trim());
+  });
   $("#btn-config-test-openrouter").addEventListener("click", testOpenRouterKey);
   $("#btn-config-clear-openrouter").addEventListener("click", () => {
     $("#config-openrouter-key").value = "";
@@ -637,6 +669,10 @@ async function init() {
   $("#btn-config-reset-openrouter-model").addEventListener("click", () => {
     $("#config-openrouter-buzzin-model").value = "";
     saveOpenRouterBuzzinModel("");
+  });
+  $("#btn-config-reset-openrouter-generate-model").addEventListener("click", () => {
+    $("#config-openrouter-generate-model").value = "";
+    saveOpenRouterGenerateModel("");
   });
   $("#btn-config-clear-student-db").addEventListener("click", clearStudentDatabase);
 

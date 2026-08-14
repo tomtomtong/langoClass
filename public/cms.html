@@ -36,6 +36,8 @@
         </a>
         <div class="cms-topbar-actions">
           <div class="cms-nav-group" aria-label="Shortcuts">
+            <a class="cms-link cms-link-nav" href="#" id="nav-cms-dashboard" data-screen="dashboard">Dashboard</a>
+            <a class="cms-link cms-link-nav" href="#" id="nav-cms-courses" data-screen="list">My courses</a>
             <a class="cms-link" href="/host.html">Host</a>
             <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener">Student preview</a>
             <a class="cms-link" href="/host.html?preview=1" target="_blank" rel="noopener">Host preview</a>
@@ -87,6 +89,26 @@
           <p class="error" id="cms-login-error"></p>
         </div>
       </div>
+    </section>
+
+
+    <section id="screen-cms-dashboard" class="screen">
+      <header class="cms-header cms-dashboard-header">
+        <div>
+          <h1>Class progress</h1>
+          <p class="hint">Track where this class is in each course journey.</p>
+        </div>
+        <div class="cms-header-actions cms-dashboard-toolbar">
+          <label class="field cms-dashboard-class-field">
+            <span>Class</span>
+            <select id="cms-dashboard-class" aria-label="Select class"></select>
+          </label>
+        </div>
+      </header>
+      <div id="cms-dashboard-summary" class="cms-dashboard-summary" hidden></div>
+      <div id="cms-dashboard-list" class="cms-dashboard-list"></div>
+      <p class="status-msg" id="cms-dashboard-status"></p>
+      <p class="error" id="cms-dashboard-error"></p>
     </section>
 
     <section id="screen-cms-list" class="screen">
@@ -174,6 +196,58 @@
           <div class="cms-exercise-toolbar">
             <span class="hint">Drag to reorder. Open a section to build its playlist.</span>
           </div>
+          <div class="cms-ai-panel cms-batch-panel" id="cms-batch-ai-panel">
+            <details class="cms-ai-details">
+              <summary class="cms-ai-summary">Batch AI Generate (all sections)</summary>
+              <div class="cms-ai-body">
+                <p class="hint cms-ai-intro">Assign material to each section below, then generate exercises for the whole course in one run. You can also import/export JSON backups.</p>
+                <div class="cms-ai-section">
+                  <p class="cms-ai-label">Generation settings (shared)</p>
+                  <div class="cms-ai-types" role="group" aria-label="Batch exercise types">
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-mcquiz" checked /> Quiz</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-fastmcquiz" checked /> Fast</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-buzzin" checked /> Buzz In</label>
+                  </div>
+                  <div class="cms-ai-settings-grid">
+                    <label class="field cms-ai-field">
+                      <span>Questions per type</span>
+                      <input type="number" id="cms-batch-count" min="1" max="10" value="3" />
+                    </label>
+                    <label class="field cms-ai-field">
+                      <span>Difficulty</span>
+                      <select id="cms-batch-difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+                <div class="cms-ai-section">
+                  <p class="cms-ai-label">Section materials</p>
+                  <div id="cms-batch-ai-rows" class="cms-batch-rows"></div>
+                </div>
+                <div class="cms-ai-actions cms-batch-actions">
+                  <button type="button" class="btn primary small" id="btn-cms-batch-generate">Generate all sections</button>
+                  <button type="button" class="btn secondary small" id="btn-cms-batch-export-json">Export JSON</button>
+                  <label class="btn secondary small cms-ai-file-label">
+                    <input type="file" id="cms-batch-import-json" hidden accept=".json,application/json" />
+                    Import JSON
+                  </label>
+                  <span class="status-msg" id="cms-batch-generate-status"></span>
+                </div>
+                <p class="error" id="cms-batch-error"></p>
+                <div class="cms-ai-section" id="cms-batch-preview-section" hidden>
+                  <p class="cms-ai-label">Preview &amp; apply</p>
+                  <div id="cms-batch-preview" class="cms-batch-preview"></div>
+                  <button type="button" class="btn primary cms-cta cms-ai-add-btn" id="btn-cms-batch-apply">
+                    <span>Apply selected to sections</span>
+                    <span class="cms-btn-glyph" aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </div>
+            </details>
+          </div>
           <div id="cms-section-list" class="cms-section-list"></div>
           <div class="cms-section-add cms-section-add-bottom">
             <button type="button" class="btn secondary small" id="btn-add-section">Add section</button>
@@ -194,6 +268,73 @@
             <a class="cms-link cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener">Preview all student layouts</a>
           </div>
           <div id="cms-exercise-list" class="cms-exercise-list"></div>
+          <div class="cms-ai-panel" id="cms-ai-panel">
+            <details class="cms-ai-details" open>
+              <summary class="cms-ai-summary">AI Generate exercises</summary>
+              <div class="cms-ai-body">
+                <p class="hint cms-ai-intro">Upload lesson material (documents, audio, or images) or paste text. Audio is transcribed; images are converted to markdown before generating exercises.</p>
+
+                <div class="cms-ai-section">
+                  <p class="cms-ai-label">1. Source material</p>
+                  <textarea id="cms-ai-paste" class="cms-ai-textarea" rows="4" placeholder="Paste lesson text, vocabulary list, or reading passage…"></textarea>
+                  <div class="cms-ai-upload-row">
+                    <label class="btn secondary small cms-ai-file-label">
+                      <input type="file" id="cms-ai-file" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,audio/*,image/*" />
+                      Upload file
+                    </label>
+                    <input type="text" id="cms-ai-video-url" class="cms-ai-video-url" placeholder="Video URL (optional — will transcribe)" />
+                  </div>
+                  <div class="cms-ai-actions">
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-extract">Prepare material</button>
+                    <span class="status-msg" id="cms-ai-extract-status"></span>
+                  </div>
+                  <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="6" readonly hidden placeholder="Prepared material preview…"></textarea>
+                </div>
+
+                <div class="cms-ai-section">
+                  <p class="cms-ai-label">2. Generation settings</p>
+                  <div class="cms-ai-types" role="group" aria-label="Exercise types to generate">
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-mcquiz" checked /> Quiz</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-fastmcquiz" checked /> Fast</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-buzzin" checked /> Buzz In</label>
+                  </div>
+                  <div class="cms-ai-settings-grid">
+                    <label class="field cms-ai-field">
+                      <span>Questions per type</span>
+                      <input type="number" id="cms-ai-count" min="1" max="10" value="3" />
+                    </label>
+                    <label class="field cms-ai-field">
+                      <span>Difficulty</span>
+                      <select id="cms-ai-difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </label>
+                  </div>
+                  <button type="button" class="btn primary small" id="btn-cms-ai-generate">Generate exercises</button>
+                  <p class="status-msg" id="cms-ai-generate-status"></p>
+                  <p class="error" id="cms-ai-error"></p>
+                </div>
+
+                <div class="cms-ai-section" id="cms-ai-preview-section" hidden>
+                  <p class="cms-ai-label">3. Preview &amp; add</p>
+                  <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
+                  <div class="cms-ai-json-actions">
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
+                    <label class="btn secondary small cms-ai-file-label">
+                      <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
+                      Import JSON
+                    </label>
+                  </div>
+                  <button type="button" class="btn primary cms-cta cms-ai-add-btn" id="btn-cms-ai-add">
+                    <span>Add selected to section</span>
+                    <span class="cms-btn-glyph" aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </div>
+            </details>
+          </div>
           <div class="cms-composer" id="cms-exercise-composer">
             <div class="cms-composer-head">
               <p class="cms-composer-label">Add to this section</p>
