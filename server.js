@@ -192,6 +192,26 @@ const transcribeUpload = multer({
   limits: { fileSize: TRANSCRIBE_MAX_AUDIO_BYTES },
 });
 
+const captionUpload = multer({
+  storage: multer.diskStorage({
+    destination: CAPTIONS_UPLOADS_DIR,
+    filename: (_req, file, cb) => {
+      cb(null, `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.vtt`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const name = String(file.originalname || "").toLowerCase();
+    const mime = String(file.mimetype || "").toLowerCase();
+    const ok =
+      name.endsWith(".vtt") ||
+      mime === "text/vtt" ||
+      mime === "text/plain" ||
+      mime === "application/octet-stream";
+    cb(ok ? null : new Error("Only WebVTT (.vtt) caption files are allowed."), ok);
+  },
+});
+
 const courseImportUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: courseImport.MAX_ZIP_BYTES },
@@ -2860,6 +2880,49 @@ app.post("/api/cms/generate-video-captions", async (req, res) => {
       message: err.message || "Caption generation failed.",
     });
   }
+});
+
+app.post("/api/cms/upload-video-captions", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  captionUpload.single("caption")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "No caption file provided." });
+    }
+
+    const language = normalizeBuzzinSttLanguage(req.body?.language, getInworldSttLanguage());
+    const filePath = req.file.path;
+    try {
+      const text = fs.readFileSync(filePath, "utf8");
+      if (!/^WEBVTT/i.test(text.trim())) {
+        fs.unlinkSync(filePath);
+        return res.status(400).json({
+          message: "File must be a WebVTT caption (.vtt) starting with WEBVTT.",
+        });
+      }
+      const cueCount = videoCaptions.parseWebVtt(text).length;
+      return res.json({
+        ok: true,
+        captionUrl: `/uploads/captions/${req.file.filename}`,
+        language,
+        cueCount,
+      });
+    } catch (readErr) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+        /* ignore */
+      }
+      console.error("upload-video-captions failed:", readErr);
+      return res.status(500).json({
+        message: readErr.message || "Caption upload failed.",
+      });
+    }
+  });
 });
 
 async function completeCaptionTranslationLlm(messages, maxTokens) {

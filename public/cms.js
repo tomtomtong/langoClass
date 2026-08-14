@@ -1432,12 +1432,14 @@ function renderVideoBody(container, exercise) {
         <option value="ko">Korean (ko)</option>
       </select>
     </label>
+    <button type="button" class="btn secondary small cms-upload-captions">Upload 字幕 (.vtt)</button>
+    <input type="file" class="cms-video-caption-file" accept=".vtt,text/vtt,text/plain" hidden />
     <button type="button" class="btn secondary small cms-generate-captions">Generate 字幕 (STT)</button>
     <button type="button" class="btn secondary small cms-translate-captions">Translate 字幕 (LLM)</button>
     <p class="hint cms-caption-status">${
       tracks.length
-        ? `Saved languages: ${tracks.map((t) => t.label).join(", ")}. Generate/translate into another language, then Save Course.`
-        : "Generate STT captions, or translate an existing caption file into another language for the player language menu."
+        ? `Saved languages: ${tracks.map((t) => t.label).join(", ")}. Upload/generate/translate into another language, then Save Course.`
+        : "Upload a .vtt file, generate STT captions, or translate an existing caption for the player language menu."
     }</p>
     ${trackSummary ? `<pre class="hint cms-caption-track-list">${escapeHtml(trackSummary)}</pre>` : ""}
   </div>`;
@@ -1479,6 +1481,53 @@ function renderVideoBody(container, exercise) {
         .join(", ")}. Click Save Course to keep them.`;
     }
   };
+
+  const captionFileInput = container.querySelector(".cms-video-caption-file");
+  container.querySelector(".cms-upload-captions")?.addEventListener("click", () => {
+    captionFileInput?.click();
+  });
+
+  captionFileInput?.addEventListener("change", async () => {
+    const file = captionFileInput.files?.[0];
+    const status = container.querySelector(".cms-caption-status");
+    const button = container.querySelector(".cms-upload-captions");
+    const language = container.querySelector(".cms-video-caption-target-language")?.value || "en";
+    captionFileInput.value = "";
+
+    if (!file) return;
+
+    if (button) button.disabled = true;
+    if (status) status.textContent = `Uploading ${file.name}…`;
+
+    try {
+      const formData = new FormData();
+      formData.append("caption", file);
+      formData.append("language", language);
+
+      const res = await fetch("/api/cms/upload-video-captions", {
+        method: "POST",
+        headers: uploadAuthHeaders(),
+        body: formData,
+      });
+      const data = parseUploadResponse(await res.text(), res.status);
+      if (!res.ok) {
+        throw new Error(data?.message || `Upload failed (${res.status})`);
+      }
+
+      if (data.captionUrl) {
+        const next = readTracks().filter((track) => track.language !== language);
+        next.push({ language, url: data.captionUrl });
+        writeTracks(next, language);
+      }
+      if (status) {
+        status.textContent = `Uploaded ${data.cueCount || 0} ${language.toUpperCase()} cues. Click Save Course, then reopen the video.`;
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message || "Caption upload failed.";
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
 
   container.querySelector(".cms-generate-captions")?.addEventListener("click", async () => {
     const videoUrl = container.querySelector(".cms-video-url")?.value.trim() || "";
