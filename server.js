@@ -1,3 +1,4 @@
+console.log("QuizLive starting… loading modules (this can take a minute)");
 const express = require("express");
 const http = require("http");
 const os = require("os");
@@ -5,6 +6,7 @@ const fs = require("fs");
 const multer = require("multer");
 const { Server } = require("socket.io");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const { normalizeClassListResponse, findStudentById } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
 const {
@@ -145,6 +147,7 @@ const UPLOADS_DIR = paths.uploadsCoursesDir;
 const SECTION_UPLOADS_DIR = paths.uploadsSectionsDir;
 const QUESTION_UPLOADS_DIR = paths.uploadsQuestionsDir;
 const CAPTIONS_UPLOADS_DIR = paths.uploadsCaptionsDir;
+const VIDEO_UPLOADS_DIR = paths.uploadsVideosDir;
 const CAPTION_STT_MODEL = "groq/whisper-large-v3";
 const MAX_MC_OPTIONS = 6;
 const ALLOWED_IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
@@ -256,7 +259,7 @@ const materialUpload = multer({
       ok
         ? null
         : new Error(
-            "Supported formats: .txt, .md, .pdf, .docx, .pptx, .vtt, audio (.mp3, .wav, .m4a, .ogg, .webm, .flac, .aac), images (.jpg, .jpeg, .png, .webp, .gif)"
+            "Supported formats: .txt, .md, .pdf, .docx, .pptx, .vtt, video (.mp4, .mov, .m4v, .mkv, .avi, .webm), audio (.mp3, .wav, .m4a, .ogg, .flac, .aac), images (.jpg, .jpeg, .png, .webp, .gif)"
           ),
       ok
     );
@@ -1009,6 +1012,54 @@ async function transcribeMaterialAudioBuffer(buffer, filename, language) {
   }
 
   throw new Error("Configure Inworld or OpenRouter STT in Config before transcribing audio.");
+}
+
+function saveMaterialVideoUpload(buffer, originalname) {
+  paths.ensurePersistentDirs();
+  const ext = path.extname(String(originalname || "")).toLowerCase();
+  const allowed = materialExtract.VIDEO_EXTENSIONS;
+  const safeExt = allowed.has(ext) ? ext : ".mp4";
+  const filename = `material-${Date.now()}-${randomUUID().slice(0, 8)}${safeExt}`;
+  const filePath = path.join(VIDEO_UPLOADS_DIR, filename);
+  fs.writeFileSync(filePath, buffer);
+  return {
+    filePath,
+    videoUrl: `/uploads/videos/${filename}`,
+  };
+}
+
+async function transcribeMaterialVideoBuffer(buffer, filename, language) {
+  if (!buffer?.length) {
+    throw new Error("Video file is empty.");
+  }
+  if (buffer.length > MATERIAL_MAX_BYTES) {
+    throw new Error("Video file is too large (max 25 MB).");
+  }
+  if (!getInworldApiKey() && !getOpenRouterApiKey()) {
+    throw new Error("Configure Inworld or OpenRouter STT in Config before transcribing video.");
+  }
+
+  const resolvedLanguage = normalizeBuzzinSttLanguage(language, getInworldSttLanguage());
+  const saved = saveMaterialVideoUpload(buffer, filename);
+  const captionResult = await videoCaptions.generateVideoCaptions({
+    videoUrl: saved.videoUrl,
+    language: resolvedLanguage,
+    captionsDir: CAPTIONS_UPLOADS_DIR,
+    uploadFilePath: paths.uploadFilePath,
+    transcribeChunk: async (audioBase64, format, meta) =>
+      transcribeCaptionAudioChunk(audioBase64, format, meta?.language || resolvedLanguage),
+  });
+  const vttText = await readCaptionSourceText(captionResult.captionUrl);
+  const transcript = materialExtract.extractVtt(vttText);
+  if (!transcript) {
+    throw new Error("STT returned no speech for this video.");
+  }
+  return {
+    transcript,
+    videoUrl: saved.videoUrl,
+    captionUrl: captionResult.captionUrl,
+    cueCount: captionResult.cueCount,
+  };
 }
 
 async function describeMaterialImageBuffer(buffer, mimeType, filename) {
@@ -3305,9 +3356,14 @@ app.post("/api/cms/extract-material", async (req, res) => {
         const language = normalizeBuzzinSttLanguage(req.body?.language, getInworldSttLanguage());
         const format = materialExtract.detectFormat(req.file.originalname, req.file.mimetype);
 
-        if (materialExtract.isAudioFormat(format) && !getInworldApiKey() && !getOpenRouterApiKey()) {
+        if (materialExtract.isAudioFormat(format, req.file.mimetype) && !getInworldApiKey() && !getOpenRouterApiKey()) {
           return res.status(400).json({
             message: "Configure Inworld or OpenRouter STT in Config before transcribing audio.",
+          });
+        }
+        if (materialExtract.isVideoFormat(format, req.file.mimetype) && !getInworldApiKey() && !getOpenRouterApiKey()) {
+          return res.status(400).json({
+            message: "Configure Inworld or OpenRouter STT in Config before transcribing video.",
           });
         }
         if (materialExtract.isImageFormat(format) && !getOpenRouterApiKey()) {
@@ -3316,6 +3372,7 @@ app.post("/api/cms/extract-material", async (req, res) => {
           });
         }
 
+        let videoMeta = null;
         const result = await materialExtract.extractFromBuffer(
           req.file.buffer,
           req.file.originalname,
@@ -3324,22 +3381,36 @@ app.post("/api/cms/extract-material", async (req, res) => {
             language,
             transcribeAudio: async (buffer, audioFormat) =>
               transcribeMaterialAudioBuffer(buffer, req.file.originalname || `audio.${audioFormat}`, language),
+            transcribeVideo: async (buffer) => {
+              const videoResult = await transcribeMaterialVideoBuffer(
+                buffer,
+                req.file.originalname || "video.mp4",
+                language
+              );
+              videoMeta = videoResult;
+              return videoResult.transcript;
+            },
             describeImage: async (buffer, mime) =>
               describeMaterialImageBuffer(buffer, mime, req.file.originalname),
           }
         );
         return res.json({
           ok: true,
-          source: materialExtract.isAudioFormat(result.format)
-            ? "audio"
-            : materialExtract.isImageFormat(result.format)
-              ? "image"
-              : "file",
+          source: videoMeta
+            ? "video"
+            : materialExtract.isAudioFormat(result.format, req.file.mimetype)
+              ? "audio"
+              : materialExtract.isImageFormat(result.format)
+                ? "image"
+                : "file",
           filename: result.filename,
           format: result.format,
           text: result.text,
           truncated: result.truncated,
           originalLength: result.originalLength,
+          videoUrl: videoMeta?.videoUrl,
+          captionUrl: videoMeta?.captionUrl,
+          cueCount: videoMeta?.cueCount,
         });
       }
 

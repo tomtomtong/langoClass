@@ -269,30 +269,43 @@
           </div>
           <div id="cms-exercise-list" class="cms-exercise-list"></div>
           <div class="cms-ai-panel" id="cms-ai-panel">
-            <details class="cms-ai-details" open>
-              <summary class="cms-ai-summary">AI Generate exercises</summary>
-              <div class="cms-ai-body">
-                <p class="hint cms-ai-intro">Upload lesson material (documents, audio, or images) or paste text. Audio is transcribed; images are converted to markdown before generating exercises.</p>
+            <div class="cms-ai-wizard" id="cms-ai-wizard">
+              <header class="cms-ai-wizard-head">
+                <h3 class="cms-ai-wizard-title">Generate from material</h3>
+                <ol class="cms-ai-steps" aria-label="Generation steps">
+                  <li><button type="button" class="cms-ai-step is-current" data-step="1">1 Format</button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="2">2 Material</button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="3">3 Preview</button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="4">4 Publish</button></li>
+                </ol>
+              </header>
 
-                <div class="cms-ai-section">
-                  <p class="cms-ai-label">1. Source material</p>
-                  <textarea id="cms-ai-paste" class="cms-ai-textarea" rows="4" placeholder="Paste lesson text, vocabulary list, or reading passage…"></textarea>
-                  <div class="cms-ai-upload-row">
-                    <label class="btn secondary small cms-ai-file-label">
-                      <input type="file" id="cms-ai-file" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,audio/*,image/*" />
-                      Upload file
-                    </label>
-                    <input type="text" id="cms-ai-video-url" class="cms-ai-video-url" placeholder="Video URL (optional — will transcribe)" />
-                  </div>
-                  <div class="cms-ai-actions">
-                    <button type="button" class="btn secondary small" id="btn-cms-ai-extract">Prepare material</button>
-                    <span class="status-msg" id="cms-ai-extract-status"></span>
-                  </div>
-                  <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="6" readonly hidden placeholder="Prepared material preview…"></textarea>
+              <div class="cms-ai-step-panel is-active" data-step-panel="1">
+                <p class="hint cms-ai-intro">Pick a template, or make a custom mix of quiz, fast quiz, and buzz-in.</p>
+                <div class="cms-ai-templates" role="list">
+                  <button type="button" class="cms-ai-template is-selected" data-template="vocab" role="listitem">
+                    <span class="cms-ai-template-name">Vocab drill</span>
+                    <span class="cms-ai-template-meta">5 Quiz · 3 Fast · Easy</span>
+                  </button>
+                  <button type="button" class="cms-ai-template" data-template="reading" role="listitem">
+                    <span class="cms-ai-template-name">Reading check</span>
+                    <span class="cms-ai-template-meta">4 Quiz · 2 Buzz In · Medium</span>
+                  </button>
+                  <button type="button" class="cms-ai-template" data-template="speaking" role="listitem">
+                    <span class="cms-ai-template-name">Speaking class</span>
+                    <span class="cms-ai-template-meta">4 Buzz In · Medium</span>
+                  </button>
+                  <button type="button" class="cms-ai-template" data-template="mixed" role="listitem">
+                    <span class="cms-ai-template-name">Mixed lesson</span>
+                    <span class="cms-ai-template-meta">3 Quiz · 2 Fast · 2 Buzz In</span>
+                  </button>
+                  <button type="button" class="cms-ai-template" data-template="custom" role="listitem">
+                    <span class="cms-ai-template-name">Custom make</span>
+                    <span class="cms-ai-template-meta">Choose types and counts yourself</span>
+                  </button>
                 </div>
-
-                <div class="cms-ai-section">
-                  <p class="cms-ai-label">2. Generation settings</p>
+                <div class="cms-ai-section" id="cms-ai-custom-settings" hidden>
+                  <p class="cms-ai-label">Custom settings</p>
                   <div class="cms-ai-types" role="group" aria-label="Exercise types to generate">
                     <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-mcquiz" checked /> Quiz</label>
                     <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-fastmcquiz" checked /> Fast</label>
@@ -312,28 +325,54 @@
                       </select>
                     </label>
                   </div>
-                  <button type="button" class="btn primary small" id="btn-cms-ai-generate">Generate exercises</button>
-                  <p class="status-msg" id="cms-ai-generate-status"></p>
-                  <p class="error" id="cms-ai-error"></p>
-                </div>
-
-                <div class="cms-ai-section" id="cms-ai-preview-section" hidden>
-                  <p class="cms-ai-label">3. Preview &amp; add</p>
-                  <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
-                  <div class="cms-ai-json-actions">
-                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
-                    <label class="btn secondary small cms-ai-file-label">
-                      <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
-                      Import JSON
-                    </label>
-                  </div>
-                  <button type="button" class="btn primary cms-cta cms-ai-add-btn" id="btn-cms-ai-add">
-                    <span>Add selected to section</span>
-                    <span class="cms-btn-glyph" aria-hidden="true">→</span>
-                  </button>
                 </div>
               </div>
-            </details>
+
+              <div class="cms-ai-step-panel" data-step-panel="2" hidden>
+                <p class="hint cms-ai-intro">Upload a file, video, audio, or image, paste text, or provide a video URL. Images convert to markdown; audio and video are transcribed.</p>
+                <textarea id="cms-ai-paste" class="cms-ai-textarea" rows="5" placeholder="Paste lesson text, vocabulary list, or reading passage…"></textarea>
+                <div class="cms-ai-upload-row">
+                  <label class="btn secondary small cms-ai-file-label">
+                      <input type="file" id="cms-ai-file" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
+                    Upload file
+                  </label>
+                  <input type="text" id="cms-ai-video-url" class="cms-ai-video-url" placeholder="Video URL (optional — will transcribe)" />
+                </div>
+                <div class="cms-ai-actions">
+                  <button type="button" class="btn secondary small" id="btn-cms-ai-extract">Prepare material</button>
+                  <span class="status-msg" id="cms-ai-extract-status"></span>
+                </div>
+                <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="7" hidden placeholder="Prepared material preview…"></textarea>
+              </div>
+
+              <div class="cms-ai-step-panel" data-step-panel="3" hidden>
+                <p class="hint cms-ai-intro">Edit wording, answers, and prompts before publishing. Uncheck anything you do not want.</p>
+                <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
+                <div class="cms-ai-json-actions">
+                  <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
+                  <label class="btn secondary small cms-ai-file-label">
+                    <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
+                    Import JSON
+                  </label>
+                </div>
+              </div>
+
+              <div class="cms-ai-step-panel" data-step-panel="4" hidden>
+                <p class="hint cms-ai-intro">Publishing writes the selected exercises into this section and saves the course.</p>
+                <div id="cms-ai-publish-summary" class="cms-ai-publish-summary"></div>
+              </div>
+
+              <p class="error" id="cms-ai-error"></p>
+              <p class="status-msg" id="cms-ai-generate-status"></p>
+              <div class="cms-ai-wizard-nav">
+                <button type="button" class="btn secondary small" id="btn-cms-ai-back" hidden>Back</button>
+                <button type="button" class="btn primary small" id="btn-cms-ai-next">Next</button>
+                <button type="button" class="btn primary cms-cta" id="btn-cms-ai-publish" hidden>
+                  <span>Publish to section</span>
+                  <span class="cms-btn-glyph" aria-hidden="true">→</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div class="cms-composer" id="cms-exercise-composer">
             <div class="cms-composer-head">
