@@ -21,6 +21,7 @@ const sessionStore = require("./lib/session-store");
 const paths = require("./lib/paths");
 const settingsStore = require("./lib/settings-store");
 const videoCaptions = require("./lib/video-captions");
+const videoGenerator = require("./lib/video-generator");
 const materialExtract = require("./lib/material-extract");
 const exerciseGenerator = require("./lib/exercise-generator");
 const exerciseImport = require("./lib/exercise-import");
@@ -53,6 +54,9 @@ const ENV_OPENROUTER_BUZZIN_MODEL = String(
 const ENV_OPENROUTER_GENERATE_MODEL = String(
   process.env.OPENROUTER_GENERATE_MODEL || "x-ai/grok-4.3"
 ).trim();
+const ENV_VIDEO_GENERATOR_API_URL = String(
+  process.env.VIDEO_GENERATOR_API_URL || "https://newcms.lango.ai"
+).trim().replace(/\/$/, "");
 const INWORLD_API_BASE = "https://api.inworld.ai";
 const INWORLD_BUZZIN_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
 const INWORLD_TTS_MODEL_ID = "inworld-tts-1.5-max";
@@ -121,6 +125,11 @@ function getOpenRouterBuzzinModel() {
 function getOpenRouterGenerateModel() {
   const saved = settingsStore.readSettings().openrouterGenerateModel;
   return saved || ENV_OPENROUTER_GENERATE_MODEL || exerciseGenerator.DEFAULT_GENERATE_MODEL;
+}
+
+function getVideoGeneratorApiUrl() {
+  const saved = settingsStore.readSettings().videoGeneratorApiUrl;
+  return saved || ENV_VIDEO_GENERATOR_API_URL || "";
 }
 
 function maskApiKey(key) {
@@ -2268,6 +2277,9 @@ function buildConfigResponse() {
     openrouterGenerateModelSaved: settings.openrouterGenerateModel || "",
     openrouterGenerateModelEnvDefault: ENV_OPENROUTER_GENERATE_MODEL,
     effectiveOpenRouterGenerateModel: getOpenRouterGenerateModel(),
+    videoGeneratorApiUrlSaved: settings.videoGeneratorApiUrl || "",
+    videoGeneratorApiUrlEnvDefault: ENV_VIDEO_GENERATOR_API_URL,
+    effectiveVideoGeneratorApiUrl: getVideoGeneratorApiUrl(),
     notificationPreview: buildNotificationData({
       session_id: "123456",
       class_name: "Example class",
@@ -2540,6 +2552,7 @@ app.put("/api/config", async (req, res) => {
     openrouterApiKey,
     openrouterBuzzinModel,
     openrouterGenerateModel,
+    videoGeneratorApiUrl,
   } = req.body || {};
   const updates = {};
 
@@ -2588,6 +2601,10 @@ app.put("/api/config", async (req, res) => {
 
   if (openrouterGenerateModel !== undefined) {
     updates.openrouterGenerateModel = String(openrouterGenerateModel || "").trim();
+  }
+
+  if (videoGeneratorApiUrl !== undefined) {
+    updates.videoGeneratorApiUrl = String(videoGeneratorApiUrl || "").trim();
   }
 
   if (!Object.keys(updates).length) {
@@ -3154,6 +3171,74 @@ app.post("/api/cms/courses/:courseId/question-image", async (req, res) => {
   if (!course) return res.status(404).json({ message: "Course not found." });
 
   handleQuestionImageUpload(req, res);
+});
+
+app.post("/api/cms/generate-video", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const text = String(req.body?.text || "").trim();
+  if (!text) {
+    return res.status(400).json({ message: "Script text is required." });
+  }
+
+  const baseUrl = getVideoGeneratorApiUrl();
+  if (!baseUrl) {
+    return res.status(400).json({
+      message: "Configure the video generator API URL in Config before generating videos.",
+    });
+  }
+
+  try {
+    const started = await videoGenerator.startVideoJob(baseUrl, text);
+    return res.status(202).json({
+      ok: true,
+      jobId: started.jobId,
+      status: started.status,
+    });
+  } catch (err) {
+    console.error("generate-video start failed:", err);
+    return res.status(502).json({
+      message: err.message || "Could not start video generation.",
+    });
+  }
+});
+
+app.get("/api/cms/video-jobs/:jobId", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const jobId = String(req.params.jobId || "").trim();
+  if (!jobId) {
+    return res.status(400).json({ message: "Job id is required." });
+  }
+
+  const baseUrl = getVideoGeneratorApiUrl();
+  if (!baseUrl) {
+    return res.status(400).json({
+      message: "Configure the video generator API URL in Config before checking video jobs.",
+    });
+  }
+
+  try {
+    const job = await videoGenerator.getVideoJob(baseUrl, jobId);
+    return res.json({
+      ok: true,
+      jobId: job.jobId || jobId,
+      status: job.status,
+      logs: job.logs,
+      error: job.error,
+      videoUrl: job.videoUrl,
+      multiSegment: job.multiSegment,
+      segmentCount: job.segmentCount,
+      segmentsDone: job.segmentsDone,
+    });
+  } catch (err) {
+    console.error("video job status failed:", err);
+    return res.status(502).json({
+      message: err.message || "Could not fetch video job status.",
+    });
+  }
 });
 
 app.post("/api/cms/generate-video-captions", async (req, res) => {

@@ -929,16 +929,16 @@ function applySectionOrderFromDom() {
 
 function exerciseSubTitleForType(type) {
   if (type === "video") return "Video";
-  if (type === "buzzin") return "Buzz In";
+  if (type === "buzzin") return "Buzz in Question";
   if (type === "fastmcquiz") return "Fast MC Quiz";
   return "MC Quiz";
 }
 
 function exerciseTypeShortLabel(type) {
   if (type === "video") return "Video";
-  if (type === "buzzin") return "Buzz In";
-  if (type === "fastmcquiz") return "Fast";
-  return "Quiz";
+  if (type === "buzzin") return "Buzz in Question";
+  if (type === "fastmcquiz") return "Fast MC Quiz";
+  return "MC Quiz";
 }
 
 function ensureSingleCorrectOption(options) {
@@ -1011,7 +1011,32 @@ const AI_TEMPLATES = {
   reading: { types: { mcquiz: 4, buzzin: 2 }, difficulty: "medium" },
   speaking: { types: { buzzin: 4 }, difficulty: "medium" },
   mixed: { types: { mcquiz: 3, fastmcquiz: 2, buzzin: 2 }, difficulty: "medium" },
+  video: { types: { video: 1 }, difficulty: "medium" },
 };
+
+function aiWantsVideo(prefix = "cms-ai") {
+  if (prefix === "cms-ai" && state.aiTemplate === "video") return true;
+  return getAiTypeCounts(prefix).video > 0;
+}
+
+function aiLlmTypeCounts(prefix = "cms-ai") {
+  const types = { ...getAiTypeCounts(prefix) };
+  delete types.video;
+  return types;
+}
+
+function isAiVideoOnly(prefix = "cms-ai") {
+  return aiWantsVideo(prefix) && !Object.keys(aiLlmTypeCounts(prefix)).length;
+}
+
+function syncAiWizardCopy() {
+  const materialIntro = document.querySelector('[data-step-panel="2"] .cms-ai-intro');
+  if (materialIntro) {
+    materialIntro.textContent = isAiVideoOnly()
+      ? "Paste or upload a lesson script. The video API will generate an avatar MP4 you can publish as a Video exercise."
+      : "Upload a file, video, audio, or image, paste text, or provide a video URL. Images convert to markdown; audio and video are transcribed.";
+  }
+}
 
 function resetAiGeneratePanel() {
   state.aiMaterialText = "";
@@ -1029,6 +1054,11 @@ function resetAiGeneratePanel() {
   $("#cms-ai-generate-status") && ($("#cms-ai-generate-status").textContent = "");
   $("#cms-ai-error") && ($("#cms-ai-error").textContent = "");
   $("#cms-ai-preview") && ($("#cms-ai-preview").innerHTML = "");
+  const videoLog = $("#cms-ai-video-log");
+  if (videoLog) {
+    videoLog.textContent = "";
+    videoLog.hidden = true;
+  }
   const fileInput = $("#cms-ai-file");
   if (fileInput) fileInput.value = "";
   applyAiTemplate("vocab");
@@ -1045,13 +1075,18 @@ function applyAiTemplate(templateId) {
   if (custom) custom.hidden = id !== "custom";
 
   const preset = AI_TEMPLATES[id];
-  if (!preset) return;
+  if (!preset) {
+    syncAiWizardCopy();
+    return;
+  }
   $("#cms-ai-type-mcquiz") && ($("#cms-ai-type-mcquiz").checked = preset.types.mcquiz > 0);
   $("#cms-ai-type-fastmcquiz") && ($("#cms-ai-type-fastmcquiz").checked = preset.types.fastmcquiz > 0);
   $("#cms-ai-type-buzzin") && ($("#cms-ai-type-buzzin").checked = preset.types.buzzin > 0);
-  const counts = Object.values(preset.types);
+  $("#cms-ai-type-video") && ($("#cms-ai-type-video").checked = preset.types.video > 0);
+  const counts = Object.values(preset.types).filter((count) => count > 0);
   if ($("#cms-ai-count") && counts.length) $("#cms-ai-count").value = String(Math.max(...counts));
   if ($("#cms-ai-difficulty")) $("#cms-ai-difficulty").value = preset.difficulty;
+  syncAiWizardCopy();
 }
 
 function setAiWizardStep(step) {
@@ -1080,8 +1115,16 @@ function setAiWizardStep(step) {
   if (publish) publish.hidden = next !== 4;
   if (nextBtn) {
     nextBtn.hidden = next === 4;
-    nextBtn.textContent = next === 2 ? "Generate" : next === 3 ? "Continue" : "Next";
+    nextBtn.textContent =
+      next === 2
+        ? isAiVideoOnly()
+          ? "Generate video"
+          : "Generate"
+        : next === 3
+          ? "Continue"
+          : "Next";
   }
+  if (next === 1) syncAiWizardCopy();
   if (next === 4) renderAiPublishSummary();
 }
 
@@ -1103,6 +1146,7 @@ function getAiTypeCounts(prefix = "cms-ai") {
   if ($(`#${prefix}-type-mcquiz`)?.checked) types.mcquiz = count;
   if ($(`#${prefix}-type-fastmcquiz`)?.checked) types.fastmcquiz = count;
   if ($(`#${prefix}-type-buzzin`)?.checked) types.buzzin = count;
+  if ($(`#${prefix}-type-video`)?.checked) types.video = 1;
   return types;
 }
 
@@ -1574,10 +1618,31 @@ function renderAiPreview(exercises) {
   container.innerHTML = exercises
     .map((exercise, index) => renderAiEditableCard(exercise, index))
     .join("");
+  wireAiVideoPreviews();
 }
 
 function renderAiEditableCard(exercise, index) {
   const type = exercise.type || "mcquiz";
+  if (type === "video") {
+    const videoUrl = exercise.items?.[0]?.videoUrl || "";
+    return `
+    <article class="cms-ai-preview-card cms-ai-edit-card" data-ai-index="${index}" data-type="video">
+      <div class="cms-ai-preview-head">
+        <input type="checkbox" class="cms-ai-select" data-ai-index="${index}" ${exercise.included === false ? "" : "checked"} aria-label="Include ${escapeHtml(exercise.title || "exercise")}" />
+        <div class="cms-ai-preview-meta">
+          <input type="text" class="cms-ai-edit-title" value="${escapeHtml(exercise.title || "")}" placeholder="Exercise title" />
+          <p class="cms-ai-preview-sub">${escapeHtml(exercise.subTitle || exerciseTypeShortLabel("video"))}</p>
+        </div>
+        <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-exercise">Remove</button>
+      </div>
+      <label class="field">
+        <span>Video URL</span>
+        <input type="url" class="cms-ai-video-url" value="${escapeHtml(videoUrl)}" placeholder="https://..." />
+      </label>
+      ${cmsVideoPreviewMarkup(videoUrl)}
+    </article>`;
+  }
+
   const items = (exercise.items || [])
     .map((item, itemIndex) => renderAiEditableItem(type, item, index, itemIndex))
     .join("");
@@ -1645,6 +1710,7 @@ function collectAiDraftFromDom() {
     const title = card.querySelector(".cms-ai-edit-title")?.value.trim() || exerciseTypeShortLabel(type);
     const items = [];
     card.querySelectorAll(".cms-ai-item-block").forEach((block) => {
+      if (type === "video") return;
       if (type === "buzzin") {
         const topic = block.querySelector('[data-field="topic"]')?.value.trim() || "";
         items.push({
@@ -1669,6 +1735,10 @@ function collectAiDraftFromDom() {
         image: null,
       });
     });
+    if (type === "video") {
+      const videoUrl = card.querySelector(".cms-ai-video-url")?.value.trim() || "";
+      items.push({ videoUrl });
+    }
     exercises.push({
       type,
       title,
@@ -1752,6 +1822,55 @@ async function extractAiMaterial() {
   }
 }
 
+async function createAiVideoExercise(script, { onUpdate, onLog } = {}) {
+  const trimmed = String(script || "").trim();
+  if (!trimmed) {
+    throw new Error("Prepare or paste a script first.");
+  }
+
+  const renderLog = (logs) => {
+    const videoLog = $("#cms-ai-video-log");
+    if (!videoLog) return;
+    const lines = Array.isArray(logs) ? logs.filter(Boolean) : [];
+    if (!lines.length) {
+      videoLog.hidden = true;
+      videoLog.textContent = "";
+      return;
+    }
+    videoLog.hidden = false;
+    videoLog.textContent = lines.join("\n");
+    videoLog.scrollTop = videoLog.scrollHeight;
+    if (typeof onLog === "function") onLog(lines);
+  };
+
+  renderLog(["Queued."]);
+  const started = await api("/api/cms/generate-video", {
+    method: "POST",
+    body: { text: trimmed },
+  });
+
+  const finished = await pollVideoGenerationJob(started.jobId, {
+    onUpdate: (data) => {
+      renderLog(data.logs);
+      if (typeof onUpdate === "function") onUpdate(data);
+    },
+  });
+
+  if (!finished.videoUrl) {
+    throw new Error("Video job completed, but no video URL was returned.");
+  }
+
+  const section = state.sections[state.editingSectionIndex];
+  const sectionTitle = section?.title?.trim() || "Lesson";
+  return {
+    type: "video",
+    title: `${sectionTitle} video`,
+    subTitle: exerciseSubTitleForType("video"),
+    items: [{ videoUrl: finished.videoUrl }],
+    included: true,
+  };
+}
+
 async function generateAiExercises() {
   const statusEl = $("#cms-ai-generate-status");
   const errorEl = $("#cms-ai-error");
@@ -1759,6 +1878,8 @@ async function generateAiExercises() {
   if (!statusEl || !errorEl) return false;
 
   let material = getAiMaterialText();
+  const llmTypes = aiLlmTypeCounts();
+  const wantsVideo = aiWantsVideo();
   const settings = getAiGenerationSettings();
 
   errorEl.textContent = "";
@@ -1773,33 +1894,62 @@ async function generateAiExercises() {
     }
   }
   if (!material) {
-    errorEl.textContent = "Prepare or paste source material first.";
+    errorEl.textContent = isAiVideoOnly()
+      ? "Paste or upload a lesson script first."
+      : "Prepare or paste source material first.";
     return false;
   }
-  if (!Object.keys(settings.types).length) {
+  if (!Object.keys(llmTypes).length && !wantsVideo) {
     errorEl.textContent = "Select at least one exercise type.";
     return false;
   }
 
-  statusEl.textContent = "Generating exercises…";
+  statusEl.textContent =
+    wantsVideo && !Object.keys(llmTypes).length ? "Generating video…" : "Generating exercises…";
   if (btn) btn.disabled = true;
 
   try {
-    const data = await api("/api/cms/generate-exercises", {
-      method: "POST",
-      body: {
-        material,
-        ...settings,
-      },
-    });
+    let exercises = [];
 
-    state.aiDraftExercises = data.exercises || [];
+    if (Object.keys(llmTypes).length) {
+      const data = await api("/api/cms/generate-exercises", {
+        method: "POST",
+        body: {
+          material,
+          langCode: settings.langCode,
+          difficulty: settings.difficulty,
+          types: llmTypes,
+        },
+      });
+      exercises = data.exercises || [];
+      const stats = data.stats || {};
+      if (stats.partial) {
+        statusEl.textContent = `Generated ${stats.generated || exercises.length} item(s) (partial).`;
+      }
+    }
+
+    if (wantsVideo) {
+      statusEl.textContent = "Generating video… this can take a few minutes.";
+      const videoExercise = await createAiVideoExercise(material, {
+        onUpdate: (data) => {
+          if (data.status) {
+            statusEl.textContent = `Video: ${data.status}${
+              data.segmentsDone && data.segmentCount
+                ? ` (${data.segmentsDone}/${data.segmentCount})`
+                : ""
+            }`;
+          }
+        },
+      });
+      exercises.push(videoExercise);
+    }
+
+    state.aiDraftExercises = exercises;
     renderAiPreview(state.aiDraftExercises);
-    const stats = data.stats || {};
-    statusEl.textContent = stats.partial
-      ? `Generated ${stats.generated || state.aiDraftExercises.length} item(s) (partial). Edit before publishing.`
-      : `Generated ${stats.generated || state.aiDraftExercises.length} item(s). Edit, then continue.`;
-    return state.aiDraftExercises.length > 0;
+    statusEl.textContent = exercises.length
+      ? `Ready with ${exercises.length} exercise(s). Edit, then continue.`
+      : "Nothing was generated.";
+    return exercises.length > 0;
   } catch (err) {
     statusEl.textContent = "";
     errorEl.textContent = err.message;
@@ -1812,6 +1962,7 @@ async function generateAiExercises() {
 function selectedAiExercises() {
   return collectAiDraftFromDom().filter((exercise) => {
     if (exercise.included === false) return false;
+    if (exercise.type === "video") return exercise.items.some((item) => item.videoUrl);
     if (exercise.type === "buzzin") return exercise.items.some((item) => item.topic);
     return exercise.items.some((item) => item.title && (item.options || []).length >= 2);
   });
@@ -2162,8 +2313,8 @@ function defaultExercise(type) {
   if (type === "buzzin") {
     return {
       type: "buzzin",
-      title: "Buzz In",
-      subTitle: "Buzz In",
+      title: "Buzz in Question",
+      subTitle: "Buzz in Question",
       items: [
         {
           topic: "What is your favorite animal?",
@@ -2195,7 +2346,7 @@ function defaultExercise(type) {
   }
   return {
     type: "mcquiz",
-    title: "Quiz",
+    title: "MC Quiz",
     subTitle: "MC Quiz",
     items: [
       {
@@ -2223,7 +2374,7 @@ function demoExercise(type) {
     return {
       type: "buzzin",
       title: "Demo: Ocean Animals",
-      subTitle: "Buzz In",
+      subTitle: "Buzz in Question",
       items: [
         {
           topic: "Name an animal that lives in the ocean and say why you like it.",
@@ -2621,6 +2772,77 @@ function renderMcQuizBody(container, exercise) {
     });
 }
 
+function cmsVideoPreviewMarkup(url = "") {
+  const trimmed = String(url || "").trim();
+  return `
+    <div class="cms-video-preview-wrap"${trimmed ? "" : " hidden"}>
+      <p class="cms-video-preview-label">Preview</p>
+      <video class="cms-video-preview" controls playsinline preload="metadata"${
+        trimmed ? ` src="${escapeHtml(trimmed)}"` : ""
+      }></video>
+    </div>`;
+}
+
+function syncCmsVideoPreview(wrap, url) {
+  if (!wrap) return;
+  const trimmed = String(url || "").trim();
+  const video = wrap.querySelector(".cms-video-preview");
+  if (!trimmed) {
+    wrap.hidden = true;
+    if (video) {
+      video.removeAttribute("src");
+      video.load();
+    }
+    return;
+  }
+  wrap.hidden = false;
+  if (video && video.getAttribute("src") !== trimmed) {
+    video.src = trimmed;
+    video.load();
+  }
+}
+
+function wireCmsVideoPreview(root, urlInput) {
+  const wrap = root?.querySelector(".cms-video-preview-wrap");
+  if (!root || !urlInput || !wrap) return;
+  const update = () => syncCmsVideoPreview(wrap, urlInput.value);
+  urlInput.addEventListener("input", update);
+  urlInput.addEventListener("change", update);
+  update();
+}
+
+function wireAiVideoPreviews() {
+  $("#cms-ai-preview")?.querySelectorAll('.cms-ai-edit-card[data-type="video"]').forEach((card) => {
+    wireCmsVideoPreview(card, card.querySelector(".cms-ai-video-url"));
+  });
+}
+
+async function pollVideoGenerationJob(jobId, { onUpdate } = {}) {
+  const started = Date.now();
+  const timeoutMs = 20 * 60 * 1000;
+  const pollMs = 3000;
+
+  while (Date.now() - started < timeoutMs) {
+    const data = await api(`/api/cms/video-jobs/${encodeURIComponent(jobId)}`);
+    if (typeof onUpdate === "function") onUpdate(data);
+
+    const status = String(data.status || "").toLowerCase();
+    if (status === "completed") {
+      if (!data.videoUrl) {
+        throw new Error("Job completed but no video URL was returned.");
+      }
+      return data;
+    }
+    if (status === "failed" || status === "cancelled" || status === "error") {
+      throw new Error(data.error || `Video generation ${status}.`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  throw new Error("Video generation timed out. Try again or check the API server.");
+}
+
 function renderVideoBody(container, exercise) {
   const item = exercise.items?.[0] || {};
   const url = item.videoUrl || "";
@@ -2635,10 +2857,22 @@ function renderVideoBody(container, exercise) {
     ? tracks.map((track) => `${track.label}: ${track.url}`).join("\n")
     : "";
 
-  container.innerHTML = `<label class="field">
+  container.innerHTML = `<div class="cms-video-gen-tools">
+    <label class="field">
+      <span>Generate video (AI)</span>
+      <textarea class="cms-video-gen-script" rows="4" placeholder="Paste lesson script or dialogue…"></textarea>
+    </label>
+    <div class="cms-video-gen-actions">
+      <button type="button" class="btn secondary small cms-generate-video">Generate video</button>
+      <p class="hint cms-video-gen-status">Calls the video API (POST /api/video), then polls until an MP4 URL is ready.</p>
+    </div>
+    <pre class="cms-video-gen-log" hidden aria-live="polite"></pre>
+  </div>
+  <label class="field">
     <span>Video URL</span>
     <input type="url" class="cms-video-url" value="${escapeHtml(url)}" placeholder="https://..." />
   </label>
+  ${cmsVideoPreviewMarkup(url)}
   <label class="field">
     <span>字幕 / Caption URL (WebVTT)</span>
     <input type="url" class="cms-video-caption-url" value="${escapeHtml(captionUrl)}" placeholder="https://.../captions.vtt" />
@@ -2870,6 +3104,74 @@ function renderVideoBody(container, exercise) {
   });
 
   refreshCaptionEditorTracks(captionLanguage);
+
+  const videoGenLog = container.querySelector(".cms-video-gen-log");
+  const videoGenStatus = container.querySelector(".cms-video-gen-status");
+  const videoUrlInput = container.querySelector(".cms-video-url");
+  wireCmsVideoPreview(container, videoUrlInput);
+
+  const renderVideoGenLog = (logs) => {
+    if (!videoGenLog) return;
+    const lines = Array.isArray(logs) ? logs.filter(Boolean) : [];
+    if (!lines.length) {
+      videoGenLog.hidden = true;
+      videoGenLog.textContent = "";
+      return;
+    }
+    videoGenLog.hidden = false;
+    videoGenLog.textContent = lines.join("\n");
+    videoGenLog.scrollTop = videoGenLog.scrollHeight;
+  };
+
+  container.querySelector(".cms-generate-video")?.addEventListener("click", async () => {
+    const button = container.querySelector(".cms-generate-video");
+    const script = container.querySelector(".cms-video-gen-script")?.value.trim() || "";
+    if (!script) {
+      if (videoGenStatus) videoGenStatus.textContent = "Paste a script first.";
+      return;
+    }
+
+    if (button) button.disabled = true;
+    if (videoGenStatus) videoGenStatus.textContent = "Starting video job…";
+    renderVideoGenLog(["Queued."]);
+
+    try {
+      const started = await api("/api/cms/generate-video", {
+        method: "POST",
+        body: { text: script },
+      });
+      if (videoGenStatus) {
+        videoGenStatus.textContent = `Job ${started.jobId} started. Generating… this can take a few minutes.`;
+      }
+
+      const finished = await pollVideoGenerationJob(started.jobId, {
+        onUpdate: (data) => {
+          renderVideoGenLog(data.logs);
+          if (videoGenStatus && data.status) {
+            videoGenStatus.textContent = `Status: ${data.status}${
+              data.segmentsDone && data.segmentCount
+                ? ` (${data.segmentsDone}/${data.segmentCount})`
+                : ""
+            }`;
+          }
+        },
+      });
+
+      if (finished.videoUrl && videoUrlInput) {
+        videoUrlInput.value = finished.videoUrl;
+        videoUrlInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      if (videoGenStatus) {
+        videoGenStatus.textContent = finished.videoUrl
+          ? "Video ready. URL filled in below — click Save Course."
+          : "Video job completed, but no URL was returned.";
+      }
+    } catch (err) {
+      if (videoGenStatus) videoGenStatus.textContent = err.message;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
 
   const captionFileInput = container.querySelector(".cms-video-caption-file");
   container.querySelector(".cms-upload-captions")?.addEventListener("click", () => {
@@ -3744,6 +4046,23 @@ $("#btn-cms-ai-extract")?.addEventListener("click", extractAiMaterial);
 $("#btn-cms-ai-next")?.addEventListener("click", handleAiWizardNext);
 $("#btn-cms-ai-back")?.addEventListener("click", handleAiWizardBack);
 $("#btn-cms-ai-publish")?.addEventListener("click", publishAiExercises);
+$("#cms-ai-wizard")?.addEventListener("change", (event) => {
+  if (event.target.matches("#cms-ai-type-mcquiz, #cms-ai-type-fastmcquiz, #cms-ai-type-buzzin, #cms-ai-type-video")) {
+    if (state.aiTemplate !== "custom") {
+      state.aiTemplate = "custom";
+      document.querySelectorAll(".cms-ai-template").forEach((btn) => {
+        btn.classList.toggle("is-selected", btn.dataset.template === "custom");
+      });
+      const custom = $("#cms-ai-custom-settings");
+      if (custom) custom.hidden = false;
+    }
+    syncAiWizardCopy();
+    if (state.aiWizardStep === 2) {
+      const nextBtn = $("#btn-cms-ai-next");
+      if (nextBtn) nextBtn.textContent = isAiVideoOnly() ? "Generate video" : "Generate";
+    }
+  }
+});
 $("#cms-ai-wizard")?.addEventListener("click", (event) => {
   const template = event.target.closest(".cms-ai-template");
   if (template?.dataset.template) {

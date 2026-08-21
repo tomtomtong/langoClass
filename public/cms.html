@@ -204,9 +204,9 @@
                 <div class="cms-ai-section">
                   <p class="cms-ai-label">Generation settings (shared)</p>
                   <div class="cms-ai-types" role="group" aria-label="Batch exercise types">
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-mcquiz" checked /> Quiz</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-fastmcquiz" checked /> Fast</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-buzzin" checked /> Buzz In</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-mcquiz" checked /> MC Quiz</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-fastmcquiz" checked /> Fast MC Quiz</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-buzzin" checked /> Buzz in Question</label>
                   </div>
                   <div class="cms-ai-settings-grid">
                     <label class="field cms-ai-field">
@@ -281,23 +281,27 @@
               </header>
 
               <div class="cms-ai-step-panel is-active" data-step-panel="1">
-                <p class="hint cms-ai-intro">Pick a template, or make a custom mix of quiz, fast quiz, and buzz-in.</p>
+                <p class="hint cms-ai-intro">Pick a template, or make a custom mix of MC Quiz, Fast MC Quiz, Buzz in Question, and Video.</p>
                 <div class="cms-ai-templates" role="list">
                   <button type="button" class="cms-ai-template is-selected" data-template="vocab" role="listitem">
                     <span class="cms-ai-template-name">Vocab drill</span>
-                    <span class="cms-ai-template-meta">5 Quiz · 3 Fast · Easy</span>
+                    <span class="cms-ai-template-meta">5 MC Quiz · 3 Fast MC Quiz · Easy</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="reading" role="listitem">
                     <span class="cms-ai-template-name">Reading check</span>
-                    <span class="cms-ai-template-meta">4 Quiz · 2 Buzz In · Medium</span>
+                    <span class="cms-ai-template-meta">4 MC Quiz · 2 Buzz in Question · Medium</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="speaking" role="listitem">
                     <span class="cms-ai-template-name">Speaking class</span>
-                    <span class="cms-ai-template-meta">4 Buzz In · Medium</span>
+                    <span class="cms-ai-template-meta">4 Buzz in Question · Medium</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="mixed" role="listitem">
                     <span class="cms-ai-template-name">Mixed lesson</span>
-                    <span class="cms-ai-template-meta">3 Quiz · 2 Fast · 2 Buzz In</span>
+                    <span class="cms-ai-template-meta">3 MC Quiz · 2 Fast MC Quiz · 2 Buzz in Question</span>
+                  </button>
+                  <button type="button" class="cms-ai-template" data-template="video" role="listitem">
+                    <span class="cms-ai-template-name">Video lesson</span>
+                    <span class="cms-ai-template-meta">1 AI Video · Medium</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="custom" role="listitem">
                     <span class="cms-ai-template-name">Custom make</span>
@@ -307,9 +311,10 @@
                 <div class="cms-ai-section" id="cms-ai-custom-settings" hidden>
                   <p class="cms-ai-label">Custom settings</p>
                   <div class="cms-ai-types" role="group" aria-label="Exercise types to generate">
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-mcquiz" checked /> Quiz</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-fastmcquiz" checked /> Fast</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-buzzin" checked /> Buzz In</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-mcquiz" checked /> MC Quiz</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-fastmcquiz" checked /> Fast MC Quiz</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-buzzin" checked /> Buzz in Question</label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-video" /> Video</label>
                   </div>
                   <div class="cms-ai-settings-grid">
                     <label class="field cms-ai-field">
@@ -343,6 +348,7 @@
                   <span class="status-msg" id="cms-ai-extract-status"></span>
                 </div>
                 <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="7" hidden placeholder="Prepared material preview…"></textarea>
+                <pre id="cms-ai-video-log" class="cms-ai-video-log" hidden aria-live="polite"></pre>
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="3" hidden>
@@ -383,10 +389,10 @@
               </label>
             </div>
             <div class="cms-type-grid" role="group" aria-label="Exercise type">
-              <button type="button" class="cms-type-tile" data-type="mcquiz">Quiz</button>
-              <button type="button" class="cms-type-tile" data-type="fastmcquiz">Fast</button>
+              <button type="button" class="cms-type-tile" data-type="mcquiz">MC Quiz</button>
+              <button type="button" class="cms-type-tile" data-type="fastmcquiz">Fast MC Quiz</button>
               <button type="button" class="cms-type-tile" data-type="video">Video</button>
-              <button type="button" class="cms-type-tile" data-type="buzzin">Buzz In</button>
+              <button type="button" class="cms-type-tile" data-type="buzzin">Buzz in Question</button>
             </div>
           </div>
           <button type="button" class="btn primary cms-cta" id="btn-save-exercises">
@@ -466,7 +472,7 @@
           </svg>
         </span>
         <span class="cms-playlist-index" aria-hidden="true"></span>
-        <span class="cms-type-chip">Quiz</span>
+        <span class="cms-type-chip">MC Quiz</span>
         <input type="text" class="cms-exercise-title" data-field="title" placeholder="Exercise title" />
         <div class="cms-playlist-actions">
           <div class="cms-order-stepper" role="group" aria-label="Move in playlist">
@@ -494,7 +500,7 @@
               <option value="mcquiz">MC Quiz</option>
               <option value="fastmcquiz">Fast MC Quiz</option>
               <option value="video">Video</option>
-              <option value="buzzin">Buzz In</option>
+              <option value="buzzin">Buzz in Question</option>
             </select>
           </label>
           <label class="field cms-field-inline">

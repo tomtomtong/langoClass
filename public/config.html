@@ -390,6 +390,40 @@
       </div>
 
       <div class="cms-panel config-panel config-section-spaced">
+        <h2>Video generator API</h2>
+        <p class="hint">
+          LangoCMS video generation at
+          <code>https://newcms.lango.ai</code>.
+          Flow: <code>POST /api/video</code> with <code>{ "text": "..." }</code> (202 + <code>job_id</code>),
+          poll <code>GET /api/jobs/:id</code> until <code>completed</code>, then use absolute <code>video_url</code>.
+        </p>
+
+        <label class="field">
+          <span>API base URL</span>
+          <input
+            type="url"
+            id="config-video-generator-url"
+            placeholder="https://newcms.lango.ai"
+            autocomplete="off"
+          />
+          <p class="hint">No trailing slash. Override with env <code>VIDEO_GENERATOR_API_URL</code>.</p>
+        </label>
+
+        <div class="config-meta">
+          <p><strong>Active URL:</strong> <span id="config-video-generator-url-effective">—</span></p>
+          <p><strong>Environment default:</strong> <span id="config-video-generator-url-env-default">—</span></p>
+        </div>
+
+        <div class="config-actions">
+          <button type="button" class="btn primary" id="btn-config-save-video-generator-url">Save URL</button>
+          <button type="button" class="btn secondary" id="btn-config-reset-video-generator-url">Reset to env default</button>
+        </div>
+
+        <p class="status-msg" id="config-video-generator-save-status"></p>
+        <p class="error" id="config-video-generator-error"></p>
+      </div>
+
+      <div class="cms-panel config-panel config-section-spaced">
         <h2>Student database</h2>
         <p class="hint">
           Local score history for semester leaderboards and exercise results.

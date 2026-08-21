@@ -181,6 +181,12 @@ function renderConfig(data) {
   $("#config-openrouter-generate-model-env-default").textContent =
     data.openrouterGenerateModelEnvDefault || "—";
 
+  $("#config-video-generator-url").value = data.videoGeneratorApiUrlSaved || "";
+  $("#config-video-generator-url-effective").textContent =
+    data.effectiveVideoGeneratorApiUrl || "—";
+  $("#config-video-generator-url-env-default").textContent =
+    data.videoGeneratorApiUrlEnvDefault || "—";
+
   renderStudentDatabaseStats(data.studentDatabase);
 }
 
@@ -399,6 +405,28 @@ async function saveOpenRouterGenerateModel(openrouterGenerateModel) {
       : "Saved generate model cleared. Using environment default.";
   } catch (err) {
     $("#config-openrouter-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveVideoGeneratorApiUrl(videoGeneratorApiUrl) {
+  $("#config-video-generator-error").textContent = "";
+  $("#config-video-generator-save-status").textContent = "";
+
+  const btn = $("#btn-config-save-video-generator-url");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { videoGeneratorApiUrl },
+    });
+    renderConfig(data);
+    $("#config-video-generator-save-status").textContent = videoGeneratorApiUrl
+      ? `Video API URL saved: ${data.effectiveVideoGeneratorApiUrl}`
+      : "Saved URL cleared. Using environment default.";
+  } catch (err) {
+    $("#config-video-generator-error").textContent = err.message;
   } finally {
     btn.disabled = false;
   }
@@ -673,6 +701,13 @@ async function init() {
   $("#btn-config-reset-openrouter-generate-model").addEventListener("click", () => {
     $("#config-openrouter-generate-model").value = "";
     saveOpenRouterGenerateModel("");
+  });
+  $("#btn-config-save-video-generator-url").addEventListener("click", () => {
+    saveVideoGeneratorApiUrl($("#config-video-generator-url").value.trim());
+  });
+  $("#btn-config-reset-video-generator-url").addEventListener("click", () => {
+    $("#config-video-generator-url").value = "";
+    saveVideoGeneratorApiUrl("");
   });
   $("#btn-config-clear-student-db").addEventListener("click", clearStudentDatabase);
 
