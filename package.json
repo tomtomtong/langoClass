@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "stress:20x20": "node scripts/stress-20x20.js --url https://classroom.lango.ai --classes 20 --students 20 --video-viewers students"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",
@@ -15,6 +16,7 @@
     "mammoth": "^1.12.1",
     "multer": "^2.1.1",
     "pdf-parse": "^2.4.5",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   }
 }
