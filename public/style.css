@@ -6710,7 +6710,153 @@ body.cms-light .cms-danger:hover:not(:disabled) {
 }
 
 .config-panel {
-  max-width: 720px;
+  max-width: none;
+}
+
+.config-page-header .hint {
+  max-width: 72ch;
+}
+
+.config-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 1.25rem;
+  position: sticky;
+  top: 0.65rem;
+  z-index: 35;
+  padding: 0.35rem 0 0.65rem;
+}
+
+.config-section-tab {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  font-family: "Nunito", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.config-section-tab:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.config-section-tab.is-active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), #ff6b6b);
+  box-shadow: 0 8px 20px rgba(233, 69, 96, 0.28);
+}
+
+.config-section-panel {
+  display: none;
+}
+
+.config-section-panel.is-active {
+  display: block;
+}
+
+.config-panel-intro {
+  margin: 0 0 1.1rem;
+  max-width: 72ch;
+}
+
+.config-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 1.35rem 1.75rem;
+  align-items: start;
+}
+
+.config-split-compact {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+}
+
+.config-split-main {
+  min-width: 0;
+}
+
+.config-split-side {
+  position: sticky;
+  top: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.config-block + .config-block {
+  margin-top: 1.1rem;
+}
+
+.config-block-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.config-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
+}
+
+.config-field-grid .field-span-2 {
+  grid-column: 1 / -1;
+}
+
+.config-field-meta {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+}
+
+.config-meta-compact {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.88rem;
+}
+
+.config-meta-compact p {
+  margin: 0.25rem 0;
+}
+
+.config-actions-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.config-actions-stack .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.config-actions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.65rem;
+  margin-top: 1rem;
+}
+
+.config-actions-bar .btn {
+  width: auto;
+  flex: 0 1 auto;
+}
+
+.config-meta-inline {
+  margin-bottom: 0.25rem;
 }
 
 .config-meta {
@@ -6724,6 +6870,18 @@ body.cms-light .cms-danger:hover:not(:disabled) {
 
 .config-meta p {
   margin: 0.35rem 0;
+}
+
+.config-preview-wide {
+  margin: 1.15rem 0 0;
+}
+
+.config-preview-wide .config-preview-json {
+  white-space: pre;
+  word-break: normal;
+  min-height: 6rem;
+  max-height: min(420px, 50vh);
+  overflow: auto;
 }
 
 .config-preview {
@@ -6767,6 +6925,52 @@ body.cms-light .cms-danger:hover:not(:disabled) {
 
 .config-inworld-test-preview {
   margin-top: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .config-field-grid {
+    gap: 1rem 1.5rem;
+  }
+
+  .config-meta-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 2rem;
+  }
+
+  .config-meta-inline p {
+    margin: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  #app.cms-app.config-app {
+    max-width: none;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .config-split,
+  .config-split-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .config-split-side {
+    position: static;
+  }
+
+  .config-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-field-grid .field-span-2 {
+    grid-column: auto;
+  }
+
+  .config-actions-bar .btn {
+    flex: 1 1 calc(50% - 0.35rem);
+    min-width: 9rem;
+  }
 }
 
 .cms-host-link {
@@ -6818,6 +7022,10 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   padding-top: 0.35rem;
   position: relative;
   z-index: 2;
+}
+
+#app.cms-app.config-app {
+  max-width: min(1360px, calc(100vw - 2.5rem));
 }
 
 body.cms-light .cms-app {
@@ -7013,6 +7221,12 @@ body.cms-light:has(#screen-config-login.active) .cms-topbar,
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.config-app .cms-panel.config-panel {
+  max-width: none;
+  width: 100%;
+  margin: 0;
 }
 
 .cms-login-stage .cms-panel {

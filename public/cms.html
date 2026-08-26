@@ -196,7 +196,7 @@
           <div class="cms-exercise-toolbar">
             <span class="hint">Drag to reorder. Open a section to build its playlist.</span>
           </div>
-          <div class="cms-ai-panel cms-batch-panel" id="cms-batch-ai-panel">
+          <div class="cms-ai-panel cms-batch-panel" id="cms-batch-ai-panel" hidden>
             <details class="cms-ai-details">
               <summary class="cms-ai-summary">Batch AI Generate (all sections)</summary>
               <div class="cms-ai-body">
@@ -275,8 +275,9 @@
                 <ol class="cms-ai-steps" aria-label="Generation steps">
                   <li><button type="button" class="cms-ai-step is-current" data-step="1">1 Format</button></li>
                   <li><button type="button" class="cms-ai-step" data-step="2">2 Material</button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="3">3 Preview</button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="4">4 Publish</button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="3">3 Plan</button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="4">4 Preview</button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="5">5 Publish</button></li>
                 </ol>
               </header>
 
@@ -310,17 +311,30 @@
                 </div>
                 <div class="cms-ai-section" id="cms-ai-custom-settings" hidden>
                   <p class="cms-ai-label">Custom settings</p>
-                  <div class="cms-ai-types" role="group" aria-label="Exercise types to generate">
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-mcquiz" checked /> MC Quiz</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-fastmcquiz" checked /> Fast MC Quiz</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-buzzin" checked /> Buzz in Question</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-ai-type-video" /> Video</label>
-                  </div>
-                  <div class="cms-ai-settings-grid">
-                    <label class="field cms-ai-field">
-                      <span>Questions per type</span>
-                      <input type="number" id="cms-ai-count" min="1" max="10" value="3" />
+                  <p class="hint cms-ai-custom-hint">Tick each type and set how many to generate.</p>
+                  <div class="cms-ai-type-rows" role="group" aria-label="Exercise types to generate">
+                    <label class="cms-ai-type-row">
+                      <input type="checkbox" id="cms-ai-type-mcquiz" checked />
+                      <span class="cms-ai-type-name">MC Quiz</span>
+                      <input type="number" id="cms-ai-count-mcquiz" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="MC Quiz count" />
                     </label>
+                    <label class="cms-ai-type-row">
+                      <input type="checkbox" id="cms-ai-type-fastmcquiz" checked />
+                      <span class="cms-ai-type-name">Fast MC Quiz</span>
+                      <input type="number" id="cms-ai-count-fastmcquiz" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="Fast MC Quiz count" />
+                    </label>
+                    <label class="cms-ai-type-row">
+                      <input type="checkbox" id="cms-ai-type-buzzin" />
+                      <span class="cms-ai-type-name">Buzz in Question</span>
+                      <input type="number" id="cms-ai-count-buzzin" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="Buzz in Question count" disabled />
+                    </label>
+                    <label class="cms-ai-type-row">
+                      <input type="checkbox" id="cms-ai-type-video" />
+                      <span class="cms-ai-type-name">Video</span>
+                      <input type="number" id="cms-ai-count-video" class="cms-ai-type-count" min="1" max="10" value="1" aria-label="Video count" disabled />
+                    </label>
+                  </div>
+                  <div class="cms-ai-settings-grid cms-ai-settings-grid-single">
                     <label class="field cms-ai-field">
                       <span>Difficulty</span>
                       <select id="cms-ai-difficulty">
@@ -341,8 +355,14 @@
                       <input type="file" id="cms-ai-file" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
                     Upload file
                   </label>
+                  <span class="cms-ai-file-name" id="cms-ai-file-name" hidden></span>
                   <input type="text" id="cms-ai-video-url" class="cms-ai-video-url" placeholder="Video URL (optional — will transcribe)" />
                 </div>
+                <label class="cms-ai-course-toggle">
+                  <input type="checkbox" id="cms-ai-course-mode" />
+                  <span>Generate entire course from this document</span>
+                </label>
+                <p class="hint cms-ai-course-hint">Uses your Step 1 format on every section. Splits the document by headings, then lets you approve the plan before generating.</p>
                 <div class="cms-ai-actions">
                   <button type="button" class="btn secondary small" id="btn-cms-ai-extract">Prepare material</button>
                   <span class="status-msg" id="cms-ai-extract-status"></span>
@@ -352,6 +372,19 @@
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="3" hidden>
+                <p class="hint cms-ai-intro" id="cms-ai-plan-intro">Review the course plan. Every section uses the format you chose in Step 1.</p>
+                <div class="cms-ai-plan-meta" id="cms-ai-plan-meta"></div>
+                <div id="cms-ai-plan-list" class="cms-ai-plan-list"></div>
+                <div class="cms-ai-json-actions">
+                  <button type="button" class="btn secondary small" id="btn-cms-ai-export-plan">Export plan JSON</button>
+                  <label class="btn secondary small cms-ai-file-label">
+                    <input type="file" id="cms-ai-import-plan" hidden accept=".json,application/json" />
+                    Import plan JSON
+                  </label>
+                </div>
+              </div>
+
+              <div class="cms-ai-step-panel" data-step-panel="4" hidden>
                 <p class="hint cms-ai-intro">Edit wording, answers, and prompts before publishing. Uncheck anything you do not want.</p>
                 <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
                 <div class="cms-ai-json-actions">
@@ -363,8 +396,8 @@
                 </div>
               </div>
 
-              <div class="cms-ai-step-panel" data-step-panel="4" hidden>
-                <p class="hint cms-ai-intro">Publishing writes the selected exercises into this section and saves the course.</p>
+              <div class="cms-ai-step-panel" data-step-panel="5" hidden>
+                <p class="hint cms-ai-intro" id="cms-ai-publish-intro">Publishing writes the selected exercises into this section and saves the course.</p>
                 <div id="cms-ai-publish-summary" class="cms-ai-publish-summary"></div>
               </div>
 
@@ -374,7 +407,7 @@
                 <button type="button" class="btn secondary small" id="btn-cms-ai-back" hidden>Back</button>
                 <button type="button" class="btn primary small" id="btn-cms-ai-next">Next</button>
                 <button type="button" class="btn primary cms-cta" id="btn-cms-ai-publish" hidden>
-                  <span>Publish to section</span>
+                  <span id="cms-ai-publish-label">Publish to section</span>
                   <span class="cms-btn-glyph" aria-hidden="true">→</span>
                 </button>
               </div>
@@ -411,13 +444,15 @@
       <div class="cms-section-cover">
         <div class="cms-section-thumbnail-preview" hidden>
           <img class="cms-section-banner-img" alt="Section thumbnail" src="/assets/cms/cover-empty.svg" />
-          <button type="button" class="btn secondary small cms-remove-section-banner">Remove</button>
         </div>
         <div class="cms-section-cover-empty" aria-hidden="true"></div>
-        <label class="cms-thumbnail-upload btn secondary small">
-          <input type="file" class="cms-section-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
-          Cover
-        </label>
+        <div class="cms-section-cover-actions">
+          <label class="cms-thumbnail-upload btn secondary small">
+            <input type="file" class="cms-section-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+            Cover
+          </label>
+          <button type="button" class="btn secondary small cms-remove-section-banner" hidden>Remove</button>
+        </div>
         <input type="hidden" class="cms-section-banner-value" />
         <p class="status-msg cms-section-banner-status"></p>
       </div>

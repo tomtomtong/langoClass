@@ -28,6 +28,7 @@ const exerciseImport = require("./lib/exercise-import");
 const courseExport = require("./lib/course-export");
 const courseImport = require("./lib/course-import");
 const courseImportChunked = require("./lib/course-import-chunked");
+const coursePlan = require("./lib/course-plan");
 
 const app = express();
 const server = http.createServer(app);
@@ -3458,11 +3459,16 @@ app.post("/api/cms/extract-material", async (req, res) => {
         }
 
         let videoMeta = null;
+        const requestedMaxChars = Number(req.body?.maxChars);
         const result = await materialExtract.extractFromBuffer(
           req.file.buffer,
           req.file.originalname,
           req.file.mimetype,
           {
+            maxChars:
+              Number.isFinite(requestedMaxChars) && requestedMaxChars > 0
+                ? requestedMaxChars
+                : undefined,
             language,
             transcribeAudio: async (buffer, audioFormat) =>
               transcribeMaterialAudioBuffer(buffer, req.file.originalname || `audio.${audioFormat}`, language),
@@ -3501,7 +3507,13 @@ app.post("/api/cms/extract-material", async (req, res) => {
 
       const pastedText = String(req.body?.text || "").trim();
       if (pastedText) {
-        const result = materialExtract.truncateMaterial(pastedText);
+        const requestedMaxChars = Number(req.body?.maxChars);
+        const result = materialExtract.truncateMaterial(
+          pastedText,
+          Number.isFinite(requestedMaxChars) && requestedMaxChars > 0
+            ? requestedMaxChars
+            : undefined
+        );
         return res.json({
           ok: true,
           source: "text",
@@ -3687,6 +3699,138 @@ app.post("/api/cms/batch-generate-exercises", async (req, res) => {
   return res.json({
     ok: succeeded > 0,
     results,
+    stats: {
+      requested: jobs.length,
+      succeeded,
+      failed: results.length - succeeded,
+    },
+  });
+});
+
+app.post("/api/cms/analyze-course-material", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const material = String(req.body?.material || "").trim();
+  if (!material) {
+    return res.status(400).json({ message: "Material text is required." });
+  }
+
+  const types = coursePlan.lockTypes(req.body?.types);
+  if (!Object.keys(types).length) {
+    return res.status(400).json({ message: "Pick a format with at least one exercise type first." });
+  }
+
+  try {
+    const llmReady = !!getOpenRouterApiKey();
+    const plan = await coursePlan.analyzeCourseMaterial(
+      {
+        material,
+        types,
+        difficulty: req.body?.difficulty,
+        template: req.body?.template,
+        langCode: String(req.body?.langCode || "en").trim(),
+        model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
+        apiKey: getOpenRouterApiKey(),
+      },
+      llmReady ? openRouterGenerateComplete : null
+    );
+
+    return res.json({
+      ok: true,
+      plan,
+      usedLlm: plan.planner === "llm",
+    });
+  } catch (err) {
+    console.error("analyze-course-material failed:", err);
+    return res.status(500).json({ message: err.message || "Could not analyze the document." });
+  }
+});
+
+app.post("/api/cms/generate-course-from-plan", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const format = {
+    template: String(req.body?.template || "custom").trim() || "custom",
+    types: coursePlan.lockTypes(req.body?.types),
+    difficulty: coursePlan.lockDifficulty(req.body?.difficulty),
+  };
+  if (!Object.keys(format.types).length) {
+    return res.status(400).json({ message: "Pick a format with at least one exercise type first." });
+  }
+
+  let locked;
+  try {
+    locked = coursePlan.validateCoursePlan(req.body?.plan, format);
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Invalid course plan." });
+  }
+
+  const llmTypes = { ...locked.appliedTypes };
+  delete llmTypes.video;
+  const videoCount = locked.appliedTypes.video || 0;
+
+  if (!Object.keys(llmTypes).length && !videoCount) {
+    return res.status(400).json({ message: "Pick a format with at least one exercise type first." });
+  }
+
+  if (Object.keys(llmTypes).length && !getOpenRouterApiKey()) {
+    return res.status(400).json({
+      message: "Configure OpenRouter in Config before generating exercises.",
+    });
+  }
+
+  const jobs = coursePlan.jobsFromPlan(locked, format);
+  const results = [];
+
+  for (const job of jobs) {
+    const entry = {
+      key: job.key,
+      sectionTitle: job.sectionTitle,
+      material: job.material,
+      types: { ...locked.appliedTypes },
+      difficulty: locked.appliedDifficulty,
+      ok: false,
+      exercises: [],
+      stats: null,
+      message: "",
+    };
+
+    if (!Object.keys(llmTypes).length) {
+      entry.ok = true;
+      results.push(entry);
+      continue;
+    }
+
+    try {
+      const result = await exerciseGenerator.generateExercisesFromMaterial(
+        {
+          material: job.material,
+          langCode: String(req.body?.langCode || "en").trim(),
+          difficulty: locked.appliedDifficulty,
+          types: llmTypes,
+          model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
+          apiKey: getOpenRouterApiKey(),
+        },
+        openRouterGenerateComplete
+      );
+      entry.ok = true;
+      entry.exercises = result.exercises || [];
+      entry.model = result.model;
+      entry.stats = result.stats;
+    } catch (err) {
+      entry.message = err.message || "Exercise generation failed.";
+    }
+    results.push(entry);
+  }
+
+  const succeeded = results.filter((entry) => entry.ok).length;
+  return res.json({
+    ok: succeeded > 0,
+    plan: locked,
+    results,
+    videoCount,
     stats: {
       requested: jobs.length,
       succeeded,

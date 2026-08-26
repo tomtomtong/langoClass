@@ -87,6 +87,34 @@ function showConfigScreen(id) {
   document.querySelector(`#screen-config-${id}`).classList.add("active");
 }
 
+const CONFIG_TABS = ["notifications", "inworld", "qwen", "openrouter", "video", "database"];
+
+function setConfigTab(tabId, { updateHash = true } = {}) {
+  const tab = CONFIG_TABS.includes(tabId) ? tabId : "notifications";
+  document.querySelectorAll(".config-section-tab").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.configTab === tab);
+  });
+  document.querySelectorAll(".config-section-panel").forEach((panel) => {
+    panel.classList.toggle("is-active", panel.dataset.configPanel === tab);
+  });
+  if (updateHash && window.location.hash !== `#${tab}`) {
+    history.replaceState(null, "", `#${tab}`);
+  }
+}
+
+function initConfigTabs() {
+  document.querySelector(".config-section-nav")?.addEventListener("click", (event) => {
+    const btn = event.target.closest(".config-section-tab");
+    if (!btn) return;
+    setConfigTab(btn.dataset.configTab);
+  });
+
+  const hashTab = window.location.hash.replace(/^#/, "");
+  if (CONFIG_TABS.includes(hashTab)) {
+    setConfigTab(hashTab, { updateHash: false });
+  }
+}
+
 function updateAuthUi() {
   const loggedIn = !!(state.token && state.user);
   $("#config-teacher-label").hidden = !loggedIn;
@@ -710,6 +738,8 @@ async function init() {
     saveVideoGeneratorApiUrl("");
   });
   $("#btn-config-clear-student-db").addEventListener("click", clearStudentDatabase);
+
+  initConfigTabs();
 
   if (state.token && state.user) {
     showConfigScreen("main");

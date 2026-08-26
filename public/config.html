@@ -63,386 +63,425 @@
     </section>
 
     <section id="screen-config-main" class="screen">
-      <header class="cms-header">
+      <header class="cms-header config-page-header">
         <div>
-          <h1>Push notification base endpoint</h1>
-          <p class="hint">
-            This URL is sent as <code>base_endpoint</code> in notification data when you start a session.
-            Students use it to open the join page on the correct server.
-          </p>
+          <h1>Settings</h1>
+          <p class="hint">Notifications, API keys, integrations, and student data — pick a section below.</p>
         </div>
       </header>
 
-      <div class="cms-panel config-panel">
-        <label class="field">
-          <span>Saved base endpoint</span>
-          <input
-            type="url"
-            id="config-public-base-url"
-            placeholder="https://your-app.up.railway.app"
-            autocomplete="url"
-          />
-          <p class="hint">Leave empty to use the environment default below.</p>
-        </label>
+      <nav class="config-section-nav" aria-label="Settings sections">
+        <button type="button" class="config-section-tab is-active" data-config-tab="notifications">Notifications</button>
+        <button type="button" class="config-section-tab" data-config-tab="inworld">Inworld</button>
+        <button type="button" class="config-section-tab" data-config-tab="qwen">Qwen</button>
+        <button type="button" class="config-section-tab" data-config-tab="openrouter">OpenRouter</button>
+        <button type="button" class="config-section-tab" data-config-tab="video">Video API</button>
+        <button type="button" class="config-section-tab" data-config-tab="database">Student DB</button>
+      </nav>
 
-        <div class="config-meta">
-          <p><strong>Active URL:</strong> <span id="config-effective-url"></span></p>
-          <p><strong>Environment default:</strong> <span id="config-env-default"></span></p>
+      <div class="config-section-panels">
+        <div class="config-section-panel is-active" data-config-panel="notifications">
+          <div class="cms-panel config-panel">
+            <h2>Push notification base endpoint</h2>
+            <p class="hint config-panel-intro">
+              Sent as <code>base_endpoint</code> when you start a session so students open the join page on the correct server.
+            </p>
+
+            <div class="config-split config-split-compact">
+              <div class="config-split-main">
+                <label class="field">
+                  <span>Saved base endpoint</span>
+                  <input
+                    type="url"
+                    id="config-public-base-url"
+                    placeholder="https://your-app.up.railway.app"
+                    autocomplete="url"
+                  />
+                  <p class="hint">Leave empty to use the environment default.</p>
+                </label>
+              </div>
+
+              <aside class="config-split-side">
+                <div class="config-meta config-meta-compact">
+                  <p><strong>Active URL:</strong> <span id="config-effective-url"></span></p>
+                  <p><strong>Environment default:</strong> <span id="config-env-default"></span></p>
+                </div>
+              </aside>
+            </div>
+
+            <div class="config-actions config-actions-bar">
+              <button type="button" class="btn primary" id="btn-config-save">Save</button>
+              <button type="button" class="btn secondary" id="btn-config-use-current">Use this site’s URL</button>
+              <button type="button" class="btn secondary" id="btn-config-reset">Reset to environment default</button>
+            </div>
+
+            <p class="status-msg" id="config-status"></p>
+            <p class="error" id="config-error"></p>
+
+            <div class="config-preview config-preview-wide">
+              <span class="field-label">Notification data preview</span>
+              <pre id="config-preview-json" class="config-preview-json"></pre>
+            </div>
+          </div>
         </div>
 
-        <div class="config-preview">
-          <span class="field-label">Notification data preview</span>
-          <pre id="config-preview-json" class="config-preview-json"></pre>
+        <div class="config-section-panel" data-config-panel="inworld">
+          <div class="cms-panel config-panel">
+            <h2>Inworld API</h2>
+            <p class="hint config-panel-intro">
+              Basic (Base64) credential from
+              <a href="https://platform.inworld.ai/api-keys" target="_blank" rel="noopener">Inworld Portal</a>
+              for Buzz In STT/TTS (<code>uncle_tommy</code>). AI feedback uses OpenRouter.
+            </p>
+
+            <div class="config-split">
+              <div class="config-split-main">
+                <div class="config-block">
+                  <h3 class="config-block-title">API key</h3>
+                  <label class="field">
+                    <span>Inworld API key</span>
+                    <input
+                      type="password"
+                      id="config-inworld-key"
+                      placeholder="Paste key here"
+                      autocomplete="off"
+                    />
+                    <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
+                  </label>
+                </div>
+
+                <div class="config-block">
+                  <h3 class="config-block-title">LLM</h3>
+                  <label class="field">
+                    <span>LLM model</span>
+                    <input
+                      type="text"
+                      id="config-inworld-llm-model"
+                      list="config-inworld-llm-models"
+                      placeholder="auto"
+                      autocomplete="off"
+                    />
+                    <datalist id="config-inworld-llm-models">
+                      <option value="auto"></option>
+                      <option value="openai/gpt-5.5"></option>
+                      <option value="anthropic/claude-sonnet-4-6"></option>
+                      <option value="google-ai-studio/gemini-3.5-flash"></option>
+                      <option value="deepseek/deepseek-v4-flash"></option>
+                      <option value="mistral/mistral-large-2512"></option>
+                    </datalist>
+                    <p class="hint config-field-meta">
+                      Active: <strong id="config-inworld-llm-effective">—</strong>
+                      · Env default: <strong id="config-inworld-llm-env-default">—</strong>
+                    </p>
+                  </label>
+                </div>
+
+                <div class="config-block">
+                  <h3 class="config-block-title">Speech-to-text</h3>
+                  <div class="config-field-grid">
+                    <label class="field">
+                      <span>STT model</span>
+                      <input
+                        type="text"
+                        id="config-inworld-stt-model"
+                        list="config-inworld-stt-models"
+                        placeholder="inworld/inworld-stt-1"
+                        autocomplete="off"
+                      />
+                      <datalist id="config-inworld-stt-models">
+                        <option value="inworld/inworld-stt-1"></option>
+                        <option value="groq/whisper-large-v3"></option>
+                      </datalist>
+                    </label>
+                    <label class="field">
+                      <span>STT language hint</span>
+                      <input
+                        type="text"
+                        id="config-inworld-stt-language"
+                        list="config-inworld-stt-languages"
+                        placeholder="en"
+                        autocomplete="off"
+                      />
+                      <datalist id="config-inworld-stt-languages">
+                        <option value="en"></option>
+                        <option value="yue"></option>
+                        <option value="zh"></option>
+                        <option value="ja"></option>
+                        <option value="ko"></option>
+                      </datalist>
+                    </label>
+                  </div>
+                  <p class="hint config-field-meta">
+                    Active STT: <strong id="config-inworld-stt-model-effective">—</strong>
+                    · Env: <strong id="config-inworld-stt-model-env-default">—</strong>
+                    · Language: <strong id="config-inworld-stt-language-effective">—</strong>
+                    · Env: <strong id="config-inworld-stt-language-env-default">—</strong>
+                  </p>
+                </div>
+              </div>
+
+              <aside class="config-split-side">
+                <div class="config-meta config-meta-compact">
+                  <p><strong>Status:</strong> <span id="config-inworld-status-label">—</span></p>
+                  <p><strong>Active key:</strong> <span id="config-inworld-masked">—</span></p>
+                  <p class="hint" id="config-inworld-env-hint" hidden>
+                    Using <code>INWORLD_API_KEY</code> environment variable (no saved key).
+                  </p>
+                </div>
+              </aside>
+            </div>
+
+            <div class="config-actions config-actions-bar">
+              <button type="button" class="btn primary small" id="btn-config-save-inworld">Save key</button>
+              <button type="button" class="btn primary small" id="btn-config-save-inworld-model">Save LLM model</button>
+              <button type="button" class="btn primary small" id="btn-config-save-inworld-stt">Save STT settings</button>
+              <button type="button" class="btn secondary small" id="btn-config-test-inworld">Test API</button>
+              <button type="button" class="btn secondary small" id="btn-config-clear-inworld">Clear saved key</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-inworld-model">Reset LLM model</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-inworld-stt">Reset STT settings</button>
+            </div>
+
+            <p class="status-msg" id="config-inworld-save-status"></p>
+            <p class="error" id="config-inworld-error"></p>
+
+            <div class="config-preview config-preview-wide" id="config-inworld-test-wrap" hidden>
+              <span class="field-label">Test result</span>
+              <pre id="config-inworld-test-result" class="config-preview-json"></pre>
+            </div>
+          </div>
         </div>
 
-        <div class="config-actions">
-          <button type="button" class="btn primary" id="btn-config-save">Save</button>
-          <button type="button" class="btn secondary" id="btn-config-use-current">Use this site’s URL</button>
-          <button type="button" class="btn secondary" id="btn-config-reset">Reset to environment default</button>
+        <div class="config-section-panel" data-config-panel="qwen">
+          <div class="cms-panel config-panel">
+            <h2>Qwen API</h2>
+            <p class="hint config-panel-intro">
+              DashScope key from
+              <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" rel="noopener">Alibaba Cloud DashScope</a>
+              for Qwen LLM requests.
+            </p>
+
+            <div class="config-split">
+              <div class="config-split-main">
+                <div class="config-field-grid">
+                  <label class="field field-span-2">
+                    <span>Qwen API key</span>
+                    <input
+                      type="password"
+                      id="config-qwen-key"
+                      placeholder="Paste key here"
+                      autocomplete="off"
+                    />
+                    <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
+                  </label>
+                  <label class="field field-span-2">
+                    <span>Model</span>
+                    <input
+                      type="text"
+                      id="config-qwen-model"
+                      list="config-qwen-models"
+                      placeholder="qwen-plus"
+                      autocomplete="off"
+                    />
+                    <datalist id="config-qwen-models">
+                      <option value="qwen-turbo"></option>
+                      <option value="qwen-plus"></option>
+                      <option value="qwen-max"></option>
+                      <option value="qwen-long"></option>
+                    </datalist>
+                    <p class="hint config-field-meta">
+                      Active: <strong id="config-qwen-model-effective">—</strong>
+                      · Env default: <strong id="config-qwen-model-env-default">—</strong>
+                    </p>
+                  </label>
+                </div>
+              </div>
+
+              <aside class="config-split-side">
+                <div class="config-meta config-meta-compact">
+                  <p><strong>Status:</strong> <span id="config-qwen-status-label">—</span></p>
+                  <p><strong>Active key:</strong> <span id="config-qwen-masked">—</span></p>
+                  <p class="hint" id="config-qwen-env-hint" hidden>
+                    Using <code>QWEN_API_KEY</code> environment variable (no saved key).
+                  </p>
+                </div>
+              </aside>
+            </div>
+
+            <div class="config-actions config-actions-bar">
+              <button type="button" class="btn primary small" id="btn-config-save-qwen">Save key</button>
+              <button type="button" class="btn primary small" id="btn-config-save-qwen-model">Save model</button>
+              <button type="button" class="btn secondary small" id="btn-config-test-qwen">Test API</button>
+              <button type="button" class="btn secondary small" id="btn-config-clear-qwen">Clear saved key</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-qwen-model">Reset model</button>
+            </div>
+
+            <p class="status-msg" id="config-qwen-save-status"></p>
+            <p class="error" id="config-qwen-error"></p>
+
+            <div class="config-preview config-preview-wide" id="config-qwen-test-wrap" hidden>
+              <span class="field-label">Test result</span>
+              <pre id="config-qwen-test-result" class="config-preview-json"></pre>
+            </div>
+          </div>
         </div>
 
-        <p class="status-msg" id="config-status"></p>
-        <p class="error" id="config-error"></p>
-      </div>
+        <div class="config-section-panel" data-config-panel="openrouter">
+          <div class="cms-panel config-panel">
+            <h2>OpenRouter</h2>
+            <p class="hint config-panel-intro">
+              Key from <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>
+              for Buzz In AI feedback, <a href="/transcribe.html">Transcribe</a>, and CMS exercise generation.
+            </p>
 
-      <div class="cms-panel config-panel config-section-spaced">
-        <h2>Inworld API</h2>
-        <p class="hint">
-          Paste the <strong>Basic (Base64)</strong> credential from
-          <a href="https://platform.inworld.ai/api-keys" target="_blank" rel="noopener">Inworld Portal</a>.
-          The key is stored on this server and used for Buzz In speech-to-text and TTS voice
-          <code>uncle_tommy</code>. AI feedback uses OpenRouter.
-        </p>
+            <div class="config-split">
+              <div class="config-split-main">
+                <div class="config-block">
+                  <h3 class="config-block-title">API key</h3>
+                  <label class="field">
+                    <span>OpenRouter API key</span>
+                    <input
+                      type="password"
+                      id="config-openrouter-key"
+                      placeholder="Paste key here"
+                      autocomplete="off"
+                    />
+                    <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
+                  </label>
+                </div>
 
-        <label class="field">
-          <span>Inworld API key</span>
-          <input
-            type="password"
-            id="config-inworld-key"
-            placeholder="Paste key here"
-            autocomplete="off"
-          />
-          <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
-        </label>
+                <div class="config-block">
+                  <h3 class="config-block-title">Models</h3>
+                  <div class="config-field-grid">
+                    <label class="field">
+                      <span>Buzz In &amp; transcription</span>
+                      <input
+                        type="text"
+                        id="config-openrouter-buzzin-model"
+                        list="config-openrouter-buzzin-models"
+                        placeholder="mistralai/voxtral-small-24b-2507"
+                        autocomplete="off"
+                      />
+                      <datalist id="config-openrouter-buzzin-models">
+                        <option value="mistralai/voxtral-small-24b-2507"></option>
+                        <option value="xiaomi/mimo-v2.5"></option>
+                      </datalist>
+                      <p class="hint config-field-meta">
+                        Active: <strong id="config-openrouter-buzzin-model-effective">—</strong>
+                        · Env: <strong id="config-openrouter-buzzin-model-env-default">—</strong>
+                      </p>
+                    </label>
+                    <label class="field">
+                      <span>Course AI generate</span>
+                      <input
+                        type="text"
+                        id="config-openrouter-generate-model"
+                        list="config-openrouter-generate-models"
+                        placeholder="x-ai/grok-4.3"
+                        autocomplete="off"
+                      />
+                      <datalist id="config-openrouter-generate-models">
+                        <option value="x-ai/grok-4.3"></option>
+                        <option value="x-ai/grok-4"></option>
+                      </datalist>
+                      <p class="hint config-field-meta">
+                        Active: <strong id="config-openrouter-generate-model-effective">—</strong>
+                        · Env: <strong id="config-openrouter-generate-model-env-default">—</strong>
+                      </p>
+                    </label>
+                  </div>
+                </div>
+              </div>
 
-        <div class="config-meta">
-          <p><strong>Status:</strong> <span id="config-inworld-status-label">—</span></p>
-          <p><strong>Active key:</strong> <span id="config-inworld-masked">—</span></p>
-          <p class="hint" id="config-inworld-env-hint" hidden>
-            Using <code>INWORLD_API_KEY</code> environment variable (no saved key).
-          </p>
+              <aside class="config-split-side">
+                <div class="config-meta config-meta-compact">
+                  <p><strong>Status:</strong> <span id="config-openrouter-status-label">—</span></p>
+                  <p><strong>Active key:</strong> <span id="config-openrouter-masked">—</span></p>
+                  <p class="hint" id="config-openrouter-env-hint" hidden>
+                    Using <code>OPENROUTER_API_KEY</code> environment variable (no saved key).
+                  </p>
+                </div>
+              </aside>
+            </div>
+
+            <div class="config-actions config-actions-bar">
+              <button type="button" class="btn primary small" id="btn-config-save-openrouter">Save key</button>
+              <button type="button" class="btn primary small" id="btn-config-save-openrouter-model">Save Buzz In model</button>
+              <button type="button" class="btn primary small" id="btn-config-save-openrouter-generate-model">Save generate model</button>
+              <button type="button" class="btn secondary small" id="btn-config-test-openrouter">Test API</button>
+              <button type="button" class="btn secondary small" id="btn-config-clear-openrouter">Clear saved key</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-model">Reset Buzz In model</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-generate-model">Reset generate model</button>
+            </div>
+
+            <p class="status-msg" id="config-openrouter-save-status"></p>
+            <p class="error" id="config-openrouter-error"></p>
+
+            <div class="config-preview config-preview-wide" id="config-openrouter-test-wrap" hidden>
+              <span class="field-label">Test result</span>
+              <pre id="config-openrouter-test-result" class="config-preview-json"></pre>
+            </div>
+          </div>
         </div>
 
-        <label class="field">
-          <span>LLM model</span>
-          <input
-            type="text"
-            id="config-inworld-llm-model"
-            list="config-inworld-llm-models"
-            placeholder="auto"
-            autocomplete="off"
-          />
-          <datalist id="config-inworld-llm-models">
-            <option value="auto"></option>
-            <option value="openai/gpt-5.5"></option>
-            <option value="anthropic/claude-sonnet-4-6"></option>
-            <option value="google-ai-studio/gemini-3.5-flash"></option>
-            <option value="deepseek/deepseek-v4-flash"></option>
-            <option value="mistral/mistral-large-2512"></option>
-          </datalist>
-          <p class="hint">
-            Used for Inworld chat completions (<code>provider/model</code> or <code>auto</code>).
-            Leave empty when saving to use the environment default.
-          </p>
-        </label>
+        <div class="config-section-panel" data-config-panel="video">
+          <div class="cms-panel config-panel">
+            <h2>Video generator API</h2>
+            <p class="hint config-panel-intro">
+              LangoCMS video generation at <code>https://newcms.lango.ai</code> —
+              <code>POST /api/video</code>, poll <code>GET /api/jobs/:id</code>, then use absolute <code>video_url</code>.
+            </p>
 
-        <div class="config-meta">
-          <p><strong>Active model:</strong> <span id="config-inworld-llm-effective">—</span></p>
-          <p><strong>Environment default:</strong> <span id="config-inworld-llm-env-default">—</span></p>
+            <div class="config-split config-split-compact">
+              <div class="config-split-main">
+                <label class="field">
+                  <span>API base URL</span>
+                  <input
+                    type="url"
+                    id="config-video-generator-url"
+                    placeholder="https://newcms.lango.ai"
+                    autocomplete="off"
+                  />
+                  <p class="hint">No trailing slash. Override with env <code>VIDEO_GENERATOR_API_URL</code>.</p>
+                  <p class="hint config-field-meta">
+                    Active: <strong id="config-video-generator-url-effective">—</strong>
+                    · Env default: <strong id="config-video-generator-url-env-default">—</strong>
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            <div class="config-actions config-actions-bar">
+              <button type="button" class="btn primary" id="btn-config-save-video-generator-url">Save URL</button>
+              <button type="button" class="btn secondary" id="btn-config-reset-video-generator-url">Reset to env default</button>
+            </div>
+
+            <p class="status-msg" id="config-video-generator-save-status"></p>
+            <p class="error" id="config-video-generator-error"></p>
+          </div>
         </div>
 
-        <label class="field">
-          <span>STT model</span>
-          <input
-            type="text"
-            id="config-inworld-stt-model"
-            list="config-inworld-stt-models"
-            placeholder="inworld/inworld-stt-1"
-            autocomplete="off"
-          />
-          <datalist id="config-inworld-stt-models">
-            <option value="inworld/inworld-stt-1"></option>
-            <option value="groq/whisper-large-v3"></option>
-          </datalist>
-          <p class="hint">
-            Buzz In speech-to-text model. Default is <code>inworld/inworld-stt-1</code> (30 languages).
-          </p>
-        </label>
+        <div class="config-section-panel" data-config-panel="database">
+          <div class="cms-panel config-panel">
+            <h2>Student database</h2>
+            <p class="hint config-panel-intro">
+              Local score history for semester leaderboards. Clearing removes all student profiles and score records.
+            </p>
 
-        <label class="field">
-          <span>STT language hint</span>
-          <input
-            type="text"
-            id="config-inworld-stt-language"
-            list="config-inworld-stt-languages"
-            placeholder="en"
-            autocomplete="off"
-          />
-          <datalist id="config-inworld-stt-languages">
-            <option value="en"></option>
-            <option value="yue"></option>
-            <option value="zh"></option>
-            <option value="ja"></option>
-            <option value="ko"></option>
-          </datalist>
-          <p class="hint">
-            ISO 639 language code (e.g. <code>en</code>, <code>yue</code>). Used when a Buzz In exercise does not set its own speech language.
-          </p>
-        </label>
+            <div class="config-meta config-meta-compact config-meta-inline">
+              <p><strong>Student profiles:</strong> <span id="config-student-db-count">—</span></p>
+              <p><strong>Score records:</strong> <span id="config-student-db-records">—</span></p>
+            </div>
 
-        <div class="config-meta">
-          <p><strong>Active STT model:</strong> <span id="config-inworld-stt-model-effective">—</span></p>
-          <p><strong>STT model env default:</strong> <span id="config-inworld-stt-model-env-default">—</span></p>
-          <p><strong>Active STT language:</strong> <span id="config-inworld-stt-language-effective">—</span></p>
-          <p><strong>STT language env default:</strong> <span id="config-inworld-stt-language-env-default">—</span></p>
+            <div class="config-actions config-actions-bar">
+              <button type="button" class="btn secondary cms-danger" id="btn-config-clear-student-db">
+                Clear all student database
+              </button>
+            </div>
+
+            <p class="status-msg" id="config-student-db-status"></p>
+            <p class="error" id="config-student-db-error"></p>
+          </div>
         </div>
-
-        <div class="config-actions">
-          <button type="button" class="btn primary" id="btn-config-save-inworld">Save key</button>
-          <button type="button" class="btn primary" id="btn-config-save-inworld-model">Save LLM model</button>
-          <button type="button" class="btn primary" id="btn-config-save-inworld-stt">Save STT settings</button>
-          <button type="button" class="btn secondary" id="btn-config-test-inworld">Test API</button>
-          <button type="button" class="btn secondary" id="btn-config-clear-inworld">Clear saved key</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-inworld-model">Reset LLM model to env default</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-inworld-stt">Reset STT settings to env default</button>
-        </div>
-
-        <div class="config-preview config-inworld-test-preview" id="config-inworld-test-wrap" hidden>
-          <span class="field-label">Test result</span>
-          <pre id="config-inworld-test-result" class="config-preview-json"></pre>
-        </div>
-
-        <p class="status-msg" id="config-inworld-save-status"></p>
-        <p class="error" id="config-inworld-error"></p>
-      </div>
-
-      <div class="cms-panel config-panel config-section-spaced">
-        <h2>Qwen API</h2>
-        <p class="hint">
-          Paste your DashScope API key from
-          <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" rel="noopener">Alibaba Cloud DashScope</a>.
-          The key is stored on this server and used for Qwen LLM requests.
-        </p>
-
-        <label class="field">
-          <span>Qwen API key</span>
-          <input
-            type="password"
-            id="config-qwen-key"
-            placeholder="Paste key here"
-            autocomplete="off"
-          />
-          <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
-        </label>
-
-        <div class="config-meta">
-          <p><strong>Status:</strong> <span id="config-qwen-status-label">—</span></p>
-          <p><strong>Active key:</strong> <span id="config-qwen-masked">—</span></p>
-          <p class="hint" id="config-qwen-env-hint" hidden>
-            Using <code>QWEN_API_KEY</code> environment variable (no saved key).
-          </p>
-        </div>
-
-        <label class="field">
-          <span>Model</span>
-          <input
-            type="text"
-            id="config-qwen-model"
-            list="config-qwen-models"
-            placeholder="qwen-plus"
-            autocomplete="off"
-          />
-          <datalist id="config-qwen-models">
-            <option value="qwen-turbo"></option>
-            <option value="qwen-plus"></option>
-            <option value="qwen-max"></option>
-            <option value="qwen-long"></option>
-          </datalist>
-          <p class="hint">
-            DashScope model name (e.g. <code>qwen-plus</code>).
-            Leave empty when saving to use the environment default.
-          </p>
-        </label>
-
-        <div class="config-meta">
-          <p><strong>Active model:</strong> <span id="config-qwen-model-effective">—</span></p>
-          <p><strong>Environment default:</strong> <span id="config-qwen-model-env-default">—</span></p>
-        </div>
-
-        <div class="config-actions">
-          <button type="button" class="btn primary" id="btn-config-save-qwen">Save key</button>
-          <button type="button" class="btn primary" id="btn-config-save-qwen-model">Save model</button>
-          <button type="button" class="btn secondary" id="btn-config-test-qwen">Test API</button>
-          <button type="button" class="btn secondary" id="btn-config-clear-qwen">Clear saved key</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-qwen-model">Reset model to env default</button>
-        </div>
-
-        <div class="config-preview config-inworld-test-preview" id="config-qwen-test-wrap" hidden>
-          <span class="field-label">Test result</span>
-          <pre id="config-qwen-test-result" class="config-preview-json"></pre>
-        </div>
-
-        <p class="status-msg" id="config-qwen-save-status"></p>
-        <p class="error" id="config-qwen-error"></p>
-      </div>
-
-      <div class="cms-panel config-panel config-section-spaced">
-        <h2>OpenRouter (Buzz In AI feedback and transcription)</h2>
-        <p class="hint">
-          Paste your OpenRouter API key from
-          <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>.
-          Used for Buzz In AI feedback and the standalone <a href="/transcribe.html">Transcribe</a>
-          page. Buzz In uses Inworld STT when an Inworld key is configured; OpenRouter is the STT fallback.
-        </p>
-
-        <label class="field">
-          <span>OpenRouter API key</span>
-          <input
-            type="password"
-            id="config-openrouter-key"
-            placeholder="Paste key here"
-            autocomplete="off"
-          />
-          <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
-        </label>
-
-        <div class="config-meta">
-          <p><strong>Status:</strong> <span id="config-openrouter-status-label">—</span></p>
-          <p><strong>Active key:</strong> <span id="config-openrouter-masked">—</span></p>
-          <p class="hint" id="config-openrouter-env-hint" hidden>
-            Using <code>OPENROUTER_API_KEY</code> environment variable (no saved key).
-          </p>
-        </div>
-
-        <label class="field">
-          <span>Buzz In AI and transcription model</span>
-          <input
-            type="text"
-            id="config-openrouter-buzzin-model"
-            list="config-openrouter-buzzin-models"
-            placeholder="mistralai/voxtral-small-24b-2507"
-            autocomplete="off"
-          />
-          <datalist id="config-openrouter-buzzin-models">
-            <option value="mistralai/voxtral-small-24b-2507"></option>
-            <option value="xiaomi/mimo-v2.5"></option>
-          </datalist>
-          <p class="hint">
-            OpenRouter model slug for Buzz In AI feedback, the standalone transcribe page, and Buzz In STT fallback.
-          </p>
-        </label>
-
-        <div class="config-meta">
-          <p><strong>Active model:</strong> <span id="config-openrouter-buzzin-model-effective">—</span></p>
-          <p><strong>Environment default:</strong> <span id="config-openrouter-buzzin-model-env-default">—</span></p>
-        </div>
-
-        <label class="field">
-          <span>Course AI generate model</span>
-          <input
-            type="text"
-            id="config-openrouter-generate-model"
-            list="config-openrouter-generate-models"
-            placeholder="x-ai/grok-4.3"
-            autocomplete="off"
-          />
-          <datalist id="config-openrouter-generate-models">
-            <option value="x-ai/grok-4.3"></option>
-            <option value="x-ai/grok-4"></option>
-          </datalist>
-          <p class="hint">
-            OpenRouter model for CMS exercise generation and image-to-markdown conversion.
-          </p>
-        </label>
-
-        <div class="config-meta">
-          <p><strong>Active generate model:</strong> <span id="config-openrouter-generate-model-effective">—</span></p>
-          <p><strong>Environment default:</strong> <span id="config-openrouter-generate-model-env-default">—</span></p>
-        </div>
-
-        <div class="config-actions">
-          <button type="button" class="btn primary" id="btn-config-save-openrouter">Save key</button>
-          <button type="button" class="btn primary" id="btn-config-save-openrouter-model">Save Buzz In model</button>
-          <button type="button" class="btn primary" id="btn-config-save-openrouter-generate-model">Save generate model</button>
-          <button type="button" class="btn secondary" id="btn-config-test-openrouter">Test API</button>
-          <button type="button" class="btn secondary" id="btn-config-clear-openrouter">Clear saved key</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-openrouter-model">Reset Buzz In model</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-openrouter-generate-model">Reset generate model</button>
-        </div>
-
-        <div class="config-preview config-inworld-test-preview" id="config-openrouter-test-wrap" hidden>
-          <span class="field-label">Test result</span>
-          <pre id="config-openrouter-test-result" class="config-preview-json"></pre>
-        </div>
-
-        <p class="status-msg" id="config-openrouter-save-status"></p>
-        <p class="error" id="config-openrouter-error"></p>
-      </div>
-
-      <div class="cms-panel config-panel config-section-spaced">
-        <h2>Video generator API</h2>
-        <p class="hint">
-          LangoCMS video generation at
-          <code>https://newcms.lango.ai</code>.
-          Flow: <code>POST /api/video</code> with <code>{ "text": "..." }</code> (202 + <code>job_id</code>),
-          poll <code>GET /api/jobs/:id</code> until <code>completed</code>, then use absolute <code>video_url</code>.
-        </p>
-
-        <label class="field">
-          <span>API base URL</span>
-          <input
-            type="url"
-            id="config-video-generator-url"
-            placeholder="https://newcms.lango.ai"
-            autocomplete="off"
-          />
-          <p class="hint">No trailing slash. Override with env <code>VIDEO_GENERATOR_API_URL</code>.</p>
-        </label>
-
-        <div class="config-meta">
-          <p><strong>Active URL:</strong> <span id="config-video-generator-url-effective">—</span></p>
-          <p><strong>Environment default:</strong> <span id="config-video-generator-url-env-default">—</span></p>
-        </div>
-
-        <div class="config-actions">
-          <button type="button" class="btn primary" id="btn-config-save-video-generator-url">Save URL</button>
-          <button type="button" class="btn secondary" id="btn-config-reset-video-generator-url">Reset to env default</button>
-        </div>
-
-        <p class="status-msg" id="config-video-generator-save-status"></p>
-        <p class="error" id="config-video-generator-error"></p>
-      </div>
-
-      <div class="cms-panel config-panel config-section-spaced">
-        <h2>Student database</h2>
-        <p class="hint">
-          Local score history for semester leaderboards and exercise results.
-          Clearing removes all saved student profiles and score records for every class.
-        </p>
-
-        <div class="config-meta">
-          <p><strong>Student profiles:</strong> <span id="config-student-db-count">—</span></p>
-          <p><strong>Score records:</strong> <span id="config-student-db-records">—</span></p>
-        </div>
-
-        <div class="config-actions">
-          <button type="button" class="btn secondary cms-danger" id="btn-config-clear-student-db">
-            Clear all student database
-          </button>
-        </div>
-
-        <p class="status-msg" id="config-student-db-status"></p>
-        <p class="error" id="config-student-db-error"></p>
       </div>
     </section>
   </div>

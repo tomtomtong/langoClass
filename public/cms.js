@@ -15,7 +15,11 @@ const state = {
   aiMaterialText: "",
   aiDraftExercises: [],
   aiWizardStep: 1,
+  aiWizardMaxStep: 1,
   aiTemplate: "vocab",
+  aiCourseMode: false,
+  aiCoursePlan: null,
+  aiCourseResults: [],
   batchDraftResults: [],
   batchPreparedMaterials: {},
   dashboardClassId: null,
@@ -1014,6 +1018,18 @@ const AI_TEMPLATES = {
   video: { types: { video: 1 }, difficulty: "medium" },
 };
 
+const AI_CUSTOM_TYPE_KEYS = ["mcquiz", "fastmcquiz", "buzzin", "video"];
+
+function syncCustomTypeCountInputs(prefix = "cms-ai") {
+  for (const key of AI_CUSTOM_TYPE_KEYS) {
+    const checked = !!$(`#${prefix}-type-${key}`)?.checked;
+    const countEl = $(`#${prefix}-count-${key}`);
+    const row = countEl?.closest(".cms-ai-type-row");
+    if (countEl) countEl.disabled = !checked;
+    if (row) row.classList.toggle("is-disabled", !checked);
+  }
+}
+
 function aiWantsVideo(prefix = "cms-ai") {
   if (prefix === "cms-ai" && state.aiTemplate === "video") return true;
   return getAiTypeCounts(prefix).video > 0;
@@ -1036,13 +1052,35 @@ function syncAiWizardCopy() {
       ? "Paste or upload a lesson script. The video API will generate an avatar MP4 you can publish as a Video exercise."
       : "Upload a file, video, audio, or image, paste text, or provide a video URL. Images convert to markdown; audio and video are transcribed.";
   }
+  const courseToggle = $("#cms-ai-course-mode");
+  if (courseToggle) state.aiCourseMode = !!courseToggle.checked;
+  const planIntro = $("#cms-ai-plan-intro");
+  if (planIntro) {
+    planIntro.textContent = state.aiCourseMode
+      ? "Review the course plan. Every section uses the format you chose in Step 1."
+      : "Course plan is only used when “Generate entire course from this document” is enabled.";
+  }
+  const publishIntro = $("#cms-ai-publish-intro");
+  if (publishIntro) {
+    publishIntro.textContent = state.aiCourseMode
+      ? "Publishing creates or updates course sections from the plan and saves the course."
+      : "Publishing writes the selected exercises into this section and saves the course.";
+  }
+  const publishLabel = $("#cms-ai-publish-label");
+  if (publishLabel) {
+    publishLabel.textContent = state.aiCourseMode ? "Publish course" : "Publish to section";
+  }
 }
 
 function resetAiGeneratePanel() {
   state.aiMaterialText = "";
   state.aiDraftExercises = [];
   state.aiWizardStep = 1;
+  state.aiWizardMaxStep = 1;
   state.aiTemplate = "vocab";
+  state.aiCourseMode = false;
+  state.aiCoursePlan = null;
+  state.aiCourseResults = [];
   const preview = $("#cms-ai-material-preview");
   if (preview) {
     preview.value = "";
@@ -1050,10 +1088,13 @@ function resetAiGeneratePanel() {
   }
   if ($("#cms-ai-paste")) $("#cms-ai-paste").value = "";
   if ($("#cms-ai-video-url")) $("#cms-ai-video-url").value = "";
+  if ($("#cms-ai-course-mode")) $("#cms-ai-course-mode").checked = false;
   $("#cms-ai-extract-status") && ($("#cms-ai-extract-status").textContent = "");
   $("#cms-ai-generate-status") && ($("#cms-ai-generate-status").textContent = "");
   $("#cms-ai-error") && ($("#cms-ai-error").textContent = "");
   $("#cms-ai-preview") && ($("#cms-ai-preview").innerHTML = "");
+  $("#cms-ai-plan-list") && ($("#cms-ai-plan-list").innerHTML = "");
+  $("#cms-ai-plan-meta") && ($("#cms-ai-plan-meta").innerHTML = "");
   const videoLog = $("#cms-ai-video-log");
   if (videoLog) {
     videoLog.textContent = "";
@@ -1061,6 +1102,7 @@ function resetAiGeneratePanel() {
   }
   const fileInput = $("#cms-ai-file");
   if (fileInput) fileInput.value = "";
+  syncAiFileNameLabel();
   applyAiTemplate("vocab");
   setAiWizardStep(1);
 }
@@ -1076,22 +1118,70 @@ function applyAiTemplate(templateId) {
 
   const preset = AI_TEMPLATES[id];
   if (!preset) {
+    syncCustomTypeCountInputs();
     syncAiWizardCopy();
     return;
   }
-  $("#cms-ai-type-mcquiz") && ($("#cms-ai-type-mcquiz").checked = preset.types.mcquiz > 0);
-  $("#cms-ai-type-fastmcquiz") && ($("#cms-ai-type-fastmcquiz").checked = preset.types.fastmcquiz > 0);
-  $("#cms-ai-type-buzzin") && ($("#cms-ai-type-buzzin").checked = preset.types.buzzin > 0);
-  $("#cms-ai-type-video") && ($("#cms-ai-type-video").checked = preset.types.video > 0);
-  const counts = Object.values(preset.types).filter((count) => count > 0);
-  if ($("#cms-ai-count") && counts.length) $("#cms-ai-count").value = String(Math.max(...counts));
+  for (const key of AI_CUSTOM_TYPE_KEYS) {
+    const typeEl = $(`#cms-ai-type-${key}`);
+    const countEl = $(`#cms-ai-count-${key}`);
+    if (typeEl) typeEl.checked = (preset.types[key] || 0) > 0;
+    if (countEl) countEl.value = String(preset.types[key] || (key === "video" ? 1 : 3));
+  }
   if ($("#cms-ai-difficulty")) $("#cms-ai-difficulty").value = preset.difficulty;
+  syncCustomTypeCountInputs();
   syncAiWizardCopy();
 }
 
+function hasAiPreviewReady() {
+  return (state.aiDraftExercises || []).some((exercise) => (exercise.items || []).length > 0);
+}
+
+function renderAiPreviewStep() {
+  const drafts = state.aiDraftExercises || [];
+  if (!drafts.length) {
+    if (state.aiCourseMode && state.aiCourseResults?.length) {
+      renderAiCoursePreview(state.aiCourseResults);
+    }
+    return;
+  }
+  if (state.aiCourseMode && drafts.some((d) => d._courseKey != null || d._sectionTitle)) {
+    const container = $("#cms-ai-preview");
+    if (!container) return;
+    const map = new Map();
+    const keyOrder = [];
+    drafts.forEach((exercise, index) => {
+      const key = exercise._courseKey || String(exercise._courseGroup ?? index);
+      if (!map.has(key)) {
+        map.set(key, { title: exercise._sectionTitle || `Section ${keyOrder.length + 1}`, items: [] });
+        keyOrder.push(key);
+      }
+      map.get(key).items.push(exercise);
+    });
+    let cardIndex = 0;
+    container.innerHTML = keyOrder
+      .map((key) => {
+        const group = map.get(key);
+        const cards = group.items.map((exercise) => renderAiEditableCard(exercise, cardIndex++)).join("");
+        return `
+          <section class="cms-ai-course-preview-group">
+            <p class="cms-ai-course-preview-title">${escapeHtml(group.title)}</p>
+            ${cards}
+          </section>`;
+      })
+      .join("");
+    wireAiVideoPreviews();
+    return;
+  }
+  renderAiPreview(drafts);
+}
+
 function setAiWizardStep(step) {
-  const next = Math.max(1, Math.min(4, Number(step) || 1));
+  const next = Math.max(1, Math.min(5, Number(step) || 1));
+  const prev = state.aiWizardStep;
+  if (prev === 4 && next !== 4) collectAiDraftFromDom();
   state.aiWizardStep = next;
+  state.aiWizardMaxStep = Math.max(state.aiWizardMaxStep || 1, next);
   document.querySelectorAll(".cms-ai-step").forEach((btn) => {
     const n = Number(btn.dataset.step);
     const isCurrent = n === next;
@@ -1100,7 +1190,7 @@ function setAiWizardStep(step) {
     btn.classList.toggle("is-current", isCurrent);
     btn.classList.toggle("is-done", isDone);
     btn.classList.toggle("is-upcoming", isUpcoming);
-    btn.disabled = isUpcoming;
+    btn.disabled = n > state.aiWizardMaxStep;
     btn.setAttribute("aria-current", isCurrent ? "step" : "false");
   });
   document.querySelectorAll("[data-step-panel]").forEach((panel) => {
@@ -1111,22 +1201,32 @@ function setAiWizardStep(step) {
   const back = $("#btn-cms-ai-back");
   const nextBtn = $("#btn-cms-ai-next");
   const publish = $("#btn-cms-ai-publish");
+  const previewReady = hasAiPreviewReady();
   if (back) back.hidden = next === 1;
-  if (publish) publish.hidden = next !== 4;
+  if (publish) publish.hidden = next !== 5;
   if (nextBtn) {
-    nextBtn.hidden = next === 4;
-    nextBtn.textContent =
-      next === 2
-        ? isAiVideoOnly()
-          ? "Generate video"
-          : "Generate"
-        : next === 3
+    nextBtn.hidden = next === 5;
+    if (next === 2) {
+      nextBtn.textContent = state.aiCourseMode
+        ? "Build course plan"
+        : previewReady
           ? "Continue"
-          : "Next";
+          : isAiVideoOnly()
+            ? "Generate video"
+            : "Generate";
+    } else if (next === 3) {
+      nextBtn.textContent =
+        state.aiCourseMode && previewReady ? "Continue to preview" : state.aiCourseMode ? "Generate course" : "Continue";
+    } else if (next === 4) {
+      nextBtn.textContent = "Continue";
+    } else {
+      nextBtn.textContent = "Next";
+    }
   }
-  if (next === 1) syncAiWizardCopy();
-  if (next === 4) renderAiPublishSummary();
-}
+  if (next === 1 || next === 2) syncAiWizardCopy();
+  if (next === 3) renderAiCoursePlan();
+  if (next === 4) renderAiPreviewStep();
+  if (next === 5) renderAiPublishSummary();}
 
 function getAiMaterialText() {
   return (
@@ -1137,17 +1237,31 @@ function getAiMaterialText() {
   );
 }
 
+function readAiTypeCount(prefix, typeKey) {
+  const perType = $(`#${prefix}-count-${typeKey}`);
+  if (perType) {
+    return Math.max(1, Math.min(10, Number(perType.value) || 1));
+  }
+  return Math.max(1, Math.min(10, Number($(`#${prefix}-count`)?.value) || 3));
+}
+
 function getAiTypeCounts(prefix = "cms-ai") {
   if (prefix === "cms-ai" && state.aiTemplate && AI_TEMPLATES[state.aiTemplate]) {
-    return { ...AI_TEMPLATES[state.aiTemplate].types };
+    const presetTypes = { ...AI_TEMPLATES[state.aiTemplate].types };    return presetTypes;
   }
-  const count = Math.max(1, Math.min(10, Number($(`#${prefix}-count`)?.value) || 3));
+  const hasPerTypeInputs = !!$(`#${prefix}-count-mcquiz`);
   const types = {};
-  if ($(`#${prefix}-type-mcquiz`)?.checked) types.mcquiz = count;
-  if ($(`#${prefix}-type-fastmcquiz`)?.checked) types.fastmcquiz = count;
-  if ($(`#${prefix}-type-buzzin`)?.checked) types.buzzin = count;
-  if ($(`#${prefix}-type-video`)?.checked) types.video = 1;
-  return types;
+  if (hasPerTypeInputs) {
+    for (const key of AI_CUSTOM_TYPE_KEYS) {
+      if ($(`#${prefix}-type-${key}`)?.checked) types[key] = readAiTypeCount(prefix, key);
+    }
+  } else {
+    const count = Math.max(1, Math.min(10, Number($(`#${prefix}-count`)?.value) || 3));
+    if ($(`#${prefix}-type-mcquiz`)?.checked) types.mcquiz = count;
+    if ($(`#${prefix}-type-fastmcquiz`)?.checked) types.fastmcquiz = count;
+    if ($(`#${prefix}-type-buzzin`)?.checked) types.buzzin = count;
+    if ($(`#${prefix}-type-video`)?.checked) types.video = count;
+  }  return types;
 }
 
 function getAiGenerationSettings(prefix = "cms-ai") {
@@ -1156,7 +1270,355 @@ function getAiGenerationSettings(prefix = "cms-ai") {
     langCode: state.editingCourse?.langCode || "en",
     difficulty: preset?.difficulty || $(`#${prefix}-difficulty`)?.value || "medium",
     types: getAiTypeCounts(prefix),
+    template: state.aiTemplate || "custom",
   };
+}
+
+function aiFormatLabel(types, difficulty) {
+  const names = {
+    mcquiz: "MC Quiz",
+    fastmcquiz: "Fast MC Quiz",
+    buzzin: "Buzz in Question",
+    video: "Video",
+  };
+  const parts = Object.entries(types || {})
+    .filter(([, count]) => count > 0)
+    .map(([type, count]) => `${count} ${names[type] || type}`);
+  if (difficulty) parts.push(String(difficulty)[0].toUpperCase() + String(difficulty).slice(1));
+  return parts.join(" · ") || "No types";
+}
+
+function collectAiCoursePlanFromDom() {
+  if (!state.aiCoursePlan) return null;
+  const settings = getAiGenerationSettings();
+  const cards = [...document.querySelectorAll(".cms-ai-plan-card")];
+  const sections = cards.map((card, index) => {
+    const excerpt = card.querySelector(".cms-ai-plan-excerpt")?.value.trim() || "";
+    return {
+      key: card.dataset.planKey || String(index),
+      title: card.querySelector(".cms-ai-plan-title")?.value.trim() || `Section ${index + 1}`,
+      summary: card.querySelector(".cms-ai-plan-summary")?.value.trim() || "",
+      materialExcerpt: excerpt,
+      types: { ...settings.types },
+      difficulty: settings.difficulty,
+      included: Boolean(card.querySelector(".cms-ai-plan-include")?.checked) && !!excerpt,
+      warning: card.querySelector(".cms-ai-plan-warning")?.textContent || "",
+    };
+  });
+  state.aiCoursePlan = {
+    ...state.aiCoursePlan,
+    formatSource: "step1",
+    appliedTemplate: settings.template,
+    appliedTypes: { ...settings.types },
+    appliedDifficulty: settings.difficulty,
+    formatLabel: aiFormatLabel(settings.types, settings.difficulty),
+    courseTitle:
+      $("#cms-ai-plan-course-title")?.value.trim() ||
+      state.aiCoursePlan.courseTitle ||
+      "Course",
+    sections,
+  };
+  return state.aiCoursePlan;
+}
+
+function renderAiCoursePlan() {
+  const list = $("#cms-ai-plan-list");
+  const meta = $("#cms-ai-plan-meta");
+  if (!list || !meta) return;
+
+  const plan = state.aiCoursePlan;
+  if (!plan?.sections?.length) {
+    meta.innerHTML = "";
+    list.innerHTML = `<div class="cms-empty"><p class="cms-empty-title">No course plan yet</p><p class="cms-empty-copy">Enable course mode on Material, prepare a document, then build the plan.</p></div>`;
+    return;
+  }
+
+  const formatText = plan.formatLabel || aiFormatLabel(plan.appliedTypes, plan.appliedDifficulty);
+  meta.innerHTML = `
+    <span><strong>Format locked:</strong> ${escapeHtml(formatText)}</span>
+    <span><strong>Planner:</strong> ${escapeHtml(plan.planner || "headings")}</span>
+    <span><strong>Sections:</strong> ${plan.sections.length}</span>
+    <label class="field cms-ai-field">
+      <span>Course title</span>
+      <input type="text" id="cms-ai-plan-course-title" value="${escapeHtml(plan.courseTitle || "")}" />
+    </label>`;
+
+  list.innerHTML = plan.sections
+    .map((section, index) => {
+      const chars = String(section.materialExcerpt || "").length;
+      return `
+      <article class="cms-ai-plan-card ${section.included === false ? "is-excluded" : ""}" data-plan-index="${index}" data-plan-key="${escapeHtml(section.key || String(index))}">
+        <div class="cms-ai-plan-card-head">
+          <input type="checkbox" class="cms-ai-plan-include" ${section.included === false ? "" : "checked"} aria-label="Include section" />
+          <input type="text" class="cms-ai-plan-title" value="${escapeHtml(section.title || "")}" placeholder="Section title" />
+          <span class="cms-ai-plan-format">${escapeHtml(formatText)}</span>
+        </div>
+        <input type="text" class="cms-ai-plan-summary" value="${escapeHtml(section.summary || "")}" placeholder="Short summary (optional)" />
+        <textarea class="cms-ai-textarea cms-ai-plan-excerpt" rows="4" placeholder="Material for this section…">${escapeHtml(section.materialExcerpt || "")}</textarea>
+        <p class="hint">${chars} characters</p>
+        ${section.warning ? `<p class="cms-ai-plan-warning">${escapeHtml(section.warning)}</p>` : ""}
+      </article>`;
+    })
+    .join("");
+}
+
+async function analyzeAiCoursePlan() {
+  const statusEl = $("#cms-ai-generate-status");
+  const errorEl = $("#cms-ai-error");
+  const btn = $("#btn-cms-ai-next");
+  if (!statusEl || !errorEl) return false;
+
+  let material = getAiMaterialText();
+  const settings = getAiGenerationSettings();
+  errorEl.textContent = "";
+
+  if (!material) {
+    const file = $("#cms-ai-file")?.files?.[0];
+    const pasted = $("#cms-ai-paste")?.value.trim();
+    const videoUrl = $("#cms-ai-video-url")?.value.trim();
+    if (file || pasted || videoUrl) {
+      const prepared = await extractAiMaterial({ forCourse: true });
+      if (!prepared) return false;
+      material = getAiMaterialText();
+    }
+  }
+  if (!material) {
+    errorEl.textContent = "Prepare or paste a course document first.";
+    return false;
+  }
+  if (!Object.keys(settings.types).length) {
+    errorEl.textContent = "Pick a template or at least one custom exercise type.";
+    return false;
+  }
+
+  statusEl.textContent = "Building course plan…";
+  if (btn) btn.disabled = true;
+  try {
+    const data = await api("/api/cms/analyze-course-material", {
+      method: "POST",
+      body: {
+        material,
+        langCode: settings.langCode,
+        difficulty: settings.difficulty,
+        types: settings.types,
+        template: settings.template,
+      },
+    });
+    state.aiCoursePlan = data.plan;
+    state.aiCourseResults = [];
+    renderAiCoursePlan();
+    statusEl.textContent = data.usedLlm
+      ? `Plan ready (${data.plan.sections.length} section(s)). Format locked from Step 1.`
+      : `Plan ready from headings (${data.plan.sections.length} section(s)). Format locked from Step 1.`;
+    return true;
+  } catch (err) {
+    statusEl.textContent = "";
+    errorEl.textContent = err.message;
+    return false;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function generateCourseFromPlan() {
+  const statusEl = $("#cms-ai-generate-status");
+  const errorEl = $("#cms-ai-error");
+  const btn = $("#btn-cms-ai-next");
+  if (!statusEl || !errorEl) return false;
+
+  const settings = getAiGenerationSettings();
+  const plan = collectAiCoursePlanFromDom();
+  errorEl.textContent = "";
+
+  if (!plan?.sections?.some((section) => section.included)) {
+    errorEl.textContent = "Include at least one section with material.";
+    return false;
+  }
+
+  statusEl.textContent = "Generating course exercises…";
+  if (btn) btn.disabled = true;
+
+  try {
+    const data = await api("/api/cms/generate-course-from-plan", {
+      method: "POST",
+      body: {
+        plan,
+        langCode: settings.langCode,
+        difficulty: settings.difficulty,
+        types: settings.types,
+        template: settings.template,
+      },
+    });
+
+    state.aiCoursePlan = data.plan || plan;
+    const videoCount = Number(data.videoCount) || settings.types.video || 0;
+    const results = [];
+
+    for (let i = 0; i < (data.results || []).length; i++) {
+      const entry = data.results[i];
+      statusEl.textContent = `Section ${i + 1}/${data.results.length}: ${entry.sectionTitle || "Untitled"}…`;
+      const exercises = [...(entry.exercises || [])].map((exercise) => ({
+        ...exercise,
+        included: true,
+      }));
+
+      if (entry.ok && videoCount > 0) {
+        for (let v = 0; v < videoCount; v++) {
+          statusEl.textContent = `Section ${i + 1}: generating video ${v + 1}/${videoCount}…`;
+          try {
+            const videoExercise = await createAiVideoExercise(entry.material || "", {
+              onUpdate: (job) => {
+                if (job.status) {
+                  statusEl.textContent = `Section ${i + 1} video ${v + 1}/${videoCount}: ${job.status}`;
+                }
+              },
+            });
+            videoExercise.title =
+              videoCount > 1
+                ? `${entry.sectionTitle || "Lesson"} video ${v + 1}`
+                : `${entry.sectionTitle || "Lesson"} video`;
+            videoExercise.included = true;
+            exercises.push(videoExercise);
+          } catch (videoErr) {
+            entry.message = entry.message
+              ? `${entry.message}; video: ${videoErr.message}`
+              : `video: ${videoErr.message}`;
+          }
+        }
+      }
+
+      results.push({
+        ...entry,
+        exercises,
+        ok: entry.ok || exercises.length > 0,
+      });
+    }
+
+    state.aiCourseResults = results;
+    renderAiCoursePreview(results);
+    const stats = data.stats || {};
+    statusEl.textContent = `Done: ${stats.succeeded || 0} section(s) generated, ${stats.failed || 0} failed. Review below.`;
+    return results.some((entry) => entry.ok && entry.exercises?.length);
+  } catch (err) {
+    statusEl.textContent = "";
+    errorEl.textContent = err.message;
+    return false;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function renderAiCoursePreview(results) {
+  const container = $("#cms-ai-preview");
+  if (!container) return;
+  const groups = (results || []).filter((entry) => entry.ok && entry.exercises?.length);
+  if (!groups.length) {
+    container.innerHTML = `<div class="cms-empty"><p class="cms-empty-title">No course exercises yet</p><p class="cms-empty-copy">Go back and generate from the approved plan.</p></div>`;
+    return;
+  }
+
+  let globalIndex = 0;
+  const flat = [];
+  container.innerHTML = groups
+    .map((entry, groupIndex) => {
+      const cards = (entry.exercises || [])
+        .map((exercise) => {
+          const index = globalIndex++;
+          flat.push({
+            ...exercise,
+            included: exercise.included !== false,
+            _courseGroup: groupIndex,
+            _courseKey: entry.key,
+            _sectionTitle: entry.sectionTitle,
+          });
+          return renderAiEditableCard(exercise, index);
+        })
+        .join("");
+      return `
+        <section class="cms-ai-course-preview-group" data-course-group="${groupIndex}" data-course-key="${escapeHtml(entry.key || "")}">
+          <p class="cms-ai-course-preview-title">${escapeHtml(entry.sectionTitle || `Section ${groupIndex + 1}`)}</p>
+          ${cards}
+        </section>`;
+    })
+    .join("");
+  state.aiDraftExercises = flat;
+  wireAiVideoPreviews();
+}
+
+function selectedAiCourseGroups() {
+  collectAiDraftFromDom();
+  const groups = new Map();
+  (state.aiDraftExercises || []).forEach((exercise, index) => {
+    if (exercise.included === false) return;
+    const valid =
+      exercise.type === "video"
+        ? exercise.items.some((item) => item.videoUrl)
+        : exercise.type === "buzzin"
+          ? exercise.items.some((item) => item.topic)
+          : exercise.items.some((item) => item.title && (item.options || []).length >= 2);
+    if (!valid) return;
+    const key = exercise._courseKey || `g-${exercise._courseGroup ?? 0}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        sectionTitle: exercise._sectionTitle || `Section ${(exercise._courseGroup ?? 0) + 1}`,
+        exercises: [],
+      });
+    }
+    const { included: _included, _courseGroup, _courseKey, _sectionTitle, ...rest } = exercise;
+    groups.get(key).exercises.push(rest);
+  });
+  return [...groups.values()];
+}
+
+async function publishAiCourse() {
+  const errorEl = $("#cms-ai-error");
+  const statusEl = $("#cms-ai-generate-status");
+  const btn = $("#btn-cms-ai-publish");
+  if (!errorEl || !statusEl || !btn) return;
+
+  errorEl.textContent = "";
+  const groups = selectedAiCourseGroups();
+  if (!groups.length) {
+    errorEl.textContent = "Keep at least one exercise before publishing the course.";
+    return;
+  }
+
+  syncSectionsMetadataFromDom();
+  let applied = 0;
+  for (const group of groups) {
+    let sectionIndex = state.sections.findIndex(
+      (section) => section.title?.trim() === group.sectionTitle?.trim()
+    );
+    if (sectionIndex < 0) {
+      state.sections.push(defaultSection(group.sectionTitle));
+      sectionIndex = state.sections.length - 1;
+    }
+    const section = state.sections[sectionIndex];
+    if (!section.exercises) section.exercises = [];
+    group.exercises.forEach((exercise) => {
+      section.exercises.push({
+        ...exercise,
+        order: section.exercises.length + 1,
+      });
+      applied += 1;
+    });
+  }
+
+  await saveCourseStructure({
+    errorEl,
+    statusEl,
+    btn,
+    successMessage: `Published ${applied} exercise(s) across ${groups.length} section(s).`,
+  });
+  if (!errorEl.textContent) {
+    $("#cms-exercises-status").textContent = `Published course: ${groups.length} section(s), ${applied} exercise(s).`;
+    state.editingSectionIndex = null;
+    $("#cms-sections-view").hidden = false;
+    $("#cms-exercises-view").hidden = true;
+    renderSectionEditors();
+    resetAiGeneratePanel();
+  }
 }
 
 function downloadJsonFile(filename, data) {
@@ -1169,11 +1631,12 @@ function downloadJsonFile(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-async function extractMaterialRequest({ file, pasted, videoUrl, language }) {
+async function extractMaterialRequest({ file, pasted, videoUrl, language, maxChars }) {
   if (file) {
     const form = new FormData();
     form.append("file", file);
     form.append("language", language || state.editingCourse?.langCode || "en");
+    if (maxChars) form.append("maxChars", String(maxChars));
     const headers = { Accept: "application/json" };
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
     headers["X-Teacher-Id"] = String(state.user?.id || "");
@@ -1195,6 +1658,7 @@ async function extractMaterialRequest({ file, pasted, videoUrl, language }) {
       text: pasted || undefined,
       videoUrl: videoUrl || undefined,
       language: language || state.editingCourse?.langCode || "en",
+      maxChars: maxChars || undefined,
     },
   });
 }
@@ -1665,9 +2129,15 @@ function renderAiEditableCard(exercise, index) {
 function renderAiEditableItem(type, item, exerciseIndex, itemIndex) {
   if (type === "buzzin") {
     return `
-      <div class="cms-ai-item-block" data-item-index="${itemIndex}">
-        <input type="text" class="cms-ai-item-input" data-field="topic" value="${escapeHtml(item.topic || "")}" placeholder="Speaking prompt" />
-        <input type="text" class="cms-ai-item-input" data-field="correctAnswer" value="${escapeHtml(item.correctAnswer || "")}" placeholder="Acceptable answer rubric" />
+      <div class="cms-ai-item-block cms-ai-buzzin-block" data-item-index="${itemIndex}">
+        <label class="field cms-ai-field">
+          <span>Question</span>
+          <input type="text" class="cms-ai-item-input" data-field="topic" value="${escapeHtml(item.topic || "")}" placeholder="What should the student answer aloud?" />
+        </label>
+        <label class="field cms-ai-field">
+          <span>Expected answer</span>
+          <input type="text" class="cms-ai-item-input" data-field="correctAnswer" value="${escapeHtml(item.correctAnswer || "")}" placeholder="Acceptable answer rubric for AI scoring" />
+        </label>
         <div class="cms-ai-item-toolbar">
           <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-item">Remove</button>
         </div>
@@ -1708,6 +2178,7 @@ function collectAiDraftFromDom() {
     const type = card.dataset.type || "mcquiz";
     const included = Boolean(card.querySelector(".cms-ai-select")?.checked);
     const title = card.querySelector(".cms-ai-edit-title")?.value.trim() || exerciseTypeShortLabel(type);
+    const previous = state.aiDraftExercises?.[Number(card.dataset.aiIndex)];
     const items = [];
     card.querySelectorAll(".cms-ai-item-block").forEach((block) => {
       if (type === "video") return;
@@ -1745,6 +2216,9 @@ function collectAiDraftFromDom() {
       subTitle: exerciseSubTitleForType(type),
       items,
       included,
+      _courseGroup: previous?._courseGroup,
+      _courseKey: previous?._courseKey,
+      _sectionTitle: previous?._sectionTitle,
     });
   });
   state.aiDraftExercises = exercises;
@@ -1754,6 +2228,29 @@ function collectAiDraftFromDom() {
 function renderAiPublishSummary() {
   const summary = $("#cms-ai-publish-summary");
   if (!summary) return;
+
+  if (state.aiCourseMode) {
+    const groups = selectedAiCourseGroups();
+    const itemCount = groups.reduce(
+      (sum, group) => sum + group.exercises.reduce((n, exercise) => n + (exercise.items?.length || 0), 0),
+      0
+    );
+    if (!groups.length) {
+      summary.innerHTML = `<p>No course exercises selected. Go back to Preview and include at least one.</p>`;
+      return;
+    }
+    const lines = groups
+      .map(
+        (group) =>
+          `<li>${escapeHtml(group.sectionTitle)} — ${group.exercises.length} exercise(s)</li>`
+      )
+      .join("");
+    summary.innerHTML = `
+      <p>${groups.length} section(s), ${itemCount} item(s) will be saved into the course.</p>
+      <ul>${lines}</ul>`;
+    return;
+  }
+
   const drafts = collectAiDraftFromDom();
   const selected = drafts.filter((exercise) => exercise.included !== false);
   const itemCount = selected.reduce((sum, exercise) => sum + (exercise.items?.length || 0), 0);
@@ -1772,7 +2269,20 @@ function renderAiPublishSummary() {
     <ul>${lines}</ul>`;
 }
 
-async function extractAiMaterial() {
+function syncAiFileNameLabel() {
+  const input = $("#cms-ai-file");
+  const label = $("#cms-ai-file-name");
+  const file = input?.files?.[0];  if (!label) return;
+  if (!file) {
+    label.hidden = true;
+    label.textContent = "";
+    return;
+  }
+  label.hidden = false;
+  label.textContent = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+}
+
+async function extractAiMaterial(options = {}) {
   const statusEl = $("#cms-ai-extract-status");
   const errorEl = $("#cms-ai-error");
   const previewEl = $("#cms-ai-material-preview");
@@ -1787,7 +2297,6 @@ async function extractAiMaterial() {
     const file = $("#cms-ai-file")?.files?.[0];
     const pasted = $("#cms-ai-paste")?.value.trim();
     const videoUrl = $("#cms-ai-video-url")?.value.trim();
-
     if (!file && !pasted && !videoUrl) {
       throw new Error("Paste text, upload a file, or provide a video URL.");
     }
@@ -1797,6 +2306,7 @@ async function extractAiMaterial() {
       pasted,
       videoUrl,
       language: state.editingCourse?.langCode || "en",
+      maxChars: options.forCourse || state.aiCourseMode ? 40000 : undefined,
     });
 
     state.aiMaterialText = data.text || "";
@@ -1811,12 +2321,10 @@ async function extractAiMaterial() {
       statusEl.textContent += " Audio transcribed.";
     } else if (data.source === "image") {
       statusEl.textContent += " Image converted to markdown.";
-    }
-    return true;
+    }    return true;
   } catch (err) {
     statusEl.textContent = "";
-    errorEl.textContent = err.message;
-    return false;
+    errorEl.textContent = err.message;    return false;
   } finally {
     btn.disabled = false;
   }
@@ -1929,19 +2437,29 @@ async function generateAiExercises() {
     }
 
     if (wantsVideo) {
-      statusEl.textContent = "Generating video… this can take a few minutes.";
-      const videoExercise = await createAiVideoExercise(material, {
-        onUpdate: (data) => {
-          if (data.status) {
-            statusEl.textContent = `Video: ${data.status}${
-              data.segmentsDone && data.segmentCount
-                ? ` (${data.segmentsDone}/${data.segmentCount})`
-                : ""
-            }`;
-          }
-        },
-      });
-      exercises.push(videoExercise);
+      const videoCount = getAiTypeCounts().video || 1;
+      const section = state.sections[state.editingSectionIndex];
+      const sectionTitle = section?.title?.trim() || "Lesson";
+      for (let i = 0; i < videoCount; i++) {
+        statusEl.textContent =
+          videoCount > 1
+            ? `Generating video ${i + 1} of ${videoCount}… this can take a few minutes.`
+            : "Generating video… this can take a few minutes.";
+        const videoExercise = await createAiVideoExercise(material, {
+          onUpdate: (data) => {
+            if (data.status) {
+              const prefix = videoCount > 1 ? `Video ${i + 1}/${videoCount}: ` : "Video: ";
+              statusEl.textContent = `${prefix}${data.status}${
+                data.segmentsDone && data.segmentCount
+                  ? ` (${data.segmentsDone}/${data.segmentCount})`
+                  : ""
+              }`;
+            }
+          },
+        });
+        if (videoCount > 1) videoExercise.title = `${sectionTitle} video ${i + 1}`;
+        exercises.push(videoExercise);
+      }
     }
 
     state.aiDraftExercises = exercises;
@@ -1997,6 +2515,10 @@ function addAiExercisesToSection() {
 }
 
 async function publishAiExercises() {
+  if (state.aiCourseMode) {
+    await publishAiCourse();
+    return;
+  }
   const errorEl = $("#cms-ai-error");
   const statusEl = $("#cms-ai-generate-status");
   const btn = $("#btn-cms-ai-publish");
@@ -2022,10 +2544,10 @@ async function handleAiWizardNext() {
   const errorEl = $("#cms-ai-error");
   if (errorEl) errorEl.textContent = "";
   const step = state.aiWizardStep;
+  state.aiCourseMode = !!$("#cms-ai-course-mode")?.checked;
 
   if (step === 1) {
-    const types = getAiTypeCounts();
-    if (!Object.keys(types).length) {
+    const types = getAiTypeCounts();    if (!Object.keys(types).length) {
       errorEl.textContent = "Pick a template or at least one custom exercise type.";
       return;
     }
@@ -2034,24 +2556,60 @@ async function handleAiWizardNext() {
   }
 
   if (step === 2) {
+    if (state.aiCourseMode) {
+      const ok = await analyzeAiCoursePlan();
+      if (ok) setAiWizardStep(3);
+      return;
+    }
+    if (hasAiPreviewReady()) {
+      renderAiPreviewStep();
+      setAiWizardStep(4);
+      return;
+    }
     const ok = await generateAiExercises();
-    if (ok) setAiWizardStep(3);
+    if (ok) setAiWizardStep(4);
     return;
   }
 
   if (step === 3) {
-    const picks = selectedAiExercises();
-    if (!picks.length) {
-      errorEl.textContent = "Keep at least one exercise, or go back and generate again.";
+    if (!state.aiCourseMode) {
+      setAiWizardStep(4);
       return;
     }
-    setAiWizardStep(4);
+    if (hasAiPreviewReady()) {
+      renderAiPreviewStep();
+      setAiWizardStep(4);
+      return;
+    }
+    const ok = await generateCourseFromPlan();
+    if (ok) setAiWizardStep(4);
+    return;
+  }
+
+  if (step === 4) {
+    if (state.aiCourseMode) {
+      const groups = selectedAiCourseGroups();
+      if (!groups.length) {
+        errorEl.textContent = "Keep at least one exercise, or go back and generate again.";
+        return;
+      }
+    } else {
+      const picks = selectedAiExercises();
+      if (!picks.length) {
+        errorEl.textContent = "Keep at least one exercise, or go back and generate again.";
+        return;
+      }
+    }
+    setAiWizardStep(5);
   }
 }
 
 function handleAiWizardBack() {
   $("#cms-ai-error").textContent = "";
-  setAiWizardStep(state.aiWizardStep - 1);
+  state.aiCourseMode = !!$("#cms-ai-course-mode")?.checked;
+  let target = state.aiWizardStep - 1;
+  if (!state.aiCourseMode && target === 3) target = 2;
+  setAiWizardStep(target);
 }
 
 function defaultAiItem(type) {
@@ -2507,17 +3065,19 @@ function defaultSection(title) {
 function updateSectionBannerPreview(sectionCard, url) {
   const preview = sectionCard.querySelector(".cms-section-thumbnail-preview");
   const img = sectionCard.querySelector(".cms-section-banner-img");
+  const removeBtn = sectionCard.querySelector(".cms-remove-section-banner");
   const bannerUrl = (url || "").trim();
   if (!preview || !img) return;
 
   if (bannerUrl) {
     img.src = bannerUrl;
     preview.hidden = false;
+    if (removeBtn) removeBtn.hidden = false;
   } else {
     img.src = CMS_EMPTY_COVER;
     preview.hidden = true;
-  }
-}
+    if (removeBtn) removeBtn.hidden = true;
+  }}
 
 async function uploadSectionBannerFile(sectionId, file) {
   if (!state.editingCourse) throw new Error("No course selected.");
@@ -4042,6 +4602,14 @@ $("#cms-exercise-composer")?.addEventListener("click", (event) => {
 $("#btn-back-sections").addEventListener("click", () => closeSectionExercises());
 $("#btn-save-sections").addEventListener("click", saveSections);
 $("#btn-save-exercises").addEventListener("click", saveExercises);
+$("#cms-ai-file")?.addEventListener("change", () => {
+  syncAiFileNameLabel();
+  const statusEl = $("#cms-ai-extract-status");
+  const file = $("#cms-ai-file")?.files?.[0];
+  if (statusEl && file) {
+    statusEl.textContent = `Selected ${file.name}. Click Prepare material to extract text.`;
+  }
+});
 $("#btn-cms-ai-extract")?.addEventListener("click", extractAiMaterial);
 $("#btn-cms-ai-next")?.addEventListener("click", handleAiWizardNext);
 $("#btn-cms-ai-back")?.addEventListener("click", handleAiWizardBack);
@@ -4056,6 +4624,7 @@ $("#cms-ai-wizard")?.addEventListener("change", (event) => {
       const custom = $("#cms-ai-custom-settings");
       if (custom) custom.hidden = false;
     }
+    syncCustomTypeCountInputs();
     syncAiWizardCopy();
     if (state.aiWizardStep === 2) {
       const nextBtn = $("#btn-cms-ai-next");
@@ -4072,11 +4641,69 @@ $("#cms-ai-wizard")?.addEventListener("click", (event) => {
   const stepBtn = event.target.closest(".cms-ai-step");
   if (stepBtn) {
     const target = Number(stepBtn.dataset.step);
-    if (stepBtn.disabled || target > state.aiWizardStep) return;
+    if (stepBtn.disabled || target > state.aiWizardMaxStep) return;
     setAiWizardStep(target);
     return;
   }
   handleAiPreviewClick(event);
+});
+$("#cms-ai-course-mode")?.addEventListener("change", () => {
+  state.aiCourseMode = !!$("#cms-ai-course-mode")?.checked;
+  syncAiWizardCopy();
+  if (state.aiWizardStep === 2 || state.aiWizardStep === 3) setAiWizardStep(state.aiWizardStep);
+});
+$("#btn-cms-ai-export-plan")?.addEventListener("click", () => {
+  try {
+    const plan = collectAiCoursePlanFromDom() || state.aiCoursePlan;
+    if (!plan) throw new Error("No course plan to export.");
+    downloadJsonFile(`course-plan-${Date.now()}.json`, plan);
+  } catch (err) {
+    $("#cms-ai-error").textContent = err.message;
+  }
+});
+$("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const settings = getAiGenerationSettings();
+    const sections = Array.isArray(parsed?.sections) ? parsed.sections : [];
+    if (!sections.length) throw new Error("Plan JSON has no sections.");
+    state.aiCourseMode = true;
+    if ($("#cms-ai-course-mode")) $("#cms-ai-course-mode").checked = true;
+    state.aiCoursePlan = {
+      formatSource: "step1",
+      appliedTemplate: settings.template,
+      appliedTypes: { ...settings.types },
+      appliedDifficulty: settings.difficulty,
+      formatLabel: aiFormatLabel(settings.types, settings.difficulty),
+      courseTitle: parsed.courseTitle || "Course",
+      planner: parsed.planner || "import",
+      notes: parsed.notes || "",
+      sections: sections.map((section, index) => ({
+        key: String(section.key ?? index),
+        title: section.title || `Section ${index + 1}`,
+        summary: section.summary || "",
+        materialExcerpt: section.materialExcerpt || section.material || "",
+        types: { ...settings.types },
+        difficulty: settings.difficulty,
+        included: section.included !== false,
+        warning: section.warning || "",
+      })),
+    };
+    setAiWizardStep(3);
+    renderAiCoursePlan();
+    $("#cms-ai-generate-status").textContent = "Imported course plan. Format locked from Step 1.";
+  } catch (err) {
+    $("#cms-ai-error").textContent = err.message;
+  }
+});
+$("#cms-ai-plan-list")?.addEventListener("change", (event) => {
+  if (!event.target.matches(".cms-ai-plan-include")) return;
+  const card = event.target.closest(".cms-ai-plan-card");
+  if (card) card.classList.toggle("is-excluded", !event.target.checked);
 });
 $("#btn-cms-ai-export-json")?.addEventListener("click", async () => {
   try {
