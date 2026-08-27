@@ -3596,6 +3596,8 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
     return res.status(400).json({ message: "Material text is required." });
   }
 
+  const instructions = String(req.body?.instructions || "").trim();
+
   try {
     const result = await exerciseGenerator.generateExercisesFromMaterial(
       {
@@ -3604,6 +3606,7 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
         difficulty: String(req.body?.difficulty || "medium").trim(),
         types: req.body?.types,
         countPerType: req.body?.countPerType,
+        instructions,
         model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
         apiKey: getOpenRouterApiKey(),
       },
@@ -3645,6 +3648,7 @@ app.post("/api/cms/batch-generate-exercises", async (req, res) => {
     difficulty: String(req.body?.difficulty || "medium").trim(),
     types: req.body?.types,
     countPerType: req.body?.countPerType,
+    instructions: String(req.body?.instructions || "").trim(),
     model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
     apiKey: getOpenRouterApiKey(),
   };
@@ -3717,6 +3721,8 @@ app.post("/api/cms/analyze-course-material", async (req, res) => {
     return res.status(400).json({ message: "Material text is required." });
   }
 
+  const instructions = String(req.body?.instructions || "").trim();
+
   const types = coursePlan.lockTypes(req.body?.types);
   if (!Object.keys(types).length) {
     return res.status(400).json({ message: "Pick a format with at least one exercise type first." });
@@ -3731,6 +3737,7 @@ app.post("/api/cms/analyze-course-material", async (req, res) => {
         difficulty: req.body?.difficulty,
         template: req.body?.template,
         langCode: String(req.body?.langCode || "en").trim(),
+        instructions,
         model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
         apiKey: getOpenRouterApiKey(),
       },
@@ -3782,6 +3789,8 @@ app.post("/api/cms/generate-course-from-plan", async (req, res) => {
     });
   }
 
+  const instructions = String(req.body?.instructions || "").trim();
+
   const jobs = coursePlan.jobsFromPlan(locked, format);
   const results = [];
 
@@ -3811,6 +3820,7 @@ app.post("/api/cms/generate-course-from-plan", async (req, res) => {
           langCode: String(req.body?.langCode || "en").trim(),
           difficulty: locked.appliedDifficulty,
           types: llmTypes,
+          instructions,
           model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
           apiKey: getOpenRouterApiKey(),
         },

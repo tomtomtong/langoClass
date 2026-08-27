@@ -115,7 +115,6 @@ function openAiGeneratePath(mode) {
   state.aiWizardActive = true;
   state.aiCourseMode = mode === "course";
   state.aiGenSummary = null;
-  if ($("#cms-ai-course-mode")) $("#cms-ai-course-mode").checked = state.aiCourseMode;
   const chooser = $("#cms-ai-entry-chooser");
   const wizard = $("#cms-ai-wizard");
   if (chooser) chooser.hidden = true;
@@ -127,29 +126,13 @@ function openAiGeneratePath(mode) {
 }
 
 function syncAiCourseModeUi() {
-  const toggleWrap = $("#cms-ai-course-toggle-wrap");
-  const hint = $("#cms-ai-course-hint");
-  const badge = $("#cms-ai-mode-badge");
-  if (toggleWrap) toggleWrap.hidden = false;
-  if (hint) hint.hidden = false;
-  if (badge) {
-    if (!state.aiWizardActive) {
-      badge.hidden = true;
-      badge.textContent = "";
-    } else {
-      badge.hidden = false;
-      badge.textContent = state.aiCourseMode
-        ? "Full course mode — document will be split into sections"
-        : "This section only — exercises will be added here";
-    }
-  }
+  updateAiWizardSummary();
 }
 
 function setAiWizardBusy(busy, message) {
   state.aiWizardBusy = busy;
   const back = $("#btn-cms-ai-back");
   const next = $("#btn-cms-ai-next");
-  const extract = $("#btn-cms-ai-extract");
   const changePath = $("#btn-cms-ai-change-path");
   if (back) back.disabled = busy;
   if (next) {
@@ -158,7 +141,6 @@ function setAiWizardBusy(busy, message) {
     if (busy) next.setAttribute("aria-busy", "true");
     else next.removeAttribute("aria-busy");
   }
-  if (extract) extract.disabled = busy;
   if (changePath) changePath.disabled = busy;
   document.querySelectorAll(".cms-ai-step").forEach((btn) => {
     const n = Number(btn.dataset.step);
@@ -170,20 +152,78 @@ function setAiWizardBusy(busy, message) {
   }
 }
 
+let aiGenProgressTicker = null;
+
+function stopAiGenProgressTicker() {
+  if (aiGenProgressTicker) {
+    clearInterval(aiGenProgressTicker);
+    aiGenProgressTicker = null;
+  }
+}
+
+function setAiGenProgress(percent, label) {
+  const wrap = $("#cms-ai-gen-progress");
+  const bar = $("#cms-ai-gen-progress-bar");
+  const track = wrap?.querySelector("[role=progressbar]");
+  const labelEl = $("#cms-ai-gen-progress-label");
+  const statusEl = $("#cms-ai-generate-status");
+  if (!wrap || !bar) return;
+  const value = Math.max(0, Math.min(100, Math.round(percent)));
+  wrap.hidden = false;
+  bar.style.width = `${value}%`;
+  track?.setAttribute("aria-valuenow", String(value));
+  track?.setAttribute("aria-valuetext", `${value}%`);
+  wrap.classList.toggle("is-complete", value >= 100);
+  if (label) {
+    if (labelEl) labelEl.textContent = label;
+    if (statusEl) statusEl.textContent = label;
+  }
+}
+
+function resetAiGenProgress() {
+  stopAiGenProgressTicker();
+  const wrap = $("#cms-ai-gen-progress");
+  const bar = $("#cms-ai-gen-progress-bar");
+  const labelEl = $("#cms-ai-gen-progress-label");
+  const track = wrap?.querySelector("[role=progressbar]");
+  if (bar) bar.style.width = "0%";
+  track?.setAttribute("aria-valuenow", "0");
+  track?.setAttribute("aria-valuetext", "0%");
+  if (labelEl) labelEl.textContent = "";
+  if (wrap) {
+    wrap.hidden = true;
+    wrap.classList.remove("is-complete");
+  }
+}
+
+function startAiGenProgressTicker(from, to, durationMs = 60000) {
+  stopAiGenProgressTicker();
+  const start = Date.now();
+  aiGenProgressTicker = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / durationMs);
+    const value = Math.round(from + (to - from) * t);
+    const bar = $("#cms-ai-gen-progress-bar");
+    const track = $("#cms-ai-gen-progress")?.querySelector("[role=progressbar]");
+    if (bar) bar.style.width = `${value}%`;
+    track?.setAttribute("aria-valuenow", String(value));
+    track?.setAttribute("aria-valuetext", `${value}%`);
+    if (t >= 1) stopAiGenProgressTicker();
+  }, 120);
+}
+
 function updateAiWizardSummary() {
   const el = $("#cms-ai-wizard-summary");
   if (!el) return;
-  const stepMeta = AI_WIZARD_STEPS[state.aiWizardStep - 1];
   const settings = getAiGenerationSettings();
   const section = state.sections[state.editingSectionIndex];
   const parts = [
-    `Step ${state.aiWizardStep}: ${stepMeta?.label || ""}`,
     aiFormatLabel(settings.types, settings.difficulty),
     state.aiCourseMode ? "Full course" : section?.title?.trim() || "This section",
   ];
   const file = $("#cms-ai-file")?.files?.[0];
   if (file) parts.push(file.name);
-  else if (state.aiMaterialText) parts.push(`${state.aiMaterialText.length.toLocaleString()} chars prepared`);
+  else if (state.aiMaterialText) parts.push(`${state.aiMaterialText.length.toLocaleString()} chars`);
+  if (getAiInstructions()) parts.push("Focused");
   el.textContent = parts.filter(Boolean).join(" · ");
 }
 
@@ -195,26 +235,32 @@ function syncAiMaterialState() {
   const videoUrl = $("#cms-ai-video-url")?.value.trim();
   const prepared = !!(state.aiMaterialText || $("#cms-ai-material-preview")?.value.trim());
   const hasSource = !!(file || pasted || videoUrl);
-  const steps = [
-    {
-      label: file ? `File selected: ${file.name}` : pasted ? "Text pasted" : videoUrl ? "Video URL added" : "Add a source",
-      done: hasSource,
-    },
-    {
-      label: prepared ? `Prepared (${(state.aiMaterialText || "").length.toLocaleString()} chars)` : "Click Prepare material",
-      done: prepared,
-    },
-    {
-      label: state.aiCourseMode ? "Continue to build plan" : "Continue to generate",
-      done: prepared,
-    },
-  ];
-  el.innerHTML = steps
-    .map(
-      (step, index) =>
-        `<span class="cms-ai-material-step${step.done ? " is-done" : ""}"><span class="cms-ai-material-step-num">${index + 1}</span>${escapeHtml(step.label)}</span>`
-    )
-    .join("");
+
+  if (!hasSource && !prepared) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+
+  const chips = [];
+  if (file) {
+    const name = file.name.length > 22 ? `${file.name.slice(0, 19)}…` : file.name;
+    chips.push(`<span class="cms-ai-status-chip is-done">${escapeHtml(name)}</span>`);
+  } else if (pasted) {
+    chips.push('<span class="cms-ai-status-chip is-done">Text</span>');
+  } else if (videoUrl) {
+    chips.push('<span class="cms-ai-status-chip is-done">URL</span>');
+  }
+  if (prepared) {
+    chips.push(
+      `<span class="cms-ai-status-chip is-done">${(state.aiMaterialText || "").length.toLocaleString()} chars</span>`
+    );
+  } else if (hasSource) {
+    chips.push('<span class="cms-ai-status-chip">Ready to generate</span>');
+  }
+
+  el.hidden = false;
+  el.innerHTML = chips.join("");
 }
 
 function showAiGenSummary(text) {
@@ -392,10 +438,10 @@ function toggleCmsTheme() {
 }
 
 function initCmsTheme() {
-  applyCmsTheme(storedCmsTheme() || systemCmsTheme());
+  applyCmsTheme(storedCmsTheme() || "light");
   const media = window.matchMedia?.("(prefers-color-scheme: dark)");
   media?.addEventListener?.("change", () => {
-    if (!storedCmsTheme()) applyCmsTheme(systemCmsTheme());
+    if (!storedCmsTheme()) applyCmsTheme("light");
   });
 }
 
@@ -655,7 +701,10 @@ function updateAuthUi() {
   $("#cms-teacher-label").hidden = !loggedIn;
   $("#btn-cms-logout").hidden = !loggedIn;
   if (loggedIn) {
-    $("#cms-teacher-label").textContent = `Logged in as ${teacherDisplayName()}`;
+    const name = teacherDisplayName();
+    const label = $("#cms-teacher-label");
+    label.textContent = name;
+    label.title = `Logged in as ${name}`;
   }
 }
 
@@ -1325,31 +1374,19 @@ function isAiVideoOnly(prefix = "cms-ai") {
 
 function syncAiWizardCopy() {
   const materialIntro = document.querySelector('[data-step-panel="2"] .cms-ai-intro');
-  if (materialIntro) {
-    materialIntro.textContent = isAiVideoOnly()
-      ? "Paste or upload a lesson script. The video API will generate an avatar MP4 you can publish as a Video exercise."
-      : "Upload a file, video, audio, or image, paste text, or provide a video URL. Images convert to markdown; audio and video are transcribed.";
-  }
-  const courseToggle = $("#cms-ai-course-mode");
-  if (courseToggle) state.aiCourseMode = !!courseToggle.checked;
+  if (materialIntro) materialIntro.hidden = true;
+
   const planIntro = $("#cms-ai-plan-intro");
-  if (planIntro) {
-    planIntro.textContent = state.aiCourseMode
-      ? "Review the course plan. Every section uses the format you chose in Step 1."
-      : "Course plan is only used when “Generate entire course from this document” is enabled.";
-  }
+  if (planIntro) planIntro.hidden = true;
+
   const publishIntro = $("#cms-ai-publish-intro");
-  if (publishIntro) {
-    publishIntro.textContent = state.aiCourseMode
-      ? "Publishing creates or updates course sections from the plan and saves the course."
-      : "Publishing writes the selected exercises into this section and saves the course.";
-  }
+  if (publishIntro) publishIntro.hidden = true;
+
   const publishLabel = $("#cms-ai-publish-label");
   if (publishLabel) {
-    publishLabel.textContent = state.aiCourseMode ? "Publish course" : "Publish to section";
+    publishLabel.textContent = state.aiCourseMode ? "Publish course" : "Publish";
   }
   syncAiCourseModeUi();
-  updateAiWizardSummary();
 }
 
 function resetAiGeneratePanel() {
@@ -1370,10 +1407,11 @@ function resetAiGeneratePanel() {
     preview.hidden = true;
   }
   if ($("#cms-ai-paste")) $("#cms-ai-paste").value = "";
+  if ($("#cms-ai-instructions")) $("#cms-ai-instructions").value = "";
   if ($("#cms-ai-video-url")) $("#cms-ai-video-url").value = "";
-  if ($("#cms-ai-course-mode")) $("#cms-ai-course-mode").checked = false;
   $("#cms-ai-extract-status") && ($("#cms-ai-extract-status").textContent = "");
   $("#cms-ai-generate-status") && ($("#cms-ai-generate-status").textContent = "");
+  resetAiGenProgress();
   $("#cms-ai-error") && ($("#cms-ai-error").textContent = "");
   $("#cms-ai-preview") && ($("#cms-ai-preview").innerHTML = "");
   $("#cms-ai-plan-list") && ($("#cms-ai-plan-list").innerHTML = "");
@@ -1457,9 +1495,9 @@ function renderAiPreviewStep() {
 
 function setAiWizardStep(step) {
   if (state.aiWizardBusy && step !== state.aiWizardStep) return;
-  const next = Math.max(1, Math.min(5, Number(step) || 1));
+  const next = Math.max(1, Math.min(4, Number(step) || 1));
   const prev = state.aiWizardStep;
-  if (prev === 4 && next !== 4) collectAiDraftFromDom();
+  if (prev === 3 && next !== 3) collectAiDraftFromDom();
   state.aiWizardStep = next;
   state.aiWizardMaxStep = Math.max(state.aiWizardMaxStep || 1, next);
   document.querySelectorAll(".cms-ai-step").forEach((btn) => {
@@ -1484,22 +1522,13 @@ function setAiWizardStep(step) {
   const previewReady = hasAiPreviewReady();
   if (back) back.hidden = next === 1;
   if (back) back.disabled = state.aiWizardBusy;
-  if (publish) publish.hidden = next !== 5;
+  if (publish) publish.hidden = next !== 4;
   if (nextBtn) {
-    nextBtn.hidden = next === 5;
+    nextBtn.hidden = next === 4;
     nextBtn.classList.remove("small");
     if (next === 2) {
-      nextBtn.textContent = state.aiCourseMode
-        ? "Build course plan"
-        : previewReady
-          ? "Continue"
-          : isAiVideoOnly()
-            ? "Generate video"
-            : "Generate exercises";
+      nextBtn.textContent = previewReady ? "Continue" : "Next";
     } else if (next === 3) {
-      nextBtn.textContent =
-        state.aiCourseMode && previewReady ? "Continue to review" : state.aiCourseMode ? "Generate course" : "Continue";
-    } else if (next === 4) {
       nextBtn.textContent = "Continue to publish";
     } else {
       nextBtn.textContent = "Continue";
@@ -1507,10 +1536,14 @@ function setAiWizardStep(step) {
   }
   if (next === 1 || next === 2) syncAiWizardCopy();
   if (next === 2) syncAiMaterialState();
-  if (next === 3) renderAiCoursePlan();
-  if (next === 4) renderAiPreviewStep();
-  if (next === 5) renderAiPublishSummary();
+  if (next === 1 || (next === 2 && prev !== 2)) resetAiGenProgress();
+  if (next === 3) renderAiPreviewStep();
+  if (next === 4) renderAiPublishSummary();
   updateAiWizardSummary();
+}
+
+function getAiInstructions() {
+  return $("#cms-ai-instructions")?.value.trim() || "";
 }
 
 function getAiMaterialText() {
@@ -1649,8 +1682,8 @@ function renderAiCoursePlan() {
     .join("");
 }
 
-async function analyzeAiCoursePlan() {
-  const statusEl = $("#cms-ai-generate-status");
+async function analyzeAiCoursePlan(options = {}) {
+  const statusEl = options.statusEl || $("#cms-ai-generate-status");
   const errorEl = $("#cms-ai-error");
   const btn = $("#btn-cms-ai-next");
   if (!statusEl || !errorEl) return false;
@@ -1664,13 +1697,18 @@ async function analyzeAiCoursePlan() {
     const pasted = $("#cms-ai-paste")?.value.trim();
     const videoUrl = $("#cms-ai-video-url")?.value.trim();
     if (file || pasted || videoUrl) {
-      const prepared = await extractAiMaterial({ forCourse: true });
+      const prepared = await extractAiMaterial({
+        forCourse: true,
+        manageBusy: false,
+        statusEl,
+        silentStatus: options.silentStatus,
+      });
       if (!prepared) return false;
       material = getAiMaterialText();
     }
   }
   if (!material) {
-    setCmsError(errorEl, "Prepare or paste a course document first.");
+    setCmsError(errorEl, "Add source material first.");
     return false;
   }
   if (!Object.keys(settings.types).length) {
@@ -1678,8 +1716,8 @@ async function analyzeAiCoursePlan() {
     return false;
   }
 
-  statusEl.textContent = "Building course plan…";
-  setAiWizardBusy(true, "Building course plan…");
+  if (!options.silentStatus && statusEl) statusEl.textContent = "Building course plan…";
+  if (options.manageBusy !== false) setAiWizardBusy(true, "Building course plan…");
   try {
     const data = await api("/api/cms/analyze-course-material", {
       method: "POST",
@@ -1689,11 +1727,11 @@ async function analyzeAiCoursePlan() {
         difficulty: settings.difficulty,
         types: settings.types,
         template: settings.template,
+        instructions: getAiInstructions() || undefined,
       },
     });
     state.aiCoursePlan = data.plan;
     state.aiCourseResults = [];
-    renderAiCoursePlan();
     statusEl.textContent = data.usedLlm
       ? `Plan ready (${data.plan.sections.length} section(s)). Format locked from Step 1.`
       : `Plan ready from headings (${data.plan.sections.length} section(s)). Format locked from Step 1.`;
@@ -1704,18 +1742,40 @@ async function analyzeAiCoursePlan() {
     setCmsError(errorEl, err.message);
     return false;
   } finally {
-    setAiWizardBusy(false);
+    if (options.manageBusy !== false) setAiWizardBusy(false);
   }
 }
 
-async function generateCourseFromPlan() {
+function resolveAiCoursePlan() {
+  if (document.querySelectorAll(".cms-ai-plan-card").length) {
+    return collectAiCoursePlanFromDom();
+  }
+  if (!state.aiCoursePlan?.sections?.length) return null;
+  const settings = getAiGenerationSettings();
+  return {
+    ...state.aiCoursePlan,
+    formatSource: "step1",
+    appliedTemplate: settings.template,
+    appliedTypes: { ...settings.types },
+    appliedDifficulty: settings.difficulty,
+    formatLabel: aiFormatLabel(settings.types, settings.difficulty),
+    sections: state.aiCoursePlan.sections.map((section) => ({
+      ...section,
+      types: { ...settings.types },
+      difficulty: settings.difficulty,
+      included: section.included !== false && !!(section.materialExcerpt || section.material || "").trim(),
+    })),
+  };
+}
+
+async function generateCourseFromPlan(options = {}) {
   const statusEl = $("#cms-ai-generate-status");
   const errorEl = $("#cms-ai-error");
   const btn = $("#btn-cms-ai-next");
   if (!statusEl || !errorEl) return false;
 
   const settings = getAiGenerationSettings();
-  const plan = collectAiCoursePlanFromDom();
+  const plan = resolveAiCoursePlan();
   errorEl.textContent = "";
 
   if (!plan?.sections?.some((section) => section.included)) {
@@ -1723,8 +1783,8 @@ async function generateCourseFromPlan() {
     return false;
   }
 
-  statusEl.textContent = "Generating course exercises…";
-  setAiWizardBusy(true, "Generating course exercises…");
+  if (!options.silentStatus && statusEl) statusEl.textContent = "Generating course exercises…";
+  if (options.manageBusy !== false) setAiWizardBusy(true, "Generating course exercises…");
 
   try {
     const data = await api("/api/cms/generate-course-from-plan", {
@@ -1735,6 +1795,7 @@ async function generateCourseFromPlan() {
         difficulty: settings.difficulty,
         types: settings.types,
         template: settings.template,
+        instructions: getAiInstructions() || undefined,
       },
     });
 
@@ -1744,7 +1805,11 @@ async function generateCourseFromPlan() {
 
     for (let i = 0; i < (data.results || []).length; i++) {
       const entry = data.results[i];
-      statusEl.textContent = `Section ${i + 1}/${data.results.length}: ${entry.sectionTitle || "Untitled"}…`;
+      const sectionProgress = 55 + Math.round(((i + 1) / Math.max(1, data.results.length)) * 35);
+      setAiGenProgress(sectionProgress, `Section ${i + 1}/${data.results.length}: ${entry.sectionTitle || "Untitled"}…`);
+      if (!options.silentStatus && statusEl) {
+        statusEl.textContent = `Section ${i + 1}/${data.results.length}: ${entry.sectionTitle || "Untitled"}…`;
+      }
       const exercises = [...(entry.exercises || [])].map((exercise) => ({
         ...exercise,
         included: true,
@@ -1793,7 +1858,7 @@ async function generateCourseFromPlan() {
     setCmsError(errorEl, err.message);
     return false;
   } finally {
-    setAiWizardBusy(false);
+    if (options.manageBusy !== false) setAiWizardBusy(false);
   }
 }
 
@@ -2380,7 +2445,6 @@ function renderAiEditableCard(exercise, index) {
         <div class="cms-ai-preview-meta">
           <input type="text" class="cms-ai-edit-title" value="${escapeHtml(exercise.title || "")}" placeholder="Exercise title" />
         </div>
-        <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-exercise">Remove</button>
       </div>
       <div class="cms-ai-edit-card-body">
         <label class="field">
@@ -2406,12 +2470,10 @@ function renderAiEditableCard(exercise, index) {
         <div class="cms-ai-preview-meta">
           <input type="text" class="cms-ai-edit-title" value="${escapeHtml(exercise.title || "")}" placeholder="Exercise title" />
         </div>
-        <button type="button" class="cms-row-btn cms-ai-regen-exercise">Regenerate</button>
-        <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-exercise">Remove</button>
       </div>
       <div class="cms-ai-edit-card-body">
         ${items}
-        <button type="button" class="btn secondary small cms-ai-add-item">Add ${type === "buzzin" ? "prompt" : "question"}</button>
+        <button type="button" class="btn secondary small cms-ai-add-item">Add question</button>
       </div>
     </article>`;
 }
@@ -2420,17 +2482,20 @@ function renderAiEditableItem(type, item, exerciseIndex, itemIndex) {
   if (type === "buzzin") {
     return `
       <div class="cms-ai-item-block cms-ai-buzzin-block" data-item-index="${itemIndex}">
+        <div class="cms-ai-item-block-head">
+          <span class="cms-ai-item-number">Question ${itemIndex + 1}</span>
+          <div class="cms-ai-item-block-actions">
+            <button type="button" class="cms-row-btn cms-ai-regen-item">Regenerate</button>
+            <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-item">Remove</button>
+          </div>
+        </div>
         <label class="field cms-ai-field">
-          <span>Question</span>
-          <input type="text" class="cms-ai-item-input" data-field="topic" value="${escapeHtml(item.topic || "")}" placeholder="What should the student answer aloud?" />
+          <textarea class="cms-ai-item-input cms-ai-item-textarea" data-field="topic" rows="2" placeholder="What should the student answer aloud?" aria-label="Question">${escapeHtml(item.topic || "")}</textarea>
         </label>
         <label class="field cms-ai-field">
           <span>Expected answer</span>
-          <input type="text" class="cms-ai-item-input" data-field="correctAnswer" value="${escapeHtml(item.correctAnswer || "")}" placeholder="Acceptable answer rubric for AI scoring" />
+          <textarea class="cms-ai-item-input cms-ai-item-textarea" data-field="correctAnswer" rows="2" placeholder="Acceptable answer rubric for AI scoring">${escapeHtml(item.correctAnswer || "")}</textarea>
         </label>
-        <div class="cms-ai-item-toolbar">
-          <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-item">Remove</button>
-        </div>
       </div>`;
   }
 
@@ -2445,16 +2510,24 @@ function renderAiEditableItem(type, item, exerciseIndex, itemIndex) {
     .join("");
 
   return `
-    <div class="cms-ai-item-block" data-item-index="${itemIndex}">
-      <input type="text" class="cms-ai-item-input" data-field="title" value="${escapeHtml(item.title || "")}" placeholder="Question" />
-      <label class="cms-ai-field field">
-        <span>Seconds</span>
+    <div class="cms-ai-item-block cms-ai-quiz-block" data-item-index="${itemIndex}">
+      <div class="cms-ai-item-block-head">
+        <span class="cms-ai-item-number">Question ${itemIndex + 1}</span>
+        <div class="cms-ai-item-block-actions">
+          <button type="button" class="cms-row-btn cms-ai-regen-item">Regenerate</button>
+          <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-item">Remove</button>
+        </div>
+      </div>
+      <input type="text" class="cms-ai-item-input cms-ai-item-question" data-field="title" value="${escapeHtml(item.title || "")}" placeholder="Question text" />
+      <label class="cms-ai-field field cms-ai-time-field">
+        <span>Time (sec)</span>
         <input type="number" class="cms-ai-item-time" min="5" max="60" value="${escapeHtml(String(item.timeLimit || (type === "fastmcquiz" ? 10 : 15)))}" />
       </label>
-      ${options}
+      <div class="cms-ai-options-stack" aria-label="Answer options">
+        ${options}
+      </div>
       <div class="cms-ai-item-toolbar">
         <button type="button" class="btn secondary small cms-ai-add-option">Add option</button>
-        <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-item">Remove</button>
       </div>
     </div>`;
 }
@@ -2561,28 +2634,43 @@ function renderAiPublishSummary() {
 
 function syncAiFileNameLabel() {
   const input = $("#cms-ai-file");
-  const label = $("#cms-ai-file-name");
-  const file = input?.files?.[0];  if (!label) return;
+  const dropLabel = $("#cms-ai-file-drop-label");
+  const meta = $("#cms-ai-file-name");
+  const dropZone = $("#cms-ai-file-drop");
+  const file = input?.files?.[0];
+  if (!dropLabel) return;
   if (!file) {
-    label.hidden = true;
-    label.textContent = "";
+    dropLabel.textContent = "Choose or drop a file";
+    if (meta) {
+      meta.hidden = true;
+      meta.textContent = "";
+    }
+    dropZone?.classList.remove("has-file");
+    syncAiMaterialState();
     return;
   }
-  label.hidden = false;
-  label.textContent = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+  dropLabel.textContent = file.name.length > 30 ? `${file.name.slice(0, 27)}…` : file.name;
+  if (meta) {
+    meta.hidden = false;
+    meta.textContent = `${Math.max(1, Math.round(file.size / 1024))} KB`;
+  }
+  dropZone?.classList.add("has-file");
   syncAiMaterialState();
 }
 
 async function extractAiMaterial(options = {}) {
-  const statusEl = $("#cms-ai-extract-status");
+  const statusEl = options.statusEl || $("#cms-ai-extract-status") || $("#cms-ai-generate-status");
   const errorEl = $("#cms-ai-error");
   const previewEl = $("#cms-ai-material-preview");
-  const btn = $("#btn-cms-ai-extract");
-  if (!statusEl || !errorEl || !previewEl || !btn) return false;
+  const manageBusy = options.manageBusy !== false;
+  if (!errorEl || !previewEl) return false;
 
   setCmsError(errorEl, "");
-  statusEl.textContent = "Preparing material…";
-  setAiWizardBusy(true, "Preparing material…");
+  if (statusEl && !options.silentStatus) {
+    statusEl.hidden = false;
+    statusEl.textContent = "Preparing material…";
+  }
+  if (manageBusy) setAiWizardBusy(true, "Preparing material…");
 
   try {
     const file = $("#cms-ai-file")?.files?.[0];
@@ -2602,25 +2690,30 @@ async function extractAiMaterial(options = {}) {
 
     state.aiMaterialText = data.text || "";
     previewEl.value = state.aiMaterialText;
-    previewEl.hidden = !state.aiMaterialText;
-    statusEl.textContent = data.truncated
-      ? `Ready (${data.originalLength} chars, truncated for generation).`
-      : `Ready (${state.aiMaterialText.length} chars).`;
-    if (data.source === "video") {
-      statusEl.textContent += data.captionUrl ? " Video transcribed." : " Video uploaded.";
-    } else if (data.source === "audio") {
-      statusEl.textContent += " Audio transcribed.";
-    } else if (data.source === "image") {
-      statusEl.textContent += " Image converted to markdown.";
+    previewEl.hidden = true;
+    if (statusEl && !options.silentStatus) {
+      statusEl.textContent = data.truncated
+        ? `Ready (${data.originalLength} chars, truncated for generation).`
+        : `Ready (${state.aiMaterialText.length} chars).`;
+      if (data.source === "video") {
+        statusEl.textContent += data.captionUrl ? " Video transcribed." : " Video uploaded.";
+      } else if (data.source === "audio") {
+        statusEl.textContent += " Audio transcribed.";
+      } else if (data.source === "image") {
+        statusEl.textContent += " Image converted to markdown.";
+      }
     }
     syncAiMaterialState();
     return true;
   } catch (err) {
-    statusEl.textContent = "";
+    if (statusEl) {
+      statusEl.textContent = "";
+      statusEl.hidden = true;
+    }
     setCmsError(errorEl, err.message);
     return false;
   } finally {
-    setAiWizardBusy(false);
+    if (manageBusy) setAiWizardBusy(false);
   }
 }
 
@@ -2673,7 +2766,7 @@ async function createAiVideoExercise(script, { onUpdate, onLog } = {}) {
   };
 }
 
-async function generateAiExercises() {
+async function generateAiExercises(options = {}) {
   const statusEl = $("#cms-ai-generate-status");
   const errorEl = $("#cms-ai-error");
   const btn = $("#btn-cms-ai-next");
@@ -2683,38 +2776,63 @@ async function generateAiExercises() {
   const llmTypes = aiLlmTypeCounts();
   const wantsVideo = aiWantsVideo();
   const settings = getAiGenerationSettings();
+  const manageBusy = options.manageBusy !== false;
 
   errorEl.textContent = "";
-  if (!material) {
-    const file = $("#cms-ai-file")?.files?.[0];
-    const pasted = $("#cms-ai-paste")?.value.trim();
-    const videoUrl = $("#cms-ai-video-url")?.value.trim();
-    if (file || pasted || videoUrl) {
-      const prepared = await extractAiMaterial();
-      if (!prepared) return false;
-      material = getAiMaterialText();
-    }
-  }
-  if (!material) {
-    setCmsError(
-      errorEl,
-      isAiVideoOnly() ? "Paste or upload a lesson script first." : "Prepare or paste source material first."
-    );
-    return false;
-  }
-  if (!Object.keys(llmTypes).length && !wantsVideo) {
-    setCmsError(errorEl, "Select at least one exercise type.");
-    return false;
-  }
-
-  statusEl.textContent =
-    wantsVideo && !Object.keys(llmTypes).length ? "Generating video…" : "Generating exercises…";
-  setAiWizardBusy(true, statusEl.textContent);
+  resetAiGenProgress();
+  setAiGenProgress(0, "Starting…");
+  if (manageBusy) setAiWizardBusy(true, "Starting…");
 
   try {
+    if (!material) {
+      const file = $("#cms-ai-file")?.files?.[0];
+      const pasted = $("#cms-ai-paste")?.value.trim();
+      const videoUrl = $("#cms-ai-video-url")?.value.trim();
+      if (file || pasted || videoUrl) {
+        setAiGenProgress(8, "Preparing material…");
+        const prepared = await extractAiMaterial({
+          manageBusy: false,
+          statusEl,
+          forCourse: state.aiCourseMode,
+          silentStatus: true,
+        });
+        if (!prepared) {
+          resetAiGenProgress();
+          return false;
+        }
+        material = getAiMaterialText();
+        setAiGenProgress(35, "Material ready");
+      }
+    } else {
+      setAiGenProgress(20, "Material ready");
+    }
+    if (!material) {
+      resetAiGenProgress();
+      setCmsError(
+        errorEl,
+        isAiVideoOnly() ? "Paste or upload a lesson script first." : "Add source material first."
+      );
+      return false;
+    }
+    if (!Object.keys(llmTypes).length && !wantsVideo) {
+      resetAiGenProgress();
+      setCmsError(errorEl, "Select at least one exercise type.");
+      return false;
+    }
+
+    const generatingLabel =
+      wantsVideo && !Object.keys(llmTypes).length
+        ? "Generating video…"
+        : getAiInstructions()
+          ? "Applying your prompt, then generating exercises…"
+          : "Generating exercises…";
+    setAiGenProgress(45, generatingLabel);
+    startAiGenProgressTicker(45, 88, 90000);
+
     let exercises = [];
 
     if (Object.keys(llmTypes).length) {
+      const instructions = getAiInstructions();
       const data = await api("/api/cms/generate-exercises", {
         method: "POST",
         body: {
@@ -2722,11 +2840,14 @@ async function generateAiExercises() {
           langCode: settings.langCode,
           difficulty: settings.difficulty,
           types: llmTypes,
+          instructions: instructions || undefined,
         },
       });
       exercises = data.exercises || [];
       const stats = data.stats || {};
-      if (stats.partial) {
+      stopAiGenProgressTicker();
+      setAiGenProgress(90, "Finishing…");
+      if (stats.partial && !options.silentStatus) {
         statusEl.textContent = `Generated ${stats.generated || exercises.length} item(s) (partial).`;
       }
     }
@@ -2736,10 +2857,17 @@ async function generateAiExercises() {
       const section = state.sections[state.editingSectionIndex];
       const sectionTitle = section?.title?.trim() || "Lesson";
       for (let i = 0; i < videoCount; i++) {
-        statusEl.textContent =
+        const videoLabel =
           videoCount > 1
-            ? `Generating video ${i + 1} of ${videoCount}… this can take a few minutes.`
-            : "Generating video… this can take a few minutes.";
+            ? `Generating video ${i + 1} of ${videoCount}…`
+            : "Generating video…";
+        setAiGenProgress(90 + Math.round(((i + 1) / videoCount) * 8), videoLabel);
+        if (!options.silentStatus) {
+          statusEl.textContent =
+            videoCount > 1
+              ? `Generating video ${i + 1} of ${videoCount}… this can take a few minutes.`
+              : "Generating video… this can take a few minutes.";
+        }
         const videoExercise = await createAiVideoExercise(material, {
           onUpdate: (data) => {
             if (data.status) {
@@ -2759,17 +2887,23 @@ async function generateAiExercises() {
 
     state.aiDraftExercises = exercises;
     renderAiPreview(state.aiDraftExercises);
-    statusEl.textContent = exercises.length
-      ? `Ready with ${exercises.length} exercise(s). Edit, then continue.`
-      : "Nothing was generated.";
+    stopAiGenProgressTicker();
+    setAiGenProgress(100, "Done");
+    if (!options.silentStatus) {
+      statusEl.textContent = exercises.length
+        ? `Ready with ${exercises.length} exercise(s). Edit, then continue.`
+        : "Nothing was generated.";
+    }
     showAiGenSummary(buildAiGenSummaryFromExercises(exercises));
     return exercises.length > 0;
   } catch (err) {
+    stopAiGenProgressTicker();
+    resetAiGenProgress();
     statusEl.textContent = "";
     setCmsError(errorEl, err.message);
     return false;
   } finally {
-    setAiWizardBusy(false);
+    if (manageBusy) setAiWizardBusy(false);
   }
 }
 
@@ -2841,7 +2975,6 @@ async function handleAiWizardNext() {
   const errorEl = $("#cms-ai-error");
   if (errorEl) setCmsError(errorEl, "");
   const step = state.aiWizardStep;
-  state.aiCourseMode = !!$("#cms-ai-course-mode")?.checked;
 
   if (step === 1) {
     const types = getAiTypeCounts();
@@ -2855,36 +2988,47 @@ async function handleAiWizardNext() {
 
   if (step === 2) {
     if (state.aiCourseMode) {
-      const ok = await analyzeAiCoursePlan();
-      if (ok) setAiWizardStep(3);
+      if (hasAiPreviewReady()) {
+        renderAiPreviewStep();
+        setAiWizardStep(3);
+        return;
+      }
+      resetAiGenProgress();
+      setAiGenProgress(0, "Starting…");
+      setAiWizardBusy(true, "Starting…");
+      try {
+        setAiGenProgress(10, "Building course plan…");
+        const analyzed = await analyzeAiCoursePlan({ manageBusy: false, silentStatus: true });
+        if (!analyzed) {
+          resetAiGenProgress();
+          return;
+        }
+        setAiGenProgress(40, "Generating course…");
+        startAiGenProgressTicker(40, 88, 120000);
+        const generated = await generateCourseFromPlan({ manageBusy: false, silentStatus: true });
+        stopAiGenProgressTicker();
+        if (!generated) {
+          resetAiGenProgress();
+          return;
+        }
+        setAiGenProgress(100, "Done");
+        setAiWizardStep(3);
+      } finally {
+        setAiWizardBusy(false);
+      }
       return;
     }
     if (hasAiPreviewReady()) {
       renderAiPreviewStep();
-      setAiWizardStep(4);
+      setAiWizardStep(3);
       return;
     }
     const ok = await generateAiExercises();
-    if (ok) setAiWizardStep(4);
+    if (ok) setAiWizardStep(3);
     return;
   }
 
   if (step === 3) {
-    if (!state.aiCourseMode) {
-      setAiWizardStep(4);
-      return;
-    }
-    if (hasAiPreviewReady()) {
-      renderAiPreviewStep();
-      setAiWizardStep(4);
-      return;
-    }
-    const ok = await generateCourseFromPlan();
-    if (ok) setAiWizardStep(4);
-    return;
-  }
-
-  if (step === 4) {
     if (state.aiCourseMode) {
       const groups = selectedAiCourseGroups();
       if (!groups.length) {
@@ -2898,7 +3042,7 @@ async function handleAiWizardNext() {
         return;
       }
     }
-    setAiWizardStep(5);
+    setAiWizardStep(4);
   }
 }
 
@@ -2906,10 +3050,7 @@ function handleAiWizardBack() {
   if (state.aiWizardBusy) return;
   setCmsError($("#cms-ai-error"), "");
   if (state.aiWizardStep <= 1) return;
-  state.aiCourseMode = !!$("#cms-ai-course-mode")?.checked;
-  let target = state.aiWizardStep - 1;
-  if (!state.aiCourseMode && target === 3) target = 2;
-  setAiWizardStep(target);
+  setAiWizardStep(state.aiWizardStep - 1);
 }
 
 function defaultAiItem(type) {
@@ -2937,12 +3078,6 @@ function handleAiPreviewClick(event) {
   if (!Number.isFinite(index)) return;
 
   collectAiDraftFromDom();
-
-  if (event.target.closest(".cms-ai-remove-exercise")) {
-    state.aiDraftExercises.splice(index, 1);
-    renderAiPreview(state.aiDraftExercises);
-    return;
-  }
 
   if (event.target.closest(".cms-ai-add-item")) {
     const exercise = state.aiDraftExercises[index];
@@ -2976,23 +3111,48 @@ function handleAiPreviewClick(event) {
     return;
   }
 
-  if (event.target.closest(".cms-ai-regen-exercise")) {
-    regenerateAiExercise(index);
+  if (event.target.closest(".cms-ai-regen-item")) {
+    const block = event.target.closest(".cms-ai-item-block");
+    const itemIndex = Number(block?.dataset.itemIndex);
+    if (!Number.isFinite(itemIndex) || block?.classList.contains("is-regenerating")) return;
+    regenerateAiItem(index, itemIndex);
   }
 }
 
-async function regenerateAiExercise(index) {
+function getAiItemBlock(exerciseIndex, itemIndex) {
+  const card = document.querySelector(`.cms-ai-edit-card[data-ai-index="${exerciseIndex}"]`);
+  return card?.querySelector(`.cms-ai-item-block[data-item-index="${itemIndex}"]`) || null;
+}
+
+function setAiItemRegenerating(exerciseIndex, itemIndex, loading) {
+  const block = getAiItemBlock(exerciseIndex, itemIndex);
+  if (!block) return;
+  block.classList.toggle("is-regenerating", loading);
+  block.setAttribute("aria-busy", loading ? "true" : "false");
+  const regenBtn = block.querySelector(".cms-ai-regen-item");
+  if (regenBtn) {
+    regenBtn.disabled = loading;
+    regenBtn.classList.toggle("is-loading", loading);
+    regenBtn.setAttribute("aria-busy", loading ? "true" : "false");
+  }
+  block.querySelector(".cms-ai-remove-item")?.toggleAttribute("disabled", loading);
+}
+
+async function regenerateAiItem(exerciseIndex, itemIndex) {
   const errorEl = $("#cms-ai-error");
   const statusEl = $("#cms-ai-generate-status");
   collectAiDraftFromDom();
-  const exercise = state.aiDraftExercises[index];
+  const exercise = state.aiDraftExercises[exerciseIndex];
   const material = getAiMaterialText();
   if (!exercise || !material) {
-    errorEl.textContent = "Need source material to regenerate this exercise.";
+    errorEl.textContent = "Need source material to regenerate this question.";
     return;
   }
+  if (exercise.type === "video") return;
+  if (getAiItemBlock(exerciseIndex, itemIndex)?.classList.contains("is-regenerating")) return;
 
-  statusEl.textContent = "Regenerating…";
+  setAiItemRegenerating(exerciseIndex, itemIndex, true);
+  statusEl.textContent = `Regenerating question ${itemIndex + 1}…`;
   try {
     const data = await api("/api/cms/generate-exercises", {
       method: "POST",
@@ -3000,22 +3160,27 @@ async function regenerateAiExercise(index) {
         material,
         langCode: state.editingCourse?.langCode || "en",
         difficulty: getAiGenerationSettings().difficulty,
-        types: { [exercise.type]: Math.max(1, exercise.items?.length || 1) },
+        types: { [exercise.type]: 1 },
+        instructions: getAiInstructions() || undefined,
       },
     });
-    const next = data.exercises?.find((entry) => entry.type === exercise.type) || data.exercises?.[0];
-    if (!next) throw new Error("Regeneration returned no exercise.");
-    state.aiDraftExercises[index] = next;
+    const nextExercise = data.exercises?.find((entry) => entry.type === exercise.type) || data.exercises?.[0];
+    const nextItem = nextExercise?.items?.[0];
+    if (!nextItem) throw new Error("Regeneration returned no question.");
+    exercise.items = exercise.items || [];
+    exercise.items[itemIndex] = nextItem;
+    state.aiDraftExercises[exerciseIndex] = exercise;
     renderAiPreview(state.aiDraftExercises);
-    statusEl.textContent = "Exercise regenerated.";
+    statusEl.textContent = `Question ${itemIndex + 1} regenerated.`;
     errorEl.textContent = "";
   } catch (err) {
     statusEl.textContent = "";
     errorEl.textContent = err.message;
+    setAiItemRegenerating(exerciseIndex, itemIndex, false);
   }
 }
 
-function openSectionExercises(sectionIndex, { focusComposer = false } = {}) {
+function openSectionExercises(sectionIndex) {
   syncSectionsMetadataFromDom();
   const section = state.sections[sectionIndex];
   if (!section) return;
@@ -3035,13 +3200,6 @@ function openSectionExercises(sectionIndex, { focusComposer = false } = {}) {
   resetAiGeneratePanel();
   renderExerciseEditors({ skipReveal: true });
   cmsMotion()?.playCmsTabEnter?.($("#cms-exercises-view"));
-  if (focusComposer) {
-    requestAnimationFrame(() => {
-      const composer = $("#cms-exercise-composer");
-      composer?.scrollIntoView({ block: "end", behavior: "smooth" });
-      composer?.querySelector(".cms-type-tile")?.focus();
-    });
-  }
 }
 
 function closeSectionExercises({ reRender = true } = {}) {
@@ -4556,9 +4714,6 @@ function renderSectionEditors() {
     sectionCard.querySelector(".cms-manage-exercises").addEventListener("click", () => {
       openSectionExercises(sectionIndex);
     });
-    sectionCard.querySelector(".cms-add-section-exercise")?.addEventListener("click", () => {
-      openSectionExercises(sectionIndex, { focusComposer: true });
-    });
 
     setupSectionDrag(sectionCard, container);
     container.appendChild(sectionCard);
@@ -4580,12 +4735,6 @@ function renderExerciseEditors({ skipReveal = false, insertedIndex = null } = {}
 
   const exercises = section.exercises || [];
   if (!exercises.length) {
-    container.innerHTML = `
-      <div class="cms-empty">
-        <p class="cms-empty-title">No exercises yet</p>
-        <p class="cms-empty-copy">Pick a type below to add the first one.</p>
-      </div>`;
-    if (!skipReveal) cmsMotion()?.playCmsListReveal?.(container);
     return;
   }
 
@@ -4839,12 +4988,11 @@ function addExercise(type = "mcquiz") {
   if (sectionIndex == null) return;
 
   syncExercisesFromDom();
-  const demo = Boolean($("#cms-add-demo")?.checked);
   const section = state.sections[sectionIndex];
   if (!section) return;
 
   if (!section.exercises) section.exercises = [];
-  const exercise = demo ? demoExercise(type) : defaultExercise(type);
+  const exercise = defaultExercise(type);
   exercise.order = section.exercises.length + 1;
   section.exercises.push(exercise);
   state.expandedExerciseIndex = section.exercises.length - 1;
@@ -4965,13 +5113,6 @@ $("#btn-delete-course").addEventListener("click", deleteCourse);
 $("#course-banner-file").addEventListener("change", handleBannerFileChange);
 $("#btn-remove-banner").addEventListener("click", handleRemoveBanner);
 $("#btn-add-section").addEventListener("click", addSection);
-$("#cms-exercise-composer")?.addEventListener("click", (event) => {
-  const tile = event.target.closest(".cms-type-tile");
-  if (!tile) return;
-  cmsMotion()?.playCmsTypePress?.(tile);
-  addExercise(tile.dataset.type || "mcquiz");
-});
-$("#btn-back-sections").addEventListener("click", () => closeSectionExercises());
 $("#btn-save-sections").addEventListener("click", saveSections);
 $("#btn-save-exercises").addEventListener("click", saveExercises);
 $("#cms-ai-file")?.addEventListener("change", () => {
@@ -4979,22 +5120,21 @@ $("#cms-ai-file")?.addEventListener("change", () => {
   const statusEl = $("#cms-ai-extract-status");
   const file = $("#cms-ai-file")?.files?.[0];
   if (statusEl && file) {
-    statusEl.textContent = `Selected ${file.name}. Click Prepare material to extract text.`;
+    statusEl.hidden = false;
+    statusEl.textContent = `${file.name} selected — press Next below.`;
   }
 });
-$("#btn-cms-ai-extract")?.addEventListener("click", extractAiMaterial);
 $("#btn-cms-ai-path-section")?.addEventListener("click", () => openAiGeneratePath("section"));
 $("#btn-cms-ai-path-course")?.addEventListener("click", () => openAiGeneratePath("course"));
 $("#btn-cms-ai-change-path")?.addEventListener("click", () => {
   if (state.aiWizardBusy) return;
   resetAiGeneratePanel();
 });
-$("#btn-cms-ai-expand-all")?.addEventListener("click", () => setAiPreviewGroupsCollapsed(false));
-$("#btn-cms-ai-collapse-all")?.addEventListener("click", () => setAiPreviewGroupsCollapsed(true));
 $("#btn-cms-onboarding-next")?.addEventListener("click", advanceCmsTour);
 $("#btn-cms-onboarding-skip")?.addEventListener("click", finishCmsTour);
 $("#cms-onboarding-backdrop")?.addEventListener("click", finishCmsTour);
 $("#cms-ai-paste")?.addEventListener("input", syncAiMaterialState);
+$("#cms-ai-instructions")?.addEventListener("input", updateAiWizardSummary);
 $("#cms-ai-video-url")?.addEventListener("input", syncAiMaterialState);
 $("#screen-cms-edit")?.addEventListener("input", (event) => {
   if (!state.editingCourse) return;
@@ -5023,7 +5163,7 @@ $("#cms-ai-wizard")?.addEventListener("change", (event) => {
     syncAiWizardCopy();
     if (state.aiWizardStep === 2) {
       const nextBtn = $("#btn-cms-ai-next");
-      if (nextBtn) nextBtn.textContent = isAiVideoOnly() ? "Generate video" : "Generate";
+      if (nextBtn && !hasAiPreviewReady()) nextBtn.textContent = "Next";
     }
   }
 });
@@ -5052,11 +5192,6 @@ $("#cms-ai-wizard")?.addEventListener("click", (event) => {
   }
   handleAiPreviewClick(event);
 });
-$("#cms-ai-course-mode")?.addEventListener("change", () => {
-  state.aiCourseMode = !!$("#cms-ai-course-mode")?.checked;
-  syncAiWizardCopy();
-  if (state.aiWizardStep === 2 || state.aiWizardStep === 3) setAiWizardStep(state.aiWizardStep);
-});
 $("#btn-cms-ai-export-plan")?.addEventListener("click", () => {
   try {
     const plan = collectAiCoursePlanFromDom() || state.aiCoursePlan;
@@ -5077,7 +5212,6 @@ $("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
     const sections = Array.isArray(parsed?.sections) ? parsed.sections : [];
     if (!sections.length) throw new Error("Plan JSON has no sections.");
     state.aiCourseMode = true;
-    if ($("#cms-ai-course-mode")) $("#cms-ai-course-mode").checked = true;
     state.aiCoursePlan = {
       formatSource: "step1",
       appliedTemplate: settings.template,
@@ -5098,9 +5232,11 @@ $("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
         warning: section.warning || "",
       })),
     };
-    setAiWizardStep(3);
-    renderAiCoursePlan();
-    $("#cms-ai-generate-status").textContent = "Imported course plan. Format locked from Step 1.";
+    const generated = await generateCourseFromPlan();
+    if (generated) {
+      setAiWizardStep(3);
+      $("#cms-ai-generate-status").textContent = "Imported course plan and generated exercises.";
+    }
   } catch (err) {
     $("#cms-ai-error").textContent = err.message;
   }

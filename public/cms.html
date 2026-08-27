@@ -15,9 +15,7 @@
         var theme =
           stored === "dark" || stored === "light"
             ? stored
-            : window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light";
+            : "light";
         document.documentElement.dataset.cmsTheme = theme;
       } catch (err) {
         document.documentElement.dataset.cmsTheme = "light";
@@ -30,17 +28,24 @@
     <nav class="cms-topbar" aria-label="CMS">
       <div class="cms-island">
         <a class="cms-brand" href="/cms.html">
-          <span class="cms-brand-mark">Lango</span>
+          <img class="cms-brand-logo" src="/assets/login/logo.png" alt="LangoClassRoom" width="132" height="28" />
           <span class="cms-brand-sep" aria-hidden="true"></span>
           <span class="cms-brand-product">Course CMS</span>
         </a>
         <div class="cms-topbar-actions">
-          <div class="cms-nav-group" aria-label="Shortcuts">
+          <nav class="cms-nav-group cms-nav-main" aria-label="CMS navigation">
             <a class="cms-link cms-link-nav" href="#" id="nav-cms-dashboard" data-screen="dashboard">Dashboard</a>
             <a class="cms-link cms-link-nav" href="#" id="nav-cms-courses" data-screen="list">My courses</a>
+          </nav>
+          <div class="cms-nav-group cms-nav-tools" aria-label="Tools">
             <a class="cms-link" href="/host.html">Host</a>
-            <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener">Student preview</a>
-            <a class="cms-link" href="/host.html?preview=1" target="_blank" rel="noopener">Host preview</a>
+            <details class="cms-nav-more">
+              <summary class="cms-link cms-nav-more-trigger">Previews</summary>
+              <div class="cms-nav-more-menu" role="menu">
+                <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener" role="menuitem">Student preview</a>
+                <a class="cms-link" href="/host.html?preview=1" target="_blank" rel="noopener" role="menuitem">Host preview</a>
+              </div>
+            </details>
             <a class="cms-link" href="/config.html">Notifications</a>
           </div>
           <div class="cms-nav-group cms-nav-account">
@@ -262,7 +267,6 @@
         </div>
 
         <div id="cms-exercises-view" class="cms-subview" hidden>
-          <button type="button" class="back-btn" id="btn-back-sections">Back to sections</button>
           <h2 class="cms-subview-title" id="cms-exercises-section-title">Section exercises</h2>
           <div class="cms-playlist-head">
             <span class="hint">Drag the handle or use Move to reorder. Edit opens the questions.</span>
@@ -280,7 +284,7 @@
                 </button>
                 <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-course">
                   <strong>Build full course from document</strong>
-                  <span>Split a document into sections, approve the plan, then generate the whole course.</span>
+                  <span>Split a document into sections, then generate the whole course.</span>
                 </button>
               </div>
             </div>
@@ -293,9 +297,8 @@
                 <ol class="cms-ai-steps" aria-label="Generation steps">
                   <li><button type="button" class="cms-ai-step is-current" data-step="1"><span class="cms-ai-step-num">1</span><span class="cms-ai-step-name">Format</span></button></li>
                   <li><button type="button" class="cms-ai-step" data-step="2"><span class="cms-ai-step-num">2</span><span class="cms-ai-step-name">Material</span></button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="3"><span class="cms-ai-step-num">3</span><span class="cms-ai-step-name">Plan</span></button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="4"><span class="cms-ai-step-num">4</span><span class="cms-ai-step-name">Review</span></button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="5"><span class="cms-ai-step-num">5</span><span class="cms-ai-step-name">Publish</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="3"><span class="cms-ai-step-num">3</span><span class="cms-ai-step-name">Review</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="4"><span class="cms-ai-step-num">4</span><span class="cms-ai-step-name">Publish</span></button></li>
                 </ol>
                 <p class="cms-ai-wizard-summary" id="cms-ai-wizard-summary" aria-live="polite"></p>
                 <p class="cms-ai-gen-summary" id="cms-ai-gen-summary" hidden aria-live="polite"></p>
@@ -303,7 +306,7 @@
 
               <div class="cms-ai-step-body">
               <div class="cms-ai-step-panel is-active" data-step-panel="1">
-                <p class="hint cms-ai-intro">Pick a template, or make a custom mix of MC Quiz, Fast MC Quiz, Buzz in Question, and Video.</p>
+                <p class="hint cms-ai-intro">Choose a template.</p>
                 <div class="cms-ai-templates" role="list">
                   <button type="button" class="cms-ai-template is-selected" data-template="vocab" role="listitem">
                     <span class="cms-ai-template-name">Vocab drill</span>
@@ -331,8 +334,7 @@
                   </button>
                 </div>
                 <div class="cms-ai-section" id="cms-ai-custom-settings" hidden>
-                  <p class="cms-ai-label">Custom settings</p>
-                  <p class="hint cms-ai-custom-hint">Tick each type and set how many to generate.</p>
+                  <p class="cms-ai-label">Custom mix</p>
                   <div class="cms-ai-type-rows" role="group" aria-label="Exercise types to generate">
                     <label class="cms-ai-type-row">
                       <input type="checkbox" id="cms-ai-type-mcquiz" checked />
@@ -369,55 +371,60 @@
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="2" hidden>
-                <p class="hint cms-ai-intro">Upload a file, video, audio, or image, paste text, or provide a video URL. Images convert to markdown; audio and video are transcribed.</p>
-                <p class="cms-ai-mode-badge" id="cms-ai-mode-badge" hidden></p>
-                <div class="cms-ai-material-state" id="cms-ai-material-state" aria-label="Material preparation progress"></div>
-                <textarea id="cms-ai-paste" class="cms-ai-textarea" rows="5" placeholder="Paste lesson text, vocabulary list, or reading passage…"></textarea>
-                <div class="cms-ai-upload-row">
-                  <label class="btn secondary small cms-ai-file-label">
-                      <input type="file" id="cms-ai-file" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
-                    Upload file
-                  </label>
-                  <span class="cms-ai-file-name" id="cms-ai-file-name" hidden></span>
-                  <input type="text" id="cms-ai-video-url" class="cms-ai-video-url" placeholder="Video URL (optional — will transcribe)" />
+                <div class="cms-ai-material-layout">
+                  <section class="cms-ai-material-card">
+                    <div class="cms-ai-material-card-head">
+                      <h4 class="cms-ai-material-card-title">Source</h4>
+                      <div class="cms-ai-material-state" id="cms-ai-material-state" hidden aria-label="Material status"></div>
+                    </div>
+                    <textarea id="cms-ai-paste" class="cms-ai-textarea cms-ai-textarea-compact" rows="4" placeholder="Paste lesson text…"></textarea>
+                    <div class="cms-ai-source-inputs">
+                      <div class="cms-ai-file-upload">
+                        <span class="cms-ai-link-paste-label">Upload file</span>
+                        <label class="cms-ai-file-drop" id="cms-ai-file-drop">
+                          <input type="file" id="cms-ai-file" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
+                          <svg class="cms-ai-file-drop-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+                            <path d="M12 16V6.5M12 6.5 9.25 9.25M12 6.5l2.75 2.75" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M5 14.5v2.25A2.25 2.25 0 0 0 7.25 19h9.5A2.25 2.25 0 0 0 18.75 16.75V14.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+                          </svg>
+                          <span class="cms-ai-file-drop-text">
+                            <span class="cms-ai-file-drop-primary" id="cms-ai-file-drop-label">Choose or drop a file</span>
+                            <span class="cms-ai-file-drop-meta" id="cms-ai-file-name" hidden></span>
+                          </span>
+                        </label>
+                      </div>
+                      <div class="cms-ai-link-paste">
+                        <label class="cms-ai-link-paste-label" for="cms-ai-video-url">Paste video link</label>
+                        <div class="cms-ai-link-paste-field">
+                          <svg class="cms-ai-link-paste-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                            <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.41 1.41" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+                            <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 1 0 7.07 7.07l1.41-1.41" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+                          </svg>
+                          <input type="url" id="cms-ai-video-url" class="cms-ai-video-url" placeholder="https://youtube.com/… or direct video URL" autocomplete="off" spellcheck="false" inputmode="url" />
+                        </div>
+                      </div>
+                    </div>
+                    <p class="status-msg cms-ai-source-status" id="cms-ai-extract-status" hidden></p>
+                  </section>
+                  <section class="cms-ai-material-card cms-ai-material-card-side cms-ai-prompt-card">
+                    <div class="cms-ai-prompt-head">
+                      <h4 class="cms-ai-material-card-title">Prompt</h4>
+                      <span class="cms-ai-optional">optional</span>
+                    </div>
+                    <div class="cms-ai-prompt-compose">
+                      <textarea id="cms-ai-instructions" class="cms-ai-prompt-input" rows="5" placeholder="Only Topic 3. Focus on travel vocabulary…"></textarea>
+                      <p class="cms-ai-prompt-hint">Tell the AI what to use or ignore.</p>
+                    </div>
+                  </section>
                 </div>
-                <label class="cms-ai-course-toggle" id="cms-ai-course-toggle-wrap">
-                  <input type="checkbox" id="cms-ai-course-mode" />
-                  <span>Generate entire course from this document</span>
-                </label>
-                <p class="hint cms-ai-course-hint" id="cms-ai-course-hint">Uses your Step 1 format on every section. Splits the document by headings, then lets you approve the plan before generating.</p>
-                <div class="cms-ai-actions">
-                  <button type="button" class="btn secondary small" id="btn-cms-ai-extract">Prepare material</button>
-                  <span class="status-msg" id="cms-ai-extract-status"></span>
-                </div>
-                <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="7" hidden placeholder="Prepared material preview…"></textarea>
+                <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="5" hidden placeholder="Prepared material…"></textarea>
                 <pre id="cms-ai-video-log" class="cms-ai-video-log" hidden aria-live="polite"></pre>
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="3" hidden>
-                <p class="hint cms-ai-intro" id="cms-ai-plan-intro">Review the course plan. Every section uses the format you chose in Step 1.</p>
-                <div class="cms-ai-plan-meta" id="cms-ai-plan-meta"></div>
-                <div id="cms-ai-plan-list" class="cms-ai-plan-list"></div>
-                <details class="cms-ai-advanced">
-                  <summary>Advanced: import / export plan JSON</summary>
-                  <div class="cms-ai-json-actions">
-                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-plan">Export plan JSON</button>
-                    <label class="btn secondary small cms-ai-file-label">
-                      <input type="file" id="cms-ai-import-plan" hidden accept=".json,application/json" />
-                      Import plan JSON
-                    </label>
-                  </div>
-                </details>
-              </div>
-
-              <div class="cms-ai-step-panel" data-step-panel="4" hidden>
-                <p class="hint cms-ai-intro">Edit wording, answers, and prompts before publishing. Uncheck anything you do not want.</p>
+                <p class="hint cms-ai-intro">Review and edit before publishing.</p>
                 <div class="cms-ai-preview-toolbar" id="cms-ai-preview-toolbar" hidden>
                   <nav class="cms-ai-preview-nav" id="cms-ai-preview-nav" aria-label="Jump to section"></nav>
-                  <div class="cms-ai-preview-toolbar-actions">
-                    <button type="button" class="btn secondary small" id="btn-cms-ai-expand-all">Expand all</button>
-                    <button type="button" class="btn secondary small" id="btn-cms-ai-collapse-all">Collapse all</button>
-                  </div>
                 </div>
                 <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
                 <details class="cms-ai-advanced">
@@ -432,12 +439,25 @@
                 </details>
               </div>
 
-              <div class="cms-ai-step-panel" data-step-panel="5" hidden>
-                <p class="hint cms-ai-intro" id="cms-ai-publish-intro">Publishing writes the selected exercises into this section and saves the course.</p>
+              <div class="cms-ai-step-panel" data-step-panel="4" hidden>
+                <p class="hint cms-ai-intro" id="cms-ai-publish-intro" hidden></p>
                 <div id="cms-ai-publish-summary" class="cms-ai-publish-summary"></div>
               </div>
 
               <p class="error" id="cms-ai-error"></p>
+              <div class="cms-ai-gen-progress" id="cms-ai-gen-progress" hidden>
+                <div
+                  class="cms-ai-gen-progress-track"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                  aria-label="Generation progress"
+                >
+                  <div class="cms-ai-gen-progress-bar" id="cms-ai-gen-progress-bar"></div>
+                </div>
+                <p class="cms-ai-gen-progress-label" id="cms-ai-gen-progress-label"></p>
+              </div>
               <p class="status-msg" id="cms-ai-generate-status"></p>
               <div class="cms-ai-wizard-nav">
                 <button type="button" class="btn secondary small" id="btn-cms-ai-back" hidden>Back</button>
@@ -448,21 +468,6 @@
                 </button>
               </div>
               </div>
-            </div>
-          </div>
-          <div class="cms-composer" id="cms-exercise-composer">
-            <div class="cms-composer-head">
-              <p class="cms-composer-label">Add to this section</p>
-              <label class="cms-demo-toggle">
-                <input type="checkbox" id="cms-add-demo" />
-                Start with demo content
-              </label>
-            </div>
-            <div class="cms-type-grid" role="group" aria-label="Exercise type">
-              <button type="button" class="cms-type-tile" data-type="mcquiz">MC Quiz</button>
-              <button type="button" class="cms-type-tile" data-type="fastmcquiz">Fast MC Quiz</button>
-              <button type="button" class="cms-type-tile" data-type="video">Video</button>
-              <button type="button" class="cms-type-tile" data-type="buzzin">Buzz in Question</button>
             </div>
           </div>
           <button type="button" class="btn primary cms-cta" id="btn-save-exercises">
@@ -535,8 +540,7 @@
             <div class="cms-section-outline" aria-label="Exercises in this section"></div>
           </div>
           <div class="cms-section-footer-actions">
-            <button type="button" class="btn secondary small cms-manage-exercises">Open</button>
-            <button type="button" class="btn primary small cms-add-section-exercise">Add</button>
+            <button type="button" class="btn primary small cms-manage-exercises">Open</button>
           </div>
         </footer>
       </div>

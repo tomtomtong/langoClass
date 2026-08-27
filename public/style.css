@@ -6460,18 +6460,18 @@ body:has(#screen-host-quiz-question.active) {
 /* —— CMS light theme —— */
 
 body.cms-light {
-  --bg: #1a1a2e;
-  --surface: #16213e;
-  --surface-2: #1c2a4a;
-  --accent: #e94560;
-  --accent-soft: rgba(233, 69, 96, 0.28);
-  --accent2: #0f3460;
-  --border: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.22);
-  --text: #eaeaea;
-  --muted: #a0a0b0;
-  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.18);
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f5f5f5;
+  --accent: #c9841a;
+  --accent-soft: rgba(201, 132, 26, 0.16);
+  --accent2: #111111;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --text: #000000;
+  --muted: #525252;
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
   --radius: 22px;
   --radius-sm: 14px;
   --cms-topbar-h: 72px;
@@ -6482,9 +6482,7 @@ body.cms-light {
   overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
-  background-image:
-    radial-gradient(ellipse at 20% 0%, rgba(233, 69, 96, 0.15), transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(15, 52, 96, 0.4), transparent 50%);
+  background-image: none;
 }
 
 body.cms-light::after {
@@ -6613,11 +6611,11 @@ body.cms-light .cms-class-picker {
 }
 
 body.cms-light .cms-class-option:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--wash);
 }
 
 body.cms-light .cms-icon-btn {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--wash);
   color: var(--text);
 }
 
@@ -7049,7 +7047,7 @@ body.cms-light .cms-app {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   width: 100%;
   min-height: 58px;
   padding: 0.45rem 0.55rem 0.45rem 0.85rem;
@@ -7061,6 +7059,7 @@ body.cms-light .cms-app {
     0 14px 34px rgba(15, 23, 42, 0.16);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  flex-wrap: nowrap;
 }
 
 .cms-brand {
@@ -7073,6 +7072,24 @@ body.cms-light .cms-app {
   text-decoration: none;
   letter-spacing: -0.03em;
   flex-shrink: 0;
+}
+
+.cms-brand-logo {
+  display: block;
+  width: auto;
+  height: 28px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+html[data-cms-theme="light"] .cms-brand-logo,
+body.cms-light .cms-brand-logo {
+  mix-blend-mode: screen;
+}
+
+body.cms-light:has(#screen-cms-login.active) .cms-brand-logo,
+body.cms-light:has(#screen-config-login.active) .cms-brand-logo {
+  mix-blend-mode: normal;
 }
 
 .cms-brand-mark {
@@ -7105,32 +7122,90 @@ body.cms-light .cms-app {
 .cms-topbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.85rem 1.1rem;
-  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  flex: 1;
+  min-width: 0;
 }
 
 .cms-nav-group {
   display: flex;
   align-items: center;
-  gap: 0.1rem 0.15rem;
-  flex-wrap: wrap;
+  gap: 0.05rem;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.cms-nav-main {
+  margin-right: 0.15rem;
+}
+
+.cms-nav-tools {
+  padding-right: 0.15rem;
 }
 
 .cms-nav-account {
-  padding-left: 0.85rem;
-  margin-left: 0.25rem;
+  padding-left: 0.65rem;
+  margin-left: 0.15rem;
   border-left: 1px solid var(--border);
+}
+
+.cms-nav-more {
+  position: relative;
+}
+
+.cms-nav-more-trigger {
+  list-style: none;
+  cursor: pointer;
+}
+
+.cms-nav-more-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.cms-nav-more-trigger::after {
+  content: "▾";
+  margin-left: 0.15em;
+  font-size: 0.72em;
+  opacity: 0.65;
+}
+
+.cms-nav-more-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 11.5rem;
+  padding: 0.35rem;
+  border-radius: 14px;
+  background: var(--paper, #fff);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.cms-nav-more:not([open]) .cms-nav-more-menu {
+  display: none;
+}
+
+.cms-nav-more-menu .cms-link {
+  display: block;
+  width: 100%;
+  text-align: left;
 }
 
 .cms-link {
   color: var(--muted);
   font-weight: 700;
   text-decoration: none;
-  font-size: 0.88rem;
-  padding: 0.42rem 0.7rem;
+  font-size: 0.84rem;
+  padding: 0.38rem 0.58rem;
   border-radius: 999px;
   transition: color 0.2s var(--cms-ease), background 0.2s var(--cms-ease);
+  white-space: nowrap;
 }
 
 .cms-link:hover {
@@ -7141,8 +7216,12 @@ body.cms-light .cms-app {
 .cms-teacher {
   color: var(--muted);
   font-weight: 700;
-  font-size: 0.86rem;
-  padding-right: 0.35rem;
+  font-size: 0.8rem;
+  padding-right: 0.25rem;
+  white-space: nowrap;
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cms-logout {
@@ -7529,8 +7608,8 @@ body.cms-light .cms-course-card:hover {
   padding: 3rem 2rem;
   border: 1px dashed var(--border-strong);
   border-radius: 28px;
-  background:
-    linear-gradient(180deg, rgba(22, 33, 62, 0.7), rgba(15, 52, 96, 0.45));
+  background: linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+  color: var(--text);
 }
 
 .cms-empty-title {
@@ -8246,10 +8325,17 @@ body.cms-light .cms-course-card:hover {
     align-items: stretch;
     border-radius: 24px;
     padding: 0.75rem 0.8rem;
+    flex-wrap: wrap;
   }
 
   .cms-topbar-actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .cms-nav-group {
+    flex-wrap: wrap;
   }
 
   .cms-nav-account {
