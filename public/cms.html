@@ -136,6 +136,7 @@
       <div class="cms-edit-chrome">
         <button type="button" class="back-btn" id="btn-back-list">All courses</button>
         <h1 id="cms-edit-title">Edit course</h1>
+        <span class="cms-autosave-status" id="cms-autosave-status" hidden aria-live="polite">All changes saved</span>
       </div>
 
       <div class="cms-tabs" role="tablist">
@@ -269,18 +270,38 @@
           </div>
           <div id="cms-exercise-list" class="cms-exercise-list"></div>
           <div class="cms-ai-panel" id="cms-ai-panel">
+            <div class="cms-ai-entry-chooser" id="cms-ai-entry-chooser" hidden>
+              <p class="cms-ai-label">Generate with AI</p>
+              <p class="hint cms-ai-entry-intro">Choose whether you are filling this section only or building a full course from one document.</p>
+              <div class="cms-ai-entry-grid">
+                <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-section">
+                  <strong>Add to this section</strong>
+                  <span>Generate exercises from your material for the section you are editing.</span>
+                </button>
+                <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-course">
+                  <strong>Build full course from document</strong>
+                  <span>Split a document into sections, approve the plan, then generate the whole course.</span>
+                </button>
+              </div>
+            </div>
             <div class="cms-ai-wizard" id="cms-ai-wizard">
               <header class="cms-ai-wizard-head">
-                <h3 class="cms-ai-wizard-title">Generate from material</h3>
+                <div class="cms-ai-wizard-head-row">
+                  <h3 class="cms-ai-wizard-title">Generate from material</h3>
+                  <button type="button" class="cms-link cms-ai-change-path" id="btn-cms-ai-change-path" hidden>Change approach</button>
+                </div>
                 <ol class="cms-ai-steps" aria-label="Generation steps">
-                  <li><button type="button" class="cms-ai-step is-current" data-step="1">1 Format</button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="2">2 Material</button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="3">3 Plan</button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="4">4 Preview</button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="5">5 Publish</button></li>
+                  <li><button type="button" class="cms-ai-step is-current" data-step="1"><span class="cms-ai-step-num">1</span><span class="cms-ai-step-name">Format</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="2"><span class="cms-ai-step-num">2</span><span class="cms-ai-step-name">Material</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="3"><span class="cms-ai-step-num">3</span><span class="cms-ai-step-name">Plan</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="4"><span class="cms-ai-step-num">4</span><span class="cms-ai-step-name">Review</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="5"><span class="cms-ai-step-num">5</span><span class="cms-ai-step-name">Publish</span></button></li>
                 </ol>
+                <p class="cms-ai-wizard-summary" id="cms-ai-wizard-summary" aria-live="polite"></p>
+                <p class="cms-ai-gen-summary" id="cms-ai-gen-summary" hidden aria-live="polite"></p>
               </header>
 
+              <div class="cms-ai-step-body">
               <div class="cms-ai-step-panel is-active" data-step-panel="1">
                 <p class="hint cms-ai-intro">Pick a template, or make a custom mix of MC Quiz, Fast MC Quiz, Buzz in Question, and Video.</p>
                 <div class="cms-ai-templates" role="list">
@@ -349,6 +370,8 @@
 
               <div class="cms-ai-step-panel" data-step-panel="2" hidden>
                 <p class="hint cms-ai-intro">Upload a file, video, audio, or image, paste text, or provide a video URL. Images convert to markdown; audio and video are transcribed.</p>
+                <p class="cms-ai-mode-badge" id="cms-ai-mode-badge" hidden></p>
+                <div class="cms-ai-material-state" id="cms-ai-material-state" aria-label="Material preparation progress"></div>
                 <textarea id="cms-ai-paste" class="cms-ai-textarea" rows="5" placeholder="Paste lesson text, vocabulary list, or reading passage…"></textarea>
                 <div class="cms-ai-upload-row">
                   <label class="btn secondary small cms-ai-file-label">
@@ -358,11 +381,11 @@
                   <span class="cms-ai-file-name" id="cms-ai-file-name" hidden></span>
                   <input type="text" id="cms-ai-video-url" class="cms-ai-video-url" placeholder="Video URL (optional — will transcribe)" />
                 </div>
-                <label class="cms-ai-course-toggle">
+                <label class="cms-ai-course-toggle" id="cms-ai-course-toggle-wrap">
                   <input type="checkbox" id="cms-ai-course-mode" />
                   <span>Generate entire course from this document</span>
                 </label>
-                <p class="hint cms-ai-course-hint">Uses your Step 1 format on every section. Splits the document by headings, then lets you approve the plan before generating.</p>
+                <p class="hint cms-ai-course-hint" id="cms-ai-course-hint">Uses your Step 1 format on every section. Splits the document by headings, then lets you approve the plan before generating.</p>
                 <div class="cms-ai-actions">
                   <button type="button" class="btn secondary small" id="btn-cms-ai-extract">Prepare material</button>
                   <span class="status-msg" id="cms-ai-extract-status"></span>
@@ -375,25 +398,38 @@
                 <p class="hint cms-ai-intro" id="cms-ai-plan-intro">Review the course plan. Every section uses the format you chose in Step 1.</p>
                 <div class="cms-ai-plan-meta" id="cms-ai-plan-meta"></div>
                 <div id="cms-ai-plan-list" class="cms-ai-plan-list"></div>
-                <div class="cms-ai-json-actions">
-                  <button type="button" class="btn secondary small" id="btn-cms-ai-export-plan">Export plan JSON</button>
-                  <label class="btn secondary small cms-ai-file-label">
-                    <input type="file" id="cms-ai-import-plan" hidden accept=".json,application/json" />
-                    Import plan JSON
-                  </label>
-                </div>
+                <details class="cms-ai-advanced">
+                  <summary>Advanced: import / export plan JSON</summary>
+                  <div class="cms-ai-json-actions">
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-plan">Export plan JSON</button>
+                    <label class="btn secondary small cms-ai-file-label">
+                      <input type="file" id="cms-ai-import-plan" hidden accept=".json,application/json" />
+                      Import plan JSON
+                    </label>
+                  </div>
+                </details>
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="4" hidden>
                 <p class="hint cms-ai-intro">Edit wording, answers, and prompts before publishing. Uncheck anything you do not want.</p>
-                <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
-                <div class="cms-ai-json-actions">
-                  <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
-                  <label class="btn secondary small cms-ai-file-label">
-                    <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
-                    Import JSON
-                  </label>
+                <div class="cms-ai-preview-toolbar" id="cms-ai-preview-toolbar" hidden>
+                  <nav class="cms-ai-preview-nav" id="cms-ai-preview-nav" aria-label="Jump to section"></nav>
+                  <div class="cms-ai-preview-toolbar-actions">
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-expand-all">Expand all</button>
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-collapse-all">Collapse all</button>
+                  </div>
                 </div>
+                <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
+                <details class="cms-ai-advanced">
+                  <summary>Advanced: import / export exercise JSON</summary>
+                  <div class="cms-ai-json-actions">
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
+                    <label class="btn secondary small cms-ai-file-label">
+                      <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
+                      Import JSON
+                    </label>
+                  </div>
+                </details>
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="5" hidden>
@@ -405,11 +441,12 @@
               <p class="status-msg" id="cms-ai-generate-status"></p>
               <div class="cms-ai-wizard-nav">
                 <button type="button" class="btn secondary small" id="btn-cms-ai-back" hidden>Back</button>
-                <button type="button" class="btn primary small" id="btn-cms-ai-next">Next</button>
+                <button type="button" class="btn primary cms-cta" id="btn-cms-ai-next">Continue</button>
                 <button type="button" class="btn primary cms-cta" id="btn-cms-ai-publish" hidden>
                   <span id="cms-ai-publish-label">Publish to section</span>
                   <span class="cms-btn-glyph" aria-hidden="true">→</span>
                 </button>
+              </div>
               </div>
             </div>
           </div>
@@ -437,6 +474,19 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <div class="cms-onboarding" id="cms-onboarding" hidden>
+    <div class="cms-onboarding-backdrop" id="cms-onboarding-backdrop"></div>
+    <div class="cms-onboarding-card" role="dialog" aria-labelledby="cms-onboarding-title" aria-modal="true">
+      <p class="cms-onboarding-kicker" id="cms-onboarding-kicker">Step 1 of 3</p>
+      <h2 id="cms-onboarding-title">Build your course</h2>
+      <p id="cms-onboarding-copy">Open Sections to add lesson units, covers, and exercise lists.</p>
+      <div class="cms-onboarding-actions">
+        <button type="button" class="btn secondary small" id="btn-cms-onboarding-skip">Skip tour</button>
+        <button type="button" class="btn primary small" id="btn-cms-onboarding-next">Next</button>
+      </div>
+    </div>
   </div>
 
   <template id="tpl-section-editor">
