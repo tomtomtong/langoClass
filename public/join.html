@@ -29,6 +29,26 @@
         <p class="connection-status" data-i18n="join.classHint">Open the join link from your teacher's notification.</p>
       </div>
 
+      <div id="join-panel-room-name" hidden>
+        <h2 data-i18n="join.classTitle">Join class</h2>
+        <p class="connection-status" data-i18n="join.enterNameToJoin">Enter your name to join the class.</p>
+        <label class="field">
+          <span data-i18n="join.nickname">Nickname</span>
+          <input
+            type="text"
+            id="join-room-name"
+            maxlength="40"
+            autocomplete="name"
+            enterkeyhint="go"
+            placeholder="Your name"
+            data-i18n="join.nicknamePlaceholder"
+            data-i18n-attr="placeholder"
+          />
+        </label>
+        <button class="btn primary" id="btn-join-room-name" type="button" data-i18n="join.button">Join</button>
+        <p class="error" id="join-room-name-error"></p>
+      </div>
+
       <div id="join-panel-room" hidden>
         <h2 data-i18n="join.joiningTitle">Joining class</h2>
         <p class="connection-status" id="join-room-status" data-i18n="join.joiningStatus" data-i18n-dynamic>Connecting…</p>

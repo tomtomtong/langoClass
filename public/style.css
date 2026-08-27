@@ -13315,7 +13315,7 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
   left: 36px;
   top: 118px;
   z-index: 6;
-  min-width: 248px;
+  min-width: 0;
   padding: 16px 22px 14px;
   border: 3px solid rgba(255, 184, 77, 0.95);
   border-radius: 28px;
@@ -13324,6 +13324,50 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
     0 0 0 1px rgba(255, 255, 255, 0.75) inset,
     0 0 0 6px rgba(255, 184, 77, 0.18),
     0 16px 32px rgba(234, 88, 12, 0.16);
+}
+
+#app.lango-host .waiting-room-code-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+#app.lango-host .waiting-room-code-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 200px;
+}
+
+#app.lango-host .waiting-room-qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-left: 18px;
+  border-left: 2px solid rgba(255, 184, 77, 0.45);
+}
+
+#app.lango-host .waiting-room-qr {
+  display: block;
+  width: 108px;
+  height: 108px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.12);
+}
+
+#app.lango-host .waiting-room-qr-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a3412;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 108px;
 }
 
 #app.lango-host .waiting-room-code-label {
@@ -13346,7 +13390,7 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
 }
 
 #app.lango-host .waiting-timer {
-  left: 150px;
+  left: 190px;
   top: 334px;
   width: 745px;
   height: 640px;
@@ -13431,12 +13475,6 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
 
 #app.lango-host .waiting-wizard {
   display: block;
-  left: -62px;
-  bottom: 96px;
-  width: 520px;
-  max-width: none;
-  z-index: 3;
-  filter: drop-shadow(0 18px 24px rgba(15, 23, 42, 0.28));
   animation: waiting-soft-rise 700ms ease both;
 }
 
@@ -13524,6 +13562,33 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
 
 #app.lango-host .waiting-room-code-line {
   display: none;
+}
+
+#app.lango-host .waiting-students-count-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+#app.lango-host .waiting-students-count-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9d4b92;
+  line-height: 1;
+}
+
+#app.lango-host .waiting-students-online-note {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ea580c;
+  line-height: 1.2;
+  text-align: right;
 }
 
 #app.lango-host .waiting-students-count {

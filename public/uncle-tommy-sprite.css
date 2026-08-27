@@ -98,10 +98,12 @@ html.uncle-tommy-is-speaking .uncle-tommy-sprite--avatar .uncle-tommy-sprite__fi
   filter: drop-shadow(0 16px 18px rgba(35, 22, 65, 0.22));
 }
 
-#app.lango-host .waiting-wizard.uncle-tommy-sprite {
-  left: -28px;
-  bottom: 18px;
-  width: 250px;
+#app.lango-host .waiting-timer .waiting-wizard.uncle-tommy-sprite {
+  position: absolute;
+  left: -145px;
+  top: 168px;
+  bottom: auto;
+  width: 300px;
   height: auto;
   max-width: none;
   z-index: 2;

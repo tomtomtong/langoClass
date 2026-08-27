@@ -534,14 +534,34 @@
         <h1 class="waiting-page-title" data-i18n="waiting.title">Waiting Room</h1>
 
         <div class="waiting-room-code-card" aria-label="Room code">
-          <p class="waiting-room-code-label" data-i18n="waiting.roomCode">Room Code</p>
-          <button type="button" class="waiting-room-code-display" id="btn-copy-room-id" title="Copy room code">
-            <span class="waiting-room-code-digits" id="waiting-room-id" aria-live="polite"></span>
-          </button>
-          <p class="waiting-room-code-hint" id="waiting-room-code-hint" data-i18n="waiting.copyHint">Tap to copy</p>
+          <div class="waiting-room-code-body">
+            <div class="waiting-room-code-main">
+              <p class="waiting-room-code-label" data-i18n="waiting.roomCode">Room Code</p>
+              <button type="button" class="waiting-room-code-display" id="btn-copy-room-id" title="Copy room code">
+                <span class="waiting-room-code-digits" id="waiting-room-id" aria-live="polite"></span>
+              </button>
+              <p class="waiting-room-code-hint" id="waiting-room-code-hint" data-i18n="waiting.copyHint">Tap to copy</p>
+            </div>
+            <div class="waiting-room-qr-wrap" id="waiting-room-qr-wrap" hidden>
+              <img
+                class="waiting-room-qr"
+                id="waiting-room-qr"
+                width="108"
+                height="108"
+                alt="Scan to join class"
+                data-i18n-alt="waiting.scanToJoin"
+              />
+              <p class="waiting-room-qr-label" data-i18n="waiting.scanToJoin">Scan to join</p>
+            </div>
+          </div>
         </div>
 
         <div class="waiting-timer" aria-live="polite">
+          <div class="uncle-tommy-sprite waiting-wizard" data-uncle-tommy-sprite aria-hidden="true">
+            <span class="uncle-tommy-sprite__clip">
+              <span class="uncle-tommy-sprite__film"></span>
+            </span>
+          </div>
           <div class="waiting-timer-ring">
             <div class="waiting-timer-watch" id="waiting-timer-watch-lottie" data-lottie-path="/assets/lottie/clock.json" aria-hidden="true"></div>
             <p class="waiting-timer-label" data-i18n="waiting.startIn">Start In</p>
@@ -556,10 +576,20 @@
                 <h2 class="waiting-students-title" data-i18n="waiting.studentsTitle">Connected Students</h2>
                 <p class="waiting-students-subtitle" data-i18n="waiting.studentsSubtitle">Students can join and wait here until you start an exercise.</p>
               </div>
-              <div class="waiting-students-count" aria-label="Students connected">
-                <span class="waiting-students-count-current" id="waiting-connected-count">0</span>
-                <span class="waiting-students-count-sep">/</span>
-                <span class="waiting-students-count-total" id="waiting-total-target">0</span>
+              <div class="waiting-students-count-wrap">
+                <div
+                  class="waiting-students-count"
+                  id="waiting-students-count"
+                  aria-label="Registered students joined"
+                >
+                  <span class="waiting-students-count-current" id="waiting-connected-count">0</span>
+                  <span class="waiting-students-count-sep">/</span>
+                  <span class="waiting-students-count-total" id="waiting-total-target">0</span>
+                </div>
+                <p class="waiting-students-count-label" id="waiting-count-label" data-i18n="waiting.registeredCountLabel">
+                  registered
+                </p>
+                <p class="waiting-students-online-note" id="waiting-online-note" hidden></p>
               </div>
             </header>
 
@@ -567,12 +597,6 @@
             <p class="waiting-participant-status" id="waiting-participant-status" hidden></p>
             <p class="waiting-error" id="waiting-error"></p>
           </div>
-        </div>
-
-        <div class="uncle-tommy-sprite waiting-wizard" data-uncle-tommy-sprite aria-hidden="true">
-          <span class="uncle-tommy-sprite__clip">
-            <span class="uncle-tommy-sprite__film"></span>
-          </span>
         </div>
 
         <footer class="waiting-footer">

@@ -28,6 +28,7 @@ const exerciseImport = require("./lib/exercise-import");
 const courseExport = require("./lib/course-export");
 const courseImport = require("./lib/course-import");
 const courseImportChunked = require("./lib/course-import-chunked");
+const QRCode = require("qrcode");
 const coursePlan = require("./lib/course-plan");
 
 const app = express();
@@ -4157,7 +4158,34 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/api/network-urls", (_req, res) => {
-  res.json({ port: PORT, addresses: getLocalIPv4(), publicBaseUrl: getPublicBaseUrl() });
+  const settings = settingsStore.readSettings();
+  res.json({
+    port: PORT,
+    addresses: getLocalIPv4(),
+    publicBaseUrl: getPublicBaseUrl(),
+    configuredPublicBaseUrl: settings.publicBaseUrl || "",
+  });
+});
+
+app.get("/api/room-qr.svg", async (req, res) => {
+  const url = String(req.query.url || "").trim();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    return res.status(400).send("Valid http(s) url is required.");
+  }
+
+  try {
+    const svg = await QRCode.toString(url, {
+      type: "svg",
+      margin: 1,
+      width: 200,
+      color: { dark: "#1f2937", light: "#ffffff" },
+    });
+    res.type("image/svg+xml");
+    res.set("Cache-Control", "private, max-age=300");
+    res.send(svg);
+  } catch {
+    res.status(400).send("Could not generate QR code.");
+  }
 });
 
 io.on("connection", (socket) => {

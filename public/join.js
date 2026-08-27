@@ -491,9 +491,62 @@ function startRoomStatusPoll() {
   /* Session status is pushed over Socket.IO — no polling. */
 }
 
-function initRoomJoin() {
+function showRoomJoinPanels({ showNameForm = false, showJoining = false } = {}) {
   $("#join-panel-quiz").hidden = true;
-  $("#join-panel-room").hidden = false;
+  $("#join-panel-link-required").hidden = true;
+  $("#join-panel-room-name").hidden = !showNameForm;
+  $("#join-panel-room").hidden = !showJoining;
+}
+
+function wireRoomNameForm() {
+  const formBtn = $("#btn-join-room-name");
+  const nameInput = $("#join-room-name");
+  if (!formBtn || formBtn.dataset.wired === "1") return;
+  formBtn.dataset.wired = "1";
+
+  const submitName = () => {
+    const roomId = normalizePin(urlRoom || loadStoredParticipant()?.roomId || "");
+    const name = nameInput?.value.trim().slice(0, 40) || "";
+    const errorEl = $("#join-room-name-error");
+    if (!roomId) {
+      if (errorEl) errorEl.textContent = joinT("join.classHint");
+      return;
+    }
+    if (!name) {
+      if (errorEl) errorEl.textContent = joinT("join.enterNickname");
+      nameInput?.focus();
+      return;
+    }
+    if (errorEl) errorEl.textContent = "";
+    rememberJoinDisplayName(name);
+    showRoomJoinPanels({ showJoining: true });
+    void doJoinRoom(roomId, name);
+  };
+
+  formBtn.addEventListener("click", submitName);
+  nameInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitName();
+    }
+  });
+}
+
+function initRoomNameForm(roomId) {
+  showRoomJoinPanels({ showNameForm: true });
+  wireRoomNameForm();
+
+  const nameInput = $("#join-room-name");
+  const errorEl = $("#join-room-name-error");
+  if (errorEl) errorEl.textContent = "";
+  if (nameInput) {
+    nameInput.value = String(lastJoinDisplayName || urlNickname || "").trim().slice(0, 40);
+    requestAnimationFrame(() => nameInput.focus());
+  }
+}
+
+function initRoomJoin() {
+  showRoomJoinPanels({ showJoining: true });
 
   const stored = loadStoredParticipant();
   const activeRoom = normalizePin(urlRoom || stored?.roomId || "");
@@ -511,6 +564,7 @@ function initRoomJoin() {
   });
 
   if (!activeRoom) {
+    showRoomJoinPanels({ showJoining: true });
     $("#join-room-status").textContent = "";
     $("#join-room-error").textContent = joinT("join.classHint");
     return;
@@ -518,8 +572,7 @@ function initRoomJoin() {
 
   const displayName = resolveDisplayName(activeRoom, stored);
   if (!displayName) {
-    $("#join-room-status").textContent = "";
-    $("#join-room-error").textContent = joinT("join.nameMissingAsk");
+    initRoomNameForm(activeRoom);
     return;
   }
 
@@ -530,6 +583,9 @@ function doJoinRoom(roomId, displayNameOverride) {
   const stored = loadStoredParticipant();
   const displayName = (displayNameOverride || resolveDisplayName(roomId, stored)).trim();
   const fromEnded = isOnEndedScreen();
+  if (!fromEnded) {
+    showRoomJoinPanels({ showJoining: true });
+  }
   if (fromEnded) {
     setJoinEndedError("");
     setEndedSubmitBusy(true);
@@ -543,6 +599,12 @@ function doJoinRoom(roomId, displayNameOverride) {
       setEndedSubmitBusy(false);
       setJoinEndedError(message);
     } else {
+      if ($("#join-panel-room-name") && !$("#join-panel-room-name").hidden) {
+        showRoomJoinPanels({ showNameForm: true });
+        const nameError = $("#join-room-name-error");
+        if (nameError) nameError.textContent = message;
+        return;
+      }
       $("#join-room-status").textContent = "";
       $("#join-room-error").textContent = message;
     }
@@ -636,6 +698,7 @@ function initQuizJoin() {
   const pin = normalizePin(urlPin || "");
   if (pin.length !== 6) {
     $("#join-panel-quiz").hidden = true;
+    $("#join-panel-room-name").hidden = true;
     $("#join-panel-link-required").hidden = false;
     return;
   }
@@ -848,6 +911,7 @@ function initQuizJoin() {
 function initJoinLinkRequired() {
   $("#join-panel-quiz").hidden = true;
   $("#join-panel-room").hidden = true;
+  $("#join-panel-room-name").hidden = true;
   $("#join-panel-link-required").hidden = false;
 }
 

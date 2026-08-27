@@ -1172,6 +1172,44 @@ function courseTitle(course) {
   return course?.name || course?.title || course?.courseName || "Whiteboard session";
 }
 
+async function resolveBestStudentJoinUrl(roomId) {
+  const path = `/join.html?room=${encodeURIComponent(roomId)}`;
+  const origin = window.location.origin.replace(/\/$/, "");
+  const host = window.location.hostname;
+  const isLocalHost = host === "localhost" || host === "127.0.0.1";
+
+  try {
+    const res = await fetch("/api/network-urls");
+    const { port, addresses, configuredPublicBaseUrl } = await res.json();
+
+    if (isLocalHost && addresses?.length) {
+      return `http://${addresses[0]}:${port}${path}`;
+    }
+
+    const explicitPublic = String(configuredPublicBaseUrl || "").trim();
+    if (explicitPublic) {
+      return `${explicitPublic.replace(/\/$/, "")}${path}`;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return `${origin}${path}`;
+}
+
+async function renderWaitingRoomQr(roomId) {
+  const wrap = $("#waiting-room-qr-wrap");
+  const img = $("#waiting-room-qr");
+  if (!wrap || !img || !roomId) {
+    if (wrap) wrap.hidden = true;
+    return;
+  }
+
+  const joinUrl = await resolveBestStudentJoinUrl(roomId);
+  img.src = `/api/room-qr.svg?url=${encodeURIComponent(joinUrl)}`;
+  wrap.hidden = false;
+}
+
 async function renderRoomJoinLinks(roomId) {
   const wrap = $("#waiting-join-links-wrap");
   const list = $("#waiting-join-links");
@@ -2580,7 +2618,23 @@ function participantMatchesStudent(participant, student) {
   const firstLast = normalizePersonName(`${student.firstName || ""} ${student.lastName || ""}`);
   if (participantName && firstLast && participantName === firstLast) return true;
 
+  const studentFirst = normalizePersonName(student.firstName);
+  if (participantName && studentFirst && participantName === studentFirst) return true;
+
   return false;
+}
+
+function partitionParticipantsByRoster(participants, roster) {
+  const matchedParticipantIds = new Set();
+  const rosterRows = roster.map((student) => {
+    const participant = participants.find((entry) => participantMatchesStudent(entry, student));
+    if (participant?.userId != null) matchedParticipantIds.add(String(participant.userId));
+    return { student, participant };
+  });
+  const guests = participants.filter(
+    (participant) => !matchedParticipantIds.has(String(participant?.userId ?? ""))
+  );
+  return { rosterRows, guests };
 }
 
 function countConnectedRosterStudents(participants, roster) {
@@ -2825,26 +2879,68 @@ function syncHostOnlineCountVisibility(screenId = getActiveHostScreenId()) {
   }
 }
 
-function updateWaitingStudentCount(connected, totalOverride) {
+function updateWaitingStudentCount(connected, totalOverride, { onlineTotal } = {}) {
   const currentEl = $("#waiting-connected-count");
   const totalEl = $("#waiting-total-target");
   const dockCurrentEl = $("#host-online-connected");
   const dockTotalEl = $("#host-online-total");
+  const countWrap = $("#waiting-students-count");
+  const labelEl = $("#waiting-count-label");
+  const noteEl = $("#waiting-online-note");
   const roster = getWaitingClassRoster();
+  const hasRoster = roster.length > 0;
   const total =
     totalOverride ??
-    (roster.length > 0
+    (hasRoster
       ? roster.length
       : state.waitingTotalTarget > 0
         ? state.waitingTotalTarget
         : connected);
 
-  const connectedText = String(Math.max(0, Number(connected) || 0));
-  const totalText = String(Math.max(0, Number(total) || 0));
+  const rosterJoined = Math.max(0, Number(connected) || 0);
+  const rosterTotal = Math.max(0, Number(total) || 0);
+  const online = Math.max(rosterJoined, Number(onlineTotal ?? connected) || 0);
+  const guestCount = Math.max(0, online - rosterJoined);
+
+  const connectedText = hasRoster ? String(rosterJoined) : String(online);
+  const totalText = String(rosterTotal);
+
   if (currentEl) currentEl.textContent = connectedText;
   if (totalEl) totalEl.textContent = totalText;
   if (dockCurrentEl) dockCurrentEl.textContent = connectedText;
   if (dockTotalEl) dockTotalEl.textContent = totalText;
+
+  if (labelEl) {
+    labelEl.hidden = !hasRoster;
+    if (hasRoster) labelEl.textContent = hostT("waiting.registeredCountLabel");
+  }
+
+  if (noteEl) {
+    if (hasRoster && guestCount > 0) {
+      noteEl.textContent = hostT(
+        guestCount === 1 ? "waiting.guestsOnline" : "waiting.guestsOnlinePlural",
+        { n: guestCount }
+      );
+      noteEl.hidden = false;
+    } else {
+      noteEl.textContent = "";
+      noteEl.hidden = true;
+    }
+  }
+
+  if (countWrap) {
+    countWrap.setAttribute(
+      "aria-label",
+      hasRoster
+        ? hostT("waiting.rosterCountAria", {
+            joined: rosterJoined,
+            total: rosterTotal,
+            online,
+          })
+        : hostT("waiting.onlinePrefix") + ` ${online}`
+    );
+  }
+
   syncHostOnlineCountVisibility();
 }
 
@@ -2928,15 +3024,13 @@ function renderParticipants(participants, { announceJoins = false } = {}) {
   const newlyJoinedPeople = [];
 
   if (roster.length) {
-    const connectedCount = countConnectedRosterStudents(participants, roster);
-    displaySlots = roster.length;
-    updateWaitingStudentCount(connectedCount, roster.length);
+    const { rosterRows, guests } = partitionParticipantsByRoster(participants, roster);
+    const rosterJoined = rosterRows.filter((row) => row.participant).length;
+    displaySlots = roster.length + guests.length;
+    updateWaitingStudentCount(rosterJoined, roster.length, { onlineTotal: participants.length });
 
-    list.innerHTML = roster
-      .map((student) => {
-        const participant = participants.find((participant) =>
-          participantMatchesStudent(participant, student)
-        );
+    const rosterMarkup = rosterRows
+      .map(({ student, participant }) => {
         if (participant) {
           const key = waitingStudentKey(
             participantDisplayName(participant),
@@ -2953,6 +3047,22 @@ function renderParticipants(participants, { announceJoins = false } = {}) {
         return renderWaitingStudentCard(student, participant);
       })
       .join("");
+
+    const guestMarkup = guests
+      .map((participant) => {
+        const key = waitingStudentKey(participantDisplayName(participant), participant?.userId);
+        nextConnectedKeys.add(key);
+        if (!priorKeys.has(key)) {
+          newlyJoinedPeople.push({
+            key,
+            name: formatWaitingDisplayName(participantDisplayName(participant)),
+          });
+        }
+        return renderJoinedStudentCard(participant);
+      })
+      .join("");
+
+    list.innerHTML = rosterMarkup + guestMarkup;
   } else {
     const connected = participants.length;
     const total = Math.max(state.waitingTotalTarget || 0, connected, 1);
@@ -2994,9 +3104,7 @@ function renderParticipants(participants, { announceJoins = false } = {}) {
   if (announceJoins) queueHostLateJoinNotice(newlyJoinedPeople);
 
   if (statusEl) {
-    const connected = roster.length
-      ? countConnectedRosterStudents(participants, roster)
-      : participants.length;
+    const connected = participants.length;
 
     if (!connected) {
       statusEl.textContent = hostT("waiting.forStudents");
@@ -3079,6 +3187,7 @@ async function showWaitingRoom() {
 
   if (!hostSessionConnected) void startWaitingPoll();
   void renderRoomJoinLinks(state.activeRoomId);
+  void renderWaitingRoomQr(state.activeRoomId);
 }
 
 async function enterWaitingRoom(roomId, apiResponse) {

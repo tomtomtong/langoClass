@@ -16,6 +16,7 @@
     "mammoth": "^1.12.1",
     "multer": "^2.1.1",
     "pdf-parse": "^2.4.5",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3"
   }
