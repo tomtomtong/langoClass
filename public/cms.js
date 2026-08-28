@@ -395,54 +395,18 @@ function systemCmsTheme() {
   return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
 }
 
-function storedCmsTheme() {
+function applyCmsTheme() {
+  document.documentElement.dataset.cmsTheme = "light";
   try {
-    const value = localStorage.getItem(CMS_THEME_KEY);
-    if (value === "dark" || value === "light") return value;
+    localStorage.setItem(CMS_THEME_KEY, "light");
   } catch {
     /* ignore */
-  }
-  return null;
-}
-
-function currentCmsTheme() {
-  return document.documentElement.dataset.cmsTheme === "dark" ? "dark" : "light";
-}
-
-function syncCmsThemeButton(theme) {
-  const btn = $("#btn-cms-theme");
-  if (!btn) return;
-  const dark = theme === "dark";
-  btn.setAttribute("aria-pressed", dark ? "true" : "false");
-  btn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
-}
-
-function applyCmsTheme(theme, { persist = false } = {}) {
-  const next = theme === "dark" ? "dark" : "light";
-  document.documentElement.dataset.cmsTheme = next;
-  syncCmsThemeButton(next);
-  if (persist) {
-    try {
-      localStorage.setItem(CMS_THEME_KEY, next);
-    } catch {
-      /* ignore */
-    }
   }
   window.LangoGsap?.playCmsTabGlider?.();
 }
 
-function toggleCmsTheme() {
-  applyCmsTheme(currentCmsTheme() === "dark" ? "light" : "dark", { persist: true });
-  const btn = $("#btn-cms-theme");
-  window.LangoGsap?.playCmsSavePulse?.(btn);
-}
-
 function initCmsTheme() {
-  applyCmsTheme(storedCmsTheme() || "light");
-  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-  media?.addEventListener?.("change", () => {
-    if (!storedCmsTheme()) applyCmsTheme("light");
-  });
+  applyCmsTheme();
 }
 
 function teacherDisplayName() {
@@ -5098,7 +5062,6 @@ $("#cms-login-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleLogin();
 });
 $("#btn-cms-logout").addEventListener("click", handleLogout);
-$("#btn-cms-theme")?.addEventListener("click", toggleCmsTheme);
 $("#btn-new-course").addEventListener("click", createNewCourse);
 $("#btn-import-all-courses").addEventListener("click", triggerImportAllCourses);
 $("#import-all-file").addEventListener("change", async (event) => {

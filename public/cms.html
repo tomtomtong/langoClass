@@ -10,16 +10,7 @@
   <link rel="stylesheet" href="/cms.css" />
   <script>
     (function applyCmsThemeEarly() {
-      try {
-        var stored = localStorage.getItem("lango_cms_theme");
-        var theme =
-          stored === "dark" || stored === "light"
-            ? stored
-            : "light";
-        document.documentElement.dataset.cmsTheme = theme;
-      } catch (err) {
-        document.documentElement.dataset.cmsTheme = "light";
-      }
+      document.documentElement.dataset.cmsTheme = "light";
     })();
   </script>
 </head>
@@ -49,15 +40,6 @@
             <a class="cms-link" href="/config.html">Notifications</a>
           </div>
           <div class="cms-nav-group cms-nav-account">
-            <button type="button" class="cms-theme-toggle" id="btn-cms-theme" aria-pressed="false" aria-label="Switch to dark mode">
-              <svg class="cms-theme-icon cms-theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M17.5 14.5A7.5 7.5 0 1 1 9.5 6.5 6 6 0 0 0 17.5 14.5z" />
-              </svg>
-              <svg class="cms-theme-icon cms-theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 3v1.5M12 19.5V21M4.5 12H3M21 12h-1.5M6.2 6.2l1.1 1.1M16.7 16.7l1.1 1.1M6.2 17.8l1.1-1.1M16.7 7.3l1.1-1.1" />
-              </svg>
-            </button>
             <span class="cms-teacher" id="cms-teacher-label" hidden></span>
             <button type="button" class="btn secondary small cms-logout" id="btn-cms-logout" hidden>Log out</button>
           </div>
@@ -164,7 +146,7 @@
           </div>
           <div class="cms-studio-grid">
             <div class="field cms-thumbnail-field cms-studio-media">
-              <span>Cover</span>
+              <span>Course thumbnail</span>
               <div class="cms-thumbnail-preview" id="course-banner-preview">
                 <img id="course-banner-img" alt="Course thumbnail" src="/assets/cms/cover-empty.svg" />
                 <button type="button" class="btn secondary small" id="btn-remove-banner" hidden>Remove</button>
@@ -173,7 +155,7 @@
                 <input type="file" id="course-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
                 Upload image
               </label>
-              <p class="hint cms-thumbnail-hint">JPEG, PNG, WebP, or GIF. Max 2 MB.</p>
+              <p class="hint cms-thumbnail-hint">Shown on course cards in the dashboard and host. JPEG, PNG, WebP, or GIF. Max 2 MB.</p>
               <input type="hidden" id="course-banner" />
               <p class="status-msg" id="cms-banner-status"></p>
             </div>
@@ -496,20 +478,24 @@
 
   <template id="tpl-section-editor">
     <article class="cms-section-card">
-      <div class="cms-section-cover">
-        <div class="cms-section-thumbnail-preview" hidden>
-          <img class="cms-section-banner-img" alt="Section thumbnail" src="/assets/cms/cover-empty.svg" />
+      <div class="cms-section-media">
+        <span class="cms-section-cover-label">Path tile</span>
+        <div class="cms-section-cover">
+          <div class="cms-section-thumbnail-preview" hidden>
+            <img class="cms-section-banner-img" alt="Section path tile" src="/assets/cms/cover-empty.svg" />
+          </div>
+          <div class="cms-section-cover-empty" aria-hidden="true"></div>
+          <div class="cms-section-cover-actions">
+            <label class="cms-thumbnail-upload btn secondary small">
+              <input type="file" class="cms-section-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+              Upload image
+            </label>
+            <button type="button" class="btn secondary small cms-remove-section-banner" hidden>Remove</button>
+          </div>
+          <input type="hidden" class="cms-section-banner-value" />
+          <p class="status-msg cms-section-banner-status"></p>
         </div>
-        <div class="cms-section-cover-empty" aria-hidden="true"></div>
-        <div class="cms-section-cover-actions">
-          <label class="cms-thumbnail-upload btn secondary small">
-            <input type="file" class="cms-section-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
-            Cover
-          </label>
-          <button type="button" class="btn secondary small cms-remove-section-banner" hidden>Remove</button>
-        </div>
-        <input type="hidden" class="cms-section-banner-value" />
-        <p class="status-msg cms-section-banner-status"></p>
+        <p class="hint cms-section-cover-hint">Art for this level on the journey map.</p>
       </div>
       <div class="cms-section-body">
         <header class="cms-section-card-head">
