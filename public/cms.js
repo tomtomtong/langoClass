@@ -1,5 +1,8 @@
 const STORAGE_KEY = "lango_host_prefs";
 const CMS_THEME_KEY = "lango_cms_theme";
+const CMS_TEXT_SIZE_KEY = "lango_cms_text_size";
+const CMS_TEXT_SIZES = ["sm", "md", "lg", "xl"];
+const CMS_TEXT_SIZE_LABELS = { sm: "S", md: "M", lg: "L", xl: "XL" };
 const CMS_EMPTY_COVER = "/assets/cms/cover-empty.svg";
 
 const CMS_TOUR_KEY = "lango_cms_tour_v1";
@@ -430,6 +433,39 @@ function applyCmsTheme() {
 
 function initCmsTheme() {
   applyCmsTheme();
+}
+
+function getCmsTextSize() {
+  const current = document.documentElement.dataset.cmsTextSize || "md";
+  return CMS_TEXT_SIZES.includes(current) ? current : "md";
+}
+
+function applyCmsTextSize(size) {
+  const next = CMS_TEXT_SIZES.includes(size) ? size : "md";
+  document.documentElement.dataset.cmsTextSize = next;
+  try {
+    localStorage.setItem(CMS_TEXT_SIZE_KEY, next);
+  } catch {
+    /* ignore */
+  }
+  const label = $("#cms-text-size-label");
+  const smaller = $("#btn-cms-text-smaller");
+  const larger = $("#btn-cms-text-larger");
+  if (label) label.textContent = CMS_TEXT_SIZE_LABELS[next];
+  if (smaller) smaller.disabled = next === CMS_TEXT_SIZES[0];
+  if (larger) larger.disabled = next === CMS_TEXT_SIZES[CMS_TEXT_SIZES.length - 1];
+}
+
+function stepCmsTextSize(delta) {
+  const index = CMS_TEXT_SIZES.indexOf(getCmsTextSize());
+  const nextIndex = Math.min(CMS_TEXT_SIZES.length - 1, Math.max(0, index + delta));
+  applyCmsTextSize(CMS_TEXT_SIZES[nextIndex]);
+}
+
+function initCmsTextSize() {
+  applyCmsTextSize(getCmsTextSize());
+  $("#btn-cms-text-smaller")?.addEventListener("click", () => stepCmsTextSize(-1));
+  $("#btn-cms-text-larger")?.addEventListener("click", () => stepCmsTextSize(1));
 }
 
 function teacherDisplayName() {
@@ -6022,6 +6058,7 @@ document.querySelectorAll(".cms-tab").forEach((tab) => {
 
 loadPrefs();
 initCmsTheme();
+initCmsTextSize();
 initAiReviewSelection();
 updateAuthUi();
 applyTeacherLoginDefaults(

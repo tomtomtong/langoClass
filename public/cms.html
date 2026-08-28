@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-cms-theme="light">
+<html lang="en" data-cms-theme="light" data-cms-text-size="md">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,6 +11,12 @@
   <script>
     (function applyCmsThemeEarly() {
       document.documentElement.dataset.cmsTheme = "light";
+      try {
+        const textSize = localStorage.getItem("lango_cms_text_size");
+        if (textSize) document.documentElement.dataset.cmsTextSize = textSize;
+      } catch {
+        /* ignore */
+      }
     })();
   </script>
 </head>
@@ -38,6 +44,11 @@
               </div>
             </details>
             <a class="cms-link" href="/config.html">Notifications</a>
+          </div>
+          <div class="cms-text-size-control" role="group" aria-label="Text size">
+            <button type="button" class="cms-text-size-btn" id="btn-cms-text-smaller" aria-label="Smaller text" title="Smaller text">−</button>
+            <span class="cms-text-size-label" id="cms-text-size-label" aria-live="polite">M</span>
+            <button type="button" class="cms-text-size-btn" id="btn-cms-text-larger" aria-label="Larger text" title="Larger text">+</button>
           </div>
           <div class="cms-nav-group cms-nav-account">
             <span class="cms-teacher" id="cms-teacher-label" hidden></span>

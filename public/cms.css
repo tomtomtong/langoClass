@@ -1,5 +1,26 @@
 /* CMS classroom studio. Loaded after style.css so it can override the shared sheet. */
 
+html {
+  --cms-text-scale: 1;
+  font-size: calc(16px * var(--cms-text-scale));
+}
+
+html[data-cms-text-size="sm"] {
+  --cms-text-scale: 0.875;
+}
+
+html[data-cms-text-size="md"] {
+  --cms-text-scale: 1;
+}
+
+html[data-cms-text-size="lg"] {
+  --cms-text-scale: 1.125;
+}
+
+html[data-cms-text-size="xl"] {
+  --cms-text-scale: 1.25;
+}
+
 html[data-cms-theme="light"] {
   color-scheme: light;
 }
@@ -1022,6 +1043,64 @@ body.cms-light .cms-theme-toggle:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 3px;
   box-shadow: var(--host-btn-secondary-shadow);
+}
+
+body.cms-light .cms-text-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.15rem;
+  margin-right: 0.15rem;
+  border-radius: 999px;
+  background: var(--host-btn-secondary-bg);
+  box-shadow: var(--host-btn-secondary-shadow);
+}
+
+body.cms-light .cms-text-size-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--host-btn-secondary-text);
+  font-family: var(--font-body, "Nunito", sans-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    transform 200ms var(--host-btn-ease),
+    background-color 200ms ease;
+}
+
+body.cms-light .cms-text-size-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+body.cms-light .cms-text-size-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+body.cms-light .cms-text-size-btn:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+body.cms-light .cms-text-size-label {
+  min-width: 1.35rem;
+  text-align: center;
+  font-family: var(--font-body, "Nunito", sans-serif);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  user-select: none;
 }
 
 body.cms-light .cms-theme-icon {
