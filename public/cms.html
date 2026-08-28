@@ -404,21 +404,57 @@
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="3" hidden>
-                <p class="hint cms-ai-intro">Review and edit before publishing.</p>
-                <div class="cms-ai-preview-toolbar" id="cms-ai-preview-toolbar" hidden>
-                  <nav class="cms-ai-preview-nav" id="cms-ai-preview-nav" aria-label="Jump to section"></nav>
-                </div>
-                <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
-                <details class="cms-ai-advanced">
-                  <summary>Advanced: import / export exercise JSON</summary>
-                  <div class="cms-ai-json-actions">
-                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
-                    <label class="btn secondary small cms-ai-file-label">
-                      <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
-                      Import JSON
-                    </label>
+                <div class="cms-ai-review-layout">
+                  <div class="cms-ai-review-main">
+                    <p class="hint cms-ai-intro">Review and edit before publishing.</p>
+                    <div class="cms-ai-preview-toolbar" id="cms-ai-preview-toolbar" hidden>
+                      <nav class="cms-ai-preview-nav" id="cms-ai-preview-nav" aria-label="Jump to section"></nav>
+                    </div>
+                    <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
+                    <details class="cms-ai-advanced">
+                      <summary>Advanced: import / export exercise JSON</summary>
+                      <div class="cms-ai-json-actions">
+                        <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
+                        <label class="btn secondary small cms-ai-file-label">
+                          <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
+                          Import JSON
+                        </label>
+                      </div>
+                    </details>
                   </div>
-                </details>
+                  <aside class="cms-ai-agent" id="cms-ai-agent" aria-label="Review assistant">
+                    <header class="cms-ai-agent-head">
+                      <div>
+                        <h4 class="cms-ai-agent-title">Review assistant</h4>
+                        <p class="cms-ai-agent-lead">Highlight text on the left, then ask for edits here.</p>
+                      </div>
+                      <button type="button" class="cms-row-btn cms-row-btn-quiet" id="btn-cms-ai-agent-undo" hidden>Undo last edit</button>
+                    </header>
+                    <div class="cms-ai-agent-chat">
+                      <div class="cms-ai-agent-log" id="cms-ai-agent-log" aria-live="polite"></div>
+                      <div class="cms-ai-agent-footer">
+                        <div class="cms-ai-agent-selection" id="cms-ai-agent-selection" hidden>
+                          <div class="cms-ai-agent-selection-head">
+                            <span class="cms-ai-agent-selection-label">Selected text</span>
+                            <button type="button" class="cms-ai-agent-selection-clear" id="btn-cms-ai-agent-clear-selection" aria-label="Clear selected text">×</button>
+                          </div>
+                          <blockquote class="cms-ai-agent-selection-text" id="cms-ai-agent-selection-text"></blockquote>
+                        </div>
+                        <form class="cms-ai-agent-compose" id="cms-ai-agent-form">
+                          <label class="visually-hidden" for="cms-ai-agent-input">Revision request</label>
+                          <div class="cms-ai-agent-input-row">
+                            <textarea id="cms-ai-agent-input" class="cms-ai-agent-input" rows="1" placeholder="Ask about highlighted text or type a revision…"></textarea>
+                            <button type="submit" class="cms-ai-agent-send" id="btn-cms-ai-agent-apply" aria-label="Send message">
+                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M3.4 20.6 21 12 3.4 3.4l2.8 7.2L17 11l-10.8 1.4 2.8 7.2Z" fill="currentColor"/></svg>
+                            </button>
+                          </div>
+                          <p class="hint cms-ai-agent-compose-hint">Enter to send · Shift+Enter for new line</p>
+                        </form>
+                      </div>
+                    </div>
+                  </aside>
+                  <button type="button" class="cms-ai-selection-add" id="cms-ai-selection-add" hidden>Add to chat</button>
+                </div>
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="4" hidden>
@@ -452,7 +488,7 @@
               </div>
             </div>
           </div>
-          <button type="button" class="btn primary cms-cta" id="btn-save-exercises">
+          <button type="button" class="btn primary cms-cta" id="btn-save-exercises" hidden>
             <span>Save exercises</span>
             <span class="cms-btn-glyph" aria-hidden="true">→</span>
           </button>

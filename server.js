@@ -3625,6 +3625,64 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
   }
 });
 
+app.post("/api/cms/revise-exercises", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  if (!getOpenRouterApiKey()) {
+    return res.status(400).json({
+      message: "Configure OpenRouter in Config before editing exercises.",
+    });
+  }
+
+  const revision = String(req.body?.revision || "").trim();
+  if (!revision) {
+    return res.status(400).json({ message: "Describe the change you want." });
+  }
+
+  const material = String(req.body?.material || "").trim();
+  if (!material) {
+    return res.status(400).json({ message: "Material text is required." });
+  }
+
+  const exercises = Array.isArray(req.body?.exercises) ? req.body.exercises : [];
+  if (!exercises.length) {
+    return res.status(400).json({ message: "Provide the current review draft." });
+  }
+
+  const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
+
+  try {
+    const result = await exerciseGenerator.reviseExercisesFromDraft(
+      {
+        material,
+        langCode: String(req.body?.langCode || "en").trim(),
+        difficulty: String(req.body?.difficulty || "medium").trim(),
+        instructions: String(req.body?.instructions || "").trim(),
+        revision,
+        exercises,
+        history,
+        questionNumber: Number(req.body?.questionNumber) || undefined,
+        model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
+        apiKey: getOpenRouterApiKey(),
+      },
+      openRouterGenerateComplete
+    );
+
+    return res.json({
+      ok: true,
+      exercises: result.exercises,
+      summary: result.summary,
+      model: result.model,
+      revisionMode: result.revisionMode || null,
+      stats: result.stats,
+    });
+  } catch (err) {
+    console.error("revise-exercises failed:", err);
+    return res.status(500).json({ message: err.message || "Exercise revision failed." });
+  }
+});
+
 app.post("/api/cms/batch-generate-exercises", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
