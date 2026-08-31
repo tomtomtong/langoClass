@@ -1,0 +1,1228 @@
+/**
+ * HK elderly overlay — loaded only on /hk/host.html and /hk/join.html.
+ * Does not change the main LangoClass theme.
+ */
+
+html:has(body.hk-elderly) {
+  /* Colour palette */
+  --hk-pink-pale: #ffdbdf;
+  --hk-pink-rose: #f791a9;
+  --hk-yellow: #ffe797;
+  --hk-chartreuse: #dddd7b;
+  --hk-blue-pale: #e0f2f4;
+  --hk-blue-muted: #bad6da;
+
+  /* Semantic tokens */
+  --hk-text: #1a1a1a;
+  --hk-muted: #4a5c61;
+  --hk-paper: var(--hk-blue-pale);
+  --hk-card: #ffffff;
+  --hk-surface-soft: var(--hk-pink-pale);
+  --hk-accent: var(--hk-pink-rose);
+  --hk-accent-strong: #e06d8a;
+  --hk-accent-ink: #ffffff;
+  --hk-navy: #1e293b;
+  --hk-secondary: var(--hk-blue-muted);
+  --hk-highlight: var(--hk-yellow);
+  --hk-border: var(--hk-blue-muted);
+  --hk-focus: var(--hk-pink-rose);
+  --hk-error: #8a1f1f;
+  --hk-shadow: 0 4px 16px rgba(74, 92, 97, 0.1);
+  --hk-shadow-hover: 0 8px 22px rgba(74, 92, 97, 0.14);
+  --hk-touch: 48px;
+  --hk-font: "Noto Sans TC", "PingFang HK", "Noto Sans CJK TC", sans-serif;
+}
+
+body.hk-elderly {
+  font-family: var(--hk-font);
+  font-size: 1.25rem;
+  line-height: 1.45;
+  color: var(--hk-text);
+}
+
+body.hk-elderly button,
+body.hk-elderly input,
+body.hk-elderly select,
+body.hk-elderly textarea {
+  font-family: inherit;
+}
+
+body.hk-elderly .btn,
+body.hk-elderly button.btn,
+body.hk-elderly .host-utility-btn,
+body.hk-elderly .host-btn-face,
+body.hk-elderly .option.player-btn,
+body.hk-elderly .buzzin-record-btn,
+body.hk-elderly .host-buzzin-footer-btn {
+  min-height: var(--hk-touch);
+}
+
+body.hk-elderly .btn {
+  font-size: 1.35rem;
+  padding: 0.95rem 1.5rem;
+  border-radius: 14px;
+  border: 2px solid transparent;
+}
+
+body.hk-elderly .btn.primary {
+  background: var(--hk-accent);
+  color: var(--hk-accent-ink);
+  font-weight: 800;
+}
+
+body.hk-elderly .btn.primary:hover:not(:disabled) {
+  background: var(--hk-accent-strong);
+}
+
+body.hk-elderly .field input,
+body.hk-elderly input[type="text"],
+body.hk-elderly input[type="password"] {
+  min-height: var(--hk-touch);
+  font-size: 1.35rem;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid var(--hk-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--hk-text);
+}
+
+body.hk-elderly .field input:focus,
+body.hk-elderly input[type="text"]:focus,
+body.hk-elderly input[type="password"]:focus {
+  outline: 3px solid var(--hk-focus);
+  outline-offset: 2px;
+  border-color: var(--hk-focus);
+}
+
+body.hk-elderly .error {
+  color: var(--hk-error);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* Student phone UI — high-contrast light theme */
+body.join-page.hk-elderly {
+  background-color: var(--hk-paper);
+  background-image: none;
+  color: var(--hk-text);
+}
+
+body.join-page.hk-elderly::before {
+  display: none;
+}
+
+body.join-page.hk-elderly #app {
+  background: var(--hk-paper);
+}
+
+body.join-page.hk-elderly #screen-join h2,
+body.join-page.hk-elderly .general-waiting-ui__header h1,
+body.join-page.hk-elderly #room-ended-title {
+  color: var(--hk-text);
+  text-shadow: none;
+  font-size: clamp(1.8rem, 6vw, 2.4rem);
+  font-weight: 900;
+  white-space: normal;
+}
+
+body.join-page.hk-elderly .connection-status,
+body.join-page.hk-elderly .field span,
+body.join-page.hk-elderly .general-waiting-ui {
+  color: var(--hk-text);
+}
+
+body.join-page.hk-elderly #screen-room-waiting.general-waiting-ui,
+body.join-page.hk-elderly #screen-room-ended.general-waiting-ui,
+body.join-page.hk-elderly #screen-room-passive-waiting.passive-waiting-ui {
+  color: var(--hk-text);
+  background: var(--hk-paper);
+}
+
+body.join-page.hk-elderly .general-waiting-ui__message-card {
+  height: auto;
+  min-height: 220px;
+  padding: 28px 24px;
+  border: 2px solid var(--hk-border);
+  border-radius: 24px;
+  background: var(--hk-card);
+  box-shadow: var(--hk-shadow);
+  backdrop-filter: none;
+}
+
+body.join-page.hk-elderly .general-waiting-ui__message-card p {
+  color: var(--hk-text);
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 800;
+  line-height: 1.4;
+  text-shadow: none;
+}
+
+body.join-page.hk-elderly .option.player-btn {
+  min-height: 64px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  border: 2px solid var(--hk-border);
+  background: var(--hk-card);
+}
+
+body.join-page.hk-elderly .option.player-btn.selected {
+  border-color: var(--hk-accent);
+  background: var(--hk-surface-soft);
+}
+
+body.join-page.hk-elderly .buzzin-record-btn {
+  min-height: 64px;
+  font-size: 1.5rem;
+}
+
+body.join-page.hk-elderly #btn-leave-room,
+body.join-page.hk-elderly #btn-join-ended,
+body.join-page.hk-elderly #btn-join-room-name,
+body.join-page.hk-elderly #btn-join-game {
+  min-height: 56px;
+  font-size: 1.4rem;
+}
+
+/* Caregiver whiteboard — calmer chrome, keep the 1920×1080 stage */
+body.hk-elderly.lango-host,
+body.hk-elderly .lango-host {
+  font-family: var(--hk-font);
+}
+
+body.hk-elderly .host-utility-btn,
+body.hk-elderly .host-settings-btn {
+  min-width: var(--hk-touch);
+  min-height: var(--hk-touch);
+}
+
+body.hk-elderly .host-persistent-room-code__display,
+body.hk-elderly .host-online-count__value,
+body.hk-elderly .course-class-label__name {
+  font-size: 1.15em;
+}
+
+body.hk-elderly #screen-login h1,
+body.hk-elderly .login-title {
+  letter-spacing: 0;
+}
+
+/* Login — remove scenic/video background */
+body.hk-elderly:has(#screen-login.active) {
+  background: var(--hk-paper);
+  background-image: none;
+}
+
+body.hk-elderly .login-screen,
+body.hk-elderly .login-scene {
+  background: var(--hk-paper);
+}
+
+body.hk-elderly .login-bg {
+  display: none !important;
+}
+
+body.hk-elderly .login-panel {
+  border: 2px solid var(--hk-border);
+  background: var(--hk-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--hk-shadow);
+}
+
+body.hk-elderly .login-title {
+  color: var(--hk-text);
+  text-shadow: none;
+}
+
+body.hk-elderly .login-version {
+  color: var(--hk-muted);
+}
+
+body.hk-elderly .login-btn {
+  background: var(--hk-accent);
+  color: var(--hk-accent-ink);
+  border: 2px solid var(--hk-accent);
+  box-shadow: var(--hk-shadow);
+}
+
+body.hk-elderly .login-btn:hover:not(:disabled) {
+  background: var(--hk-accent-strong);
+  border-color: var(--hk-accent-strong);
+}
+
+body.join-page.hk-elderly .buzzin-record-btn {
+  background: var(--hk-accent);
+  color: var(--hk-accent-ink);
+  border: 2px solid var(--hk-accent);
+}
+
+/* Host picker flows — mature, calm layout (class / course / section / waiting) */
+body.hk-elderly:has(#screen-class.active),
+body.hk-elderly:has(#screen-course.active),
+body.hk-elderly:has(#screen-section.active),
+body.hk-elderly:has(#screen-waiting.active),
+body.hk-elderly:has(#screen-settings.active) {
+  background: var(--hk-paper);
+  background-image: none;
+}
+
+body.hk-elderly .class-bg,
+body.hk-elderly .course-bg,
+body.hk-elderly .section-bg,
+body.hk-elderly .waiting-bg,
+body.hk-elderly .course-decor,
+body.hk-elderly .waiting-scene-veil {
+  display: none !important;
+}
+
+body.hk-elderly #app.lango-host .class-scene,
+body.hk-elderly #app.lango-host .course-scene,
+body.hk-elderly #app.lango-host .section-scene,
+body.hk-elderly #app.lango-host .waiting-scene {
+  background: var(--hk-paper) !important;
+}
+
+body.hk-elderly #app.lango-host .course-scene::before,
+body.hk-elderly #app.lango-host .section-scene::before {
+  display: none !important;
+}
+
+body.hk-elderly #app.lango-host .course-screen,
+body.hk-elderly #app.lango-host .section-screen,
+body.hk-elderly #app.lango-host .class-screen,
+body.hk-elderly #app.lango-host .waiting-screen {
+  color: var(--hk-text);
+}
+
+body.hk-elderly #app.lango-host .course-page {
+  position: relative;
+  inset: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 2rem 1.5rem 7rem;
+  background: transparent;
+}
+
+body.hk-elderly #app.lango-host .course-panel {
+  position: relative;
+  width: min(1100px, 100%);
+  height: auto;
+  max-width: 1100px;
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow: visible;
+  background: transparent;
+}
+
+body.hk-elderly #app.lango-host .course-panel-header {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 0 0 0.25rem;
+  text-align: left;
+}
+
+body.hk-elderly #app.lango-host .course-panel-header::before,
+body.hk-elderly #app.lango-host #screen-section .course-panel-header::before {
+  content: none !important;
+  display: none !important;
+}
+
+body.hk-elderly #app.lango-host .course-quest-track {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+body.hk-elderly #app.lango-host .course-quest-dot {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--hk-border);
+  box-shadow: none;
+  background: var(--hk-card);
+}
+
+body.hk-elderly #app.lango-host .course-quest-dot.done {
+  background: var(--hk-chartreuse);
+  border-color: var(--hk-chartreuse);
+}
+
+body.hk-elderly #app.lango-host .course-quest-dot.active {
+  background: var(--hk-accent);
+  border-color: var(--hk-accent);
+  box-shadow: none;
+  animation: none;
+}
+
+body.hk-elderly #app.lango-host .course-quest-line {
+  width: 32px;
+  height: 2px;
+  background: var(--hk-border);
+}
+
+body.hk-elderly #app.lango-host .course-quest-line.done {
+  background: var(--hk-chartreuse);
+}
+
+body.hk-elderly #app.lango-host .course-step {
+  position: static;
+  transform: none;
+  margin: 0 0 0.35rem;
+  color: var(--hk-muted);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: none;
+  text-align: left;
+}
+
+body.hk-elderly #app.lango-host .course-page-title {
+  position: static;
+  transform: none;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  color: var(--hk-text);
+  font-family: inherit;
+  font-size: clamp(1.85rem, 3.5vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-align: left;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  filter: none;
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host #screen-section .course-step,
+body.hk-elderly #app.lango-host #screen-section .course-page-title,
+body.hk-elderly #app.lango-host #screen-section .course-count-badge {
+  display: block;
+}
+
+body.hk-elderly #app.lango-host .course-count-badge {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  background: var(--hk-highlight);
+  color: var(--hk-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+body.hk-elderly #app.lango-host .course-grid-scroll {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 0;
+  overflow: visible;
+}
+
+body.hk-elderly #app.lango-host #screen-section .course-grid-scroll {
+  top: auto;
+  bottom: auto;
+  overflow: auto;
+}
+
+body.hk-elderly .class-teacher-chip {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--hk-surface-soft);
+  color: var(--hk-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+body.hk-elderly .class-teacher-chip strong {
+  color: var(--hk-text);
+  font-weight: 700;
+}
+
+/* Class picker — mockup layout */
+body.hk-elderly #screen-class .course-step {
+  display: none;
+}
+
+/* Class screen — fill viewport and center card grid vertically */
+body.hk-elderly #app.lango-host #screen-class.class-screen.active {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+body.hk-elderly #app.lango-host #screen-class .class-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-page {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 2rem 2rem 1rem;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  width: min(1400px, 100%);
+  max-width: 1400px;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+  align-items: center;
+  justify-content: center;
+  --hk-class-content-width: min(100%, 420px);
+}
+
+@media (min-width: 720px) {
+  body.hk-elderly #app.lango-host #screen-class .course-panel {
+    --hk-class-content-width: calc(2 * 360px + 1 * 1.75rem);
+  }
+}
+
+@media (min-width: 1280px) {
+  body.hk-elderly #app.lango-host #screen-class .course-panel {
+    --hk-class-content-width: calc(4 * 300px + 3 * 1.75rem);
+  }
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-panel-header {
+  flex: 0 0 auto;
+  position: relative;
+  width: var(--hk-class-content-width);
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  align-self: center;
+  text-align: left;
+  z-index: 2;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-page-title {
+  font-size: clamp(2.75rem, 5vw, 3.75rem);
+  font-weight: 800;
+  line-height: 1.12;
+  color: var(--hk-navy);
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+body.hk-elderly #app.lango-host #screen-class .class-teacher-chip {
+  margin: 1rem 0 0;
+  padding: 0.7rem 1.35rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+body.hk-elderly #app.lango-host #screen-class .class-teacher-chip strong {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-grid-scroll {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: var(--hk-class-content-width);
+  max-width: 100%;
+  min-height: 0;
+  margin-inline: auto;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-status,
+body.hk-elderly #app.lango-host #screen-class .course-error {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-status:empty,
+body.hk-elderly #app.lango-host #screen-class .course-error:empty,
+body.hk-elderly #app.lango-host #screen-class .course-status[hidden],
+body.hk-elderly #app.lango-host #screen-class .course-error[hidden] {
+  display: none;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-toolbar {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin: 0 0 1.25rem 1.5rem;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+body.hk-elderly #screen-class .class-sections {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  justify-content: flex-start;
+}
+
+body.hk-elderly #screen-class .class-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+body.hk-elderly .class-screen .class-grid,
+body.hk-elderly #app.lango-host #screen-class .class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.75rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  justify-content: start;
+  justify-items: stretch;
+}
+
+@media (min-width: 1280px) {
+  body.hk-elderly .class-screen .class-grid,
+  body.hk-elderly #app.lango-host #screen-class .class-grid {
+    grid-template-columns: repeat(4, minmax(280px, 300px));
+    justify-content: start;
+  }
+}
+
+@media (max-width: 1279px) and (min-width: 720px) {
+  body.hk-elderly .class-screen .class-grid,
+  body.hk-elderly #app.lango-host #screen-class .class-grid {
+    grid-template-columns: repeat(2, minmax(280px, 360px));
+    justify-content: start;
+  }
+}
+
+@media (max-width: 719px) {
+  body.hk-elderly .class-screen .class-grid,
+  body.hk-elderly #app.lango-host #screen-class .class-grid {
+    grid-template-columns: minmax(280px, 1fr);
+    justify-content: start;
+  }
+}
+
+body.hk-elderly .class-screen .class-sections {
+  width: 100%;
+  max-width: none;
+  gap: 0;
+}
+
+body.hk-elderly .class-screen .class-section-title {
+  display: none;
+}
+
+body.hk-elderly .class-screen .class-card,
+body.hk-elderly .class-screen .class-card.active {
+  width: 100%;
+  min-width: 280px;
+  padding: 0;
+  border: none;
+  border-radius: 20px;
+  background: var(--hk-card);
+  box-shadow: 0 8px 24px rgba(30, 41, 59, 0.08);
+  animation: none;
+  cursor: pointer;
+}
+
+body.hk-elderly .class-screen .class-card:hover,
+body.hk-elderly .class-screen .class-card.active {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(30, 41, 59, 0.12);
+}
+
+body.hk-elderly .class-screen .class-card.active {
+  outline: 2px solid #f791a9;
+  outline-offset: 0;
+  background: var(--hk-card);
+}
+
+body.hk-elderly .class-screen .class-card-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  min-height: 320px;
+  padding: 2rem 1.75rem 1.75rem;
+  gap: 0.5rem;
+  border-radius: 20px;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.hk-elderly .class-screen .class-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 1rem;
+  color: #f791a9;
+  flex: 0 0 auto;
+}
+
+body.hk-elderly .class-screen .class-card-icon svg {
+  display: block;
+  width: 60px;
+  height: 60px;
+}
+
+body.hk-elderly .class-screen .class-card-name,
+body.hk-elderly .class-screen .class-card.active .class-card-name {
+  color: var(--hk-navy);
+  font-size: clamp(2.5rem, 4vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 0;
+}
+
+body.hk-elderly .class-screen .class-card-meta,
+body.hk-elderly .class-screen .class-card.active .class-card-meta {
+  color: #64748b;
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0.5rem 0 1.5rem;
+}
+
+body.hk-elderly #app.lango-host .class-screen .class-card-go,
+body.hk-elderly .class-screen .class-card-go {
+  display: block;
+  width: 100%;
+  margin-top: auto;
+  padding: 1rem 1.25rem;
+  border: none;
+  border-radius: 16px;
+  background: #f791a9;
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+body.hk-elderly #app.lango-host .class-screen .class-card-go:hover,
+body.hk-elderly .class-screen .class-card-go:hover {
+  background: #f791a9;
+  color: #ffffff;
+  filter: brightness(0.95);
+}
+
+body.hk-elderly #screen-class .course-toolbar-back {
+  min-height: 52px;
+  padding: 0.4rem 1.25rem 0.4rem 0.4rem;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--hk-navy);
+  box-shadow: 0 4px 16px rgba(30, 41, 59, 0.1);
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-toolbar-back .host-btn-face {
+  width: 40px;
+  height: 40px;
+  background: #f791a9;
+  box-shadow: none;
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-toolbar-back .host-btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-toolbar-back .host-btn-label {
+  font-weight: 700;
+  color: var(--hk-navy);
+}
+
+/* Class screen — top-right utility toggles */
+body.hk-elderly:has(#screen-class.active) .host-utility-controls {
+  top: 1.5rem;
+  right: 1.5rem;
+  left: auto;
+  bottom: auto;
+  width: auto;
+}
+
+body.hk-elderly:has(#screen-class.active) .host-utility-dock {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.hk-elderly:has(#screen-class.active) .host-utility-meta {
+  display: none;
+}
+
+body.hk-elderly:has(#screen-class.active) .host-utility-actions {
+  display: flex;
+  gap: 0.65rem;
+}
+
+body.hk-elderly:has(#screen-class.active) .host-utility-btn {
+  min-height: 48px;
+  padding: 0.35rem 1rem 0.35rem 0.35rem;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(30, 41, 59, 0.08);
+}
+
+body.hk-elderly:has(#screen-class.active) .host-settings-btn .host-utility-btn-face {
+  background: #e8e0f4;
+  box-shadow: none;
+}
+
+body.hk-elderly:has(#screen-class.active) .host-sound-mute-btn .host-utility-btn-face {
+  background: #ffe797;
+  box-shadow: none;
+}
+
+body.hk-elderly .class-screen .class-sections,
+body.hk-elderly #app.lango-host .course-grid {
+  width: 100%;
+  max-width: none;
+  justify-content: center;
+}
+
+body.hk-elderly #app.lango-host .course-grid,
+body.hk-elderly #app.lango-host .course-grid--count-1,
+body.hk-elderly #app.lango-host .course-grid--count-2,
+body.hk-elderly #app.lango-host .course-grid--count-3,
+body.hk-elderly #app.lango-host .course-grid--count-4,
+body.hk-elderly #app.lango-host .course-grid--count-5,
+body.hk-elderly #app.lango-host .course-grid--count-6,
+body.hk-elderly #app.lango-host .course-grid--count-many {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+body.hk-elderly #app.lango-host .course-pick-card {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 1rem;
+  border: 2px solid var(--hk-border);
+  border-radius: 16px;
+  background: var(--hk-card);
+  box-shadow: var(--hk-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.hk-elderly #app.lango-host .course-pick-card:hover,
+body.hk-elderly #app.lango-host .course-pick-card.active {
+  transform: translateY(-2px);
+  border-color: var(--hk-accent);
+  background: linear-gradient(180deg, #ffffff 0%, var(--hk-surface-soft) 100%);
+  box-shadow: var(--hk-shadow-hover);
+}
+
+body.hk-elderly #app.lango-host .course-pick-title {
+  color: var(--hk-text);
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host .course-pick-desc {
+  color: var(--hk-muted);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+body.hk-elderly #app.lango-host .course-pick-select {
+  border-radius: 12px;
+  background: var(--hk-accent);
+  color: var(--hk-accent-ink);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host .host-utility-dock {
+  border: 1px solid var(--hk-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--hk-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body.hk-elderly #app.lango-host .host-utility-btn-face {
+  border-radius: 10px;
+  background: var(--hk-blue-pale);
+  box-shadow: inset 0 0 0 1px var(--hk-border);
+}
+
+body.hk-elderly #app.lango-host .host-btn-face,
+body.hk-elderly #app.lango-host .waiting-dashboard-face,
+body.hk-elderly #app.lango-host .class-back-btn .host-btn-face {
+  background: linear-gradient(180deg, var(--hk-accent) 0%, var(--hk-accent-strong) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 2px 6px rgba(247, 145, 169, 0.35);
+}
+
+body.hk-elderly #app.lango-host .host-utility-btn-label {
+  color: var(--hk-text);
+  font-weight: 700;
+}
+
+body.hk-elderly #app.lango-host .course-class-label:not([hidden]):not(.is-empty),
+body.hk-elderly #app.lango-host .host-persistent-room-code.is-visible,
+body.hk-elderly #app.lango-host .host-online-count.is-visible {
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  background: var(--hk-surface-soft);
+  box-shadow: none;
+  color: var(--hk-text);
+}
+
+body.hk-elderly #app.lango-host .course-class-label__eyebrow,
+body.hk-elderly #app.lango-host .host-persistent-room-code__label,
+body.hk-elderly #app.lango-host .host-online-count__eyebrow {
+  color: var(--hk-muted);
+}
+
+body.hk-elderly #app.lango-host .course-class-label__name,
+body.hk-elderly #app.lango-host .host-persistent-room-code__display,
+body.hk-elderly #app.lango-host .host-online-count__value {
+  color: var(--hk-text);
+}
+
+body.hk-elderly #app.lango-host .course-toolbar,
+body.hk-elderly #app.lango-host .class-login-dock {
+  left: 1.5rem;
+  right: 1.5rem;
+  bottom: 1.25rem;
+  width: auto;
+  padding: 0;
+}
+
+body.hk-elderly #app.lango-host .class-back-btn,
+body.hk-elderly #app.lango-host .waiting-dashboard-btn,
+body.hk-elderly #app.lango-host .course-toolbar-logout {
+  min-height: 48px;
+  padding: 0 1.1rem;
+  border: 2px solid var(--hk-border);
+  border-radius: 12px;
+  background: var(--hk-card);
+  color: var(--hk-text);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-shadow: none;
+  box-shadow: var(--hk-shadow);
+}
+
+body.hk-elderly #app.lango-host #screen-class .course-toolbar-back.class-back-btn {
+  min-height: 52px;
+  padding: 0.4rem 1.25rem 0.4rem 0.4rem;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--hk-navy);
+  box-shadow: 0 4px 16px rgba(30, 41, 59, 0.1);
+}
+
+body.hk-elderly #app.lango-host .waiting-start-session-btn,
+body.hk-elderly #app.lango-host .exercise-start-btn {
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: 12px;
+  background: var(--hk-accent);
+  color: var(--hk-accent-ink);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host .waiting-start-session-btn:hover,
+body.hk-elderly #app.lango-host .exercise-start-btn:hover {
+  background: var(--hk-accent-strong);
+}
+
+/* Waiting room — calm timer, no Uncle Tommy */
+body.hk-elderly #app.lango-host #screen-waiting .waiting-wizard {
+  display: none !important;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-code-card {
+  left: clamp(1.25rem, 2.5vw, 2rem);
+  top: clamp(6.5rem, 14vh, 8.5rem);
+  min-width: min(420px, 92vw);
+  padding: 1.35rem 1.75rem 1.25rem;
+  border: 3px solid var(--hk-border);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(30, 41, 59, 0.1);
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-code-body {
+  gap: 1.5rem;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-code-main {
+  min-width: 220px;
+  gap: 0.5rem;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-code-label {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--hk-muted);
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-code-digits {
+  font-family: inherit;
+  font-size: clamp(2.5rem, 4vw, 3.25rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: #f791a9;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-code-hint {
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--hk-muted);
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-qr-wrap {
+  padding-left: 1.5rem;
+  border-left: 2px solid var(--hk-border);
+  gap: 0.5rem;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-qr {
+  width: 132px;
+  height: 132px;
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(30, 41, 59, 0.08);
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-room-qr-label {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--hk-muted);
+  max-width: 132px;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-timer {
+  left: clamp(1.5rem, 9vw, 150px);
+  top: 58%;
+  width: auto;
+  height: auto;
+  transform: translate(0, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-timer-ring {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: min(460px, 46vw);
+  height: min(460px, 46vw);
+  min-width: 360px;
+  min-height: 360px;
+  padding: 2rem;
+  gap: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 38%, #ffffff 0%, #fff8f9 58%, #f3fafb 100%) padding-box,
+    linear-gradient(145deg, #ffdbdf 0%, #f791a9 42%, #bad6da 100%) border-box;
+  border: 20px solid transparent;
+  box-shadow:
+    0 0 0 10px rgba(255, 219, 223, 0.35),
+    0 24px 56px rgba(247, 145, 169, 0.16),
+    0 8px 24px rgba(186, 214, 218, 0.22),
+    inset 0 0 48px rgba(224, 242, 244, 0.45);
+  animation: hk-waiting-timer-breathe 5.5s ease-in-out infinite;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-timer-ring::before {
+  inset: 16px;
+  box-shadow:
+    inset 0 0 0 2px rgba(186, 214, 218, 0.4),
+    inset 0 0 32px rgba(255, 219, 223, 0.25);
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-timer-ring::after {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  border-radius: inherit;
+  border: 2px dashed rgba(247, 145, 169, 0.22);
+  pointer-events: none;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-timer-watch {
+  position: absolute;
+  width: 112px;
+  height: 112px;
+  right: auto;
+  left: 50%;
+  top: -34px;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 10px 18px rgba(247, 145, 169, 0.22));
+  animation: hk-waiting-watch-float 4s ease-in-out infinite;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-timer-label {
+  position: relative;
+  z-index: 1;
+  margin: 1rem 0 0;
+  font-family: inherit;
+  font-size: clamp(1.75rem, 2.8vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  color: var(--hk-navy);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-transform: none;
+}
+
+body.hk-elderly #app.lango-host #screen-waiting .waiting-timer-value {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-family: inherit;
+  font-size: clamp(3.5rem, 6.5vw, 5.25rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: #f791a9;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.9);
+}
+
+@keyframes hk-waiting-timer-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 10px rgba(255, 219, 223, 0.35),
+      0 24px 56px rgba(247, 145, 169, 0.16),
+      0 8px 24px rgba(186, 214, 218, 0.22),
+      inset 0 0 48px rgba(224, 242, 244, 0.45);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow:
+      0 0 0 12px rgba(255, 219, 223, 0.42),
+      0 28px 60px rgba(247, 145, 169, 0.2),
+      0 10px 28px rgba(186, 214, 218, 0.26),
+      inset 0 0 52px rgba(224, 242, 244, 0.55);
+  }
+}
+
+@keyframes hk-waiting-watch-float {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-6px);
+  }
+}
+
+body.hk-elderly #app.lango-host .course-status,
+body.hk-elderly #app.lango-host .course-error {
+  color: var(--hk-muted);
+  text-align: left;
+}
+
+body.hk-elderly #app.lango-host .course-error {
+  color: var(--hk-error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.hk-elderly *,
+  body.hk-elderly *::before,
+  body.hk-elderly *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body.hk-elderly .join-transition-tommy,
+body.join-page.hk-elderly .host-page-transition__portal,
+body.join-page.hk-elderly .host-page-transition__sparks {
+  display: none !important;
+}

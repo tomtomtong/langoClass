@@ -1,5 +1,13 @@
 const OPTION_LABELS = ["▲", "◆", "●", "■", "★", "⬡"];
 
+function isHkElderlyVariant() {
+  return window.LANGO_VARIANT === "hk-elderly";
+}
+
+function langoJoinPagePath() {
+  return isHkElderlyVariant() ? "/hk/join.html" : "/join.html";
+}
+
 function uiT(key, vars) {
   return window.LangoI18n?.t?.(key, vars) ?? key;
 }

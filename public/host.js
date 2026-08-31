@@ -1,4 +1,4 @@
-const STORAGE_KEY = "lango_host_prefs";
+const STORAGE_KEY = window.LANGO_VARIANT === "hk-elderly" ? "lango_host_prefs_hk" : "lango_host_prefs";
 const LEGACY_STORAGE_KEY = "lango_host_session";
 const HOST_STAGE_WIDTH = 1920;
 const HOST_STAGE_HEIGHT = 1080;
@@ -1173,7 +1173,7 @@ function courseTitle(course) {
 }
 
 async function resolveBestStudentJoinUrl(roomId) {
-  const path = `/join.html?room=${encodeURIComponent(roomId)}`;
+  const path = `${langoJoinPagePath()}?room=${encodeURIComponent(roomId)}`;
   const origin = window.location.origin.replace(/\/$/, "");
   const host = window.location.hostname;
   const isLocalHost = host === "localhost" || host === "127.0.0.1";
@@ -1219,7 +1219,7 @@ async function renderRoomJoinLinks(roomId) {
   }
 
   const links = [];
-  const path = `/join.html?room=${encodeURIComponent(roomId)}`;
+  const path = `${langoJoinPagePath()}?room=${encodeURIComponent(roomId)}`;
   links.push({ label: "This device", url: `${window.location.origin}${path}` });
 
   const host = window.location.hostname;
@@ -1391,12 +1391,26 @@ function renderClassCard(classItem, { selectedId, index = 0 }) {
     studentCount != null
       ? hostT(studentCount === 1 ? "class.studentCountOne" : "class.studentCount", { n: studentCount })
       : "";
+  const hkVariant = isHkElderlyVariant();
+  const bookIcon = hkVariant
+    ? `<span class="class-card-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 10.5C8 9.12 9.12 8 10.5 8H22v32H10.5A2.5 2.5 0 0 1 8 37.5V10.5Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M26 8h11.5A2.5 2.5 0 0 1 40 10.5v27a2.5 2.5 0 0 1-2.5 2.5H26V8Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M22 8v32" stroke="currentColor" stroke-width="2.5"/>
+        </svg>
+      </span>`
+    : "";
+  const selectLabel = hkVariant
+    ? `${escapeHtml(hostT("class.select"))} ›`
+    : escapeHtml(hostT("class.select"));
 
   return `<button type="button" class="class-card${active}" data-id="${classItem.id}" style="--card-i: ${index}">
     <span class="class-card-inner">
+      ${bookIcon}
       <span class="class-card-name">${escapeHtml(title)}</span>
       ${meta ? `<span class="class-card-meta">${escapeHtml(meta)}</span>` : ""}
-      <span class="class-card-go">${escapeHtml(hostT("class.select"))}</span>
+      <span class="class-card-go">${selectLabel}</span>
     </span>
   </button>`;
 }
@@ -3736,7 +3750,7 @@ $("#login-username").addEventListener("change", () => {
 
 loadPrefs();
 window.LangoI18n?.init?.({
-  locale: hostPreferredUiLocale || undefined,
+  locale: hostPreferredUiLocale || (isHkElderlyVariant() ? "yue" : undefined),
 });
 populateHostLanguageSelect();
 applyHostUiLanguage();

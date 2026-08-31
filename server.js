@@ -39,6 +39,10 @@ const io = new Server(server, {
 
 // Avoid 6000: Chromium blocks it as ERR_UNSAFE_PORT (X11).
 const PORT = process.env.PORT || 3000;
+const APP_VARIANT = String(process.env.APP_VARIANT || "").trim();
+const IS_HK_ELDERLY_VARIANT = APP_VARIANT === "hk-elderly";
+const HOST_PAGE_PATH = IS_HK_ELDERLY_VARIANT ? "/hk/host.html" : "/host.html";
+const JOIN_PAGE_PATH = IS_HK_ELDERLY_VARIANT ? "/hk/join.html" : "/join.html";
 const LANGO_API_BASE = "https://dev.api.lango.ai/v1";
 const ENV_PUBLIC_BASE_URL = (
   process.env.PUBLIC_BASE_URL || "https://test.n9n.uk"
@@ -46,7 +50,9 @@ const ENV_PUBLIC_BASE_URL = (
 const ENV_INWORLD_API_KEY = String(process.env.INWORLD_API_KEY || "").trim();
 const ENV_INWORLD_LLM_MODEL = String(process.env.INWORLD_LLM_MODEL || "auto").trim();
 const ENV_INWORLD_STT_MODEL = String(process.env.INWORLD_STT_MODEL || "inworld/inworld-stt-1").trim();
-const ENV_INWORLD_STT_LANGUAGE = String(process.env.INWORLD_STT_LANGUAGE || "en").trim();
+const ENV_INWORLD_STT_LANGUAGE = String(
+  process.env.INWORLD_STT_LANGUAGE || (IS_HK_ELDERLY_VARIANT ? "yue" : "en")
+).trim();
 const ENV_QWEN_API_KEY = String(process.env.QWEN_API_KEY || "").trim();
 const ENV_QWEN_MODEL = String(process.env.QWEN_MODEL || "qwen-plus").trim();
 const ENV_OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
@@ -82,6 +88,14 @@ const TRANSCRIBE_PROMPT =
 function getPublicBaseUrl() {
   const saved = settingsStore.readSettings().publicBaseUrl;
   return saved || ENV_PUBLIC_BASE_URL;
+}
+
+function getHostPagePath() {
+  return HOST_PAGE_PATH;
+}
+
+function getJoinPagePath() {
+  return JOIN_PAGE_PATH;
 }
 
 function getInworldApiKey() {
@@ -2238,6 +2252,7 @@ function buildNotificationData(extra = {}) {
   return {
     ...extra,
     base_endpoint: getPublicBaseUrl(),
+    join_path: getJoinPagePath(),
   };
 }
 
@@ -4214,16 +4229,39 @@ app.get("/api/scores", async (req, res) => {
   });
 });
 
+function redirectWithQuery(res, pathname, req) {
+  const queryIndex = req.originalUrl.indexOf("?");
+  const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
+  res.redirect(`${pathname}${query}`);
+}
+
+app.get("/", (req, res) => {
+  redirectWithQuery(res, getHostPagePath(), req);
+});
+
+app.get("/hk", (_req, res) => {
+  res.redirect("/hk/host.html");
+});
+
+app.get("/hk/", (_req, res) => {
+  res.redirect("/hk/host.html");
+});
+
+if (IS_HK_ELDERLY_VARIANT) {
+  app.get("/host.html", (req, res) => {
+    redirectWithQuery(res, "/hk/host.html", req);
+  });
+  app.get("/join.html", (req, res) => {
+    redirectWithQuery(res, "/hk/join.html", req);
+  });
+}
+
 app.use("/uploads", express.static(paths.uploadsRoot));
 app.use(
   "/vendor/gsap",
   express.static(path.join(__dirname, "node_modules/gsap/dist"))
 );
 app.use(express.static(path.join(__dirname, "public")));
-
-app.get("/", (_req, res) => {
-  res.redirect("/host.html");
-});
 
 app.get("/api/network-urls", (_req, res) => {
   const settings = settingsStore.readSettings();
@@ -5220,8 +5258,11 @@ server.listen(PORT, "0.0.0.0", () => {
   const base = `http://localhost:${PORT}`;
   const networkBase = `http://${getLocalIPv4()[0] || "localhost"}:${PORT}`;
   console.log(`QuizLive running at ${base}`);
-  console.log(`  Host: ${base}/host.html`);
+  if (IS_HK_ELDERLY_VARIANT) {
+    console.log(`  Variant: hk-elderly`);
+  }
+  console.log(`  Host: ${base}${getHostPagePath()}`);
   console.log(`  CMS:  ${base}/cms.html`);
-  console.log(`  Join: ${base}/join.html`);
-  console.log(`  Phone/tablet: ${networkBase}/join.html`);
+  console.log(`  Join: ${base}${getJoinPagePath()}`);
+  console.log(`  Phone/tablet: ${networkBase}${getJoinPagePath()}`);
 });

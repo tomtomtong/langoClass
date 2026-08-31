@@ -865,7 +865,7 @@ function joinPreviewLayoutForExercise(exercise) {
 }
 
 function joinPreviewUrl(layoutId) {
-  const url = new URL("/join.html", window.location.origin);
+  const url = new URL(typeof langoJoinPagePath === "function" ? langoJoinPagePath() : "/join.html", window.location.origin);
   url.searchParams.set("preview", "1");
   if (layoutId) url.searchParams.set("layout", layoutId);
   return `${url.pathname}${url.search}`;

@@ -1,0 +1,13 @@
+{
+  "publicBaseUrl": "",
+  "inworldApiKey": "",
+  "inworldLlmModel": "",
+  "inworldSttModel": "",
+  "inworldSttLanguage": "yue",
+  "qwenApiKey": "",
+  "qwenModel": "",
+  "openrouterApiKey": "",
+  "openrouterBuzzinModel": "",
+  "openrouterGenerateModel": "",
+  "videoGeneratorApiUrl": ""
+}

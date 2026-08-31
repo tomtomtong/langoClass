@@ -1,0 +1,270 @@
+{
+  "courses": [
+    {
+      "id": -101,
+      "teacherId": 835,
+      "name": "日常生活粵語",
+      "description": "長者日常用語：打招呼、買嘢、搭車。適合社區中心課堂。",
+      "banner": "",
+      "langCode": "yue",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "打招呼同買嘢",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "日常問答",
+              "subTitle": "選擇題",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "朝早見到鄰居，應該點樣打招呼？",
+                  "options": [
+                    { "text": "早晨", "isCorrect": true },
+                    { "text": "晚安", "isCorrect": false },
+                    { "text": "拜拜", "isCorrect": false },
+                    { "text": "多謝惠顧", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                },
+                {
+                  "title": "去街市買菜，想問價錢應該點講？",
+                  "options": [
+                    { "text": "呢樣幾錢？", "isCorrect": true },
+                    { "text": "你幾歲？", "isCorrect": false },
+                    { "text": "而家幾點？", "isCorrect": false },
+                    { "text": "廁所喺邊？", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                },
+                {
+                  "title": "搭巴士想落車，應該撳邊個掣？",
+                  "options": [
+                    { "text": "鐘掣（落車鐘）", "isCorrect": true },
+                    { "text": "冷氣掣", "isCorrect": false },
+                    { "text": "車門扶手", "isCorrect": false },
+                    { "text": "車窗", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-08-28T00:00:00.000Z",
+      "updatedAt": "2026-08-28T00:00:00.000Z"
+    },
+    {
+      "id": -102,
+      "teacherId": 835,
+      "name": "身體健康小知識",
+      "description": "短片同簡單選擇題：飲水、行路、睇醫生。片可以稍後喺 CMS 上傳。",
+      "banner": "",
+      "langCode": "yue",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "健康生活",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "健康短片",
+              "subTitle": "課堂短片",
+              "order": 1,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "",
+                  "captionUrl": "/uploads/captions/daily-yue.vtt",
+                  "captionLanguage": "yue",
+                  "captionTracks": [
+                    {
+                      "language": "yue",
+                      "url": "/uploads/captions/daily-yue.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "健康問答",
+              "subTitle": "選擇題",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "天氣熱嘅時候，最好點樣補充水分？",
+                  "options": [
+                    { "text": "飲清水", "isCorrect": true },
+                    { "text": "淨係飲凍汽水", "isCorrect": false },
+                    { "text": "完全唔飲水", "isCorrect": false },
+                    { "text": "淨係飲咖啡", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                },
+                {
+                  "title": "覺得胸口唔舒服，應該點做？",
+                  "options": [
+                    { "text": "快啲求醫或者叫人幫手", "isCorrect": true },
+                    { "text": "繼續做運動", "isCorrect": false },
+                    { "text": "自己忍住唔出聲", "isCorrect": false },
+                    { "text": "即刻食辣嘢", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-08-28T00:00:00.000Z",
+      "updatedAt": "2026-08-28T00:00:00.000Z"
+    },
+    {
+      "id": -201,
+      "teacherId": 821,
+      "name": "日常生活粵語",
+      "description": "長者日常用語：打招呼、買嘢、搭車。適合社區中心課堂。",
+      "banner": "",
+      "langCode": "yue",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "打招呼同買嘢",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "日常問答",
+              "subTitle": "選擇題",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "朝早見到鄰居，應該點樣打招呼？",
+                  "options": [
+                    { "text": "早晨", "isCorrect": true },
+                    { "text": "晚安", "isCorrect": false },
+                    { "text": "拜拜", "isCorrect": false },
+                    { "text": "多謝惠顧", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                },
+                {
+                  "title": "去街市買菜，想問價錢應該點講？",
+                  "options": [
+                    { "text": "呢樣幾錢？", "isCorrect": true },
+                    { "text": "你幾歲？", "isCorrect": false },
+                    { "text": "而家幾點？", "isCorrect": false },
+                    { "text": "廁所喺邊？", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                },
+                {
+                  "title": "搭巴士想落車，應該撳邊個掣？",
+                  "options": [
+                    { "text": "鐘掣（落車鐘）", "isCorrect": true },
+                    { "text": "冷氣掣", "isCorrect": false },
+                    { "text": "車門扶手", "isCorrect": false },
+                    { "text": "車窗", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-08-28T00:00:00.000Z",
+      "updatedAt": "2026-08-28T00:00:00.000Z"
+    },
+    {
+      "id": -202,
+      "teacherId": 821,
+      "name": "身體健康小知識",
+      "description": "短片同簡單選擇題：飲水、行路、睇醫生。片可以稍後喺 CMS 上傳。",
+      "banner": "",
+      "langCode": "yue",
+      "classIds": [],
+      "sections": [
+        {
+          "id": 1,
+          "title": "健康生活",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "健康短片",
+              "subTitle": "課堂短片",
+              "order": 1,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "",
+                  "captionUrl": "/uploads/captions/daily-yue.vtt",
+                  "captionLanguage": "yue",
+                  "captionTracks": [
+                    {
+                      "language": "yue",
+                      "url": "/uploads/captions/daily-yue.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "健康問答",
+              "subTitle": "選擇題",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "天氣熱嘅時候，最好點樣補充水分？",
+                  "options": [
+                    { "text": "飲清水", "isCorrect": true },
+                    { "text": "淨係飲凍汽水", "isCorrect": false },
+                    { "text": "完全唔飲水", "isCorrect": false },
+                    { "text": "淨係飲咖啡", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                },
+                {
+                  "title": "覺得胸口唔舒服，應該點做？",
+                  "options": [
+                    { "text": "快啲求醫或者叫人幫手", "isCorrect": true },
+                    { "text": "繼續做運動", "isCorrect": false },
+                    { "text": "自己忍住唔出聲", "isCorrect": false },
+                    { "text": "即刻食辣嘢", "isCorrect": false }
+                  ],
+                  "timeLimit": 30,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-08-28T00:00:00.000Z",
+      "updatedAt": "2026-08-28T00:00:00.000Z"
+    }
+  ]
+}

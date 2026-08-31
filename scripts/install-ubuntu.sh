@@ -11,13 +11,19 @@
 #
 # Options:
 #   --app-dir PATH        Install location (default: /opt/langoclass)
-#   --port PORT           App listen port (default: 3000)
+#   --port PORT           App listen port (default: 3000; 3001 for --variant hk-elderly)
 #   --domain DOMAIN       Public hostname for Nginx + PUBLIC_BASE_URL
+#   --variant NAME        App variant: hk-elderly (separate service, data, and defaults)
+#   --data-path PATH      PERSISTENT_DATA_PATH (hk-elderly default: /var/lib/langoclass-hk)
 #   --with-nginx          Install and configure Nginx reverse proxy
 #   --skip-copy           Use current directory instead of copying to --app-dir
 #   --no-auto-update      Do not install the 5-minute git pull + restart timer
 #   --node-major N        Node.js major version (default: 22)
 #   --help                Show this help
+#
+# HK elderly on the same machine as the main app (shared code, separate process):
+#   sudo bash scripts/install-ubuntu.sh --skip-copy --variant hk-elderly \\
+#     --app-dir /opt/langoclass --port 3001 --domain hk.example.com --with-nginx
 #
 set -euo pipefail
 
@@ -26,11 +32,16 @@ APP_USER="langoclass"
 APP_GROUP="langoclass"
 APP_DIR="/opt/langoclass"
 APP_PORT="3000"
+APP_VARIANT=""
+DATA_PATH=""
+ENV_FILE_NAME=".env"
 NODE_MAJOR="22"
 WITH_NGINX="0"
 SKIP_COPY="0"
 AUTO_UPDATE="1"
 DOMAIN=""
+APP_DIR_SET="0"
+APP_PORT_SET="0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
@@ -39,7 +50,7 @@ warn() { printf '\033[1;33m!!>\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; }
 
 usage() {
-  sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 require_root() {
@@ -52,9 +63,11 @@ require_root() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --app-dir)     APP_DIR="$2"; shift 2 ;;
-      --port)        APP_PORT="$2"; shift 2 ;;
+      --app-dir)     APP_DIR="$2"; APP_DIR_SET="1"; shift 2 ;;
+      --port)        APP_PORT="$2"; APP_PORT_SET="1"; shift 2 ;;
       --domain)      DOMAIN="$2"; shift 2 ;;
+      --variant)     APP_VARIANT="$2"; shift 2 ;;
+      --data-path)   DATA_PATH="$2"; shift 2 ;;
       --with-nginx)  WITH_NGINX="1"; shift ;;
       --skip-copy)   SKIP_COPY="1"; shift ;;
       --no-auto-update) AUTO_UPDATE="0"; shift ;;
@@ -67,6 +80,25 @@ parse_args() {
         ;;
     esac
   done
+
+  if [[ -n "${APP_VARIANT}" && "${APP_VARIANT}" != "hk-elderly" ]]; then
+    err "Unknown --variant: ${APP_VARIANT} (supported: hk-elderly)"
+    exit 1
+  fi
+
+  if [[ "${APP_VARIANT}" == "hk-elderly" ]]; then
+    APP_NAME="langoclass-hk"
+    ENV_FILE_NAME=".env.hk-elderly"
+    if [[ "${APP_DIR_SET}" != "1" ]]; then
+      APP_DIR="/opt/langoclass-hk"
+    fi
+    if [[ "${APP_PORT_SET}" != "1" ]]; then
+      APP_PORT="3001"
+    fi
+    if [[ -z "${DATA_PATH}" ]]; then
+      DATA_PATH="/var/lib/langoclass-hk"
+    fi
+  fi
 }
 
 detect_ubuntu() {
@@ -171,6 +203,7 @@ deploy_application() {
         --exclude .git \
         --exclude .wrangler \
         --exclude .env \
+        --exclude '.env.*' \
         "${PROJECT_ROOT}/" "${APP_DIR}/"
     fi
   else
@@ -181,6 +214,7 @@ deploy_application() {
       --exclude .git \
       --exclude .wrangler \
       --exclude .env \
+      --exclude '.env.*' \
       "${PROJECT_ROOT}/" "${APP_DIR}/"
     if [[ "${AUTO_UPDATE}" == "1" ]]; then
       warn "Source is not a git repo — auto-update timer will be installed but will no-op until ${APP_DIR} is a git checkout."
@@ -206,10 +240,34 @@ deploy_application() {
   chown -R "${APP_USER}:${APP_GROUP}" "${APP_DIR}"
 }
 
+seed_hk_data() {
+  if [[ "${APP_VARIANT}" != "hk-elderly" || -z "${DATA_PATH}" ]]; then
+    return
+  fi
+
+  log "Preparing HK elderly data at ${DATA_PATH}..."
+  install -d -m 0755 "${DATA_PATH}/data"
+  install -d -m 0755 "${DATA_PATH}/uploads"/{courses,sections,questions,captions,videos}
+
+  local seed_root="${PROJECT_ROOT}/hk-data"
+  if [[ -d "${APP_DIR}/hk-data" ]]; then
+    seed_root="${APP_DIR}/hk-data"
+  fi
+
+  if [[ -f "${seed_root}/data/teacher-courses.json" && ! -f "${DATA_PATH}/data/teacher-courses.json" ]]; then
+    cp -a "${seed_root}/data/." "${DATA_PATH}/data/"
+  fi
+  if [[ -d "${seed_root}/uploads" ]]; then
+    cp -a "${seed_root}/uploads/." "${DATA_PATH}/uploads/" 2>/dev/null || true
+  fi
+
+  chown -R "${APP_USER}:${APP_GROUP}" "${DATA_PATH}"
+}
+
 write_env_file() {
-  local env_file="${APP_DIR}/.env"
+  local env_file="${APP_DIR}/${ENV_FILE_NAME}"
   if [[ -f "${env_file}" ]]; then
-    log ".env already exists — leaving unchanged."
+    log "${ENV_FILE_NAME} already exists — leaving unchanged."
     return
   fi
 
@@ -219,7 +277,27 @@ write_env_file() {
   fi
 
   log "Creating ${env_file} (edit with your API keys)..."
-  cat > "${env_file}" <<EOF
+  if [[ "${APP_VARIANT}" == "hk-elderly" ]]; then
+    cat > "${env_file}" <<EOF
+# LangoClass HK elderly environment — separate from the main app .env
+PORT=${APP_PORT}
+APP_VARIANT=hk-elderly
+PUBLIC_BASE_URL=${public_url}
+PERSISTENT_DATA_PATH=${DATA_PATH}
+INWORLD_STT_LANGUAGE=yue
+
+# AI / speech APIs (optional — can also be set in the web config UI)
+# INWORLD_API_KEY=
+# INWORLD_LLM_MODEL=auto
+# INWORLD_STT_MODEL=inworld/inworld-stt-1
+# QWEN_API_KEY=
+# QWEN_MODEL=qwen-plus
+# QWEN_API_BASE=https://dashscope.aliyuncs.com/compatible-mode/v1
+# OPENROUTER_API_KEY=
+# OPENROUTER_BUZZIN_MODEL=mistralai/voxtral-small-24b-2507
+EOF
+  else
+    cat > "${env_file}" <<EOF
 # LangoClass environment — see server.js for all supported variables
 PORT=${APP_PORT}
 PUBLIC_BASE_URL=${public_url}
@@ -238,6 +316,7 @@ PUBLIC_BASE_URL=${public_url}
 # OPENROUTER_API_KEY=
 # OPENROUTER_BUZZIN_MODEL=mistralai/voxtral-small-24b-2507
 EOF
+  fi
   chmod 600 "${env_file}"
   chown "${APP_USER}:${APP_GROUP}" "${env_file}"
 }
@@ -254,7 +333,7 @@ Type=simple
 User=${APP_USER}
 Group=${APP_GROUP}
 WorkingDirectory=${APP_DIR}
-EnvironmentFile=-${APP_DIR}/.env
+EnvironmentFile=-${APP_DIR}/${ENV_FILE_NAME}
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
@@ -440,14 +519,14 @@ print_summary() {
  App directory : ${APP_DIR}
  Service       : systemctl status ${APP_NAME}
  Logs          : journalctl -u ${APP_NAME} -f
- Config        : ${APP_DIR}/.env
+ Config        : ${APP_DIR}/${ENV_FILE_NAME}
  Web UI        : ${access_url}
 $(if [[ "${AUTO_UPDATE}" == "1" ]]; then
   echo " Auto-update   : every 5 min (git pull + restart) — timer status: systemctl status ${APP_NAME}-auto-update.timer"
 fi)
 
  Next steps:
-   1. Edit ${APP_DIR}/.env with your PUBLIC_BASE_URL and API keys
+   1. Edit ${APP_DIR}/${ENV_FILE_NAME} with your PUBLIC_BASE_URL and API keys
    2. Restart: sudo systemctl restart ${APP_NAME}
    3. Open ${access_url}/config.html to finish setup in the browser
 ================================================================================
@@ -463,6 +542,7 @@ main() {
   install_nodejs
   create_app_user
   deploy_application
+  seed_hk_data
   write_env_file
   install_systemd_service
   install_auto_update

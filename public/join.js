@@ -1,4 +1,6 @@
-const ROOM_STORAGE_KEY = "lango_join_participant";
+const ROOM_STORAGE_KEY = window.LANGO_VARIANT === "hk-elderly"
+  ? "lango_join_participant_hk"
+  : "lango_join_participant";
 
 const urlParams = new URLSearchParams(window.location.search);
 const urlRoom = (urlParams.get("room") || urlParams.get("roomId") || "").trim();
@@ -32,7 +34,7 @@ function resolveDisplayName(roomId, stored) {
 }
 
 function roomJoinUrl({ roomId = "", token = "", name = "" } = {}) {
-  const url = new URL("/join.html", window.location.origin);
+  const url = new URL(langoJoinPagePath(), window.location.origin);
   if (roomId) url.searchParams.set("room", roomId);
   if (token) url.searchParams.set("token", token);
   if (name) url.searchParams.set("name", name);
@@ -893,13 +895,13 @@ function initQuizJoin() {
 
   socket.on("game_ended", () => {
     clearTimer();
-    location.href = "/join.html";
+    location.href = langoJoinPagePath();
   });
 
   if (urlNickname) $("#join-nickname").value = urlNickname.slice(0, 20);
 
   $("#btn-play-again")?.addEventListener("click", () => {
-    location.href = "/join.html";
+    location.href = langoJoinPagePath();
   });
 
   updateJoinButton();
@@ -915,13 +917,13 @@ function initJoinLinkRequired() {
   $("#join-panel-link-required").hidden = false;
 }
 
-window.LangoI18n?.init?.();
+window.LangoI18n?.init?.(isHkElderlyVariant() ? { locale: "yue" } : undefined);
 window.LangoI18n?.applyDom?.();
 wireJoinEndedForm();
 
 function bindPlayAgain() {
   $("#btn-play-again")?.addEventListener("click", () => {
-    location.href = "/join.html";
+    location.href = langoJoinPagePath();
   });
 }
 
