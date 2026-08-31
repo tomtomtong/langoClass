@@ -2188,6 +2188,8 @@ function renderAiPreviewStep() {
   renderAiReviewAgent();
   renderMaterialAssetLibrary();
 }
+
+function setAiWizardStep(step) {
   if (state.aiWizardBusy && step !== state.aiWizardStep) return;
   const next = Math.max(1, Math.min(4, Number(step) || 1));
   const prev = state.aiWizardStep;
