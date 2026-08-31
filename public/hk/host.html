@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LangoClass 長者課堂 — 主持</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=DM+Sans:wght@600;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/uncle-tommy-sprite.css" />
   <link rel="stylesheet" href="/host-leaderboard.css" />
@@ -21,6 +21,9 @@
 <body class="hk-elderly">
   <script>window.LANGO_VARIANT = "hk-elderly";</script>
   <div id="app" class="lango-host">
+    <div class="host-brand-mark" aria-hidden="false">
+      <img class="host-brand-logo" src="/assets/login/langoclass_logo.svg" alt="Lango Class" width="160" height="160" />
+    </div>
     <div class="host-utility-controls" id="host-utility-controls">
       <div class="host-utility-dock">
         <div class="host-utility-meta">
@@ -399,6 +402,10 @@
               </div>
               <p class="course-step" data-i18n="course.step">Step 2 · Pick your course</p>
               <h1 class="course-page-title" data-i18n="course.title">Select Your Course</h1>
+              <p class="class-teacher-chip" id="course-header-class-chip" hidden>
+                <span data-i18n="course.classPrefix">Class</span>
+                <strong id="course-header-class-name"></strong>
+              </p>
               <p class="course-count-badge" id="course-count-badge" hidden></p>
             </div>
 

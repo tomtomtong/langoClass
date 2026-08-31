@@ -815,9 +815,14 @@ function initQuizJoin() {
     $("#player-question-text").textContent = data.text;
     $("#answer-feedback").textContent = "";
 
+    const optionsWrap = document.querySelector(".player-mcq-options-wrap");
+    if (optionsWrap) {
+      optionsWrap.dataset.shapeHint = isHkElderlyVariant() ? uiT("mcq.tapShape") : "";
+    }
+
     renderOptions($("#player-options"), data.options, {
       clickable: true,
-      optionLabels: ["A.", "B.", "C.", "D.", "E.", "F."],
+      optionLabels: isHkElderlyVariant() ? undefined : ["A.", "B.", "C.", "D.", "E.", "F."],
       onClick: (index, btn) => {
         showPlayerMcqAnsweredState(index);
         socket.emit("submit_answer", { answerIndex: index });

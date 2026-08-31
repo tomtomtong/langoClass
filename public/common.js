@@ -1,4 +1,6 @@
 const OPTION_LABELS = ["▲", "◆", "●", "■", "★", "⬡"];
+/** Kahoot answer colors: red triangle, blue diamond, yellow circle, green square */
+const KAHOOT_OPTION_COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c", "#662c91", "#104039"];
 
 function isHkElderlyVariant() {
   return window.LANGO_VARIANT === "hk-elderly";
@@ -207,6 +209,29 @@ function showScreen(id, { transition = true } = {}) {
   if (!next) return Promise.resolve();
 
   const current = document.querySelector(".screen.active");
+  const calmHost =
+    typeof isHkElderlyVariant === "function" && isHkElderlyVariant();
+
+  if (calmHost) {
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+      body: JSON.stringify({
+        sessionId: "365eeb",
+        runId: "elderly-transition",
+        hypothesisId: "H-portal",
+        location: "common.js:showScreen",
+        message: "elderly calm screen switch (no portal)",
+        data: { screenId: id, requestedTransition: transition },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    cancelScreenTransition();
+    activateScreen(id);
+    return Promise.resolve();
+  }
 
   if (!transition) {
     cancelScreenTransition();
@@ -735,7 +760,12 @@ function groupClassesByLevel(classes) {
     }));
 }
 
-function renderOptions(container, options, { clickable, onClick, showBars, counts, correctIndex, optionLabels } = {}) {
+function renderOptions(
+  container,
+  options,
+  { clickable, onClick, showBars, counts, correctIndex, optionLabels, shapeOnly } = {}
+) {
+  const useShapes = shapeOnly || (isHkElderlyVariant() && clickable);
   container.innerHTML = options
     .map((opt, i) => {
       const optionLabel = optionLabels?.[i] || OPTION_LABELS[i] || String.fromCharCode(65 + i);
@@ -745,9 +775,13 @@ function renderOptions(container, options, { clickable, onClick, showBars, count
       const classes = ["option"];
       if (clickable) classes.push("player-btn");
       if (correctIndex === i) classes.push("correct");
-      return `<button type="button" class="${classes.join(" ")}" data-index="${i}"${clickable ? "" : " disabled"}>
+      const labelInner = useShapes
+        ? `<span class="option-shape" aria-hidden="true">${optionLabel}</span>`
+        : `<span>${optionLabel} ${escapeHtml(opt)}</span>`;
+      const ariaLabel = useShapes ? ` aria-label="${escapeHtml(opt)}"` : "";
+      return `<button type="button" class="${classes.join(" ")}" data-index="${i}"${ariaLabel}${clickable ? "" : " disabled"}>
           ${bar}
-          <span class="label"><span>${optionLabel} ${escapeHtml(opt)}</span>${countLabel}</span>
+          <span class="label">${labelInner}${countLabel}</span>
         </button>`;
     })
     .join("");

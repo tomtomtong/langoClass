@@ -56,6 +56,8 @@
     "common.login": "登入",
 
     "mcq.getReady": "請準備…",
+    "mcq.tapShape": "望住大屏幕，撳相同顏色同形狀",
+    "mcq.shapeHint": "撳下面嘅形狀掣",
     "mcq.selectedAnswer": "你揀咗呢個答案",
     "mcq.answerLocked": "已經揀好答案",
     "mcq.timesUp": "時間到",

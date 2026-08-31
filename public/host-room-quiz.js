@@ -5,6 +5,14 @@ let roomQuizFastMode = false;
 
 const HOST_MCQ_OPTION_LABELS = ["A.", "B.", "C.", "D.", "E.", "F."];
 const HOST_MCQ_OPTION_COLORS = ["#15c4f8", "#45c937", "#f33b3d", "#eab308", "#a855f7", "#14b8a6"];
+
+function hostMcqOptionLabels() {
+  return isHkElderlyVariant() ? OPTION_LABELS : HOST_MCQ_OPTION_LABELS;
+}
+
+function hostMcqOptionColors() {
+  return isHkElderlyVariant() ? KAHOOT_OPTION_COLORS : HOST_MCQ_OPTION_COLORS;
+}
 let hostBuzzinUiReady = false;
 let hostBuzzinRoomId = null;
 let hostBuzzinRoundId = null;
@@ -910,7 +918,7 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
   $("#host-quiz-question-text").textContent = questionText;
   renderOptions($("#host-quiz-options"), data.options || [], {
     clickable: false,
-    optionLabels: HOST_MCQ_OPTION_LABELS,
+    optionLabels: hostMcqOptionLabels(),
   });
   $("#host-quiz-answered-count").textContent = preparing
     ? uiT("mcq.startingShortly")
@@ -942,7 +950,7 @@ function renderHostResultDistribution(question, answerCounts, correctIndex) {
     const start = offset;
     const end = offset + (count / safeTotal) * 100;
     offset = end;
-    const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
+    const color = hostMcqOptionColors()[index] || "#94a3b8";
     return `${color} ${start}% ${end}%`;
   });
   if (donut) {
@@ -952,8 +960,8 @@ function renderHostResultDistribution(question, answerCounts, correctIndex) {
   if (!legend) return;
   legend.innerHTML = options
     .map((option, index) => {
-      const label = HOST_MCQ_OPTION_LABELS[index] || `${index + 1}.`;
-      const color = HOST_MCQ_OPTION_COLORS[index] || "#94a3b8";
+      const label = hostMcqOptionLabels()[index] || `${index + 1}.`;
+      const color = hostMcqOptionColors()[index] || "#94a3b8";
       const count = answerCounts[index] || 0;
       const isCorrect = index === correctIndex;
       const optionText = `${label} ${escapeHtml(option)}`;
@@ -1158,7 +1166,7 @@ function setupHostRoomQuizSocket(socket) {
     );
     $("#host-quiz-results-points").textContent = uiT("mcq.pts", { n: points });
     $("#host-quiz-results-question-text").textContent = q?.text || "";
-    const correctLabel = HOST_MCQ_OPTION_LABELS[correctIndex] || "";
+    const correctLabel = hostMcqOptionLabels()[correctIndex] || "";
     const correctAnswerEl = $("#host-quiz-results-correct-answer");
     if (correctAnswerEl) {
       const answerText = `${correctLabel} ${correctAnswer}`.trim();

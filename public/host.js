@@ -709,9 +709,12 @@ function playPageBackSound() {
 }
 
 async function playStartSessionSound() {
+  playHostSound(HOST_SOUND_EFFECTS.startSession);
+  if (typeof isHkElderlyVariant === "function" && isHkElderlyVariant()) {
+    return;
+  }
   const letsGoOptions = HOST_SOUND_EFFECTS.uncleTommyLetsGo;
   const letsGo = letsGoOptions[Math.floor(Math.random() * letsGoOptions.length)];
-  playHostSound(HOST_SOUND_EFFECTS.startSession);
   await playHostSoundAwait(letsGo);
 }
 
@@ -766,6 +769,71 @@ function playExerciseCountdownVideo() {
 function shouldPlayHostMcQuizCountdown(exercise) {
   const type = normalizeExerciseType(exercise?.type);
   return type === "mcquiz" || type === "fastmcquiz";
+}
+
+/** Full-screen 3-2-1 video before MC quizzes — disabled for live classroom hosts. */
+function shouldPlayExerciseCountdown321Video(exercise) {
+  if (!shouldPlayHostMcQuizCountdown(exercise)) return false;
+  // Main host (classroom) and HK elderly: calm start, no Uncle Tommy countdown clip.
+  return false;
+}
+
+function shouldPlayElderlyCountdown321(exercise) {
+  if (!shouldPlayHostMcQuizCountdown(exercise)) return false;
+  return typeof isHkElderlyVariant === "function" && isHkElderlyVariant();
+}
+
+const ELDERLY_COUNTDOWN_STEP_MS = 1000;
+
+function getElderlyCountdownLayer() {
+  const app = document.querySelector("#app.lango-host");
+  if (!app) return null;
+
+  let layer = app.querySelector(".hk-elderly-countdown321");
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "hk-elderly-countdown321";
+    layer.setAttribute("aria-hidden", "true");
+    layer.innerHTML = `
+      <div class="hk-elderly-countdown321__backdrop"></div>
+      <div class="hk-elderly-countdown321__card">
+        <p class="hk-elderly-countdown321__label"></p>
+        <p class="hk-elderly-countdown321__num" aria-live="polite">3</p>
+      </div>
+    `;
+    app.appendChild(layer);
+  }
+  return layer;
+}
+
+async function playElderlyCountdown321() {
+  const layer = getElderlyCountdownLayer();
+  if (!layer) return;
+
+  const numEl = layer.querySelector(".hk-elderly-countdown321__num");
+  const labelEl = layer.querySelector(".hk-elderly-countdown321__label");
+  if (!numEl) return;
+
+  if (labelEl) {
+    labelEl.textContent = typeof hostT === "function" ? hostT("mcq.getReady") : "Get ready";
+  }
+
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const stepMs = reduceMotion ? 450 : ELDERLY_COUNTDOWN_STEP_MS;
+
+  layer.classList.add("is-playing");
+
+  for (const n of ["3", "2", "1"]) {
+    numEl.textContent = n;
+    numEl.classList.remove("is-step");
+    void numEl.offsetWidth;
+    numEl.classList.add("is-step");
+    playHostSound(HOST_SOUND_EFFECTS.pageNext, { volume: 0.5 });
+    await new Promise((resolve) => window.setTimeout(resolve, stepMs));
+  }
+
+  layer.classList.remove("is-playing");
+  numEl.classList.remove("is-step");
 }
 
 function flashStartSessionArt() {
@@ -1383,6 +1451,28 @@ function goTo(screenId, stepId) {
   setActiveStep(stepId);
 }
 
+function elderlyPickerCardIconMarkup() {
+  return `<span class="class-card-icon" aria-hidden="true">
+    <svg viewBox="0 0 48 48" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 10.5C8 9.12 9.12 8 10.5 8H22v32H10.5A2.5 2.5 0 0 1 8 37.5V10.5Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M26 8h11.5A2.5 2.5 0 0 1 40 10.5v27a2.5 2.5 0 0 1-2.5 2.5H26V8Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M22 8v32" stroke="currentColor" stroke-width="2.5"/>
+    </svg>
+  </span>`;
+}
+
+function elderlyPickerCardMarkup({ id, title, meta, active, index }) {
+  const selectLabel = `${escapeHtml(hostT("class.select"))} ›`;
+  return `<button type="button" class="class-card${active}" data-id="${id}" style="--card-i: ${index}">
+    <span class="class-card-inner">
+      ${elderlyPickerCardIconMarkup()}
+      <span class="class-card-name">${escapeHtml(title)}</span>
+      ${meta ? `<span class="class-card-meta">${escapeHtml(meta)}</span>` : ""}
+      <span class="class-card-go">${selectLabel}</span>
+    </span>
+  </button>`;
+}
+
 function renderClassCard(classItem, { selectedId, index = 0 }) {
   const active = classItem.id === selectedId ? " active" : "";
   const title = classItem.name || classItem.class_name || `Class ${classItem.id}`;
@@ -1391,26 +1481,14 @@ function renderClassCard(classItem, { selectedId, index = 0 }) {
     studentCount != null
       ? hostT(studentCount === 1 ? "class.studentCountOne" : "class.studentCount", { n: studentCount })
       : "";
-  const hkVariant = isHkElderlyVariant();
-  const bookIcon = hkVariant
-    ? `<span class="class-card-icon" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 10.5C8 9.12 9.12 8 10.5 8H22v32H10.5A2.5 2.5 0 0 1 8 37.5V10.5Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
-          <path d="M26 8h11.5A2.5 2.5 0 0 1 40 10.5v27a2.5 2.5 0 0 1-2.5 2.5H26V8Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
-          <path d="M22 8v32" stroke="currentColor" stroke-width="2.5"/>
-        </svg>
-      </span>`
-    : "";
-  const selectLabel = hkVariant
-    ? `${escapeHtml(hostT("class.select"))} ›`
-    : escapeHtml(hostT("class.select"));
-
+  if (isHkElderlyVariant()) {
+    return elderlyPickerCardMarkup({ id: classItem.id, title, meta, active, index });
+  }
   return `<button type="button" class="class-card${active}" data-id="${classItem.id}" style="--card-i: ${index}">
     <span class="class-card-inner">
-      ${bookIcon}
       <span class="class-card-name">${escapeHtml(title)}</span>
       ${meta ? `<span class="class-card-meta">${escapeHtml(meta)}</span>` : ""}
-      <span class="class-card-go">${selectLabel}</span>
+      <span class="class-card-go">${escapeHtml(hostT("class.select"))}</span>
     </span>
   </button>`;
 }
@@ -1527,6 +1605,63 @@ function setSectionExercisePanelVisible(visible) {
     overlay.hidden = false;
     overlay.classList.remove("is-closing");
     if (scene) scene.classList.add("section-scene--exercises-open");
+    // #region agent log
+    requestAnimationFrame(() => {
+      const panel = $("#section-exercise-panel");
+      const inner = panel?.querySelector(".exercise-panel-inner");
+      const utility = $("#host-utility-controls");
+      const utilityDock = utility?.querySelector(".host-utility-dock");
+      const panelRect = panel?.getBoundingClientRect();
+      const innerRect = inner?.getBoundingClientRect();
+      const utilityRect = utility?.getBoundingClientRect();
+      const dockRect = utilityDock?.getBoundingClientRect();
+      const overlayStyles = overlay ? getComputedStyle(overlay) : null;
+      const overlapY =
+        panelRect && utilityRect
+          ? panelRect.top < utilityRect.bottom && panelRect.right > utilityRect.left
+          : null;
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+        body: JSON.stringify({
+          sessionId: "365eeb",
+          runId: "post-fix",
+          hypothesisId: "H1-H5",
+          location: "host.js:setSectionExercisePanelVisible",
+          message: "exercise panel layout vs utility bar",
+          data: {
+            viewport: { w: window.innerWidth, h: window.innerHeight },
+            isHkElderly: typeof isHkElderlyVariant === "function" && isHkElderlyVariant(),
+            overlay: overlay?.getBoundingClientRect()
+              ? {
+                  top: overlay.getBoundingClientRect().top,
+                  height: overlay.getBoundingClientRect().height,
+                  paddingTop: overlayStyles?.paddingTop,
+                  alignItems: overlayStyles?.alignItems,
+                  justifyContent: overlayStyles?.justifyContent,
+                }
+              : null,
+            panel: panelRect
+              ? { top: panelRect.top, left: panelRect.left, width: panelRect.width, height: panelRect.height }
+              : null,
+            inner: innerRect
+              ? { top: innerRect.top, left: innerRect.left, width: innerRect.width, height: innerRect.height }
+              : null,
+            utility: utilityRect
+              ? { top: utilityRect.top, left: utilityRect.left, width: utilityRect.width, height: utilityRect.height, bottom: utilityRect.bottom }
+              : null,
+            utilityDock: dockRect
+              ? { top: dockRect.top, bottom: dockRect.bottom, height: dockRect.height }
+              : null,
+            overlapTopRight: overlapY,
+            gapPanelTopToUtilityBottom:
+              panelRect && utilityRect ? panelRect.top - utilityRect.bottom : null,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    });
+    // #endregion
     return;
   }
 
@@ -1554,6 +1689,7 @@ function renderSectionPickCard(section, { selectedId, index, locked = false }) {
   const banner = sectionBanner(section);
   const exerciseCount = (section.exercises || []).length;
   const hasExercises = exerciseCount > 0;
+  const title = sectionTitle(section);
   const thumb = banner
     ? `<img class="course-pick-thumb" src="${escapeHtml(banner)}" alt="" />`
     : `<div class="course-pick-thumb course-pick-thumb--empty" aria-hidden="true"></div>`;
@@ -1573,6 +1709,8 @@ function renderSectionPickCard(section, { selectedId, index, locked = false }) {
     <div class="course-pick-card-inner">
       ${thumb}
       <div class="course-pick-body">
+        <h2 class="course-pick-title">${escapeHtml(title)}</h2>
+        ${exerciseCount > 0 ? `<p class="course-pick-desc">${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"}</p>` : ""}
         ${playButton}
       </div>
     </div>
@@ -1582,12 +1720,36 @@ function renderSectionPickCard(section, { selectedId, index, locked = false }) {
 function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) {
   if (!container) return;
   if (!sections.length) {
-    container.className = "section-road";
+    container.className = isHkElderlyVariant() ? "course-grid" : "section-road";
     container.innerHTML = "";
     return;
   }
 
   const playableSections = getPlayableSections(sections);
+
+  if (isHkElderlyVariant()) {
+    const layout = courseGridLayout(sections.length);
+    container.className = `course-grid ${layout.class}`;
+    container.innerHTML = sections
+      .map((section, index) =>
+        renderSectionPickCard(section, {
+          selectedId,
+          index,
+          locked: !isHostSectionUnlocked(section, playableSections),
+        })
+      )
+      .join("");
+
+    container.querySelectorAll(".course-pick-select:not([disabled])").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        playPageNextSound();
+        onSelect(Number(btn.dataset.id));
+      });
+    });
+    return;
+  }
+
   container.className = "section-road";
   container.innerHTML = renderSectionRoad(sections, { selectedId, playableSections });
 
@@ -1784,6 +1946,13 @@ function updateCourseCountBadge(count) {
 function renderCourseCard(course, { selectedId, index }) {
   const active = course.id === selectedId ? " active" : "";
   const title = courseTitle(course);
+  if (isHkElderlyVariant()) {
+    const exerciseCount = course.exerciseCount || 0;
+    const meta = exerciseCount
+      ? uiT(exerciseCount === 1 ? "course.exerciseCountOne" : "course.exerciseCount", { n: exerciseCount })
+      : courseDescription(course);
+    return elderlyPickerCardMarkup({ id: course.id, title, meta, active, index });
+  }
   const description = courseDescription(course);
   const level = courseLevelLabel();
   const banner = courseBanner(course);
@@ -1814,8 +1983,23 @@ function renderCourseCard(course, { selectedId, index }) {
 
 function renderCourseGrid(container, courses, { selectedId, onSelect }) {
   if (!courses.length) {
-    container.className = "course-grid";
+    container.className = isHkElderlyVariant() ? "class-sections" : "course-grid";
     container.innerHTML = "";
+    return;
+  }
+
+  if (isHkElderlyVariant()) {
+    container.className = "class-sections";
+    const cards = courses
+      .map((course, cardIndex) => renderCourseCard(course, { selectedId, index: cardIndex }))
+      .join("");
+    container.innerHTML = `<section class="class-section"><div class="class-grid">${cards}</div></section>`;
+    container.querySelectorAll(".class-card").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        playPageNextSound();
+        onSelect(Number(btn.dataset.id));
+      });
+    });
     return;
   }
 
@@ -2262,11 +2446,21 @@ async function enterClassStep() {
 function syncHostClassLabel(screenId = getActiveHostScreenId()) {
   const wrap = $("#course-class-label-wrap");
   const nameEl = $("#class-label");
+  const courseChipWrap = $("#course-header-class-chip");
+  const courseChipName = $("#course-header-class-name");
   const text = String(state.classItem?.name || "").trim();
   if (nameEl) {
     nameEl.textContent = text;
     if (text) nameEl.setAttribute("title", text);
     else nameEl.removeAttribute("title");
+  }
+  if (courseChipName) {
+    courseChipName.textContent = text;
+    if (text) courseChipName.setAttribute("title", text);
+    else courseChipName.removeAttribute("title");
+  }
+  if (courseChipWrap) {
+    courseChipWrap.hidden = !text || screenId !== "course";
   }
   const hideOn = new Set([
     "login",
@@ -2308,7 +2502,7 @@ async function enterCourseStep({ resume = false, keepCourse = false } = {}) {
   $("#course-error").textContent = "";
   $("#course-status").textContent = hostT("course.loading");
   $("#course-sections").innerHTML = "";
-  $("#course-sections").className = "course-grid";
+  $("#course-sections").className = isHkElderlyVariant() ? "class-sections" : "course-grid";
   updateCourseCountBadge(0);
   goTo("course", "course");
 
@@ -2350,7 +2544,7 @@ function renderCourseSections() {
     $("#course-status").textContent =
       "No courses assigned to this class — assign one in the CMS or leave classes unassigned.";
     $("#course-sections").innerHTML = "";
-    $("#course-sections").className = "course-grid";
+    $("#course-sections").className = isHkElderlyVariant() ? "class-sections" : "course-grid";
     updateCourseCountBadge(0);
     return;
   }
@@ -3311,7 +3505,31 @@ async function launchHostExercise(exercise, {
 
     if (playIntro) {
       await playStartSessionSound();
-      if (shouldPlayHostMcQuizCountdown(exercise)) {
+      const playElderlyCountdown = shouldPlayElderlyCountdown321(exercise);
+      const playVideoCountdown = shouldPlayExerciseCountdown321Video(exercise);
+      // #region agent log
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+        body: JSON.stringify({
+          sessionId: "365eeb",
+          runId: "countdown-elderly",
+          hypothesisId: "H-countdown",
+          location: "host.js:launchHostExercise",
+          message: "exercise countdown decision",
+          data: {
+            playElderlyCountdown,
+            playVideoCountdown,
+            exerciseType: exercise?.type,
+            isHkElderly: typeof isHkElderlyVariant === "function" && isHkElderlyVariant(),
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+      if (playElderlyCountdown) {
+        await playElderlyCountdown321();
+      } else if (playVideoCountdown) {
         await playExerciseCountdownVideo();
       }
     }

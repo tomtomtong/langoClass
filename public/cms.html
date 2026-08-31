@@ -375,16 +375,17 @@
                       <div class="cms-ai-file-upload">
                         <span class="cms-ai-link-paste-label">Upload file</span>
                         <label class="cms-ai-file-drop" id="cms-ai-file-drop">
-                          <input type="file" id="cms-ai-file" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
+                          <input type="file" id="cms-ai-file" hidden multiple accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
                           <svg class="cms-ai-file-drop-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
                             <path d="M12 16V6.5M12 6.5 9.25 9.25M12 6.5l2.75 2.75" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
                             <path d="M5 14.5v2.25A2.25 2.25 0 0 0 7.25 19h9.5A2.25 2.25 0 0 0 18.75 16.75V14.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
                           </svg>
                           <span class="cms-ai-file-drop-text">
-                            <span class="cms-ai-file-drop-primary" id="cms-ai-file-drop-label">Choose or drop a file</span>
+                            <span class="cms-ai-file-drop-primary" id="cms-ai-file-drop-label">Choose or drop files</span>
                             <span class="cms-ai-file-drop-meta" id="cms-ai-file-name" hidden></span>
                           </span>
                         </label>
+                        <ul class="cms-ai-file-list" id="cms-ai-file-list" hidden></ul>
                       </div>
                       <div class="cms-ai-link-paste">
                         <label class="cms-ai-link-paste-label" for="cms-ai-video-url">Paste video link</label>
@@ -398,6 +399,7 @@
                       </div>
                     </div>
                     <p class="status-msg cms-ai-source-status" id="cms-ai-extract-status" hidden></p>
+                    <div id="cms-ai-material-assets" class="cms-ai-material-assets" hidden></div>
                   </section>
                   <section class="cms-ai-material-card cms-ai-material-card-side cms-ai-prompt-card">
                     <div class="cms-ai-prompt-head">
@@ -418,6 +420,7 @@
                 <div class="cms-ai-review-layout">
                   <div class="cms-ai-review-main">
                     <p class="hint cms-ai-intro">Review and edit before publishing.</p>
+                    <div id="cms-ai-review-assets" class="cms-ai-review-assets" hidden></div>
                     <div class="cms-ai-preview-toolbar" id="cms-ai-preview-toolbar" hidden>
                       <nav class="cms-ai-preview-nav" id="cms-ai-preview-nav" aria-label="Jump to section"></nav>
                     </div>

@@ -23,6 +23,7 @@ const settingsStore = require("./lib/settings-store");
 const videoCaptions = require("./lib/video-captions");
 const videoGenerator = require("./lib/video-generator");
 const materialExtract = require("./lib/material-extract");
+const materialImages = require("./lib/material-images");
 const exerciseGenerator = require("./lib/exercise-generator");
 const exerciseImport = require("./lib/exercise-import");
 const courseExport = require("./lib/course-export");
@@ -173,6 +174,7 @@ const SECTION_UPLOADS_DIR = paths.uploadsSectionsDir;
 const QUESTION_UPLOADS_DIR = paths.uploadsQuestionsDir;
 const CAPTIONS_UPLOADS_DIR = paths.uploadsCaptionsDir;
 const VIDEO_UPLOADS_DIR = paths.uploadsVideosDir;
+const MATERIAL_UPLOADS_DIR = paths.uploadsMaterialDir;
 const CAPTION_STT_MODEL = "groq/whisper-large-v3";
 const MAX_MC_OPTIONS = 6;
 const ALLOWED_IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
@@ -312,7 +314,8 @@ function deleteLocalUpload(uploadUrl) {
     !url.startsWith("/uploads/sections/") &&
     !url.startsWith("/uploads/questions/") &&
     !url.startsWith("/uploads/captions/") &&
-    !url.startsWith("/uploads/videos/")
+    !url.startsWith("/uploads/videos/") &&
+    !url.startsWith("/uploads/material/")
   ) {
     return;
   }
@@ -1146,6 +1149,28 @@ async function describeMaterialImageBuffer(buffer, mimeType, filename) {
     throw new Error("Could not extract markdown from this image.");
   }
   return materialExtract.normalizeWhitespace(markdown);
+}
+
+async function openRouterVisionComplete(apiKey, model, messages, maxTokens = 1200) {
+  const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": getPublicBaseUrl(),
+      "X-Title": "Lango Material Vision",
+    },
+    body: JSON.stringify({
+      model: String(model || getOpenRouterGenerateModel()).trim() || getOpenRouterGenerateModel(),
+      messages,
+      max_tokens: maxTokens,
+    }),
+  });
+  const data = await parseOpenRouterResponse(res);
+  if (!res.ok) {
+    throw new Error(`Vision (${model}): ${openRouterErrorMessage(data, res.status)}`);
+  }
+  return extractOpenRouterMessageText(data);
 }
 
 function clearBuzzInJoinTimer(round) {
@@ -3444,80 +3469,179 @@ app.put("/api/cms/video-captions", async (req, res) => {
   }
 });
 
+async function extractUploadedMaterialFile(uploadedFile, { language, materialHint, enableVisionCrop = true }) {
+  const format = materialExtract.detectFormat(uploadedFile.originalname, uploadedFile.mimetype);
+
+  if (
+    materialExtract.isAudioFormat(format, uploadedFile.mimetype) &&
+    !getInworldApiKey() &&
+    !getOpenRouterApiKey()
+  ) {
+    throw new Error("Configure Inworld or OpenRouter STT in Config before transcribing audio.");
+  }
+  if (
+    materialExtract.isVideoFormat(format, uploadedFile.mimetype) &&
+    !getInworldApiKey() &&
+    !getOpenRouterApiKey()
+  ) {
+    throw new Error("Configure Inworld or OpenRouter STT in Config before transcribing video.");
+  }
+  if (materialExtract.isImageFormat(format) && !getOpenRouterApiKey()) {
+    throw new Error("Configure OpenRouter in Config before converting images to markdown.");
+  }
+
+  let videoMeta = null;
+  const result = await materialExtract.extractFromBuffer(
+    uploadedFile.buffer,
+    uploadedFile.originalname,
+    uploadedFile.mimetype,
+    {
+      language,
+      transcribeAudio: async (buffer, audioFormat) =>
+        transcribeMaterialAudioBuffer(
+          buffer,
+          uploadedFile.originalname || `audio.${audioFormat}`,
+          language
+        ),
+      transcribeVideo: async (buffer) => {
+        const videoResult = await transcribeMaterialVideoBuffer(
+          buffer,
+          uploadedFile.originalname || "video.mp4",
+          language
+        );
+        videoMeta = videoResult;
+        return videoResult.transcript;
+      },
+      describeImage: async (buffer, mime) =>
+        describeMaterialImageBuffer(buffer, mime, uploadedFile.originalname),
+    }
+  );
+
+  let imageAssets = [];
+  try {
+    imageAssets = await materialImages.extractMaterialImageAssets(uploadedFile, {
+      uploadsMaterialDir: MATERIAL_UPLOADS_DIR,
+      enableVisionCrop: enableVisionCrop && !!getOpenRouterApiKey(),
+      materialHint,
+      apiKey: getOpenRouterApiKey(),
+      model: getOpenRouterGenerateModel(),
+      visionComplete: openRouterVisionComplete,
+    });
+  } catch (imageErr) {
+    console.warn("material image extraction failed:", uploadedFile.originalname, imageErr.message);
+  }
+
+  const source = videoMeta
+    ? "video"
+    : materialExtract.isAudioFormat(result.format, uploadedFile.mimetype)
+      ? "audio"
+      : materialExtract.isImageFormat(result.format)
+        ? "image"
+        : "file";
+
+  return { result, videoMeta, source, imageAssets };
+}
+
 app.post("/api/cms/extract-material", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  materialUpload.single("file")(req, res, async (uploadErr) => {
+  materialUpload.fields([
+    { name: "file", maxCount: 1 },
+    { name: "files", maxCount: 20 },
+  ])(req, res, async (uploadErr) => {
     if (uploadErr) {
+      // #region agent log
+      try {
+        fs.appendFileSync(
+          path.join(__dirname, ".cursor/debug-365eeb.log"),
+          JSON.stringify({
+            sessionId: "365eeb",
+            runId: "multi-upload",
+            hypothesisId: "H4",
+            location: "server.js:extract-material:uploadErr",
+            message: "multer upload rejected",
+            data: { error: uploadErr.message, code: uploadErr.code || null },
+            timestamp: Date.now(),
+          }) + "\n"
+        );
+      } catch {}
+      // #endregion
       return res.status(400).json({ message: uploadErr.message || "Upload failed." });
     }
 
     try {
-      if (req.file?.buffer?.length) {
+      const uploads = [
+        ...(req.files?.files || []),
+        ...(req.files?.file || []),
+      ].filter((file) => file?.buffer?.length);
+
+      if (uploads.length) {
         const language = normalizeBuzzinSttLanguage(req.body?.language, getInworldSttLanguage());
-        const format = materialExtract.detectFormat(req.file.originalname, req.file.mimetype);
-
-        if (materialExtract.isAudioFormat(format, req.file.mimetype) && !getInworldApiKey() && !getOpenRouterApiKey()) {
-          return res.status(400).json({
-            message: "Configure Inworld or OpenRouter STT in Config before transcribing audio.",
-          });
-        }
-        if (materialExtract.isVideoFormat(format, req.file.mimetype) && !getInworldApiKey() && !getOpenRouterApiKey()) {
-          return res.status(400).json({
-            message: "Configure Inworld or OpenRouter STT in Config before transcribing video.",
-          });
-        }
-        if (materialExtract.isImageFormat(format) && !getOpenRouterApiKey()) {
-          return res.status(400).json({
-            message: "Configure OpenRouter in Config before converting images to markdown.",
-          });
-        }
-
-        let videoMeta = null;
         const requestedMaxChars = Number(req.body?.maxChars);
-        const result = await materialExtract.extractFromBuffer(
-          req.file.buffer,
-          req.file.originalname,
-          req.file.mimetype,
-          {
-            maxChars:
-              Number.isFinite(requestedMaxChars) && requestedMaxChars > 0
-                ? requestedMaxChars
-                : undefined,
-            language,
-            transcribeAudio: async (buffer, audioFormat) =>
-              transcribeMaterialAudioBuffer(buffer, req.file.originalname || `audio.${audioFormat}`, language),
-            transcribeVideo: async (buffer) => {
-              const videoResult = await transcribeMaterialVideoBuffer(
-                buffer,
-                req.file.originalname || "video.mp4",
-                language
-              );
-              videoMeta = videoResult;
-              return videoResult.transcript;
-            },
-            describeImage: async (buffer, mime) =>
-              describeMaterialImageBuffer(buffer, mime, req.file.originalname),
-          }
-        );
+        const maxChars =
+          Number.isFinite(requestedMaxChars) && requestedMaxChars > 0 ? requestedMaxChars : undefined;
+
+        // #region agent log
+        try {
+          fs.appendFileSync(
+            path.join(__dirname, ".cursor/debug-365eeb.log"),
+            JSON.stringify({
+              sessionId: "365eeb",
+              runId: "multi-upload",
+              hypothesisId: "H3",
+              location: "server.js:extract-material",
+              message: "processing uploads",
+              data: { count: uploads.length, names: uploads.map((file) => file.originalname) },
+              timestamp: Date.now(),
+            }) + "\n"
+          );
+        } catch {}
+        // #endregion
+
+        const extracted = [];
+        let lastVideoMeta = null;
+        const imageAssets = [];
+        const materialHint = String(req.body?.materialHint || req.body?.instructions || "").trim();
+        for (const uploadedFile of uploads) {
+          const { result, videoMeta, source, imageAssets: fileAssets } = await extractUploadedMaterialFile(
+            uploadedFile,
+            {
+              language,
+              materialHint,
+            }
+          );
+          extracted.push({ result, source });
+          if (videoMeta) lastVideoMeta = videoMeta;
+          if (fileAssets?.length) imageAssets.push(...fileAssets);
+        }
+
+        const combinedText =
+          extracted.length === 1
+            ? extracted[0].result.text
+            : extracted
+                .map(({ result }) => `## ${result.filename}\n\n${result.text}`)
+                .join("\n\n---\n\n");
+
+        const truncateResult = materialExtract.truncateMaterial(combinedText, maxChars);
+        const filenames = extracted.map(({ result }) => result.filename).filter(Boolean);
+        const source = extracted.length > 1 ? "files" : extracted[0]?.source || "file";
+
         return res.json({
           ok: true,
-          source: videoMeta
-            ? "video"
-            : materialExtract.isAudioFormat(result.format, req.file.mimetype)
-              ? "audio"
-              : materialExtract.isImageFormat(result.format)
-                ? "image"
-                : "file",
-          filename: result.filename,
-          format: result.format,
-          text: result.text,
-          truncated: result.truncated,
-          originalLength: result.originalLength,
-          videoUrl: videoMeta?.videoUrl,
-          captionUrl: videoMeta?.captionUrl,
-          cueCount: videoMeta?.cueCount,
+          source,
+          filename: filenames.join(", "),
+          filenames,
+          fileCount: extracted.length,
+          format: extracted.length === 1 ? extracted[0].result.format : undefined,
+          text: truncateResult.text,
+          truncated: truncateResult.truncated,
+          originalLength: truncateResult.originalLength,
+          videoUrl: lastVideoMeta?.videoUrl,
+          captionUrl: lastVideoMeta?.captionUrl,
+          cueCount: lastVideoMeta?.cueCount,
+          imageAssets,
+          imageAssetCount: imageAssets.length,
         });
       }
 
@@ -3612,6 +3736,7 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
   }
 
   const instructions = String(req.body?.instructions || "").trim();
+  const imageAssets = Array.isArray(req.body?.imageAssets) ? req.body.imageAssets : [];
 
   try {
     const result = await exerciseGenerator.generateExercisesFromMaterial(
@@ -3622,17 +3747,25 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
         types: req.body?.types,
         countPerType: req.body?.countPerType,
         instructions,
+        imageAssets,
         model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
         apiKey: getOpenRouterApiKey(),
       },
       openRouterGenerateComplete
     );
 
+    const exercises = materialImages.resolveExerciseImageRefs(result.exercises, imageAssets);
+
     return res.json({
       ok: true,
-      exercises: result.exercises,
+      exercises,
       model: result.model,
       stats: result.stats,
+      imageAssetsUsed: exercises.reduce(
+        (count, exercise) =>
+          count + (exercise.items || []).filter((item) => item?.image).length,
+        0
+      ),
     });
   } catch (err) {
     console.error("generate-exercises failed:", err);
@@ -3666,6 +3799,7 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
   }
 
   const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
+  const imageAssets = Array.isArray(req.body?.imageAssets) ? req.body.imageAssets : [];
 
   try {
     const result = await exerciseGenerator.reviseExercisesFromDraft(
@@ -3677,6 +3811,7 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
         revision,
         exercises,
         history,
+        imageAssets,
         questionNumber: Number(req.body?.questionNumber) || undefined,
         model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
         apiKey: getOpenRouterApiKey(),
@@ -3684,9 +3819,11 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
       openRouterGenerateComplete
     );
 
+    const resolvedExercises = materialImages.resolveExerciseImageRefs(result.exercises, imageAssets);
+
     return res.json({
       ok: true,
-      exercises: result.exercises,
+      exercises: resolvedExercises,
       summary: result.summary,
       model: result.model,
       revisionMode: result.revisionMode || null,
