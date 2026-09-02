@@ -1,8 +1,6 @@
 const STORAGE_KEY = "lango_host_prefs";
 const CMS_THEME_KEY = "lango_cms_theme";
-const CMS_TEXT_SIZE_KEY = "lango_cms_text_size";
-const CMS_TEXT_SIZES = ["sm", "md", "lg", "xl"];
-const CMS_TEXT_SIZE_LABELS = { sm: "S", md: "M", lg: "L", xl: "XL" };
+const CMS_TEXT_SIZE_DEFAULT = "lg";
 const CMS_EMPTY_COVER = "/assets/cms/cover-empty.svg";
 
 const CMS_TOUR_KEY = "lango_cms_tour_v1";
@@ -15,11 +13,19 @@ const AI_WIZARD_STEPS = [
   { label: "Publish" },
 ];
 
+const CMS_FALLBACK_SPEAK_LANGUAGES = [{ code: "en", label: "English" }];
+
 const state = {
   token: null,
   user: null,
   loginUsername: "",
   courses: [],
+  communityCourses: [],
+  communityLanguages: [],
+  communityQuery: "",
+  communityLang: "all",
+  communitySort: "featured",
+  communityPreviewId: null,
   classes: [],
   editingCourse: null,
   sections: [],
@@ -39,8 +45,15 @@ const state = {
   aiCourseResults: [],
   aiGenSummary: null,
   exercisesSaveUnlocked: false,
-  aiReviewHistory: [],
-  aiReviewUndo: [],
+  globalAgentOpen: false,
+  globalAgentBusy: false,
+  globalAgentContextKey: "",
+  globalAgentHistory: [],
+  globalAgentUndo: [],
+  globalAgentSelection: "",
+  globalAgentSelectionQuestion: null,
+  globalAgentPendingSelection: "",
+  globalAgentPendingQuestionNumber: null,
   batchDraftResults: [],
   batchPreparedMaterials: {},
   dashboardClassId: null,
@@ -48,6 +61,10 @@ const state = {
   cmsDirty: false,
   cmsAutosaving: false,
   cmsTourStep: 0,
+  cmsAppVariant: "",
+  cmsSpeakLanguages: CMS_FALLBACK_SPEAK_LANGUAGES.slice(),
+  cmsDefaultSpeakLangCode: "en",
+  cmsTtsProvider: "inworld",
 };
 
 function formatCmsErrorMessage(message) {
@@ -136,6 +153,7 @@ function openAiGeneratePath(mode) {
   syncAiCourseModeUi();
   setAiWizardStep(1);
   syncAiWizardCopy();
+  syncAiSpeakLangSelect();
   syncAiMaterialState();
 }
 
@@ -232,7 +250,7 @@ function updateAiWizardSummary() {
   const settings = getAiGenerationSettings();
   const section = state.sections[state.editingSectionIndex];
   const parts = [
-    aiFormatLabel(settings.types, settings.difficulty),
+    aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
     state.aiCourseMode ? "Full course" : section?.title?.trim() || "This section",
   ];
   const file = getAiSelectedFiles()[0];
@@ -241,6 +259,11 @@ function updateAiWizardSummary() {
   else if (file) parts.push(file.name);
   else if (state.aiMaterialText) parts.push(`${state.aiMaterialText.length.toLocaleString()} chars`);
   if (getAiInstructions()) parts.push("Focused");
+  if (state.aiWizardStep === 3 && state.aiDraftExercises?.length && !state.aiCourseMode) {
+    parts.push(
+      `Est. ${formatSectionDuration(estimateSectionDurationSeconds(state.aiDraftExercises))}`
+    );
+  }
   el.textContent = parts.filter(Boolean).join(" · ");
 }
 
@@ -430,11 +453,16 @@ function renderAiPreviewGrouped(groups) {
       });
       questionOffset += questionCount;
       const count = group.items?.length || 0;
+      const groupExercises = (group.items || []).map(({ exercise }) => exercise).filter(Boolean);
+      const durationLabel = formatSectionDuration(estimateSectionDurationSeconds(groupExercises));
       return `
         <section class="cms-ai-course-preview-group" id="cms-ai-preview-group-${groupIndex}" data-course-group="${groupIndex}" data-course-key="${escapeHtml(group.key || String(groupIndex))}">
           <button type="button" class="cms-ai-preview-group-toggle" aria-expanded="true" data-group-index="${groupIndex}">
             <span class="cms-ai-preview-group-title">${escapeHtml(group.title || `Section ${groupIndex + 1}`)}</span>
-            <span class="cms-ai-preview-group-count">${count} exercise${count === 1 ? "" : "s"}</span>
+            <span class="cms-ai-preview-group-meta">
+              <span class="cms-ai-preview-group-count">${count} exercise${count === 1 ? "" : "s"}</span>
+              <span class="cms-ai-preview-group-duration">Est. ${durationLabel}</span>
+            </span>
           </button>
           <div class="cms-ai-preview-group-body" data-group-index="${groupIndex}">
             ${html}
@@ -445,6 +473,9 @@ function renderAiPreviewGrouped(groups) {
   wireAiVideoPreviews();
   wireAiQuestionLists();
   renderAiPreviewNav(groups);
+  if (state.aiWizardStep === 3) {
+    scheduleAiPreviewScrollToStart("render-preview");
+  }
 }
 
 function loadPrefs() {
@@ -509,37 +540,8 @@ function initCmsTheme() {
   applyCmsTheme();
 }
 
-function getCmsTextSize() {
-  const current = document.documentElement.dataset.cmsTextSize || "md";
-  return CMS_TEXT_SIZES.includes(current) ? current : "md";
-}
-
-function applyCmsTextSize(size) {
-  const next = CMS_TEXT_SIZES.includes(size) ? size : "md";
-  document.documentElement.dataset.cmsTextSize = next;
-  try {
-    localStorage.setItem(CMS_TEXT_SIZE_KEY, next);
-  } catch {
-    /* ignore */
-  }
-  const label = $("#cms-text-size-label");
-  const smaller = $("#btn-cms-text-smaller");
-  const larger = $("#btn-cms-text-larger");
-  if (label) label.textContent = CMS_TEXT_SIZE_LABELS[next];
-  if (smaller) smaller.disabled = next === CMS_TEXT_SIZES[0];
-  if (larger) larger.disabled = next === CMS_TEXT_SIZES[CMS_TEXT_SIZES.length - 1];
-}
-
-function stepCmsTextSize(delta) {
-  const index = CMS_TEXT_SIZES.indexOf(getCmsTextSize());
-  const nextIndex = Math.min(CMS_TEXT_SIZES.length - 1, Math.max(0, index + delta));
-  applyCmsTextSize(CMS_TEXT_SIZES[nextIndex]);
-}
-
 function initCmsTextSize() {
-  applyCmsTextSize(getCmsTextSize());
-  $("#btn-cms-text-smaller")?.addEventListener("click", () => stepCmsTextSize(-1));
-  $("#btn-cms-text-larger")?.addEventListener("click", () => stepCmsTextSize(1));
+  document.documentElement.dataset.cmsTextSize = CMS_TEXT_SIZE_DEFAULT;
 }
 
 function teacherDisplayName() {
@@ -752,7 +754,7 @@ async function importAllCourses(file) {
     } else {
       status.textContent = `Imported ${count} course${count === 1 ? "" : "s"}.`;
     }
-    await enterDashboard();
+    await enterCourseList();
   } catch (err) {
     status.textContent = "";
     error.textContent = err.message;
@@ -789,12 +791,914 @@ function cmsMotion() {
   return window.LangoGsap?.ready ? window.LangoGsap : null;
 }
 
+let cmsToastHideTimer = null;
+
+function showCmsToast(message, { variant = "success", durationMs = 4200 } = {}) {
+  const toast = $("#cms-toast");
+  const messageEl = $("#cms-toast-message");
+  if (!toast || !messageEl || !message) return;
+
+  if (cmsToastHideTimer) {
+    clearTimeout(cmsToastHideTimer);
+    cmsToastHideTimer = null;
+  }
+
+  messageEl.textContent = message;
+  toast.classList.remove("cms-toast--success", "cms-toast--error");
+  toast.classList.add(`cms-toast--${variant}`);
+  toast.classList.remove("is-visible");
+  toast.hidden = false;
+
+  requestAnimationFrame(() => {
+    toast.classList.add("is-visible");
+  });
+
+  cmsToastHideTimer = setTimeout(() => {
+    toast.classList.remove("is-visible");
+    cmsToastHideTimer = setTimeout(() => {
+      toast.hidden = true;
+      cmsToastHideTimer = null;
+    }, 240);
+  }, durationMs);
+}
+
+function getActiveCmsScreenId() {
+  const active = document.querySelector(".cms-app .screen.active");
+  if (!active) return "login";
+  return active.id.replace("screen-cms-", "");
+}
+
+function getActiveCmsTabId() {
+  const tab = document.querySelector(".cms-tab.active");
+  return tab?.dataset?.tab || "details";
+}
+
+function getGlobalAgentMode() {
+  if (state.aiWizardActive && state.aiWizardStep === 3 && hasAiPreviewReady()) return "ai-review";
+  if (isExercisesSubpageOpen() && getOpenExerciseCard()) return "exercise-edit";
+  return "general";
+}
+
+function getGlobalAgentContextKey() {
+  const mode = getGlobalAgentMode();
+  if (mode === "ai-review") return "ai-review";
+  if (mode === "exercise-edit") {
+    const card = getOpenExerciseCard();
+    const index = card ? Number(card.dataset.exerciseIndex) : state.expandedExerciseIndex;
+    return `exercise-edit:${Number.isFinite(index) ? index : "x"}`;
+  }
+  const screen = getActiveCmsScreenId();
+  const tab = getActiveCmsTabId();
+  const courseId = state.editingCourse?.id || "none";
+  return `general:${screen}:${screen === "edit" ? tab : ""}:${courseId}`;
+}
+
+function getGlobalAgentPageHeading() {
+  const active = document.querySelector(".cms-app .screen.active");
+  if (!active) return null;
+  if (active.id === "screen-cms-edit" && isExercisesSubpageOpen()) {
+    return $("#cms-exercises-section-title")?.textContent?.trim() || "Section exercises";
+  }
+  const h1 = active.querySelector("h1");
+  return h1?.textContent?.trim() || null;
+}
+
+function getGlobalAgentContext() {
+  const mode = getGlobalAgentMode();
+  const screen = getActiveCmsScreenId();
+  const tab = getActiveCmsTabId();
+  const section =
+    state.editingSectionIndex != null ? state.sections[state.editingSectionIndex] : null;
+  const card = getOpenExerciseCard();
+  const exercise =
+    card && state.editingSectionIndex != null
+      ? state.sections[state.editingSectionIndex]?.exercises?.[Number(card.dataset.exerciseIndex)] ||
+        collectExerciseFromCard(card)
+      : null;
+  const exercises = section?.exercises || [];
+  return {
+    mode,
+    screen,
+    tab,
+    pageHeading: getGlobalAgentPageHeading(),
+    subview: isExercisesSubpageOpen()
+      ? "exercises"
+      : getActiveTabId() === "sections"
+        ? "sections"
+        : "details",
+    wizardStep: state.aiWizardActive ? state.aiWizardStep : null,
+    selection: String(state.globalAgentSelection || "").trim() || null,
+    course: state.editingCourse
+      ? {
+          id: state.editingCourse.id,
+          name: state.editingCourse.name || "",
+          langCode: state.editingCourse.langCode || "en",
+          description: state.editingCourse.description || "",
+          sectionCount: state.sections.length,
+        }
+      : null,
+    section: section
+      ? {
+          title: section.title || "",
+          exerciseCount: exercises.length,
+          estimatedLabel: exercises.length
+            ? formatSectionDuration(estimateSectionDurationSeconds(exercises))
+            : null,
+        }
+      : null,
+    exercise: exercise
+      ? {
+          type: exercise.type || "",
+          title: exercise.title || "",
+          itemCount: (exercise.items || []).length,
+        }
+      : null,
+    sections: state.sections.map((entry, index) => ({
+      title: entry.title || `Section ${index + 1}`,
+      exerciseCount: (entry.exercises || []).length,
+    })),
+  };
+}
+
+function clearGlobalAgentSelectionState() {
+  state.globalAgentSelection = "";
+  state.globalAgentSelectionQuestion = null;
+  state.globalAgentPendingSelection = "";
+  state.globalAgentPendingQuestionNumber = null;
+  hideGlobalSelectionAddButton();
+}
+
+function resetGlobalAgentSession({ clearHistory = true } = {}) {
+  if (clearHistory) state.globalAgentHistory = [];
+  state.globalAgentUndo = [];
+  clearGlobalAgentSelectionState();
+  const input = $("#cms-global-agent-input");
+  if (input) input.value = "";
+  renderGlobalAgent();
+}
+
+function ensureGlobalAgentContextSession() {
+  const key = getGlobalAgentContextKey();
+  if (state.globalAgentContextKey === key) return;
+  const historyLength = (state.globalAgentHistory || []).length;
+  state.globalAgentContextKey = key;
+  state.globalAgentUndo = [];
+  clearGlobalAgentSelectionState();
+  syncGlobalAgentSelectionUi();
+  renderGlobalAgent();
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      runId: "history-persist",
+      hypothesisId: "H1-context",
+      location: "cms.js:ensureGlobalAgentContextSession",
+      message: "Context changed; chat history preserved",
+      data: { key, historyLength, preserved: (state.globalAgentHistory || []).length },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
+function syncGlobalAgentUi() {
+  ensureGlobalAgentContextSession();
+  const mode = getGlobalAgentMode();
+  const titleEl = $("#cms-global-agent-title");
+  const leadEl = $("#cms-global-agent-lead");
+  const modeEl = $("#cms-global-agent-mode");
+  const input = $("#cms-global-agent-input");
+  const meta = {
+    general: {
+      kicker: "CMS assistant",
+      title: "Lango assistant",
+      lead: "Ask about courses, sections, hosting, imports, or what to do next on this page.",
+      placeholder: "Ask Lango anything about the CMS…",
+    },
+    "exercise-edit": {
+      kicker: "Exercise edit",
+      title: "Exercise assistant",
+      lead: "Highlight a question or option on the left, then ask for edits here.",
+      placeholder: "Revise this exercise…",
+    },
+    "ai-review": {
+      kicker: "AI review",
+      title: "Review assistant",
+      lead: "Highlight generated questions on the left, then ask for edits here.",
+      placeholder: "Revise generated exercises…",
+    },
+  }[mode];
+  if (modeEl) modeEl.textContent = meta.kicker;
+  if (titleEl) titleEl.textContent = meta.title;
+  if (leadEl) leadEl.textContent = meta.lead;
+  if (input && document.activeElement !== input) input.placeholder = meta.placeholder;
+  syncGlobalAgentSelectionUi();
+  renderGlobalAgent();
+}
+
+function syncGlobalAgentSelectionUi() {
+  const wrap = $("#cms-global-agent-selection");
+  const textEl = $("#cms-global-agent-selection-text");
+  const selection = String(state.globalAgentSelection || "").trim();
+  if (wrap) wrap.hidden = !selection;
+  if (textEl) textEl.textContent = selection;
+}
+
+function buildGlobalAgentRequest(rawRequest) {
+  const message = String(rawRequest || "").trim();
+  const selection = String(state.globalAgentSelection || "").trim();
+  if (!selection) return message;
+  const quoted = selection.length > 280 ? `${selection.slice(0, 280)}…` : selection;
+  if (!message) return `Revise the selected text:\n"${quoted}"`;
+  return `Regarding this selected text:\n"${quoted}"\n\n${message}`;
+}
+
+function setGlobalAgentSelection(text, questionNumber) {
+  const next = String(text || "").trim();
+  if (!next) return;
+  state.globalAgentSelection = next;
+  const parsedNumber = Number(questionNumber);
+  state.globalAgentSelectionQuestion =
+    Number.isFinite(parsedNumber) && parsedNumber > 0 ? parsedNumber : null;
+  syncGlobalAgentSelectionUi();
+  openGlobalAgent();
+  $("#cms-global-agent-input")?.focus();
+}
+
+function clearGlobalAgentSelection() {
+  state.globalAgentSelection = "";
+  state.globalAgentSelectionQuestion = null;
+  syncGlobalAgentSelectionUi();
+  hideGlobalSelectionAddButton();
+}
+
+function hideGlobalSelectionAddButton() {
+  const btn = $("#cms-global-selection-add");
+  if (btn) {
+    btn.hidden = true;
+    btn.style.top = "";
+    btn.style.left = "";
+  }
+  state.globalAgentPendingSelection = "";
+  state.globalAgentPendingQuestionNumber = null;
+}
+
+function positionGlobalSelectionAddButtonAtPoint(clientX, clientY) {
+  const btn = $("#cms-global-selection-add");
+  if (!btn) return;
+  btn.style.top = `${Math.max(8, clientY + 8)}px`;
+  btn.style.left = `${Math.max(8, clientX - 48)}px`;
+  btn.hidden = false;
+}
+
+function positionGlobalSelectionAddButton(selection) {
+  const btn = $("#cms-global-selection-add");
+  if (!btn || !selection?.rangeCount) return;
+  const rect = selection.getRangeAt(0).getBoundingClientRect();
+  if (!rect.width && !rect.height) {
+    hideGlobalSelectionAddButton();
+    return;
+  }
+  btn.style.top = `${Math.max(8, rect.bottom + 6)}px`;
+  btn.style.left = `${Math.max(8, rect.left + rect.width / 2 - 48)}px`;
+  btn.hidden = false;
+}
+
+function isGlobalAgentSelectableField(field) {
+  if (!(field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement)) return false;
+  return field.matches(
+    ".cms-ai-item-input, .cms-ai-item-textarea, .cms-ai-item-question, .cms-ai-opt-text, .cms-q-text, .cms-opt-text, .cms-buzzin-topic, .cms-buzzin-correct-answer, .cms-exercise-title, [data-field='subTitle'], #course-name, #course-description, .cms-section-title"
+  );
+}
+
+function getGlobalSelectionQuestionNumberFromNode(node) {
+  const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  const aiBlock = element?.closest?.(".cms-ai-item-block");
+  if (aiBlock) {
+    const number = Number(aiBlock.dataset?.questionNumber);
+    return Number.isFinite(number) && number > 0 ? number : null;
+  }
+  const block = element?.closest?.(".cms-question-block, .cms-buzzin-topic-block");
+  const qIdx = Number(block?.dataset?.q);
+  return Number.isFinite(qIdx) && qIdx >= 0 ? qIdx + 1 : null;
+}
+
+function getGlobalAgentRevisionMaterial(card) {
+  const aiMaterial = getAiMaterialText();
+  if (aiMaterial) return aiMaterial;
+  const section = state.sections[state.editingSectionIndex];
+  const exercise = card ? collectExerciseFromCard(card) : null;
+  const parts = [
+    section?.title ? `Section: ${section.title}` : "",
+    state.editingCourse?.name ? `Course: ${state.editingCourse.name}` : "",
+    state.editingCourse?.description ? `Course description: ${state.editingCourse.description}` : "",
+    exercise ? `Current exercise JSON:\n${JSON.stringify(exercise, null, 2)}` : "",
+  ].filter(Boolean);
+  return parts.join("\n\n");
+}
+
+function syncGlobalAgentDockVisibility() {
+  const dock = $("#cms-global-agent-dock");
+  if (!dock) return;
+  const loggedIn = !!(state.token && state.user);
+  const onLogin = getActiveCmsScreenId() === "login";
+  dock.hidden = !loggedIn || onLogin;
+}
+
+function getAiReviewScrollMetrics() {
+  const preview = $("#cms-ai-preview");
+  const blocks = preview ? [...preview.querySelectorAll(".cms-ai-item-block")] : [];
+  const first = blocks[0];
+  const last = blocks[blocks.length - 1];
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const firstRect = first?.getBoundingClientRect?.();
+  const lastRect = last?.getBoundingClientRect?.();
+  return {
+    scrollY: window.scrollY,
+    viewportHeight,
+    blockCount: blocks.length,
+    firstQuestionNumber: first?.dataset?.questionNumber || null,
+    lastQuestionNumber: last?.dataset?.questionNumber || null,
+    firstTop: firstRect?.top ?? null,
+    lastTop: lastRect?.top ?? null,
+    firstVisible: firstRect ? firstRect.top >= 0 && firstRect.top < viewportHeight : null,
+    lastVisible: lastRect ? lastRect.top >= 0 && lastRect.top < viewportHeight : null,
+  };
+}
+
+const CMS_REVIEW_AGENT_GAP_PX = 16;
+
+function clearAiReviewWizardInlineLayout(wizard) {
+  if (!wizard) return;
+  wizard.style.maxWidth = "";
+  wizard.style.width = "";
+  wizard.style.marginLeft = "";
+  wizard.style.marginRight = "";
+}
+
+function measureAiReviewWizardWidth(wizard, agentPanel) {
+  const agentRect = agentPanel?.getBoundingClientRect?.();
+  const anchorRect = wizard?.parentElement?.getBoundingClientRect?.();
+  if (!agentRect || !anchorRect) return null;
+  return Math.max(320, Math.floor(agentRect.left - anchorRect.left - CMS_REVIEW_AGENT_GAP_PX));
+}
+
+function applyAiReviewWizardLayout() {
+  const onReview = Boolean(state.aiWizardActive && state.aiWizardStep === 3);
+  const agentOpen = onReview && Boolean(state.globalAgentOpen);
+  const wizard = $("#cms-ai-wizard");
+  const agentPanel = $("#cms-global-agent");
+
+  document.body.classList.toggle("cms-ai-review-active", onReview);
+  document.body.classList.toggle("cms-review-agent-open", agentOpen);
+  wizard?.classList.toggle("is-review-agent-open", agentOpen);
+
+  if (!wizard) return;
+
+  if (agentOpen) {
+    wizard.style.marginLeft = "0";
+    wizard.style.marginRight = "0";
+    wizard.style.width = "100%";
+    const targetWidth = measureAiReviewWizardWidth(wizard, agentPanel);
+    if (targetWidth != null) wizard.style.maxWidth = `${targetWidth}px`;
+  } else {
+    clearAiReviewWizardInlineLayout(wizard);
+  }
+
+  const wizardRect = wizard.getBoundingClientRect?.();
+  const agentRect = agentPanel?.getBoundingClientRect?.();
+  const wizardStyle = getComputedStyle(wizard);
+  const gapPx = wizardRect && agentRect ? agentRect.left - wizardRect.right : null;
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      location: "cms.js:applyAiReviewWizardLayout",
+      message: "review layout applied",
+      data: {
+        onReview,
+        agentOpen,
+        targetWidth: agentOpen ? measureAiReviewWizardWidth(wizard, agentPanel) : null,
+        wizardWidth: wizard.offsetWidth,
+        wizardLeft: wizardRect?.left ?? null,
+        wizardRight: wizardRect?.right ?? null,
+        wizardMarginRight: wizardStyle.marginRight,
+        agentPanelLeft: agentRect?.left ?? null,
+        gapPx,
+        overlap: wizardRect && agentRect ? wizardRect.right > agentRect.left + 8 : null,
+        ...getAiReviewScrollMetrics(),
+      },
+      timestamp: Date.now(),
+      hypothesisId: "H8",
+      runId: "review-layout-v4",
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
+function syncAiReviewAgentLayout() {
+  applyAiReviewWizardLayout();
+  if (state.aiWizardActive && state.aiWizardStep === 3 && state.globalAgentOpen) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applyAiReviewWizardLayout();
+      });
+    });
+  }
+}
+
+function scrollAiPreviewToStart({ smooth = false, reason = "" } = {}) {
+  if (state.aiWizardStep !== 3) return;
+  const preview = $("#cms-ai-preview");
+  if (!preview) return;
+  const before = getAiReviewScrollMetrics();
+  const anchor =
+    preview.querySelector(".cms-ai-item-block") ||
+    preview.querySelector(".cms-ai-course-preview-group") ||
+    $(".cms-ai-review-main");
+  if (!anchor) return;
+  const topbar = document.querySelector(".cms-topbar");
+  const stickyOffset = (topbar?.offsetHeight || 0) + 16;
+  const targetY = anchor.getBoundingClientRect().top + window.scrollY - stickyOffset;
+  window.scrollTo({ top: Math.max(0, targetY), behavior: smooth ? "smooth" : "auto" });
+  requestAnimationFrame(() => {
+    const after = getAiReviewScrollMetrics();
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+      body: JSON.stringify({
+        sessionId: "365eeb",
+        location: "cms.js:scrollAiPreviewToStart",
+        message: "scroll preview to start",
+        data: {
+          reason,
+          before,
+          after,
+          stickyOffset,
+          targetY: Math.max(0, targetY),
+          hasTarget: Boolean(anchor),
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H4",
+        runId: "review-layout-v2",
+      }),
+    }).catch(() => {});
+    // #endregion
+  });
+}
+
+function scheduleAiPreviewScrollToStart(reason) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scrollAiPreviewToStart({ reason });
+    });
+  });
+}
+
+function openGlobalAgent() {
+  const dock = $("#cms-global-agent-dock");
+  const panel = $("#cms-global-agent");
+  const toggle = $("#btn-cms-global-agent-toggle");
+  if (!dock || !panel) return;
+  syncGlobalAgentUi();
+  dock.hidden = false;
+  dock.classList.add("is-open");
+  panel.hidden = false;
+  panel.removeAttribute("aria-hidden");
+  toggle?.setAttribute("aria-expanded", "true");
+  state.globalAgentOpen = true;
+  renderGlobalAgent();
+  syncAiReviewAgentLayout();
+}
+
+function closeGlobalAgent() {
+  const dock = $("#cms-global-agent-dock");
+  const panel = $("#cms-global-agent");
+  const toggle = $("#btn-cms-global-agent-toggle");
+  if (!dock || !panel) return;
+  dock.classList.remove("is-open");
+  panel.hidden = true;
+  panel.setAttribute("aria-hidden", "true");
+  toggle?.setAttribute("aria-expanded", "false");
+  state.globalAgentOpen = false;
+  hideGlobalSelectionAddButton();
+  syncGlobalAgentDockVisibility();
+  syncAiReviewAgentLayout();
+}
+
+function renderGlobalAgent() {
+  const log = $("#cms-global-agent-log");
+  const undo = $("#btn-cms-global-agent-undo");
+  const history = state.globalAgentHistory || [];
+  const busy = Boolean(state.globalAgentBusy || state.aiWizardBusy);
+  const mode = getGlobalAgentMode();
+  if (log) {
+    const turns = history
+      .map(
+        (turn) => `
+        <div class="cms-ai-agent-turn cms-ai-agent-turn--${turn.role === "assistant" ? "assistant" : "user"}">
+          <div class="cms-ai-agent-avatar" aria-hidden="true">${turn.role === "assistant" ? "AI" : "You"}</div>
+          <div class="cms-ai-agent-bubble">
+            <p>${escapeHtml(turn.content || "")}</p>
+          </div>
+        </div>`
+      )
+      .join("");
+    const welcomeCopy =
+      mode === "exercise-edit"
+        ? "Hi — highlight any question or answer on the left and click <strong>Add to chat</strong>, or type a revision here."
+        : mode === "ai-review"
+          ? "Hi — highlight any question text on the left and click <strong>Add to chat</strong>, or type a revision here."
+          : "Hi — I can help with courses, sections, AI generation, publishing, and hosting. What do you need?";
+    const welcome =
+      turns ||
+      `<div class="cms-ai-agent-turn cms-ai-agent-turn--assistant cms-ai-agent-turn--welcome">
+        <div class="cms-ai-agent-avatar" aria-hidden="true">AI</div>
+        <div class="cms-ai-agent-bubble"><p>${welcomeCopy}</p></div>
+      </div>`;
+    const typing = busy
+      ? `<div class="cms-ai-agent-turn cms-ai-agent-turn--assistant cms-ai-agent-turn--typing" aria-live="polite">
+          <div class="cms-ai-agent-avatar" aria-hidden="true">AI</div>
+          <div class="cms-ai-agent-bubble"><span class="cms-ai-agent-typing">Thinking…</span></div>
+        </div>`
+      : "";
+    log.innerHTML = welcome + typing;
+    log.scrollTop = log.scrollHeight;
+  }
+  if (undo) undo.hidden = !(state.globalAgentUndo || []).length || mode === "general";
+}
+
+function syncGlobalAgentBusy() {
+  const busy = Boolean(state.globalAgentBusy || state.aiWizardBusy);
+  const panel = $("#cms-global-agent");
+  const apply = $("#btn-cms-global-agent-apply");
+  const input = $("#cms-global-agent-input");
+  const undo = $("#btn-cms-global-agent-undo");
+  panel?.classList.toggle("is-busy", busy);
+  if (apply) {
+    apply.disabled = busy;
+    apply.classList.toggle("is-loading", busy);
+    apply.setAttribute("aria-busy", busy ? "true" : "false");
+  }
+  if (input) input.disabled = busy;
+  if (undo) undo.disabled = busy || !(state.globalAgentUndo || []).length;
+  renderGlobalAgent();
+}
+
+async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplied }) {
+  const errorEl =
+    getGlobalAgentMode() === "exercise-edit" ? $("#cms-exercises-error") : $("#cms-ai-error");
+  const statusEl = $("#cms-ai-generate-status");
+  const revision = buildGlobalAgentRequest(rawRequest);
+  if (!revision) {
+    if (errorEl) errorEl.textContent = "Describe the change you want.";
+    return false;
+  }
+  if (state.globalAgentBusy || state.aiWizardBusy) return false;
+
+  const material =
+    getGlobalAgentMode() === "exercise-edit"
+      ? getGlobalAgentRevisionMaterial(getOpenExerciseCard())
+      : getAiMaterialText();
+  if (!material) {
+    if (errorEl) errorEl.textContent = "Source material or exercise content is required to revise.";
+    return false;
+  }
+
+  const settings = getAiGenerationSettings();
+  const snapshot = cloneAiDraft(draftExercises);
+  if (errorEl) setCmsError(errorEl, "");
+  state.globalAgentBusy = true;
+  syncGlobalAgentBusy();
+  try {
+    const data = await api("/api/cms/revise-exercises", {
+      method: "POST",
+      body: {
+        material,
+        langCode: settings.langCode || state.editingCourse?.langCode || "en",
+        difficulty: settings.difficulty,
+        instructions: getAiInstructions() || undefined,
+        revision,
+        exercises: draftExercises,
+        history: (state.globalAgentHistory || []).slice(-8),
+        imageAssets: state.aiMaterialAssets?.length ? state.aiMaterialAssets : undefined,
+        questionNumber: state.globalAgentSelectionQuestion || undefined,
+      },
+    });
+    let next = data.exercises || [];
+    if (!next.length) throw new Error("The assistant returned no questions.");
+    const convertIntent = parseAiConvertIntent(revision, state.globalAgentSelectionQuestion);
+    if (convertIntent && data.revisionMode !== "convert-in-place") {
+      next = applyInPlaceQuestionReplacement(draftExercises, next, convertIntent);
+    }
+    state.globalAgentUndo = [...(state.globalAgentUndo || []), snapshot].slice(-8);
+    onApplied(next, data, convertIntent);
+    state.globalAgentHistory = [
+      ...(state.globalAgentHistory || []),
+      {
+        role: "user",
+        content:
+          String(rawRequest || "").trim() ||
+          (state.globalAgentSelection ? "Revise selected text" : revision),
+      },
+      { role: "assistant", content: data.summary || "Updated the exercises." },
+    ].slice(-8);
+    const input = $("#cms-global-agent-input");
+    if (input) input.value = "";
+    clearGlobalAgentSelection();
+    renderGlobalAgent();
+    return true;
+  } catch (err) {
+    if (errorEl) setCmsError(errorEl, err.message);
+    if (statusEl && getGlobalAgentMode() === "ai-review") statusEl.textContent = "";
+    return false;
+  } finally {
+    state.globalAgentBusy = false;
+    syncGlobalAgentBusy();
+  }
+}
+
+async function applyGlobalAgentMessage(rawRequest) {
+  openGlobalAgent();
+  const mode = getGlobalAgentMode();
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      runId: "phase3-verify",
+      hypothesisId: "P3-mode",
+      location: "cms.js:applyGlobalAgentMessage",
+      message: "Global agent message routed",
+      data: { mode, screen: getActiveCmsScreenId(), hasMessage: !!String(rawRequest || "").trim() },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  if (mode === "ai-review") {
+    collectAiDraftFromDom();
+    const draft = state.aiDraftExercises || [];
+    if (!draft.some((exercise) => (exercise.items || []).length && exercise.type !== "video")) {
+      $("#cms-ai-error").textContent = "Generate questions first, then ask the assistant to edit them.";
+      return false;
+    }
+    return applyGlobalRevisionMessage(rawRequest, {
+      draftExercises: draft,
+      onApplied: (next, data, convertIntent) => {
+        state.aiDraftExercises = next;
+        renderAiPreview(state.aiDraftExercises);
+        showAiGenSummary(
+          convertIntent
+            ? `Moved the new question to position ${convertIntent.questionNumber}.`
+            : data.summary || buildAiGenSummaryFromExercises(next)
+        );
+        $("#cms-ai-generate-status").textContent =
+          convertIntent
+            ? `Question ${convertIntent.questionNumber} updated in place.`
+            : data.summary || "Questions updated.";
+      },
+    });
+  }
+  if (mode === "exercise-edit") {
+    const card = getOpenExerciseCard();
+    if (!card) return false;
+    syncExercisesFromDomIfRendered();
+    const sectionIndex = state.editingSectionIndex;
+    const exerciseIndex = Number(card.dataset.exerciseIndex);
+    const section = state.sections[sectionIndex];
+    const exercise = section?.exercises?.[exerciseIndex] || collectExerciseFromCard(card);
+    return applyGlobalRevisionMessage(rawRequest, {
+      draftExercises: [exercise],
+      onApplied: (next, data) => {
+        const nextExercise = next[0];
+        if (section?.exercises?.[exerciseIndex]) {
+          section.exercises[exerciseIndex] = {
+            ...section.exercises[exerciseIndex],
+            ...nextExercise,
+            id: section.exercises[exerciseIndex].id,
+            order: section.exercises[exerciseIndex].order,
+          };
+        }
+        card.querySelector('[data-field="title"]').value = nextExercise.title || exercise.title || "";
+        card.querySelector('[data-field="subTitle"]').value =
+          nextExercise.subTitle || exerciseSubTitleForType(nextExercise.type || exercise.type);
+        const typeSelect = card.querySelector(".cms-exercise-type-select");
+        if (typeSelect && nextExercise.type) typeSelect.value = nextExercise.type;
+        renderExerciseBody(card, section.exercises[exerciseIndex] || nextExercise);
+        $("#cms-exercises-status").textContent = data.summary || "Exercise updated.";
+        updateExercisesViewDurationEstimate();
+        markCmsDirty();
+      },
+    });
+  }
+
+  const message = String(rawRequest || "").trim();
+  if (!message) {
+    const err =
+      getActiveCmsScreenId() === "dashboard"
+        ? $("#cms-dashboard-error")
+        : getActiveCmsScreenId() === "list"
+          ? $("#cms-list-error")
+          : getActiveTabId() === "sections"
+            ? $("#cms-sections-error")
+            : $("#cms-details-error");
+    if (err) err.textContent = "Enter a message for the assistant.";
+    return false;
+  }
+
+  state.globalAgentBusy = true;
+  syncGlobalAgentBusy();
+  try {
+    const data = await api("/api/cms/assistant", {
+      method: "POST",
+      body: {
+        message,
+        history: (state.globalAgentHistory || []).slice(-8),
+        context: getGlobalAgentContext(),
+      },
+    });
+    state.globalAgentHistory = [
+      ...(state.globalAgentHistory || []),
+      { role: "user", content: message },
+      { role: "assistant", content: data.reply || "Done." },
+    ].slice(-8);
+    const input = $("#cms-global-agent-input");
+    if (input) input.value = "";
+    clearGlobalAgentSelection();
+    renderGlobalAgent();
+    return true;
+  } catch (err) {
+    const errEl =
+      getActiveCmsScreenId() === "dashboard"
+        ? $("#cms-dashboard-error")
+        : getActiveCmsScreenId() === "list"
+          ? $("#cms-list-error")
+          : getActiveTabId() === "sections"
+            ? $("#cms-sections-error")
+            : $("#cms-details-error");
+    if (errEl) errEl.textContent = err.message;
+    return false;
+  } finally {
+    state.globalAgentBusy = false;
+    syncGlobalAgentBusy();
+  }
+}
+
+function undoGlobalAgentRevision() {
+  const mode = getGlobalAgentMode();
+  const snapshot = (state.globalAgentUndo || []).pop();
+  if (!snapshot) return;
+  if (mode === "ai-review") {
+    state.aiDraftExercises = snapshot;
+    if ((state.globalAgentHistory || []).length >= 2) {
+      state.globalAgentHistory = state.globalAgentHistory.slice(0, -2);
+    }
+    renderAiPreview(state.aiDraftExercises);
+    showAiGenSummary(buildAiGenSummaryFromExercises(snapshot));
+    renderGlobalAgent();
+    return;
+  }
+  if (mode === "exercise-edit") {
+    const card = getOpenExerciseCard();
+    if (!card) return;
+    const sectionIndex = state.editingSectionIndex;
+    const exerciseIndex = Number(card.dataset.exerciseIndex);
+    const section = state.sections[sectionIndex];
+    if (section?.exercises?.[exerciseIndex]) {
+      section.exercises[exerciseIndex] = {
+        ...section.exercises[exerciseIndex],
+        ...snapshot,
+        id: section.exercises[exerciseIndex].id,
+        order: section.exercises[exerciseIndex].order,
+      };
+    }
+    card.querySelector('[data-field="title"]').value = snapshot.title || "";
+    card.querySelector('[data-field="subTitle"]').value = snapshot.subTitle || "";
+    const typeSelect = card.querySelector(".cms-exercise-type-select");
+    if (typeSelect && snapshot.type) typeSelect.value = snapshot.type;
+    renderExerciseBody(card, snapshot);
+    if ((state.globalAgentHistory || []).length >= 2) {
+      state.globalAgentHistory = state.globalAgentHistory.slice(0, -2);
+    }
+    renderGlobalAgent();
+    updateExercisesViewDurationEstimate();
+    markCmsDirty();
+  }
+}
+
+function initGlobalAgentSelection() {
+  document.addEventListener("mouseup", (event) => {
+    if (!state.globalAgentOpen || getGlobalAgentMode() === "general") return;
+    const targetRoot =
+      getGlobalAgentMode() === "ai-review"
+        ? $(".cms-ai-review-main")
+        : $("#cms-exercise-edit-main");
+    if (!targetRoot || !targetRoot.contains(event.target)) return;
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    requestAnimationFrame(() => {
+      const field = event.target.closest(
+        "textarea, input.cms-ai-item-question, input.cms-ai-opt-text, input.cms-q-text, input.cms-opt-text, input.cms-buzzin-topic, input.cms-buzzin-correct-answer, .cms-exercise-title, [data-field='subTitle']"
+      );
+      if (field && targetRoot.contains(field) && isGlobalAgentSelectableField(field)) {
+        const fieldText = getReviewFieldSelectionText(field);
+        if (fieldText.length >= 2) {
+          state.globalAgentPendingSelection = fieldText;
+          state.globalAgentPendingQuestionNumber = getGlobalSelectionQuestionNumberFromNode(field);
+          positionGlobalSelectionAddButtonAtPoint(clientX, clientY);
+          return;
+        }
+      }
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount < 1) {
+        hideGlobalSelectionAddButton();
+        return;
+      }
+      if (!targetRoot.contains(selection.anchorNode) || !targetRoot.contains(selection.focusNode)) {
+        hideGlobalSelectionAddButton();
+        return;
+      }
+      const text = selection.toString().trim();
+      if (text.length < 2) {
+        hideGlobalSelectionAddButton();
+        return;
+      }
+      state.globalAgentPendingSelection = text;
+      state.globalAgentPendingQuestionNumber =
+        getGlobalSelectionQuestionNumberFromNode(selection.anchorNode) ||
+        getGlobalSelectionQuestionNumberFromNode(selection.focusNode) ||
+        parseQuestionNumberFromSelectionLabel(text);
+      positionGlobalSelectionAddButton(selection);
+    });
+  });
+
+  document.addEventListener("selectionchange", () => {
+    if (!state.globalAgentOpen || getGlobalAgentMode() === "general") return;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) hideGlobalSelectionAddButton();
+  });
+
+  $("#cms-global-selection-add")?.addEventListener("click", () => {
+    if (state.globalAgentPendingSelection) {
+      setGlobalAgentSelection(
+        state.globalAgentPendingSelection,
+        state.globalAgentPendingQuestionNumber
+      );
+    }
+    hideGlobalSelectionAddButton();
+    window.getSelection()?.removeAllRanges();
+  });
+
+  $("#btn-cms-global-agent-clear-selection")?.addEventListener("click", clearGlobalAgentSelection);
+  $("#btn-cms-global-agent-toggle")?.addEventListener("click", () => {
+    if (state.globalAgentOpen) closeGlobalAgent();
+    else openGlobalAgent();
+  });
+  $("#btn-cms-global-agent-close")?.addEventListener("click", closeGlobalAgent);
+  $("#cms-global-agent-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    applyGlobalAgentMessage($("#cms-global-agent-input")?.value);
+  });
+  $("#cms-global-agent-input")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    applyGlobalAgentMessage($("#cms-global-agent-input")?.value);
+  });
+  $("#btn-cms-global-agent-undo")?.addEventListener("click", () => {
+    if (state.globalAgentBusy || state.aiWizardBusy) return;
+    undoGlobalAgentRevision();
+  });
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      runId: "phase3-verify",
+      hypothesisId: "P3-init",
+      location: "cms.js:initGlobalAgentSelection",
+      message: "Global agent initialized",
+      data: { dock: !!$("#cms-global-agent-dock"), panel: !!$("#cms-global-agent") },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
 function showCmsScreen(id) {
   document.querySelectorAll(".cms-app .screen").forEach((s) => s.classList.remove("active"));
   const screen = document.querySelector(`#screen-cms-${id}`);
   if (!screen) return;
   screen.classList.add("active");
   cmsMotion()?.playCmsScreenEnter?.(screen);
+  syncGlobalAgentDockVisibility();
+  if (state.globalAgentOpen) syncGlobalAgentUi();
 }
 
 function updateAuthUi() {
@@ -807,6 +1711,7 @@ function updateAuthUi() {
     label.textContent = name;
     label.title = `Logged in as ${name}`;
   }
+  syncGlobalAgentDockVisibility();
 }
 
 async function handleLogin() {
@@ -833,7 +1738,7 @@ async function handleLogin() {
     state.loginUsername = username;
     savePrefs();
     updateAuthUi();
-    await enterDashboard();
+    await enterHome();
   } catch (err) {
     $("#cms-login-error").textContent = err.message;
   } finally {
@@ -848,6 +1753,9 @@ function handleLogout() {
   state.sections = [];
   savePrefs();
   updateAuthUi();
+  resetGlobalAgentSession({ clearHistory: true });
+  closeGlobalAgent();
+  closeCommunityPreview();
   applyTeacherLoginDefaults(
     $("#cms-login-username"),
     $("#cms-login-password"),
@@ -1149,6 +2057,36 @@ async function loadDashboardProgress() {
   renderDashboardCourseList(state.dashboardCourses);
 }
 
+async function enterHome() {
+  showCmsScreen("home");
+  syncCmsNavScreen("home");
+  const greeting = $("#cms-home-greeting");
+  if (greeting) {
+    const name = teacherDisplayName();
+    greeting.textContent = name ? `Hi ${name}. Pick a task below.` : "Pick a task below.";
+  }
+}
+
+async function handleHomeAction(action) {
+  if (!state.token || !state.user) return;
+  switch (action) {
+    case "new-course":
+      await createNewCourse();
+      break;
+    case "courses":
+      await enterCourseList();
+      break;
+    case "community":
+      await enterCommunity();
+      break;
+    case "progress":
+      await enterDashboard();
+      break;
+    default:
+      break;
+  }
+}
+
 async function enterDashboard() {
   showCmsScreen("dashboard");
   syncCmsNavScreen("dashboard");
@@ -1181,6 +2119,462 @@ function syncCmsNavScreen(screenId) {
   });
 }
 
+
+const LEGACY_COMMUNITY_LANG_LABELS = {
+  yue: "Cantonese",
+  es: "Spanish",
+};
+
+function communityLangLabel(code) {
+  const key = String(code || "en").trim();
+  const lower = key.toLowerCase();
+  const match = state.cmsSpeakLanguages.find((entry) => entry.code.toLowerCase() === lower);
+  if (match) return match.label;
+  if (LEGACY_COMMUNITY_LANG_LABELS[lower]) return LEGACY_COMMUNITY_LANG_LABELS[lower];
+  return key.toUpperCase();
+}
+
+function isHkElderlyCmsContext() {
+  return (
+    state.cmsAppVariant === "hk-elderly" ||
+    state.cmsTtsProvider === "openrouter"
+  );
+}
+
+/** HK elderly Grok TTS supports Cantonese; ensure it appears even if the server is stale. */
+function patchElderlySpeakLanguages(languages) {
+  const list = Array.isArray(languages) ? languages.slice() : [];
+  if (!isHkElderlyCmsContext()) return list;
+  if (list.some((entry) => String(entry.code).toLowerCase() === "yue")) return list;
+  const enIdx = list.findIndex((entry) => String(entry.code).toLowerCase() === "en");
+  list.splice(enIdx >= 0 ? enIdx + 1 : 0, 0, { code: "yue", label: "Cantonese" });
+  return list;
+}
+
+function normalizeCmsSpeakLangCode(code) {
+  const raw = String(code || state.cmsDefaultSpeakLangCode || "en")
+    .trim()
+    .toLowerCase();
+  const match = state.cmsSpeakLanguages.find((entry) => entry.code.toLowerCase() === raw);
+  if (match) return match.code;
+  if (raw === "yue" && isHkElderlyCmsContext()) return "yue";
+  if (raw === "es") {
+    const es = state.cmsSpeakLanguages.find((entry) => /^es-/i.test(entry.code));
+    if (es) return es.code;
+  }
+  return state.cmsDefaultSpeakLangCode || "en";
+}
+
+function renderCmsSpeakLangSelect() {
+  const el = $("#cms-ai-speak-lang");
+  if (!el) return;
+  el.innerHTML = state.cmsSpeakLanguages
+    .map(
+      (entry) =>
+        `<option value="${escapeHtml(entry.code)}">${escapeHtml(entry.label)}</option>`
+    )
+    .join("");
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+    body: JSON.stringify({
+      sessionId: "d0607f",
+      runId: "pre-fix",
+      hypothesisId: "H4",
+      location: "cms.js:renderCmsSpeakLangSelect",
+      message: "Speak language select rendered",
+      data: {
+        optionCount: el.options.length,
+        labels: Array.from(el.options).map((o) => o.textContent),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  syncAiSpeakLangSelect();
+}
+
+async function loadCmsAppContext() {
+  try {
+    const res = await fetch("/api/cms/app-context");
+    if (!res.ok) throw new Error("Could not load CMS app context.");
+    const data = await res.json();
+    state.cmsAppVariant = String(data.appVariant || "");
+    state.cmsTtsProvider = String(data.ttsProvider || "inworld");
+    state.cmsSpeakLanguages = patchElderlySpeakLanguages(
+      Array.isArray(data.speakLanguages) && data.speakLanguages.length
+        ? data.speakLanguages
+        : CMS_FALLBACK_SPEAK_LANGUAGES.slice()
+    );
+    state.cmsDefaultSpeakLangCode = String(
+      data.defaultSpeakLangCode || (isHkElderlyCmsContext() ? "yue" : "en")
+    );
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+      body: JSON.stringify({
+        sessionId: "d0607f",
+        runId: "pre-fix",
+        hypothesisId: "H2-H4",
+        location: "cms.js:loadCmsAppContext:ok",
+        message: "CMS app context loaded",
+        data: {
+          fetchUrl: "/api/cms/app-context",
+          status: res.status,
+          appVariant: state.cmsAppVariant,
+          speakLanguageCount: state.cmsSpeakLanguages.length,
+          ttsProvider: state.cmsTtsProvider,
+          sampleCodes: state.cmsSpeakLanguages.slice(0, 3).map((e) => e.code),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+  } catch (err) {
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+      body: JSON.stringify({
+        sessionId: "d0607f",
+        runId: "pre-fix",
+        hypothesisId: "H3",
+        location: "cms.js:loadCmsAppContext:catch",
+        message: "CMS app context fetch failed",
+        data: { error: String(err?.message || err) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    state.cmsSpeakLanguages = CMS_FALLBACK_SPEAK_LANGUAGES.slice();
+    state.cmsDefaultSpeakLangCode = "en";
+    state.cmsTtsProvider = "inworld";
+  }
+  renderCmsSpeakLangSelect();
+  updateCmsSpeakLangHint();
+}
+
+function updateCmsSpeakLangHint() {
+  const hint = document.querySelector(".cms-ai-speak-lang-hint");
+  if (!hint) return;
+  if (state.cmsTtsProvider === "openrouter") {
+    hint.textContent =
+      "Questions, answers, and AI speech during gameplay use this language (Grok Voice TTS).";
+  } else {
+    hint.textContent =
+      "Questions, answers, and AI speech during gameplay use this language (Inworld TTS).";
+  }
+}
+
+function getAiSpeakLangCode() {
+  return normalizeCmsSpeakLangCode(
+    $("#cms-ai-speak-lang")?.value || state.editingCourse?.langCode
+  );
+}
+
+function syncAiSpeakLangSelect() {
+  const el = $("#cms-ai-speak-lang");
+  if (!el) return;
+  const preferred = normalizeCmsSpeakLangCode(state.editingCourse?.langCode);
+  el.value = preferred;
+}
+
+function communityCopiedInLibrary(listingId) {
+  return (state.courses || []).some(
+    (course) => Number(course.sourceCommunityId) === Number(listingId)
+  );
+}
+
+function formatCommunityDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function courseCopiedFromCommunity(course) {
+  return course?.sourceCommunityId != null && Number(course.sourceCommunityId) > 0;
+}
+
+function syncCommunityShareUi() {
+  const shareBtn = $("#btn-community-share");
+  const unshareBtn = $("#btn-community-unshare");
+  const featured = $("#cms-community-featured");
+  const featuredLabel = featured?.closest("label");
+  const status = $("#cms-community-share-status");
+  const listingId = state.editingCourse?.communityListingId;
+  const published = listingId != null;
+  const fromCommunity = courseCopiedFromCommunity(state.editingCourse);
+  if (shareBtn) {
+    shareBtn.hidden = fromCommunity;
+    shareBtn.disabled = fromCommunity;
+    if (!fromCommunity) {
+      shareBtn.textContent = published ? "Update Community listing" : "Share to Community";
+    }
+  }
+  if (unshareBtn) unshareBtn.hidden = !published || fromCommunity;
+  if (featured) featured.checked = Boolean(state.editingCourse?.communityFeatured);
+  if (featuredLabel) featuredLabel.hidden = fromCommunity;
+  if (status) {
+    status.textContent = fromCommunity
+      ? "This course was added from Community and cannot be shared again. Edit it for your classes, or create a new course to publish."
+      : published
+        ? `This course is shared in Community. Updating replaces the public snapshot. Shared ${formatCommunityDate(state.editingCourse.communityPublishedAt) || "recently"}.`
+        : "Share a snapshot of this course so other teachers can add it to My courses.";
+  }
+}
+
+async function enterCommunity() {
+  showCmsScreen("community");
+  syncCmsNavScreen("community");
+  $("#cms-community-error").textContent = "";
+  $("#cms-community-status").textContent = "";
+  const search = $("#cms-community-search");
+  const lang = $("#cms-community-lang");
+  const sort = $("#cms-community-sort");
+  if (search && document.activeElement !== search) search.value = state.communityQuery || "";
+  if (lang) lang.value = state.communityLang || "all";
+  if (sort) sort.value = state.communitySort || "featured";
+  $("#cms-community-list").innerHTML = `
+    <div class="cms-list-loading" aria-hidden="true">
+      <div class="cms-skeleton-card"></div>
+      <div class="cms-skeleton-card"></div>
+      <div class="cms-skeleton-card"></div>
+    </div>`;
+  await loadCommunityCourses();
+}
+
+async function loadCommunityCourses() {
+  try {
+    const params = new URLSearchParams();
+    if (state.communityQuery) params.set("q", state.communityQuery);
+    if (state.communityLang && state.communityLang !== "all") params.set("langCode", state.communityLang);
+    if (state.communitySort) params.set("sort", state.communitySort);
+    const data = await api(`/api/cms/community/courses?${params.toString()}`);
+    state.communityCourses = data.courses || [];
+    state.communityLanguages = data.languages || [];
+    renderCommunityLangOptions();
+    renderCommunityList();
+    $("#cms-community-error").textContent = "";
+    $("#cms-community-status").textContent = state.communityCourses.length
+      ? `${state.communityCourses.length} public course${state.communityCourses.length === 1 ? "" : "s"}`
+      : "";
+  } catch (err) {
+    $("#cms-community-list").innerHTML = "";
+    $("#cms-community-status").textContent = "";
+    $("#cms-community-error").textContent = err.message;
+  }
+}
+
+function renderCommunityLangOptions() {
+  const select = $("#cms-community-lang");
+  if (!select) return;
+  const current = state.communityLang || "all";
+  const codes = ["all", ...state.communityLanguages.filter((code) => code && code !== "all")];
+  select.innerHTML = codes
+    .map((code) => {
+      const label = code === "all" ? "All languages" : communityLangLabel(code);
+      return `<option value="${escapeHtml(code)}">${escapeHtml(label)}</option>`;
+    })
+    .join("");
+  select.value = codes.includes(current) ? current : "all";
+}
+
+function renderCommunityList() {
+  const container = $("#cms-community-list");
+  if (!container) return;
+  if (!state.communityCourses.length) {
+    container.innerHTML = `
+      <div class="cms-empty">
+        <p class="cms-empty-title">No public courses yet</p>
+        <p class="cms-empty-copy">Open a course in My courses and click Share to Community to publish a snapshot other teachers can add.</p>
+      </div>`;
+    cmsMotion()?.playCmsListReveal?.(container);
+    return;
+  }
+
+  container.innerHTML = state.communityCourses
+    .map((course) => {
+      const banner = courseBannerUrl(course);
+      const thumb = banner
+        ? `<img class="cms-course-card-thumb" src="${escapeHtml(banner)}" alt="" />`
+        : `<span class="cms-course-card-thumb cms-course-card-thumb--empty" aria-hidden="true"></span>`;
+      const copied = course.alreadyCopied || communityCopiedInLibrary(course.id);
+      const featured = course.featured ? `<span class="cms-community-badge">Featured</span>` : "";
+      const owner = course.isOwner ? `<span class="cms-community-badge cms-community-badge--owner">Yours</span>` : "";
+      return `<article class="cms-community-card${course.featured ? " is-featured" : ""}" data-id="${course.id}">
+        <div class="cms-community-card-media">${thumb}</div>
+        <div class="cms-community-card-body">
+          <h3 class="cms-community-card-title">${escapeHtml(course.name)}</h3>
+          <p class="cms-community-card-meta">${escapeHtml(course.authorName || "Teacher")} · ${escapeHtml(communityLangLabel(course.langCode))} · ${course.exerciseCount || 0} exercise${course.exerciseCount === 1 ? "" : "s"} · Added ${course.copyCount || 0}×</p>
+          ${course.description ? `<p class="cms-community-card-desc">${escapeHtml(course.description)}</p>` : ""}
+          <div class="cms-community-card-flags">${featured}${owner}</div>
+          <div class="cms-community-card-actions">
+            <button type="button" class="btn secondary small cms-community-preview-btn">Preview</button>
+            <button type="button" class="btn primary small cms-community-add-btn"${copied ? " disabled" : ""}>${copied ? "In My courses" : "Add to My courses"}</button>
+            ${
+              course.isOwner
+                ? `<button type="button" class="btn secondary small cms-community-unshare-btn">Unshare</button>`
+                : `<button type="button" class="btn secondary small cms-community-report-btn">Report</button>`
+            }
+          </div>
+        </div>
+      </article>`;
+    })
+    .join("");
+  cmsMotion()?.playCmsListReveal?.(container);
+}
+
+function closeCommunityPreview() {
+  const overlay = $("#cms-community-preview");
+  if (overlay) overlay.hidden = true;
+  state.communityPreviewId = null;
+}
+
+async function openCommunityPreview(listingId) {
+  const overlay = $("#cms-community-preview");
+  if (!overlay) return;
+  $("#cms-community-preview-error").textContent = "";
+  overlay.hidden = false;
+  state.communityPreviewId = listingId;
+  $("#cms-community-preview-title").textContent = "Loading…";
+  $("#cms-community-preview-copy").textContent = "";
+  $("#cms-community-preview-meta").textContent = "";
+  $("#cms-community-preview-sections").innerHTML = "";
+  try {
+    const data = await api(`/api/cms/community/courses/${listingId}`);
+    const course = data.course || {};
+    state.communityPreviewId = course.id;
+    $("#cms-community-preview-kicker").textContent = course.featured
+      ? "Featured community course"
+      : "Community course";
+    $("#cms-community-preview-title").textContent = course.name || "Untitled course";
+    $("#cms-community-preview-meta").textContent = [
+      course.authorName || "Teacher",
+      communityLangLabel(course.langCode),
+      `${course.sectionCount || 0} section${course.sectionCount === 1 ? "" : "s"}`,
+      `${course.exerciseCount || 0} exercise${course.exerciseCount === 1 ? "" : "s"}`,
+      course.publishedAt ? `Shared ${formatCommunityDate(course.publishedAt)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    $("#cms-community-preview-copy").textContent = course.description || "No description.";
+    $("#cms-community-preview-sections").innerHTML = (course.sections || [])
+      .map(
+        (section) =>
+          `<li><strong>${escapeHtml(section.title || "Section")}</strong> — ${section.exerciseCount || 0} exercise${section.exerciseCount === 1 ? "" : "s"}${
+            section.types?.length ? ` (${escapeHtml(section.types.join(", "))})` : ""
+          }</li>`
+      )
+      .join("");
+    const copied = course.alreadyCopied || communityCopiedInLibrary(course.id);
+    const addBtn = $("#btn-community-preview-add");
+    const addLabel = addBtn?.querySelector("span");
+    if (addBtn) addBtn.disabled = copied;
+    if (addLabel) addLabel.textContent = copied ? "In My courses" : "Add to My courses";
+    const reportBtn = $("#btn-community-preview-report");
+    if (reportBtn) reportBtn.hidden = Boolean(course.isOwner);
+  } catch (err) {
+    $("#cms-community-preview-error").textContent = err.message;
+  }
+}
+
+async function addCommunityCourse(listingId, { fromPreview = false } = {}) {
+  const errorEl = fromPreview ? $("#cms-community-preview-error") : $("#cms-community-error");
+  if (errorEl) errorEl.textContent = "";
+  try {
+    const data = await api(`/api/cms/community/courses/${listingId}/copy`, { method: "POST", body: {} });
+    if (data.alreadyCopied) {
+      showCmsToast("This course is already in My courses.");
+    } else {
+      showCmsToast(`Added “${data.course?.name || "course"}” to My courses.`);
+    }
+    closeCommunityPreview();
+    if (data.course?.id && !data.alreadyCopied) {
+      await openCourseEditor(data.course.id);
+    } else {
+      await loadCommunityCourses();
+    }
+  } catch (err) {
+    if (errorEl) errorEl.textContent = err.message;
+  }
+}
+
+async function reportCommunityCourse(listingId) {
+  const reason = window.prompt("Why are you reporting this community course? (optional)") || "";
+  try {
+    const data = await api(`/api/cms/community/courses/${listingId}/report`, {
+      method: "POST",
+      body: { reason },
+    });
+    showCmsToast(data.hidden ? "Reported. This listing is now hidden." : "Reported. Thanks for the review.");
+    closeCommunityPreview();
+    await loadCommunityCourses();
+  } catch (err) {
+    $("#cms-community-error").textContent = err.message;
+  }
+}
+
+async function shareEditingCourseToCommunity() {
+  if (!state.editingCourse) return;
+  if (courseCopiedFromCommunity(state.editingCourse)) {
+    $("#cms-details-error").textContent = "Courses copied from Community cannot be shared again.";
+    return;
+  }
+  $("#cms-details-error").textContent = "";
+  try {
+    const data = await api(`/api/cms/courses/${state.editingCourse.id}/community/publish`, {
+      method: "POST",
+      body: {
+        authorName: teacherDisplayName(),
+        featured: Boolean($("#cms-community-featured")?.checked),
+      },
+    });
+    state.editingCourse = { ...state.editingCourse, ...data.course };
+    syncCommunityShareUi();
+    showCmsToast("Shared to Community.");
+    $("#cms-details-status").textContent = "Shared to Community.";
+  } catch (err) {
+    $("#cms-details-error").textContent = err.message;
+  }
+}
+
+async function unshareEditingCourseFromCommunity() {
+  if (!state.editingCourse?.communityListingId) return;
+  if (!window.confirm("Unshare this course from Community? Other teachers will no longer see the public listing.")) {
+    return;
+  }
+  $("#cms-details-error").textContent = "";
+  try {
+    const data = await api(`/api/cms/courses/${state.editingCourse.id}/community/unpublish`, {
+      method: "POST",
+      body: {},
+    });
+    state.editingCourse = { ...state.editingCourse, ...data.course };
+    syncCommunityShareUi();
+    showCmsToast("Removed from Community.");
+  } catch (err) {
+    $("#cms-details-error").textContent = err.message;
+  }
+}
+
+async function unshareCommunityListing(listingId) {
+  if (!window.confirm("Unshare this course from Community?")) return;
+  try {
+    await api(`/api/cms/community/courses/${listingId}/unpublish`, { method: "POST", body: {} });
+    if (Number(state.editingCourse?.communityListingId) === Number(listingId)) {
+      state.editingCourse.communityListingId = null;
+      state.editingCourse.communityPublishedAt = null;
+      syncCommunityShareUi();
+    }
+    showCmsToast("Removed from Community.");
+    await loadCommunityCourses();
+  } catch (err) {
+    $("#cms-community-error").textContent = err.message;
+  }
+}
 
 async function enterCourseList() {
   showCmsScreen("list");
@@ -1238,7 +2632,7 @@ function renderCourseList() {
           <span class="cms-course-card-media">${thumb}</span>
           <span class="cms-course-card-body">
             <span class="cms-course-card-title">${escapeHtml(course.name)}</span>
-            <span class="cms-course-card-meta">${course.exerciseCount || 0} exercise${course.exerciseCount === 1 ? "" : "s"} · ${escapeHtml(assignedClassesLabel(course))}</span>
+            <span class="cms-course-card-meta">${course.exerciseCount || 0} exercise${course.exerciseCount === 1 ? "" : "s"} · ${escapeHtml(assignedClassesLabel(course))}${course.communityListingId ? " · Shared" : ""}${course.sourceCommunityId ? " · From Community" : ""}</span>
             ${course.description ? `<span class="cms-course-card-desc">${escapeHtml(course.description)}</span>` : ""}
           </span>
         </span>
@@ -1309,6 +2703,7 @@ function populateDetailsForm() {
   $("#cms-banner-status").textContent = "";
   updateBannerPreview(c.banner || "");
   if ($("#course-banner-file")) $("#course-banner-file").value = "";
+  syncCommunityShareUi();
 }
 
 function getActiveTabId() {
@@ -1420,11 +2815,19 @@ function syncExercisesFromDom() {
       ...exercise,
       order: exerciseIndex + 1,
     }));
+  updateExercisesViewDurationEstimate();
+}
+
+function syncExercisesFromDomIfRendered() {
+  const container = $("#cms-exercise-list");
+  if (!container?.querySelector(".cms-exercise-card")) return false;
+  syncExercisesFromDom();
+  return true;
 }
 
 function syncSectionsFromDom() {
   if (state.editingSectionIndex != null) {
-    syncExercisesFromDom();
+    syncExercisesFromDomIfRendered();
   } else {
     syncSectionsMetadataFromDom();
   }
@@ -1530,6 +2933,7 @@ function resetAiGeneratePanel() {
   renderAiFileList();
   syncAiFileNameLabel();
   applyAiTemplate("vocab");
+  syncAiSpeakLangSelect();
   showAiGenSummary(null);
   openAiGeneratePath("section");
   syncAiMaterialState();
@@ -1544,6 +2948,25 @@ function mergeAiMaterialAssets(incoming) {
     if (asset?.id && asset?.url) byId.set(asset.id, asset);
   }
   state.aiMaterialAssets = Array.from(byId.values());
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      location: "cms.js:mergeAiMaterialAssets",
+      message: "material assets merged",
+      data: {
+        incomingCount: list.length,
+        totalCount: state.aiMaterialAssets.length,
+        labels: state.aiMaterialAssets.map((asset) => asset.label),
+      },
+      timestamp: Date.now(),
+      hypothesisId: "IMG-CROP",
+      runId: "image-vision-crop",
+    }),
+  }).catch(() => {});
+  // #endregion
 }
 
 function renderMaterialAssetLibrary() {
@@ -1557,13 +2980,13 @@ function renderMaterialAssetLibrary() {
     <div class="cms-ai-asset-library">
       <div class="cms-ai-asset-library-head">
         <h4 class="cms-ai-asset-library-title">Material images (${assets.length})</h4>
-        <p class="hint cms-ai-asset-library-lead">Extracted from your uploads. AI can auto-attach these to questions; click a thumbnail to pick one while editing.</p>
+        <p class="hint cms-ai-asset-library-lead">Extracted from your uploads. Worksheet photos are auto-cropped into separate figures. Click a thumbnail to preview. Images attach to questions only when the AI is at least 70% confident of a match — otherwise leave blank and pick manually.</p>
       </div>
       <div class="cms-ai-asset-grid" role="list">
         ${assets
           .map(
             (asset) => `
-          <button type="button" class="cms-ai-asset-thumb" role="listitem" data-asset-id="${escapeHtml(asset.id)}" data-asset-url="${escapeHtml(asset.url)}" title="${escapeHtml(asset.label || asset.id)}">
+          <button type="button" class="cms-ai-asset-thumb" role="listitem" data-asset-id="${escapeHtml(asset.id)}" data-asset-url="${escapeHtml(asset.url)}" data-asset-label="${escapeHtml(asset.label || asset.id)}" title="${escapeHtml(asset.label || asset.id)}">
             <img src="${escapeHtml(asset.url)}" alt="" loading="lazy" />
             <span class="cms-ai-asset-thumb-label">${escapeHtml(asset.label || asset.id)}</span>
           </button>`
@@ -1589,6 +3012,267 @@ function attachMaterialAssetToQuestionBlock(block, url) {
   updateQuestionImagePreview(block, url, "cms-ai-q");
   const statusEl = block.querySelector(".cms-ai-q-image-status");
   if (statusEl) statusEl.textContent = "Image attached from material library.";
+}
+
+function openMaterialAssetPreview({ url, label, attachTarget = null } = {}) {
+  const overlay = $("#cms-asset-preview");
+  const img = $("#cms-asset-preview-img");
+  const title = $("#cms-asset-preview-title");
+  const attachBtn = $("#btn-cms-asset-preview-attach");
+  if (!overlay || !img || !title) return;
+
+  img.src = url || "";
+  img.alt = label || "Material image preview";
+  title.textContent = label || "Material image";
+  overlay.hidden = false;
+  document.body.classList.add("cms-asset-preview-open");
+  state.materialAssetPreviewTarget = attachTarget || null;
+  if (attachBtn) attachBtn.hidden = !attachTarget;
+  $("#btn-cms-asset-preview-close")?.focus();
+}
+
+function openQuestionImagePreview(block, prefix = "cms-q") {
+  if (!block) return;
+  const url =
+    block.querySelector(`.${prefix}-image-value`)?.value.trim() ||
+    block.querySelector(`.${prefix}-image-img`)?.getAttribute("src")?.trim() ||
+    "";
+  if (!url) return;
+  const title =
+    block.querySelector('[data-field="title"]')?.value.trim() ||
+    block.querySelector(".cms-q-text")?.value.trim() ||
+    block.querySelector('[data-field="topic"]')?.value.trim() ||
+    "";
+  openMaterialAssetPreview({
+    url,
+    label: title ? `Question image · ${title}` : "Question image",
+  });
+}
+
+function closeMaterialAssetPreview() {
+  const overlay = $("#cms-asset-preview");
+  const img = $("#cms-asset-preview-img");
+  if (!overlay) return;
+  overlay.hidden = true;
+  document.body.classList.remove("cms-asset-preview-open");
+  state.materialAssetPreviewTarget = null;
+  if (img) {
+    img.removeAttribute("src");
+    img.alt = "";
+  }
+}
+
+function attachMaterialAssetFromPreview() {
+  const target = state.materialAssetPreviewTarget;
+  const url = $("#cms-asset-preview-img")?.getAttribute("src") || "";
+  if (!target || !url) return;
+  attachMaterialAssetToQuestionBlock(target, url);
+  target.classList.remove("is-asset-pick-target");
+  closeMaterialAssetPreview();
+}
+
+const IMAGE_REF_MIN_CONFIDENCE = 0.7;
+
+function tokenizeMatchText(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length > 2);
+}
+
+function labelMatchConfidence(questionText, label) {
+  const labelWords = tokenizeMatchText(label);
+  if (!labelWords.length) return 0;
+  const textWords = new Set(tokenizeMatchText(questionText));
+  const overlap = labelWords.filter((word) => textWords.has(word)).length;
+  return overlap / labelWords.length;
+}
+
+function questionTextFromItem(item) {
+  return String(item?.title || item?.topic || item?.question || "").trim();
+}
+
+function inferCatalogRefFromValue(value, byId) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  if (byId.has(text)) return text;
+  const fromUrl = text.match(/\/uploads\/material\/(mat-[A-Za-z0-9-]+)/i);
+  if (fromUrl && byId.has(fromUrl[1])) return fromUrl[1];
+  return null;
+}
+
+function parseImageRefConfidence(item) {
+  const raw =
+    item?.imageRefConfidence ??
+    item?.imageConfidence ??
+    item?.imageMatchConfidence ??
+    item?.confidence;
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    const pct = trimmed.match(/^(\d+(?:\.\d+)?)\s*%$/);
+    if (pct) {
+      const value = Number(pct[1]);
+      if (Number.isFinite(value)) return Math.max(0, Math.min(1, value / 100));
+    }
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return null;
+  const normalized = value > 1 ? value / 100 : value;
+  return Math.max(0, Math.min(1, normalized));
+}
+
+function hasPendingImageMeta(item) {
+  return Boolean(String(item?.imageRef || "").trim()) || parseImageRefConfidence(item) != null;
+}
+
+function resolveItemImageMatchClient(item, assets) {
+  const list = Array.isArray(assets) ? assets : [];
+  if (!list.length) return { image: null, method: "no-assets" };
+
+  const byId = new Map(list.filter((asset) => asset?.id).map((asset) => [asset.id, asset]));
+  const byUrl = new Map(list.filter((asset) => asset?.url).map((asset) => [asset.url, asset]));
+  const catalogUrls = new Set(list.map((asset) => asset.url));
+  const current = String(item?.image || item?.imageUrl || "").trim();
+  let ref = String(item?.imageRef || "").trim();
+  if (!ref) ref = inferCatalogRefFromValue(current, byId) || "";
+  const aiConfidence = parseImageRefConfidence(item);
+  const questionText = questionTextFromItem(item);
+  const pendingMeta = hasPendingImageMeta(item);
+
+  if (ref && byId.has(ref) && aiConfidence != null && aiConfidence >= IMAGE_REF_MIN_CONFIDENCE) {
+    return { image: byId.get(ref).url, method: "ai-ref" };
+  }
+
+  if (pendingMeta && aiConfidence != null && aiConfidence < IMAGE_REF_MIN_CONFIDENCE) {
+    return { image: null, method: "skipped-low-confidence" };
+  }
+
+  if (ref && byId.has(ref) && aiConfidence == null) {
+    return { image: byId.get(ref).url, method: "ai-ref-implicit" };
+  }
+
+  if (current && catalogUrls.has(current) && aiConfidence != null && aiConfidence >= IMAGE_REF_MIN_CONFIDENCE) {
+    return { image: current, method: "ai-catalog-url" };
+  }
+
+  if (current && catalogUrls.has(current)) {
+    const asset = byUrl.get(current);
+    if (asset && questionText) {
+      const score = labelMatchConfidence(questionText, asset.label || asset.description || "");
+      if (score >= IMAGE_REF_MIN_CONFIDENCE) {
+        return { image: current, method: "url-label-match" };
+      }
+    }
+  }
+
+  if (questionText) {
+    let best = null;
+    for (const asset of list) {
+      const score = labelMatchConfidence(questionText, asset.label || asset.description || "");
+      if (!best || score > best.score) best = { asset, score };
+    }
+    if (best && best.score >= IMAGE_REF_MIN_CONFIDENCE) {
+      return { image: best.asset.url, method: "label-match" };
+    }
+  }
+
+  if (current && catalogUrls.has(current) && !pendingMeta) {
+    return { image: current, method: "kept-ai-catalog-url" };
+  }
+
+  if (current && catalogUrls.has(current) && pendingMeta) {
+    return { image: null, method: "cleared-catalog-url" };
+  }
+
+  return { image: current || null, method: current ? "kept-non-catalog" : "blank" };
+}
+
+function stripImageRefMeta(item) {
+  const next = { ...item };
+  delete next.imageRef;
+  delete next.imageRefConfidence;
+  delete next.imageConfidence;
+  delete next.imageMatchConfidence;
+  return next;
+}
+
+function autoApplyMaterialImagesToExercises(exercises, assets) {
+  const list = (Array.isArray(assets) ? assets : []).filter((asset) => asset?.url);
+  if (!list.length) return exercises;
+  let attached = 0;
+  let cleared = 0;
+  let labelMatched = 0;
+
+  const nextExercises = (Array.isArray(exercises) ? exercises : []).map((exercise) => {
+    if (exercise?.type === "video") return exercise;
+    return {
+      ...exercise,
+      items: (exercise.items || []).map((item) => {
+        const match = resolveItemImageMatchClient(item, list);
+        if (
+          match.method === "ai-ref" ||
+          match.method === "ai-ref-implicit" ||
+          match.method === "ai-catalog-url" ||
+          match.method === "url-label-match" ||
+          match.method === "kept-ai-catalog-url"
+        ) {
+          attached += 1;
+        }
+        if (match.method === "label-match") {
+          attached += 1;
+          labelMatched += 1;
+        }
+        if (match.method === "cleared-catalog-url") cleared += 1;
+        return { ...stripImageRefMeta(item), image: match.image };
+      }),
+    };
+  });
+
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      location: "cms.js:autoApplyMaterialImagesToExercises",
+      message: "confident-only image apply",
+      data: { attached, labelMatched, cleared, minConfidence: IMAGE_REF_MIN_CONFIDENCE },
+      timestamp: Date.now(),
+      hypothesisId: "IMG-MATCH",
+      runId: "image-match-v2",
+    }),
+  }).catch(() => {});
+  // #endregion
+
+  return nextExercises;
+}
+
+function autoApplyMaterialImagesToDraft() {
+  if (!state.aiMaterialAssets?.length || !state.aiDraftExercises?.length) {
+    // #region agent log
+    fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:autoApplyMaterialImagesToDraft',message:'auto-apply skipped',data:{assetCount:state.aiMaterialAssets?.length||0,exerciseCount:state.aiDraftExercises?.length||0},timestamp:Date.now(),hypothesisId:'A',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
+    return 0;
+  }
+  const before = state.aiDraftExercises.reduce(
+    (count, exercise) => count + (exercise.items || []).filter((item) => item?.image).length,
+    0
+  );
+  state.aiDraftExercises = autoApplyMaterialImagesToExercises(
+    state.aiDraftExercises,
+    state.aiMaterialAssets
+  );
+  const after = state.aiDraftExercises.reduce(
+    (count, exercise) => count + (exercise.items || []).filter((item) => item?.image).length,
+    0
+  );
+  const sampleImages = state.aiDraftExercises.flatMap((ex) => (ex.items || []).map((item) => item?.image).filter(Boolean)).slice(0, 3);
+  // #region agent log
+  fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:autoApplyMaterialImagesToDraft',message:'auto-apply complete',data:{assetCount:state.aiMaterialAssets.length,before,after,assigned:after-before,sampleImages},timestamp:Date.now(),hypothesisId:'B',runId:'pre-fix'})}).catch(()=>{});
+  // #endregion
+  return after - before;
 }
 
 function applyAiTemplate(templateId) {
@@ -1627,35 +3311,6 @@ function cloneAiDraft(exercises) {
   } catch {
     return [];
   }
-}
-
-function resetAiReviewAgent() {
-  state.aiReviewHistory = [];
-  state.aiReviewUndo = [];
-  state.aiReviewSelection = "";
-  state.aiReviewSelectionQuestion = null;
-  const input = $("#cms-ai-agent-input");
-  if (input) input.value = "";
-  syncAiReviewSelectionUi();
-  hideAiSelectionAddButton();
-  renderAiReviewAgent();
-}
-
-function syncAiReviewSelectionUi() {
-  const wrap = $("#cms-ai-agent-selection");
-  const textEl = $("#cms-ai-agent-selection-text");
-  const selection = String(state.aiReviewSelection || "").trim();
-  if (wrap) wrap.hidden = !selection;
-  if (textEl) textEl.textContent = selection;
-}
-
-function buildAiReviewRequest(rawRequest) {
-  const message = String(rawRequest || "").trim();
-  const selection = String(state.aiReviewSelection || "").trim();
-  if (!selection) return message;
-  const quoted = selection.length > 280 ? `${selection.slice(0, 280)}…` : selection;
-  if (!message) return `Revise the selected text:\n"${quoted}"`;
-  return `Regarding this selected text:\n"${quoted}"\n\n${message}`;
 }
 
 const AI_CONVERT_VERB_PATTERN =
@@ -1809,133 +3464,12 @@ function applyInPlaceQuestionReplacement(previousExercises, nextExercises, conve
   return [...rebuildAiDraftFromFlatQuestions(withoutSource, quizPrevious), ...videos];
 }
 
-function setAiReviewSelection(text, questionNumber) {
-  const next = String(text || "").trim();
-  if (!next) return;
-  state.aiReviewSelection = next;
-  const parsedNumber = Number(questionNumber);
-  state.aiReviewSelectionQuestion =
-    Number.isFinite(parsedNumber) && parsedNumber > 0 ? parsedNumber : null;
-  syncAiReviewSelectionUi();
-  const input = $("#cms-ai-agent-input");
-  input?.focus();
-}
-
-function clearAiReviewSelection() {
-  state.aiReviewSelection = "";
-  state.aiReviewSelectionQuestion = null;
-  syncAiReviewSelectionUi();
-  hideAiSelectionAddButton();
-}
-
-function getSelectionQuestionNumberFromNode(node) {
-  const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-  const block = element?.closest?.(".cms-ai-item-block");
-  const number = Number(block?.dataset?.questionNumber);
-  return Number.isFinite(number) && number > 0 ? number : null;
-}
-
-function hideAiSelectionAddButton() {
-  const btn = $("#cms-ai-selection-add");
-  if (btn) {
-    btn.hidden = true;
-    btn.style.top = "";
-    btn.style.left = "";
-  }
-  state.aiReviewPendingSelection = "";
-  state.aiReviewPendingQuestionNumber = null;
-}
-
 function getReviewFieldSelectionText(field) {
   if (!(field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement)) return "";
   const start = field.selectionStart;
   const end = field.selectionEnd;
   if (start == null || end == null || start === end) return "";
   return String(field.value || "").slice(start, end).trim();
-}
-
-function isReviewSelectableField(field) {
-  if (!(field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement)) return false;
-  return field.matches(
-    ".cms-ai-item-input, .cms-ai-item-textarea, .cms-ai-item-question, .cms-ai-opt-text"
-  );
-}
-
-function positionAiSelectionAddButtonAtPoint(clientX, clientY) {
-  const btn = $("#cms-ai-selection-add");
-  if (!btn) return;
-  const top = Math.max(8, clientY + 8);
-  const left = Math.max(8, clientX - 48);
-  btn.style.top = `${top}px`;
-  btn.style.left = `${left}px`;
-  btn.hidden = false;
-}
-
-function positionAiSelectionAddButton(selection) {
-  const btn = $("#cms-ai-selection-add");
-  if (!btn || !selection?.rangeCount) return;
-  const range = selection.getRangeAt(0);
-  const rect = range.getBoundingClientRect();
-  if (!rect.width && !rect.height) {
-    hideAiSelectionAddButton();
-    return;
-  }
-  const top = Math.max(8, rect.bottom + 6);
-  const left = Math.max(8, rect.left + rect.width / 2 - 48);
-  btn.style.top = `${top}px`;
-  btn.style.left = `${left}px`;
-  btn.hidden = false;
-}
-
-function handleReviewMainMouseUp(event) {
-  if (state.aiWizardStep !== 3) return;
-  const reviewMain = event.currentTarget;
-  const clientX = event.clientX;
-  const clientY = event.clientY;
-  requestAnimationFrame(() => {
-    const field = event.target.closest(
-      "textarea, input.cms-ai-item-question, input.cms-ai-opt-text, .cms-ai-item-input, .cms-ai-item-textarea"
-    );
-    if (field && reviewMain.contains(field) && isReviewSelectableField(field)) {
-      const fieldText = getReviewFieldSelectionText(field);
-      if (fieldText.length >= 2) {
-        state.aiReviewPendingSelection = fieldText;
-        state.aiReviewPendingQuestionNumber = getSelectionQuestionNumberFromNode(field);
-        positionAiSelectionAddButtonAtPoint(clientX, clientY);
-        return;
-      }
-    }
-
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed || selection.rangeCount < 1) {
-      hideAiSelectionAddButton();
-      return;
-    }
-    const anchor = selection.anchorNode;
-    const focus = selection.focusNode;
-    if (!reviewMain?.contains(anchor) || !reviewMain.contains(focus)) {
-      hideAiSelectionAddButton();
-      return;
-    }
-    const text = selection.toString().trim();
-    if (text.length < 2) {
-      hideAiSelectionAddButton();
-      return;
-    }
-    state.aiReviewPendingSelection = text;
-    state.aiReviewPendingQuestionNumber =
-      getSelectionQuestionNumberFromNode(anchor) ||
-      getSelectionQuestionNumberFromNode(focus) ||
-      parseQuestionNumberFromSelectionLabel(text);
-    if (selection.rangeCount > 0) {
-      const rect = selection.getRangeAt(0).getBoundingClientRect();
-      if (rect.width || rect.height) {
-        positionAiSelectionAddButton(selection);
-        return;
-      }
-    }
-    positionAiSelectionAddButtonAtPoint(clientX, clientY);
-  });
 }
 
 function parseQuestionNumberFromSelectionLabel(text) {
@@ -1945,210 +3479,53 @@ function parseQuestionNumberFromSelectionLabel(text) {
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
-function handleReviewFieldSelect(event) {
-  if (state.aiWizardStep !== 3) return;
-  const field = event.target;
-  if (!isReviewSelectableField(field)) return;
-  const reviewMain = $(".cms-ai-review-main");
-  if (!reviewMain?.contains(field)) return;
-  requestAnimationFrame(() => {
-    const text = getReviewFieldSelectionText(field);
-    if (text.length < 2) {
-      hideAiSelectionAddButton();
-      return;
-    }
-    state.aiReviewPendingSelection = text;
-    state.aiReviewPendingQuestionNumber = getSelectionQuestionNumberFromNode(field);
-    const rect = field.getBoundingClientRect();
-    positionAiSelectionAddButtonAtPoint(rect.left + rect.width / 2, rect.top + 24);
-  });
+function getOpenExerciseCard() {
+  return document.querySelector("#cms-exercise-list .cms-exercise-card.is-open");
 }
 
-function initAiReviewSelection() {
-  const reviewMain = $(".cms-ai-review-main");
-  reviewMain?.addEventListener("mouseup", handleReviewMainMouseUp);
-  reviewMain?.addEventListener("select", handleReviewFieldSelect, true);
-  document.addEventListener("selectionchange", () => {
-    if (state.aiWizardStep !== 3) return;
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
-      const active = document.activeElement;
-      if (active && isReviewSelectableField(active) && getReviewFieldSelectionText(active).length >= 2) {
-        return;
-      }
-      hideAiSelectionAddButton();
-    }
-  });
-  $("#cms-ai-selection-add")?.addEventListener("click", () => {
-    if (state.aiReviewPendingSelection) {
-      setAiReviewSelection(
-        state.aiReviewPendingSelection,
-        state.aiReviewPendingQuestionNumber
-      );
-    }
-    hideAiSelectionAddButton();
-    window.getSelection()?.removeAllRanges();
-    const active = document.activeElement;
-    if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
-      const end = active.selectionEnd ?? 0;
-      active.selectionStart = end;
-      active.selectionEnd = end;
-    }
-  });
-  $("#btn-cms-ai-agent-clear-selection")?.addEventListener("click", clearAiReviewSelection);
+function resetAiReviewAgent() {
+  resetGlobalAgentSession({ clearHistory: false });
 }
 
 function renderAiReviewAgent() {
-  const log = $("#cms-ai-agent-log");
-  const undo = $("#btn-cms-ai-agent-undo");
-  const history = state.aiReviewHistory || [];
-  const busy = Boolean(state.aiWizardBusy);
-  if (log) {
-    const turns = history
-      .map(
-        (turn) => `
-        <div class="cms-ai-agent-turn cms-ai-agent-turn--${turn.role === "assistant" ? "assistant" : "user"}">
-          <div class="cms-ai-agent-avatar" aria-hidden="true">${turn.role === "assistant" ? "AI" : "You"}</div>
-          <div class="cms-ai-agent-bubble">
-            <p>${escapeHtml(turn.content || "")}</p>
-          </div>
-        </div>`
-      )
-      .join("");
-    const welcome =
-      turns ||
-      `<div class="cms-ai-agent-turn cms-ai-agent-turn--assistant cms-ai-agent-turn--welcome">
-        <div class="cms-ai-agent-avatar" aria-hidden="true">AI</div>
-        <div class="cms-ai-agent-bubble">
-          <p>Hi — highlight any question text on the left and click <strong>Add to chat</strong>, or type a revision here.</p>
-        </div>
-      </div>`;
-    const typing = busy
-      ? `<div class="cms-ai-agent-turn cms-ai-agent-turn--assistant cms-ai-agent-turn--typing" aria-live="polite">
-          <div class="cms-ai-agent-avatar" aria-hidden="true">AI</div>
-          <div class="cms-ai-agent-bubble"><span class="cms-ai-agent-typing">Thinking…</span></div>
-        </div>`
-      : "";
-    log.innerHTML = welcome + typing;
-    log.scrollTop = log.scrollHeight;
-  }
-  if (undo) undo.hidden = !(state.aiReviewUndo || []).length;
+  syncGlobalAgentUi();
 }
 
 function syncAiReviewAgentBusy() {
-  const busy = Boolean(state.aiWizardBusy);
-  const agent = $("#cms-ai-agent");
-  const apply = $("#btn-cms-ai-agent-apply");
-  const input = $("#cms-ai-agent-input");
-  const undo = $("#btn-cms-ai-agent-undo");
-  agent?.classList.toggle("is-busy", busy);
-  if (apply) {
-    apply.disabled = busy;
-    apply.classList.toggle("is-loading", busy);
-    apply.setAttribute("aria-busy", busy ? "true" : "false");
-  }
-  if (input) input.disabled = busy;
-  if (undo) undo.disabled = busy || !(state.aiReviewUndo || []).length;
-  renderAiReviewAgent();
+  syncGlobalAgentBusy();
 }
 
 async function applyAiReviewRevision(rawRequest) {
-  const errorEl = $("#cms-ai-error");
-  const statusEl = $("#cms-ai-generate-status");
-  const revision = buildAiReviewRequest(rawRequest);
-  if (!revision) {
-    setCmsError(errorEl, "Describe the change you want.");
-    return false;
-  }
-  if (state.aiWizardBusy) return false;
-
-  collectAiDraftFromDom();
-  const draft = state.aiDraftExercises || [];
-  const material = getAiMaterialText();
-  if (!draft.some((exercise) => (exercise.items || []).length && exercise.type !== "video")) {
-    setCmsError(errorEl, "Generate questions first, then ask the assistant to edit them.");
-    return false;
-  }
-  if (!material) {
-    setCmsError(errorEl, "Source material is required to revise questions.");
-    return false;
-  }
-
-  const settings = getAiGenerationSettings();
-  const snapshot = cloneAiDraft(draft);
-  setCmsError(errorEl, "");
-  setAiWizardBusy(true, "Revising questions…");
-  try {
-    const data = await api("/api/cms/revise-exercises", {
-      method: "POST",
-      body: {
-        material,
-        langCode: settings.langCode,
-        difficulty: settings.difficulty,
-        instructions: getAiInstructions() || undefined,
-        revision,
-        exercises: draft,
-        history: (state.aiReviewHistory || []).slice(-8),
-        imageAssets: state.aiMaterialAssets?.length ? state.aiMaterialAssets : undefined,
-        questionNumber: state.aiReviewSelectionQuestion || undefined,
-      },
-    });
-    const convertIntent = parseAiConvertIntent(revision, state.aiReviewSelectionQuestion);
-    let next = data.exercises || [];
-    if (!next.length) throw new Error("The assistant returned no questions.");
-    let clientReordered = false;
-    if (convertIntent && data.revisionMode !== "convert-in-place") {
-      const beforeFixTypes = flattenDraftExercisesForReplace(next).map((entry) => entry.type);
-      next = applyInPlaceQuestionReplacement(draft, next, convertIntent);
-      const afterFixTypes = flattenDraftExercisesForReplace(next).map((entry) => entry.type);
-      clientReordered = beforeFixTypes.join("|") !== afterFixTypes.join("|");
-    }
-    state.aiReviewUndo = [...(state.aiReviewUndo || []), snapshot].slice(-8);
-    state.aiDraftExercises = next;
-    state.aiReviewHistory = [
-      ...(state.aiReviewHistory || []),
-      {
-        role: "user",
-        content: String(rawRequest || "").trim() || (state.aiReviewSelection ? "Revise selected text" : revision),
-      },
-      { role: "assistant", content: data.summary || "Updated the review set." },
-    ].slice(-8);
-    renderAiPreview(state.aiDraftExercises);
-    renderAiReviewAgent();
-    showAiGenSummary(
-      clientReordered
-        ? `Moved the new question to position ${convertIntent.questionNumber}.`
-        : data.summary || buildAiGenSummaryFromExercises(next)
-    );
-    if (statusEl) {
-      statusEl.textContent = clientReordered
-        ? `Question ${convertIntent.questionNumber} updated in place.`
-        : data.summary || "Questions updated.";
-    }
-    const input = $("#cms-ai-agent-input");
-    if (input) input.value = "";
-    clearAiReviewSelection();
-    return true;
-  } catch (err) {
-    setCmsError(errorEl, err.message);
-    if (statusEl) statusEl.textContent = "";
-    return false;
-  } finally {
-    setAiWizardBusy(false);
-  }
+  return applyGlobalAgentMessage(rawRequest);
 }
 
 function undoAiReviewRevision() {
-  const snapshot = (state.aiReviewUndo || []).pop();
-  if (!snapshot) return;
-  state.aiDraftExercises = snapshot;
-  if ((state.aiReviewHistory || []).length >= 2) {
-    state.aiReviewHistory = state.aiReviewHistory.slice(0, -2);
-  }
-  renderAiPreview(state.aiDraftExercises);
-  renderAiReviewAgent();
-  showAiGenSummary(buildAiGenSummaryFromExercises(snapshot));
+  undoGlobalAgentRevision();
 }
+
+function resetExerciseAgent() {
+  resetGlobalAgentSession({ clearHistory: false });
+}
+
+function syncExerciseAgentPanel(show, card) {
+  if (show && card) {
+    openGlobalAgent();
+    syncGlobalAgentUi();
+    return;
+  }
+  if (!getOpenExerciseCard()) closeGlobalAgent();
+}
+
+async function applyExerciseAgentRevision(rawRequest) {
+  return applyGlobalAgentMessage(rawRequest);
+}
+
+function undoExerciseAgentRevision() {
+  undoGlobalAgentRevision();
+}
+
+function initAiReviewSelection() {}
+function initExerciseAgentSelection() {}
 
 function renderAiPreviewStep() {
   const drafts = state.aiDraftExercises || [];
@@ -2236,6 +3613,12 @@ function setAiWizardStep(step) {
   if (next === 3) renderAiPreviewStep();
   if (next === 4) renderAiPublishSummary();
   updateAiWizardSummary();
+  syncGlobalAgentUi();
+  syncAiReviewAgentLayout();
+  if (next === 3 && prev !== 3) {
+    openGlobalAgent();
+    scheduleAiPreviewScrollToStart("enter-review-step");
+  }
 }
 
 function getAiInstructions() {
@@ -2282,15 +3665,17 @@ function getAiTypeCounts(prefix = "cms-ai") {
 
 function getAiGenerationSettings(prefix = "cms-ai") {
   const preset = prefix === "cms-ai" ? AI_TEMPLATES[state.aiTemplate] : null;
+  const speakLangCode = prefix === "cms-ai" ? getAiSpeakLangCode() : state.editingCourse?.langCode || "en";
   return {
-    langCode: state.editingCourse?.langCode || "en",
+    langCode: speakLangCode,
+    speakLangCode,
     difficulty: preset?.difficulty || $(`#${prefix}-difficulty`)?.value || "medium",
     types: getAiTypeCounts(prefix),
     template: state.aiTemplate || "custom",
   };
 }
 
-function aiFormatLabel(types, difficulty) {
+function aiFormatLabel(types, difficulty, speakLangCode) {
   const names = {
     mcquiz: "MC Quiz",
     fastmcquiz: "Fast MC Quiz",
@@ -2301,6 +3686,7 @@ function aiFormatLabel(types, difficulty) {
     .filter(([, count]) => count > 0)
     .map(([type, count]) => `${count} ${names[type] || type}`);
   if (difficulty) parts.push(String(difficulty)[0].toUpperCase() + String(difficulty).slice(1));
+  if (speakLangCode) parts.push(communityLangLabel(speakLangCode));
   return parts.join(" · ") || "No types";
 }
 
@@ -2327,7 +3713,8 @@ function collectAiCoursePlanFromDom() {
     appliedTemplate: settings.template,
     appliedTypes: { ...settings.types },
     appliedDifficulty: settings.difficulty,
-    formatLabel: aiFormatLabel(settings.types, settings.difficulty),
+    appliedSpeakLangCode: settings.speakLangCode,
+    formatLabel: aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
     courseTitle:
       $("#cms-ai-plan-course-title")?.value.trim() ||
       state.aiCoursePlan.courseTitle ||
@@ -2349,7 +3736,9 @@ function renderAiCoursePlan() {
     return;
   }
 
-  const formatText = plan.formatLabel || aiFormatLabel(plan.appliedTypes, plan.appliedDifficulty);
+  const formatText =
+    plan.formatLabel ||
+    aiFormatLabel(plan.appliedTypes, plan.appliedDifficulty, plan.appliedSpeakLangCode);
   meta.innerHTML = `
     <span><strong>Format locked:</strong> ${escapeHtml(formatText)}</span>
     <span><strong>Planner:</strong> ${escapeHtml(plan.planner || "headings")}</span>
@@ -2454,7 +3843,8 @@ function resolveAiCoursePlan() {
     appliedTemplate: settings.template,
     appliedTypes: { ...settings.types },
     appliedDifficulty: settings.difficulty,
-    formatLabel: aiFormatLabel(settings.types, settings.difficulty),
+    appliedSpeakLangCode: settings.speakLangCode,
+    formatLabel: aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
     sections: state.aiCoursePlan.sections.map((section) => ({
       ...section,
       types: { ...settings.types },
@@ -2509,6 +3899,7 @@ async function generateCourseFromPlan(options = {}) {
       const exercises = [...(entry.exercises || [])].map((exercise) => ({
         ...exercise,
         included: true,
+        ...(settings.speakLangCode ? { speakLangCode: settings.speakLangCode } : {}),
       }));
 
       if (entry.ok && videoCount > 0) {
@@ -2527,6 +3918,7 @@ async function generateCourseFromPlan(options = {}) {
                 ? `${entry.sectionTitle || "Lesson"} video ${v + 1}`
                 : `${entry.sectionTitle || "Lesson"} video`;
             videoExercise.included = true;
+            if (settings.speakLangCode) videoExercise.speakLangCode = settings.speakLangCode;
             exercises.push(videoExercise);
           } catch (videoErr) {
             entry.message = entry.message
@@ -2658,6 +4050,9 @@ async function publishAiCourse() {
     successMessage: `Published ${applied} exercise(s) across ${groups.length} section(s).`,
   });
   if (!errorEl.textContent) {
+    showCmsToast(
+      `Published successfully — ${applied} exercise${applied === 1 ? "" : "s"} across ${groups.length} section${groups.length === 1 ? "" : "s"}.`
+    );
     $("#cms-exercises-status").textContent = `Published course: ${groups.length} section(s), ${applied} exercise(s).`;
     state.editingSectionIndex = null;
     $("#cms-sections-view").hidden = false;
@@ -2684,7 +4079,7 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
     for (const uploadFile of uploadFiles) {
       form.append("files", uploadFile);
     }
-    form.append("language", language || state.editingCourse?.langCode || "en");
+    form.append("language", language || getAiSpeakLangCode());
     const materialHint = getAiInstructions();
     if (materialHint) form.append("materialHint", materialHint);
     if (maxChars) form.append("maxChars", String(maxChars));
@@ -2740,7 +4135,7 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
     body: {
       text: pasted || undefined,
       videoUrl: videoUrl || undefined,
-      language: language || state.editingCourse?.langCode || "en",
+      language: language || getAiSpeakLangCode(),
       maxChars: maxChars || undefined,
     },
   });
@@ -3653,18 +5048,40 @@ async function extractAiMaterial(options = {}) {
       files,
       pasted,
       videoUrl,
-      language: state.editingCourse?.langCode || "en",
+      language: getAiSpeakLangCode(),
       maxChars: options.forCourse || state.aiCourseMode ? 40000 : undefined,
     });
 
     state.aiMaterialText = data.text || "";
-    mergeAiMaterialAssets(data.imageAssets);
+    if (Array.isArray(data.imageAssets)) {
+      state.aiMaterialAssets = data.imageAssets;
+      // #region agent log
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+        body: JSON.stringify({
+          sessionId: "365eeb",
+          location: "cms.js:extractAiMaterial",
+          message: "material assets replaced from extract",
+          data: {
+            assetCount: state.aiMaterialAssets.length,
+            labels: state.aiMaterialAssets.map((asset) => asset.label),
+          },
+          timestamp: Date.now(),
+          hypothesisId: "IMG-CROP",
+          runId: "image-vision-crop",
+        }),
+      }).catch(() => {});
+      // #endregion
+    }
     previewEl.value = state.aiMaterialText;
     previewEl.hidden = true;
     if (statusEl && !options.silentStatus) {
       const filePrefix = data.fileCount > 1 ? `${data.fileCount} files · ` : "";
       const assetSuffix =
-        data.imageAssetCount > 0 ? ` · ${data.imageAssetCount} image(s) extracted` : "";
+        data.imageAssetCount > 0
+          ? ` · ${data.imageAssetCount} figure(s) extracted${data.imageAssetCount > 1 ? " (cropped)" : ""}`
+          : "";
       statusEl.textContent = data.truncated
         ? `${filePrefix}Ready (${data.originalLength} chars, truncated for generation).${assetSuffix}`
         : `${filePrefix}Ready (${state.aiMaterialText.length} chars).${assetSuffix}`;
@@ -3818,7 +5235,57 @@ async function generateAiExercises(options = {}) {
           imageAssets: state.aiMaterialAssets?.length ? state.aiMaterialAssets : undefined,
         },
       });
+      // #region agent log
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+        body: JSON.stringify({
+          sessionId: "365eeb",
+          location: "cms.js:generateAiExercises",
+          message: "generate-exercises langCode sent",
+          data: {
+            langCode: settings.langCode,
+            speakLangCode: settings.speakLangCode,
+            difficulty: settings.difficulty,
+          },
+          timestamp: Date.now(),
+          hypothesisId: "H-GEN-LANG",
+          runId: "gen-lang",
+        }),
+      }).catch(() => {});
+      // #endregion
       exercises = data.exercises || [];
+      // #region agent log
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+        body: JSON.stringify({
+          sessionId: "365eeb",
+          location: "cms.js:generateAiExercises",
+          message: "api exercises before auto-apply",
+          data: {
+            itemCount: exercises.reduce((count, ex) => count + (ex.items || []).length, 0),
+            withImage: exercises.reduce(
+              (count, ex) => count + (ex.items || []).filter((item) => item?.image).length,
+              0
+            ),
+            sampleItems: exercises
+              .flatMap((ex) => ex.items || [])
+              .slice(0, 5)
+              .map((item) => ({
+                title: item?.title || item?.topic || "",
+                image: item?.image || null,
+                imageRef: item?.imageRef || null,
+                imageRefConfidence: item?.imageRefConfidence ?? item?.confidence ?? null,
+              })),
+          },
+          timestamp: Date.now(),
+          hypothesisId: "IMG-MATCH",
+          runId: "image-match-v3",
+        }),
+      }).catch(() => {});
+      // #endregion
+      exercises = autoApplyMaterialImagesToExercises(exercises, state.aiMaterialAssets);
       const stats = data.stats || {};
       stopAiGenProgressTicker();
       setAiGenProgress(90, "Finishing…");
@@ -3856,9 +5323,36 @@ async function generateAiExercises(options = {}) {
           },
         });
         if (videoCount > 1) videoExercise.title = `${sectionTitle} video ${i + 1}`;
+        if (settings.speakLangCode) videoExercise.speakLangCode = settings.speakLangCode;
         exercises.push(videoExercise);
       }
     }
+
+    if (settings.speakLangCode) {
+      exercises = exercises.map((exercise) => ({ ...exercise, speakLangCode: settings.speakLangCode }));
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+      body: JSON.stringify({
+        sessionId: "365eeb",
+        location: "cms.js:generateAiExercises",
+        message: "speak lang stamped on draft exercises",
+        data: {
+          speakLangCode: settings.speakLangCode,
+          exerciseCount: exercises.length,
+          sample: exercises.slice(0, 3).map((exercise) => ({
+            type: exercise.type,
+            speakLangCode: exercise.speakLangCode || null,
+          })),
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H1",
+        runId: "speak-lang",
+      }),
+    }).catch(() => {});
+    // #endregion
 
     state.aiDraftExercises = exercises;
     resetAiReviewAgent();
@@ -3902,7 +5396,7 @@ function addAiExercisesToSection() {
   const sectionIndex = state.editingSectionIndex;
   if (sectionIndex == null) return 0;
 
-  syncExercisesFromDom();
+  syncExercisesFromDomIfRendered();
   const section = state.sections[sectionIndex];
   if (!section) return 0;
 
@@ -3913,6 +5407,7 @@ function addAiExercisesToSection() {
   }
 
   if (!section.exercises) section.exercises = [];
+  const beforeCount = section.exercises.length;
   picks.forEach((exercise) => {
     const { included: _included, ...rest } = exercise;
     section.exercises.push({
@@ -3921,8 +5416,11 @@ function addAiExercisesToSection() {
     });
   });
 
-  state.expandedExerciseIndex = section.exercises.length - 1;
-  renderExerciseEditors({ insertedIndex: state.expandedExerciseIndex });
+  state.expandedExerciseIndex = null;
+  renderExerciseEditors({ skipReveal: true });
+  // #region agent log
+  fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:addAiExercisesToSection',message:'exercises merged for publish',data:{beforeCount,added:picks.length,afterCount:section.exercises.length,speakLangCodes:picks.map((exercise)=>exercise.speakLangCode||null),domCards:document.querySelectorAll('#cms-exercise-list .cms-exercise-card').length},timestamp:Date.now(),hypothesisId:'H2',runId:'speak-lang'})}).catch(()=>{});
+  // #endregion
   return picks.length;
 }
 
@@ -3947,7 +5445,11 @@ async function publishAiExercises() {
     successMessage: `Published ${added} exercise(s). Ready to host.`,
   });
   if (!errorEl.innerHTML.trim()) {
+    showCmsToast(
+      `Published successfully — ${added} exercise${added === 1 ? "" : "s"} added to this section.`
+    );
     $("#cms-exercises-status").textContent = `Published ${added} exercise(s). Ready to host.`;
+    state.expandedExerciseIndex = null;
     state.exercisesSaveUnlocked = true;
     syncExercisesSaveButton();
     resetAiGeneratePanel();
@@ -4003,12 +5505,23 @@ async function handleAiWizardNext() {
       return;
     }
     if (hasAiPreviewReady()) {
+      // #region agent log
+      fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:handleAiWizardNext',message:'step2 next preview-ready path',data:{assetCount:state.aiMaterialAssets?.length||0},timestamp:Date.now(),hypothesisId:'D',runId:'pre-fix'})}).catch(()=>{});
+      // #endregion
+      autoApplyMaterialImagesToDraft();
       renderAiPreviewStep();
       setAiWizardStep(3);
       return;
     }
     const ok = await generateAiExercises();
-    if (ok) setAiWizardStep(3);
+    if (ok) {
+      // #region agent log
+      fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:handleAiWizardNext',message:'step2 next generate path',data:{assetCount:state.aiMaterialAssets?.length||0},timestamp:Date.now(),hypothesisId:'D',runId:'pre-fix'})}).catch(()=>{});
+      // #endregion
+      autoApplyMaterialImagesToDraft();
+      renderAiPreviewStep();
+      setAiWizardStep(3);
+    }
     return;
   }
 
@@ -4122,6 +5635,11 @@ function handleAiPreviewClick(event) {
     return;
   }
 
+  if (event.target.closest(".cms-q-image-preview-btn")) {
+    openQuestionImagePreview(block, "cms-ai-q");
+    return;
+  }
+
   if (event.target.closest(".cms-ai-q-image-remove")) {
     const valueInput = block.querySelector(".cms-ai-q-image-value");
     if (valueInput) valueInput.value = "";
@@ -4157,6 +5675,7 @@ function openSectionExercises(sectionIndex) {
     section.id != null ? state.sections.findIndex((s) => s.id === section.id) : sectionIndex;
   state.editingSectionIndex = resolvedIndex >= 0 ? resolvedIndex : sectionIndex;
   state.expandedExerciseIndex = null;
+  state.exerciseAgentCardIndex = null;
 
   const activeSection = state.sections[state.editingSectionIndex];
   $("#cms-exercises-section-title").textContent =
@@ -4168,6 +5687,8 @@ function openSectionExercises(sectionIndex) {
   $("#cms-exercises-status").textContent = "";
   resetAiGeneratePanel();
   renderExerciseEditors({ skipReveal: true });
+  syncExerciseAgentPanel(false);
+  updateExercisesViewDurationEstimate();
   syncExercisesSaveButton();
   cmsMotion()?.playCmsTabEnter?.($("#cms-exercises-view"));
 }
@@ -4179,6 +5700,7 @@ function closeSectionExercises({ reRender = true } = {}) {
   $("#cms-sections-view").hidden = false;
   $("#cms-exercises-view").hidden = true;
   if (reRender) renderSectionEditors();
+  syncExerciseAgentPanel(false);
 }
 
 function switchTab(tabId) {
@@ -4210,6 +5732,7 @@ function switchTab(tabId) {
       cmsMotion()?.playCmsTabEnter?.(panel);
     }
   }
+  syncGlobalAgentUi();
 }
 
 async function handleBannerFileChange() {
@@ -4588,7 +6111,9 @@ function renderQuestionImageFieldMarkup(image, { prefix = "cms-q", uploadLabel =
     <div class="${prefix}-image-field cms-q-image-field">
       <span class="cms-q-image-label">Question image (optional)</span>
       <div class="${prefix}-image-preview cms-q-image-preview"${imageUrl ? "" : " hidden"}>
-        <img class="${prefix}-image-img cms-q-image-img" src="${escapeHtml(imageUrl)}" alt="" />
+        <button type="button" class="cms-q-image-preview-btn ${prefix}-image-preview-btn" aria-label="Preview question image">
+          <img class="${prefix}-image-img cms-q-image-img" src="${escapeHtml(imageUrl)}" alt="" />
+        </button>
         <button type="button" class="cms-icon-btn ${prefix}-image-remove cms-q-image-remove" aria-label="Remove image">×</button>
       </div>
       <div class="cms-q-image-actions">
@@ -4739,6 +6264,12 @@ function renderMcQuizBody(container, exercise) {
       });
     });
 
+    list.querySelectorAll(".cms-q-image-preview-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openQuestionImagePreview(btn.closest(".cms-question-block"), "cms-q");
+      });
+    });
+
     list.querySelectorAll(".cms-q-image-file").forEach((input) => {
       input.addEventListener("change", async () => {
         const file = input.files?.[0];
@@ -4762,6 +6293,14 @@ function renderMcQuizBody(container, exercise) {
         showUpcomingAiImageMessage(block?.querySelector(".cms-q-image-status"));
       });
     });
+
+    list.querySelectorAll(".cms-q-time").forEach((input) => {
+      input.addEventListener("input", () => {
+        updateExercisesViewDurationEstimate();
+      });
+    });
+
+    updateExercisesViewDurationEstimate();
   }
 
   renderQuestions();
@@ -4777,6 +6316,7 @@ function renderMcQuizBody(container, exercise) {
       timeLimit: 15,
     });
     renderQuestions();
+    updateExercisesViewDurationEstimate();
   });
 
   container._collectItems = () =>
@@ -5447,6 +6987,12 @@ function renderBuzzinBody(container, exercise) {
       });
     });
 
+    list.querySelectorAll(".cms-q-image-preview-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openQuestionImagePreview(btn.closest(".cms-buzzin-topic-block"), "cms-q");
+      });
+    });
+
     list.querySelectorAll(".cms-q-image-file").forEach((input) => {
       input.addEventListener("change", async () => {
         const file = input.files?.[0];
@@ -5576,9 +7122,14 @@ function setExerciseExpanded(card, open) {
   }
 
   if (open) {
-    state.expandedExerciseIndex = Number(card.dataset.exerciseIndex);
+    const nextIndex = Number(card.dataset.exerciseIndex);
+    if (state.exerciseAgentCardIndex !== nextIndex) resetExerciseAgent();
+    state.expandedExerciseIndex = nextIndex;
+    state.exerciseAgentCardIndex = nextIndex;
+    syncExerciseAgentPanel(true, card);
   } else if (Number(card.dataset.exerciseIndex) === state.expandedExerciseIndex) {
     state.expandedExerciseIndex = null;
+    syncExerciseAgentPanel(false);
   }
 }
 
@@ -5597,14 +7148,41 @@ function refreshExerciseRowChrome(container) {
   state.expandedExerciseIndex = open ? Number(open.dataset.exerciseIndex) : null;
 }
 
+function updateExercisesViewDurationEstimate() {
+  const el = $("#cms-exercises-section-duration");
+  if (!el || state.editingSectionIndex == null) return;
+  const container = $("#cms-exercise-list");
+  const exercises = container?.querySelector(".cms-exercise-card")
+    ? [...container.querySelectorAll(".cms-exercise-card")].map((card) => collectExerciseFromCard(card))
+    : state.sections[state.editingSectionIndex]?.exercises || [];
+  if (!exercises.length) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  const seconds = estimateSectionDurationSeconds(exercises);
+  el.hidden = false;
+  el.textContent = `Estimated class time for this section: ${formatSectionDuration(seconds)}`;
+}
+
 function fillSectionOutline(sectionCard, section) {
   const outline = sectionCard.querySelector(".cms-section-outline");
   const countEl = sectionCard.querySelector(".cms-section-exercise-count");
+  const durationEl = sectionCard.querySelector(".cms-section-duration-estimate");
   const exercises = section.exercises || [];
   if (countEl) {
     countEl.textContent = exercises.length
       ? `${exercises.length} exercise${exercises.length === 1 ? "" : "s"}`
       : "No exercises";
+  }
+  if (durationEl) {
+    if (exercises.length) {
+      durationEl.hidden = false;
+      durationEl.textContent = `Est. ${formatSectionDuration(estimateSectionDurationSeconds(exercises))}`;
+    } else {
+      durationEl.hidden = true;
+      durationEl.textContent = "";
+    }
   }
   if (!outline) return;
 
@@ -5803,6 +7381,8 @@ function renderExerciseEditors({ skipReveal = false, insertedIndex = null } = {}
   }
 
   if (!skipReveal) cmsMotion()?.playCmsListReveal?.(container);
+  updateExercisesViewDurationEstimate();
+  if (state.expandedExerciseIndex == null) syncExerciseAgentPanel(false);
 }
 
 function setupSectionDrag(sectionCard, container) {
@@ -5948,6 +7528,9 @@ async function saveCourseStructure({ errorEl, statusEl, btn, successMessage }) {
   btn.disabled = true;
   try {
     const sections = buildSectionsPayload();
+    // #region agent log
+    fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:saveCourseStructure',message:'saving sections payload',data:{sectionCount:sections.length,exerciseCounts:sections.map((section)=>section.exercises?.length||0),domCards:document.querySelectorAll('#cms-exercise-list .cms-exercise-card').length},timestamp:Date.now(),hypothesisId:'H2',runId:'publish-fix'})}).catch(()=>{});
+    // #endregion
     const data = await api(`/api/cms/courses/${state.editingCourse.id}/sections`, {
       method: "PUT",
       body: { sections },
@@ -6115,15 +7698,75 @@ function advanceCmsTour() {
 }
 
 
-$("#nav-cms-dashboard")?.addEventListener("click", (event) => {
+$("#nav-cms-home")?.addEventListener("click", (event) => {
   event.preventDefault();
   if (!state.token || !state.user) return;
-  enterDashboard();
+  enterHome();
+});
+$("#cms-home-grid")?.addEventListener("click", (event) => {
+  const card = event.target.closest("[data-home-action]");
+  if (!card) return;
+  handleHomeAction(card.dataset.homeAction);
 });
 $("#nav-cms-courses")?.addEventListener("click", (event) => {
   event.preventDefault();
   if (!state.token || !state.user) return;
   enterCourseList();
+});
+$("#nav-cms-community")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  if (!state.token || !state.user) return;
+  enterCommunity();
+});
+let communitySearchTimer = 0;
+$("#cms-community-search")?.addEventListener("input", () => {
+  state.communityQuery = $("#cms-community-search").value.trim();
+  clearTimeout(communitySearchTimer);
+  communitySearchTimer = setTimeout(() => loadCommunityCourses(), 250);
+});
+$("#cms-community-lang")?.addEventListener("change", () => {
+  state.communityLang = $("#cms-community-lang").value || "all";
+  loadCommunityCourses();
+});
+$("#cms-community-sort")?.addEventListener("change", () => {
+  state.communitySort = $("#cms-community-sort").value || "featured";
+  loadCommunityCourses();
+});
+$("#cms-community-list")?.addEventListener("click", (event) => {
+  const card = event.target.closest(".cms-community-card");
+  if (!card) return;
+  const listingId = Number(card.dataset.id);
+  if (!Number.isFinite(listingId)) return;
+  if (event.target.closest(".cms-community-preview-btn")) {
+    openCommunityPreview(listingId);
+    return;
+  }
+  if (event.target.closest(".cms-community-add-btn")) {
+    addCommunityCourse(listingId);
+    return;
+  }
+  if (event.target.closest(".cms-community-report-btn")) {
+    reportCommunityCourse(listingId);
+    return;
+  }
+  if (event.target.closest(".cms-community-unshare-btn")) {
+    unshareCommunityListing(listingId);
+  }
+});
+$("#btn-community-preview-close")?.addEventListener("click", closeCommunityPreview);
+$("#cms-community-preview-backdrop")?.addEventListener("click", closeCommunityPreview);
+$("#btn-community-preview-add")?.addEventListener("click", () => {
+  if (state.communityPreviewId) addCommunityCourse(state.communityPreviewId, { fromPreview: true });
+});
+$("#btn-community-preview-report")?.addEventListener("click", () => {
+  if (state.communityPreviewId) reportCommunityCourse(state.communityPreviewId);
+});
+$("#btn-cms-asset-preview-close")?.addEventListener("click", closeMaterialAssetPreview);
+$("#cms-asset-preview-backdrop")?.addEventListener("click", closeMaterialAssetPreview);
+$("#btn-cms-asset-preview-attach")?.addEventListener("click", attachMaterialAssetFromPreview);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!$("#cms-asset-preview")?.hidden) closeMaterialAssetPreview();
 });
 $("#cms-dashboard-class")?.addEventListener("change", async (event) => {
   const nextId = Number(event.target.value);
@@ -6156,6 +7799,8 @@ $("#import-all-file").addEventListener("change", async (event) => {
 $("#btn-export-all-courses").addEventListener("click", exportAllCourses);
 $("#btn-back-list").addEventListener("click", () => enterCourseList());
 $("#btn-save-details").addEventListener("click", saveDetails);
+$("#btn-community-share")?.addEventListener("click", shareEditingCourseToCommunity);
+$("#btn-community-unshare")?.addEventListener("click", unshareEditingCourseFromCommunity);
 $("#btn-export-course").addEventListener("click", exportCurrentCourse);
 $("#btn-delete-course").addEventListener("click", deleteCourse);
 $("#course-banner-file").addEventListener("change", handleBannerFileChange);
@@ -6258,20 +7903,11 @@ $("#screen-cms-edit")?.addEventListener("change", (event) => {
 $("#btn-cms-ai-next")?.addEventListener("click", handleAiWizardNext);
 $("#btn-cms-ai-back")?.addEventListener("click", handleAiWizardBack);
 $("#btn-cms-ai-publish")?.addEventListener("click", publishAiExercises);
-$("#cms-ai-agent-form")?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  applyAiReviewRevision($("#cms-ai-agent-input")?.value);
-});
-$("#cms-ai-agent-input")?.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" || event.shiftKey) return;
-  event.preventDefault();
-  applyAiReviewRevision($("#cms-ai-agent-input")?.value);
-});
-$("#btn-cms-ai-agent-undo")?.addEventListener("click", () => {
-  if (state.aiWizardBusy) return;
-  undoAiReviewRevision();
-});
 $("#cms-ai-wizard")?.addEventListener("change", (event) => {
+  if (event.target.matches("#cms-ai-speak-lang")) {
+    updateAiWizardSummary();
+    return;
+  }
   if (event.target.matches("#cms-ai-type-mcquiz, #cms-ai-type-fastmcquiz, #cms-ai-type-buzzin, #cms-ai-type-video")) {
     if (state.aiTemplate !== "custom") {
       state.aiTemplate = "custom";
@@ -6293,11 +7929,10 @@ $("#cms-ai-wizard")?.addEventListener("click", (event) => {
   const thumb = event.target.closest(".cms-ai-asset-thumb");
   if (thumb) {
     const url = thumb.dataset.assetUrl || "";
+    const label = thumb.dataset.assetLabel || thumb.title || "";
+    if (!url) return;
     const target = document.querySelector(".cms-ai-item-block.is-asset-pick-target");
-    if (target && url) {
-      attachMaterialAssetToQuestionBlock(target, url);
-      target.classList.remove("is-asset-pick-target");
-    }
+    openMaterialAssetPreview({ url, label, attachTarget: target || null });
     return;
   }
   const template = event.target.closest(".cms-ai-template");
@@ -6363,7 +7998,8 @@ $("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
       appliedTemplate: settings.template,
       appliedTypes: { ...settings.types },
       appliedDifficulty: settings.difficulty,
-      formatLabel: aiFormatLabel(settings.types, settings.difficulty),
+      appliedSpeakLangCode: settings.speakLangCode,
+      formatLabel: aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
       courseTitle: parsed.courseTitle || "Course",
       planner: parsed.planner || "import",
       notes: parsed.notes || "",
@@ -6450,7 +8086,10 @@ document.querySelectorAll(".cms-tab").forEach((tab) => {
 loadPrefs();
 initCmsTheme();
 initCmsTextSize();
-initAiReviewSelection();
+initGlobalAgentSelection();
+window.addEventListener("resize", () => {
+  if (state.aiWizardActive && state.aiWizardStep === 3) syncAiReviewAgentLayout();
+});
 updateAuthUi();
 applyTeacherLoginDefaults(
   $("#cms-login-username"),
@@ -6458,8 +8097,11 @@ applyTeacherLoginDefaults(
   state.loginUsername
 );
 
-if (state.token && state.user) {
-  enterDashboard();
-} else {
-  showCmsScreen("login");
-}
+void (async () => {
+  await loadCmsAppContext();
+  if (state.token && state.user) {
+    enterHome();
+  } else {
+    showCmsScreen("login");
+  }
+})();

@@ -25,12 +25,17 @@ const videoGenerator = require("./lib/video-generator");
 const materialExtract = require("./lib/material-extract");
 const materialImages = require("./lib/material-images");
 const exerciseGenerator = require("./lib/exercise-generator");
+const cmsAssistant = require("./lib/cms-assistant");
+const communityStore = require("./lib/community-store");
 const exerciseImport = require("./lib/exercise-import");
 const courseExport = require("./lib/course-export");
 const courseImport = require("./lib/course-import");
 const courseImportChunked = require("./lib/course-import-chunked");
 const QRCode = require("qrcode");
 const coursePlan = require("./lib/course-plan");
+const cmsSpeakLanguages = require("./lib/cms-speak-languages");
+const gameplayTtsStyle = require("./lib/gameplay-tts-style");
+const questionTtsCache = require("./lib/question-tts-cache");
 
 const app = express();
 const server = http.createServer(app);
@@ -63,6 +68,10 @@ const ENV_OPENROUTER_BUZZIN_MODEL = String(
 const ENV_OPENROUTER_GENERATE_MODEL = String(
   process.env.OPENROUTER_GENERATE_MODEL || "x-ai/grok-4.3"
 ).trim();
+const ENV_OPENROUTER_TTS_MODEL = String(
+  process.env.OPENROUTER_TTS_MODEL || "x-ai/grok-voice-tts-1.0"
+).trim();
+const ENV_OPENROUTER_TTS_VOICE = String(process.env.OPENROUTER_TTS_VOICE || "eve").trim() || "eve";
 const ENV_VIDEO_GENERATOR_API_URL = String(
   process.env.VIDEO_GENERATOR_API_URL || "https://newcms.lango.ai"
 ).trim().replace(/\/$/, "");
@@ -142,6 +151,11 @@ function getOpenRouterBuzzinModel() {
 function getOpenRouterGenerateModel() {
   const saved = settingsStore.readSettings().openrouterGenerateModel;
   return saved || ENV_OPENROUTER_GENERATE_MODEL || exerciseGenerator.DEFAULT_GENERATE_MODEL;
+}
+
+function getOpenRouterTtsModel() {
+  const saved = settingsStore.readSettings().openrouterTtsModel;
+  return saved || ENV_OPENROUTER_TTS_MODEL || "";
 }
 
 function getVideoGeneratorApiUrl() {
@@ -556,7 +570,12 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
     entry.analysisAudioFormat = null;
 
     try {
-      const tts = await inworldTtsSynthesize(getInworldApiKey(), result.spokenFeedback);
+      const session = sessionStore.getSession(pin);
+      const tts = await synthesizeGameplayTts(
+        result.spokenFeedback,
+        resolveSessionSpeakLangCode(session),
+        { purpose: "feedback" }
+      );
       entry.analysisAudio = tts.audioContent;
       entry.analysisAudioFormat = tts.format;
     } catch {
@@ -1271,7 +1290,7 @@ function buildBuzzinLuckyDrawAnnouncement(topic, displayName) {
   return buildBuzzinAnswerAnnouncement(topic, displayName);
 }
 
-async function synthesizeBuzzinAnswerAnnouncement(round, winner) {
+async function synthesizeBuzzinAnswerAnnouncement(round, winner, languageCode) {
   const playerId = winner?.playerId;
   const displayName = winner?.displayName || "Student";
   const text = buildBuzzinAnswerAnnouncement(round.topic, displayName);
@@ -1279,9 +1298,8 @@ async function synthesizeBuzzinAnswerAnnouncement(round, winner) {
   let format = null;
 
   try {
-    const apiKey = getInworldApiKey();
-    if (apiKey && text) {
-      const tts = await inworldTtsSynthesize(apiKey, text);
+    if (getGameplayTtsApiKey() && text) {
+      const tts = await synthesizeGameplayTts(text, languageCode, { purpose: "announcement" });
       audio = tts.audioContent;
       format = tts.format;
     }
@@ -1305,7 +1323,8 @@ async function finalizeBuzzInJoinToTyping(pin) {
 
   clearBuzzInJoinTimer(round);
   const winner = round.buzzes[0];
-  await synthesizeBuzzinAnswerAnnouncement(round, winner);
+  const session = sessionStore.getSession(pin);
+  await synthesizeBuzzinAnswerAnnouncement(round, winner, resolveSessionSpeakLangCode(session));
   round.phase = "typing";
   round.status = "closed";
   round.turnIndex = 0;
@@ -1464,10 +1483,17 @@ function normalizeClientQuiz(quiz) {
     })
     .filter((q) => q.text && q.options.length >= 2);
 
+  const speakLangCode = String(quiz?.speakLangCode || "")
+    .trim()
+    .toLowerCase()
+    .split(/[-_]/)[0]
+    .slice(0, 8);
+
   return {
     title: String(quiz?.title || "Class quiz").slice(0, 100),
     questions,
     fastMode: !!quiz?.fastMode,
+    ...(speakLangCode ? { speakLangCode } : {}),
   };
 }
 
@@ -1482,6 +1508,7 @@ function attachSessionContext(game) {
     exerciseId: session.exercise?.id,
     exerciseTitle: session.exercise?.title || session.exercise?.subTitle || "",
     exerciseType: session.exercise?.type || "mcquiz",
+    speakLangCode: session.exercise?.speakLangCode || null,
   };
 }
 
@@ -1838,6 +1865,37 @@ function openQuestionAnswering(game) {
   game.questionTimer = setTimeout(() => endQuestion(game), timeLimit);
 }
 
+function buildQuestionTtsCacheMeta() {
+  if (IS_HK_ELDERLY_VARIANT) {
+    return {
+      provider: "openrouter",
+      model: getOpenRouterTtsModel() || ENV_OPENROUTER_TTS_MODEL,
+      voice: ENV_OPENROUTER_TTS_VOICE,
+    };
+  }
+  return {
+    provider: "inworld",
+    model: INWORLD_TTS_MODEL_ID,
+    voice: INWORLD_BUZZIN_TTS_VOICE_ID,
+  };
+}
+
+async function resolveQuestionTts(text, speakLangCode) {
+  const purpose = "question";
+  const cacheKey = questionTtsCache.buildQuestionTtsCacheKey({
+    text,
+    speakLangCode,
+    purpose,
+    meta: buildQuestionTtsCacheMeta(),
+  });
+  const cached = questionTtsCache.loadCachedQuestionTts(cacheKey);
+  if (cached) return cached;
+
+  const tts = await synthesizeGameplayTts(text, speakLangCode, { purpose });
+  questionTtsCache.saveCachedQuestionTts(cacheKey, tts.audioContent, tts.format);
+  return { ...tts, cached: false };
+}
+
 async function speakQuestionThenOpen(game, questionIndex) {
   const question = game.quiz.questions[questionIndex];
   if (!question) return;
@@ -1856,13 +1914,31 @@ async function speakQuestionThenOpen(game, questionIndex) {
   game.questionTimer = setTimeout(openIfStillSpeaking, QUESTION_TTS_MAX_WAIT_MS);
 
   try {
-    const apiKey = getInworldApiKey();
-    if (!apiKey) {
+    if (!getGameplayTtsApiKey()) {
       openIfStillSpeaking();
       return;
     }
 
-    const tts = await inworldTtsSynthesize(apiKey, question.text);
+    const speakLangCode = resolveGameSpeakLangCode(game);
+    // #region agent log
+    debugSessionLog(
+      "server.js:speakQuestionThenOpen",
+      "question TTS language resolved",
+      {
+        pin: game.pin,
+        questionIndex,
+        speakLangCode,
+        ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
+        ttsModel: IS_HK_ELDERLY_VARIANT ? getOpenRouterTtsModel() : INWORLD_TTS_MODEL_ID,
+        quizSpeakLangCode: game.quiz?.speakLangCode || null,
+        exerciseSpeakLangCode: game.sessionContext?.speakLangCode || null,
+        bcp47: speakLangToBcp47(speakLangCode),
+        textPreview: String(question.text || "").slice(0, 80),
+      },
+      "H3"
+    );
+    // #endregion
+    const tts = await resolveQuestionTts(question.text, speakLangCode);
     if (!stillSpeakingThisQuestion()) return;
 
     if (
@@ -2319,6 +2395,10 @@ function buildConfigResponse() {
     openrouterGenerateModelSaved: settings.openrouterGenerateModel || "",
     openrouterGenerateModelEnvDefault: ENV_OPENROUTER_GENERATE_MODEL,
     effectiveOpenRouterGenerateModel: getOpenRouterGenerateModel(),
+    openrouterTtsModelSaved: settings.openrouterTtsModel || "",
+    openrouterTtsModelEnvDefault: ENV_OPENROUTER_TTS_MODEL,
+    effectiveOpenRouterTtsModel: getOpenRouterTtsModel(),
+    ttsRouting: buildTtsRoutingConfig(),
     videoGeneratorApiUrlSaved: settings.videoGeneratorApiUrl || "",
     videoGeneratorApiUrlEnvDefault: ENV_VIDEO_GENERATOR_API_URL,
     effectiveVideoGeneratorApiUrl: getVideoGeneratorApiUrl(),
@@ -2326,6 +2406,16 @@ function buildConfigResponse() {
       session_id: "123456",
       class_name: "Example class",
       teacher_name: "Example teacher",
+      tts_classroom: {
+        provider: "Inworld",
+        model: INWORLD_TTS_MODEL_ID,
+        voice: "uncle_tommy",
+      },
+      tts_elderly: {
+        provider: "OpenRouter",
+        model: getOpenRouterTtsModel() || ENV_OPENROUTER_TTS_MODEL,
+        voice: ENV_OPENROUTER_TTS_VOICE,
+      },
     }),
     studentDatabase: scoreStore.getStats(),
   };
@@ -2344,7 +2434,188 @@ function inworldErrorMessage(data, status) {
   return data?.message || data?.error?.message || `Inworld API returned ${status}.`;
 }
 
-async function inworldTtsSynthesize(apiKey, text, voiceId = INWORLD_BUZZIN_TTS_VOICE_ID) {
+const DEBUG_LOG_PATH = path.join(__dirname, ".cursor", "debug-365eeb.log");
+
+function debugSessionLog(location, message, data, hypothesisId, runId = "speak-lang") {
+  try {
+    const line =
+      JSON.stringify({
+        sessionId: "365eeb",
+        location,
+        message,
+        data,
+        timestamp: Date.now(),
+        hypothesisId,
+        runId,
+      }) + "\n";
+    fs.appendFileSync(DEBUG_LOG_PATH, line);
+  } catch {
+    // ignore debug log failures
+  }
+}
+
+function normalizeSpeakLangCode(value) {
+  const code = String(value || "")
+    .trim()
+    .toLowerCase()
+    .split(/[-_]/)[0]
+    .slice(0, 8);
+  return code || null;
+}
+
+function speakLangToBcp47(code) {
+  const normalized = String(code || "")
+    .trim()
+    .replace(/_/g, "-");
+  const lower = normalized.toLowerCase();
+  const map = {
+    en: "en-US",
+    zh: "zh-CN",
+    yue: "yue-HK",
+    ja: "ja-JP",
+    ko: "ko-KR",
+    es: "es-ES",
+    fr: "fr-FR",
+    de: "de-DE",
+    hi: "hi-IN",
+    id: "id-ID",
+    it: "it-IT",
+    ru: "ru-RU",
+    tr: "tr-TR",
+    vi: "vi-VN",
+    bn: "bn-BD",
+  };
+  if (map[lower]) return map[lower];
+  if (/^[a-z]{2}(-[a-z]{2})?$/i.test(normalized)) return normalized;
+  return "en-US";
+}
+
+function resolveSessionSpeakLangCode(session) {
+  const fromExercise = normalizeSpeakLangCode(session?.exercise?.speakLangCode);
+  if (fromExercise) return fromExercise;
+
+  if (session?.courseId && session?.teacherId) {
+    const course = cmsStore.getCourseForTeacher(session.courseId, session.teacherId);
+    const fromCourse = normalizeSpeakLangCode(course?.langCode);
+    if (fromCourse) return fromCourse;
+  }
+
+  return IS_HK_ELDERLY_VARIANT ? "yue" : "en";
+}
+
+function resolveGameSpeakLangCode(game) {
+  const fromQuiz = normalizeSpeakLangCode(game?.quiz?.speakLangCode);
+  if (fromQuiz) return fromQuiz;
+
+  const session = sessionStore.getSession(game?.pin);
+  return resolveSessionSpeakLangCode(session);
+}
+
+function getGameplayTtsApiKey() {
+  return IS_HK_ELDERLY_VARIANT ? getOpenRouterApiKey() : getInworldApiKey();
+}
+
+function buildTtsRoutingConfig() {
+  return {
+    classroom: {
+      app: "Classroom (main)",
+      provider: "Inworld",
+      model: INWORLD_TTS_MODEL_ID,
+      voice: "uncle_tommy",
+    },
+    elderly: {
+      app: "HK Elderly",
+      provider: "OpenRouter",
+      model: getOpenRouterTtsModel() || ENV_OPENROUTER_TTS_MODEL,
+      voice: ENV_OPENROUTER_TTS_VOICE,
+    },
+    currentVariant: IS_HK_ELDERLY_VARIANT ? "elderly" : "classroom",
+  };
+}
+
+async function openRouterTtsSynthesize(apiKey, text, options = {}) {
+  const key = String(apiKey || "").trim();
+  const trimmed = String(text || "").trim();
+  const model = String(options.model || getOpenRouterTtsModel()).trim();
+  if (!key) {
+    throw new Error("OpenRouter API key not configured.");
+  }
+  if (!trimmed) {
+    throw new Error("No text to synthesize.");
+  }
+  if (!model) {
+    throw new Error("OpenRouter TTS model not configured.");
+  }
+
+  const res = await fetch(`${OPENROUTER_API_BASE}/audio/speech`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      input: trimmed,
+      voice: String(options.voice || ENV_OPENROUTER_TTS_VOICE).trim() || ENV_OPENROUTER_TTS_VOICE,
+      response_format: "mp3",
+      ...(Number.isFinite(options.speed) && options.speed > 0
+        ? { speed: options.speed }
+        : {}),
+      ...(options.language
+        ? { language: cmsSpeakLanguages.speakLangToGrokTtsLanguage(options.language) }
+        : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = { message: await res.text() };
+    }
+    throw new Error(`TTS (${model}): ${openRouterErrorMessage(data, res.status)}`);
+  }
+
+  const audioContent = Buffer.from(await res.arrayBuffer()).toString("base64");
+  if (!audioContent) {
+    throw new Error("TTS: No audio returned.");
+  }
+
+  return { audioContent, format: "mp3" };
+}
+
+async function synthesizeGameplayTts(text, languageCode, options = {}) {
+  const purpose = String(options.purpose || "question").trim() || "question";
+  if (IS_HK_ELDERLY_VARIANT) {
+    const styledText = gameplayTtsStyle.styleGrokGameplayTtsText(text, purpose);
+    return openRouterTtsSynthesize(getOpenRouterApiKey(), styledText, {
+      model: getOpenRouterTtsModel(),
+      voice: ENV_OPENROUTER_TTS_VOICE,
+      language: languageCode,
+      speed: gameplayTtsStyle.GROK_GAMEPLAY_TTS_SPEED,
+    });
+  }
+
+  return inworldTtsSynthesize(
+    getInworldApiKey(),
+    text,
+    INWORLD_BUZZIN_TTS_VOICE_ID,
+    languageCode,
+    {
+      speakingRate: gameplayTtsStyle.INWORLD_GAMEPLAY_SPEAKING_RATE,
+      instruction: gameplayTtsStyle.INWORLD_GAMEPLAY_INSTRUCTION,
+    }
+  );
+}
+
+async function inworldTtsSynthesize(
+  apiKey,
+  text,
+  voiceId = INWORLD_BUZZIN_TTS_VOICE_ID,
+  languageCode,
+  options = {}
+) {
   const key = String(apiKey || "").trim();
   const trimmed = String(text || "").trim();
   if (!key) {
@@ -2354,21 +2625,30 @@ async function inworldTtsSynthesize(apiKey, text, voiceId = INWORLD_BUZZIN_TTS_V
     throw new Error("No text to synthesize.");
   }
 
+  const payload = {
+    text: trimmed,
+    voiceId: String(voiceId || INWORLD_BUZZIN_TTS_VOICE_ID).trim() || INWORLD_BUZZIN_TTS_VOICE_ID,
+    modelId: INWORLD_TTS_MODEL_ID,
+    audioConfig: {
+      audioEncoding: "MP3",
+      sampleRateHertz: 24000,
+      ...(Number.isFinite(options.speakingRate) && options.speakingRate > 0
+        ? { speakingRate: options.speakingRate }
+        : {}),
+    },
+  };
+  const instruction = String(options.instruction || "").trim();
+  if (instruction) payload.instruction = instruction;
+  const bcp47 = normalizeSpeakLangCode(languageCode);
+  if (bcp47) payload.language = speakLangToBcp47(bcp47);
+
   const res = await fetch(`${INWORLD_API_BASE}/tts/v1/voice`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      text: trimmed,
-      voiceId: String(voiceId || INWORLD_BUZZIN_TTS_VOICE_ID).trim() || INWORLD_BUZZIN_TTS_VOICE_ID,
-      modelId: INWORLD_TTS_MODEL_ID,
-      audioConfig: {
-        audioEncoding: "MP3",
-        sampleRateHertz: 24000,
-      },
-    }),
+    body: JSON.stringify(payload),
   });
   const data = await parseInworldResponse(res);
 
@@ -2594,6 +2874,7 @@ app.put("/api/config", async (req, res) => {
     openrouterApiKey,
     openrouterBuzzinModel,
     openrouterGenerateModel,
+    openrouterTtsModel,
     videoGeneratorApiUrl,
   } = req.body || {};
   const updates = {};
@@ -2643,6 +2924,10 @@ app.put("/api/config", async (req, res) => {
 
   if (openrouterGenerateModel !== undefined) {
     updates.openrouterGenerateModel = String(openrouterGenerateModel || "").trim();
+  }
+
+  if (openrouterTtsModel !== undefined) {
+    updates.openrouterTtsModel = String(openrouterTtsModel || "").trim();
   }
 
   if (videoGeneratorApiUrl !== undefined) {
@@ -2912,6 +3197,37 @@ function buildDashboardCourseProgress(course, progress) {
   };
 }
 
+app.get("/api/cms/app-context", (_req, res) => {
+  const speakLanguages = cmsSpeakLanguages.getCmsSpeakLanguages(APP_VARIANT);
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+    body: JSON.stringify({
+      sessionId: "d0607f",
+      runId: "pre-fix",
+      hypothesisId: "H1",
+      location: "server.js:app-context",
+      message: "CMS app-context served",
+      data: {
+        appVariant: APP_VARIANT || "",
+        isHkElderly: IS_HK_ELDERLY_VARIANT,
+        speakLanguageCount: speakLanguages.length,
+        ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
+        port: PORT,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  return res.json({
+    appVariant: APP_VARIANT || "",
+    speakLanguages,
+    defaultSpeakLangCode: cmsSpeakLanguages.getDefaultCmsSpeakLangCode(APP_VARIANT),
+    ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
+  });
+});
+
 app.get("/api/cms/courses", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
@@ -2921,6 +3237,123 @@ app.get("/api/cms/courses", async (req, res) => {
       classId: Number.isFinite(classId) ? classId : undefined,
     }),
   });
+});
+
+app.get("/api/cms/community/courses", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  const data = communityStore.listPublicListings({
+    q: req.query.q,
+    langCode: req.query.langCode,
+    sort: req.query.sort,
+    authorId: req.query.authorId,
+    teacherId: auth.teacherId,
+  });
+  return res.json(data);
+});
+
+app.get("/api/cms/community/courses/:listingId", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  const listing = communityStore.getPublicListing(Number(req.params.listingId));
+  if (!listing) return res.status(404).json({ message: "Community course not found." });
+  return res.json({ course: communityStore.listingPreview(listing, { teacherId: auth.teacherId }) });
+});
+
+app.post("/api/cms/community/courses/:listingId/copy", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  try {
+    const result = communityStore.copyListingToTeacher({
+      listingId: Number(req.params.listingId),
+      teacherId: auth.teacherId,
+    });
+    return res.json({ ok: true, ...result });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not add this course." });
+  }
+});
+
+app.post("/api/cms/community/courses/:listingId/report", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  try {
+    const result = communityStore.reportListing({
+      listingId: Number(req.params.listingId),
+      teacherId: auth.teacherId,
+      reason: req.body?.reason,
+    });
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not report this course." });
+  }
+});
+
+app.post("/api/cms/community/courses/:listingId/unpublish", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  try {
+    const result = communityStore.unpublishListing({
+      listingId: Number(req.params.listingId),
+      teacherId: auth.teacherId,
+    });
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not unshare this course." });
+  }
+});
+
+app.post("/api/cms/community/courses/:listingId/feature", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  try {
+    const course = communityStore.setFeatured({
+      listingId: Number(req.params.listingId),
+      teacherId: auth.teacherId,
+      featured: req.body?.featured !== false,
+    });
+    return res.json({ ok: true, course });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not update featured status." });
+  }
+});
+
+app.post("/api/cms/courses/:courseId/community/publish", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  const course = cmsStore.getCourseForTeacher(Number(req.params.courseId), auth.teacherId);
+  if (!course) return res.status(404).json({ message: "Course not found." });
+  try {
+    const listing = communityStore.publishCourse({
+      course,
+      teacherId: auth.teacherId,
+      authorName: req.body?.authorName,
+      featured: Boolean(req.body?.featured),
+    });
+    return res.json({ ok: true, listing, course: cmsStore.getCourseForTeacher(course.id, auth.teacherId) });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not share this course." });
+  }
+});
+
+app.post("/api/cms/courses/:courseId/community/unpublish", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  const course = cmsStore.getCourseForTeacher(Number(req.params.courseId), auth.teacherId);
+  if (!course) return res.status(404).json({ message: "Course not found." });
+  const listingId = Number(course.communityListingId || req.body?.listingId);
+  if (!Number.isFinite(listingId) || listingId <= 0) {
+    return res.status(400).json({ message: "This course is not shared to Community." });
+  }
+  try {
+    communityStore.unpublishListing({ listingId, teacherId: auth.teacherId });
+    return res.json({
+      ok: true,
+      course: cmsStore.getCourseForTeacher(course.id, auth.teacherId),
+    });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not unshare this course." });
+  }
 });
 
 
@@ -3531,6 +3964,29 @@ async function extractUploadedMaterialFile(uploadedFile, { language, materialHin
     console.warn("material image extraction failed:", uploadedFile.originalname, imageErr.message);
   }
 
+  // #region agent log
+  if (materialExtract.isImageFormat(format)) {
+    try {
+      fs.appendFileSync(
+        path.join(__dirname, ".cursor/debug-365eeb.log"),
+        JSON.stringify({
+          sessionId: "365eeb",
+          location: "server.js:extractUploadedMaterialFile",
+          message: "image assets extracted",
+          data: {
+            filename: uploadedFile.originalname,
+            assetCount: imageAssets.length,
+            labels: imageAssets.map((asset) => asset.label),
+          },
+          timestamp: Date.now(),
+          hypothesisId: "IMG-CROP",
+          runId: "image-vision-crop",
+        }) + "\n"
+      );
+    } catch {}
+  }
+  // #endregion
+
   const source = videoMeta
     ? "video"
     : materialExtract.isAudioFormat(result.format, uploadedFile.mimetype)
@@ -3737,12 +4193,13 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
 
   const instructions = String(req.body?.instructions || "").trim();
   const imageAssets = Array.isArray(req.body?.imageAssets) ? req.body.imageAssets : [];
+  const langCode = String(req.body?.langCode || "en").trim();
 
   try {
     const result = await exerciseGenerator.generateExercisesFromMaterial(
       {
         material,
-        langCode: String(req.body?.langCode || "en").trim(),
+        langCode,
         difficulty: String(req.body?.difficulty || "medium").trim(),
         types: req.body?.types,
         countPerType: req.body?.countPerType,
@@ -3754,7 +4211,67 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
       openRouterGenerateComplete
     );
 
-    const exercises = materialImages.resolveExerciseImageRefs(result.exercises, imageAssets);
+    const model = String(req.body?.model || getOpenRouterGenerateModel()).trim();
+    let exercises = result.exercises;
+    if (imageAssets.length) {
+      exercises = await materialImages.assignImagesWithLlm(
+        exercises,
+        imageAssets,
+        openRouterGenerateComplete,
+        getOpenRouterApiKey(),
+        model
+      );
+    }
+    exercises = materialImages.resolveExerciseImageRefs(exercises, imageAssets);
+    try {
+      const sampleItems = exercises
+        .flatMap((exercise) => exercise.items || [])
+        .slice(0, 3)
+        .map((item) => ({
+          title: item?.title || item?.topic || "",
+          options: (item?.options || []).slice(0, 2).map((option) => option?.text || option),
+        }));
+      fs.appendFileSync(
+        path.join(__dirname, ".cursor", "debug-365eeb.log"),
+        `${JSON.stringify({
+          sessionId: "365eeb",
+          timestamp: Date.now(),
+          location: "server.js:generate-exercises",
+          message: "generation complete",
+          hypothesisId: "H-GEN-LANG",
+          runId: "gen-lang",
+          data: {
+            langCode,
+            sampleItems,
+            languageRetries: result.stats?.languageRetries || 0,
+            languageMismatchSamples: result.stats?.languageMismatchSamples || [],
+          },
+        })}\n`
+      );
+    } catch {
+      /* ignore debug log failures */
+    }
+    try {
+      fs.appendFileSync(
+        path.join(__dirname, ".cursor", "debug-365eeb.log"),
+        `${JSON.stringify({
+          sessionId: "365eeb",
+          timestamp: Date.now(),
+          location: "server.js:generate-exercises",
+          message: "image resolve complete",
+          hypothesisId: "IMG-MATCH",
+          data: {
+            imageAssetCount: imageAssets.length,
+            imageAssetsUsed: exercises.reduce(
+              (count, exercise) => count + (exercise.items || []).filter((item) => item?.image).length,
+              0
+            ),
+          },
+        })}\n`
+      );
+    } catch {
+      /* ignore debug log failures */
+    }
 
     return res.json({
       ok: true,
@@ -3832,6 +4349,46 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
   } catch (err) {
     console.error("revise-exercises failed:", err);
     return res.status(500).json({ message: err.message || "Exercise revision failed." });
+  }
+});
+
+app.post("/api/cms/assistant", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  if (!getOpenRouterApiKey()) {
+    return res.status(400).json({
+      message: "Configure OpenRouter in Config before using the assistant.",
+    });
+  }
+
+  const message = String(req.body?.message || "").trim();
+  if (!message) {
+    return res.status(400).json({ message: "Enter a message for the assistant." });
+  }
+
+  const history = Array.isArray(req.body?.history) ? req.body.history.slice(-8) : [];
+  const context = req.body?.context && typeof req.body.context === "object" ? req.body.context : {};
+
+  try {
+    const result = await cmsAssistant.answerCmsAssistant(
+      {
+        message,
+        history,
+        context,
+        model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
+        apiKey: getOpenRouterApiKey(),
+      },
+      openRouterGenerateComplete
+    );
+    return res.json({
+      ok: true,
+      reply: result.reply,
+      model: result.model,
+    });
+  } catch (err) {
+    console.error("cms-assistant failed:", err);
+    return res.status(500).json({ message: err.message || "Assistant request failed." });
   }
 });
 
@@ -4656,9 +5213,9 @@ io.on("connection", (socket) => {
     let topicAudio = null;
     let topicAudioFormat = null;
     try {
-      const apiKey = getInworldApiKey();
-      if (apiKey && round.topic) {
-        const tts = await inworldTtsSynthesize(apiKey, round.topic);
+      const speakLangCode = resolveSessionSpeakLangCode(session);
+      if (getGameplayTtsApiKey() && round.topic) {
+        const tts = await synthesizeGameplayTts(round.topic, speakLangCode, { purpose: "topic" });
         topicAudio = tts.audioContent;
         topicAudioFormat = tts.format;
       }
@@ -4716,9 +5273,9 @@ io.on("connection", (socket) => {
     let topicAudio = null;
     let topicAudioFormat = null;
     try {
-      const apiKey = getInworldApiKey();
-      if (apiKey && round.topic) {
-        const tts = await inworldTtsSynthesize(apiKey, round.topic);
+      const speakLangCode = resolveSessionSpeakLangCode(session);
+      if (getGameplayTtsApiKey() && round.topic) {
+        const tts = await synthesizeGameplayTts(round.topic, speakLangCode, { purpose: "topic" });
         topicAudio = tts.audioContent;
         topicAudioFormat = tts.format;
       }
@@ -4880,7 +5437,11 @@ io.on("connection", (socket) => {
     }
     session.buzzinAwardedPlayers.set(winner.playerId, winner.displayName || "Student");
 
-    const announcement = await synthesizeBuzzinAnswerAnnouncement(round, winner);
+    const announcement = await synthesizeBuzzinAnswerAnnouncement(
+      round,
+      winner,
+      resolveSessionSpeakLangCode(session)
+    );
     const payload = buzzInPublicPayload(round);
     io.to(pin).emit("buzzin_update", payload);
     callback?.({
@@ -5394,6 +5955,26 @@ io.on("connection", (socket) => {
 server.listen(PORT, "0.0.0.0", () => {
   const base = `http://localhost:${PORT}`;
   const networkBase = `http://${getLocalIPv4()[0] || "localhost"}:${PORT}`;
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+    body: JSON.stringify({
+      sessionId: "d0607f",
+      runId: "pre-fix",
+      hypothesisId: "H1-H5",
+      location: "server.js:listen",
+      message: "Server started",
+      data: {
+        port: PORT,
+        appVariant: APP_VARIANT || "",
+        isHkElderly: IS_HK_ELDERLY_VARIANT,
+        speakLanguageCount: cmsSpeakLanguages.getCmsSpeakLanguages(APP_VARIANT).length,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   console.log(`QuizLive running at ${base}`);
   if (IS_HK_ELDERLY_VARIANT) {
     console.log(`  Variant: hk-elderly`);

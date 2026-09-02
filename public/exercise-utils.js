@@ -57,10 +57,17 @@ function mcQuizPayloadFromExercise(exercise) {
     })
     .filter((q) => q.text && q.options.length >= 2);
 
+  const speakLangCode = String(exercise.speakLangCode || "")
+    .trim()
+    .toLowerCase()
+    .split(/[-_]/)[0]
+    .slice(0, 8);
+
   return {
     title: exercise.title || exercise.subTitle || "Class quiz",
     questions,
     fastMode: isFastMcQuizExercise(exercise),
+    ...(speakLangCode ? { speakLangCode } : {}),
   };
 }
 
@@ -616,7 +623,7 @@ let buzzinPlaybackFinish = null;
 let buzzinSpeechBgmDuckDepth = 0;
 let uncleTommySpeakToken = 0;
 const BUZZIN_SPEECH_BGM_VOLUME = 0.06;
-const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 3.5;
+const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 4.5;
 
 function getBuzzinSpeechBgmDuckVolume() {
   if (typeof getHostSpeechBgmDuckVolume === "function") {
@@ -960,4 +967,98 @@ function exerciseFromSessionRecord(record) {
     subTitle: record.subTitle,
     items: record.data?.items || [],
   };
+}
+
+const SECTION_TIMING = {
+  QUESTION_PREVIEW_SECONDS: 5,
+  MC_RESULTS_SECONDS: 12,
+  FAST_MC_BETWEEN_SECONDS: 2,
+  BUZZIN_JOIN_SECONDS: 20,
+  BUZZIN_ANSWER_SECONDS: 45,
+  BUZZIN_FEEDBACK_SECONDS: 20,
+  VIDEO_DEFAULT_SECONDS: 180,
+  BETWEEN_EXERCISES_SECONDS: 20,
+};
+
+function estimateMcQuestionSeconds(item, fastMode) {
+  const timeLimitRaw = Number(item?.timeLimit ?? item?.duration_seconds);
+  const timeLimit = Number.isFinite(timeLimitRaw)
+    ? Math.max(5, Math.min(60, Math.round(timeLimitRaw)))
+    : fastMode
+      ? 10
+      : 15;
+  const transition = fastMode
+    ? SECTION_TIMING.FAST_MC_BETWEEN_SECONDS
+    : SECTION_TIMING.MC_RESULTS_SECONDS;
+  return SECTION_TIMING.QUESTION_PREVIEW_SECONDS + timeLimit + transition;
+}
+
+function isCountableMcItem(item) {
+  const text = String(item?.title || item?.question || "").trim();
+  const options = (item?.options || [])
+    .map((option) => String(option?.text || "").trim())
+    .filter(Boolean);
+  return Boolean(text && options.length >= 2);
+}
+
+function estimateExerciseDurationSeconds(exercise) {
+  if (!exercise) return 0;
+  const type = normalizeExerciseType(exercise.type);
+  const items = Array.isArray(exercise.items) ? exercise.items : [];
+
+  if (type === "video") {
+    const item = items[0] || {};
+    const duration = Number(
+      item.durationSeconds ?? item.duration_seconds ?? item.videoDuration ?? item.duration
+    );
+    return Number.isFinite(duration) && duration > 0
+      ? duration
+      : SECTION_TIMING.VIDEO_DEFAULT_SECONDS;
+  }
+
+  if (type === "buzzin") {
+    const topics = items.filter((item) => String(item?.topic || item?.title || "").trim());
+    if (!topics.length) return 0;
+    const perTopic =
+      SECTION_TIMING.BUZZIN_JOIN_SECONDS +
+      SECTION_TIMING.BUZZIN_ANSWER_SECONDS +
+      SECTION_TIMING.BUZZIN_FEEDBACK_SECONDS;
+    return topics.length * perTopic;
+  }
+
+  if (type === "fastmcquiz") {
+    return items
+      .filter(isCountableMcItem)
+      .reduce((sum, item) => sum + estimateMcQuestionSeconds(item, true), 0);
+  }
+
+  if (type === "mcquiz") {
+    return items
+      .filter(isCountableMcItem)
+      .reduce((sum, item) => sum + estimateMcQuestionSeconds(item, false), 0);
+  }
+
+  return 0;
+}
+
+function estimateSectionDurationSeconds(exercises) {
+  const list = Array.isArray(exercises) ? exercises : [];
+  if (!list.length) return 0;
+  const exerciseTotal = list.reduce(
+    (sum, exercise) => sum + estimateExerciseDurationSeconds(exercise),
+    0
+  );
+  const between = Math.max(0, list.length - 1) * SECTION_TIMING.BETWEEN_EXERCISES_SECONDS;
+  return exerciseTotal + between;
+}
+
+function formatSectionDuration(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  if (total <= 0) return "—";
+  if (total < 60) return `~${total} sec`;
+  const mins = Math.round(total / 60);
+  if (mins < 60) return `~${mins} min`;
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem ? `~${hours} hr ${rem} min` : `~${hours} hr`;
 }

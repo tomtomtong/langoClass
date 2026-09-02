@@ -118,6 +118,19 @@
             <p class="status-msg" id="config-status"></p>
             <p class="error" id="config-error"></p>
 
+            <div class="config-block">
+              <h3 class="config-block-title">Live question TTS</h3>
+              <p class="hint config-panel-intro">
+                During class, questions are read aloud using the provider for each deployment.
+                Classroom (main) uses Inworld; HK Elderly uses OpenRouter Grok Voice.
+              </p>
+              <div class="config-meta config-meta-compact" id="config-tts-routing">
+                <p><strong>Classroom (main):</strong> <span id="config-tts-classroom">—</span></p>
+                <p><strong>HK Elderly:</strong> <span id="config-tts-elderly">—</span></p>
+                <p><strong>This server:</strong> <span id="config-tts-current">—</span></p>
+              </div>
+            </div>
+
             <div class="config-preview config-preview-wide">
               <span class="field-label">Notification data preview</span>
               <pre id="config-preview-json" class="config-preview-json"></pre>
@@ -131,7 +144,8 @@
             <p class="hint config-panel-intro">
               Basic (Base64) credential from
               <a href="https://platform.inworld.ai/api-keys" target="_blank" rel="noopener">Inworld Portal</a>
-              for Buzz In STT/TTS (<code>uncle_tommy</code>). AI feedback uses OpenRouter.
+              for Classroom live TTS and Buzz In STT (<code>uncle_tommy</code>).
+              HK Elderly live TTS uses OpenRouter Grok Voice instead.
             </p>
 
             <div class="config-split">
@@ -330,7 +344,7 @@
             <h2>OpenRouter</h2>
             <p class="hint config-panel-intro">
               Key from <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a>
-              for Buzz In AI feedback, <a href="/transcribe.html">Transcribe</a>, and CMS exercise generation.
+              for Buzz In AI feedback, <a href="/transcribe.html">Transcribe</a>, CMS exercise generation, and text-to-speech.
             </p>
 
             <div class="config-split">
@@ -388,6 +402,30 @@
                         · Env: <strong id="config-openrouter-generate-model-env-default">—</strong>
                       </p>
                     </label>
+                    <label class="field">
+                      <span>HK Elderly live TTS</span>
+                      <input
+                        type="text"
+                        id="config-openrouter-tts-model"
+                        list="config-openrouter-tts-models"
+                        placeholder="x-ai/grok-voice-tts-1.0"
+                        autocomplete="off"
+                      />
+                      <datalist id="config-openrouter-tts-models">
+                        <option value="x-ai/grok-voice-tts-1.0"></option>
+                        <option value="openai/tts-1"></option>
+                        <option value="openai/tts-1-hd"></option>
+                        <option value="elevenlabs/eleven_multilingual_v2"></option>
+                      </datalist>
+                      <p class="hint">
+                        Used on the HK Elderly deployment for question and Buzz In speech.
+                        Classroom (main) uses Inworld <code>inworld-tts-1.5-max</code> instead.
+                      </p>
+                      <p class="hint config-field-meta">
+                        Active: <strong id="config-openrouter-tts-model-effective">—</strong>
+                        · Env: <strong id="config-openrouter-tts-model-env-default">—</strong>
+                      </p>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -407,10 +445,12 @@
               <button type="button" class="btn primary small" id="btn-config-save-openrouter">Save key</button>
               <button type="button" class="btn primary small" id="btn-config-save-openrouter-model">Save Buzz In model</button>
               <button type="button" class="btn primary small" id="btn-config-save-openrouter-generate-model">Save generate model</button>
+              <button type="button" class="btn primary small" id="btn-config-save-openrouter-tts-model">Save TTS model</button>
               <button type="button" class="btn secondary small" id="btn-config-test-openrouter">Test API</button>
               <button type="button" class="btn secondary small" id="btn-config-clear-openrouter">Clear saved key</button>
               <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-model">Reset Buzz In model</button>
               <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-generate-model">Reset generate model</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-tts-model">Reset TTS model</button>
             </div>
 
             <p class="status-msg" id="config-openrouter-save-status"></p>

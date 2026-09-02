@@ -254,8 +254,14 @@ seed_hk_data() {
     seed_root="${APP_DIR}/hk-data"
   fi
 
-  if [[ -f "${seed_root}/data/teacher-courses.json" && ! -f "${DATA_PATH}/data/teacher-courses.json" ]]; then
-    cp -a "${seed_root}/data/." "${DATA_PATH}/data/"
+  if [[ ! -f "${DATA_PATH}/data/teacher-courses.json" ]]; then
+    printf '%s\n' '{ "courses": [] }' >"${DATA_PATH}/data/teacher-courses.json"
+  fi
+  if [[ ! -f "${DATA_PATH}/data/community-courses.json" ]]; then
+    printf '%s\n' '{ "listings": [] }' >"${DATA_PATH}/data/community-courses.json"
+  fi
+  if [[ -f "${seed_root}/data/app-settings.json" && ! -f "${DATA_PATH}/data/app-settings.json" ]]; then
+    cp -a "${seed_root}/data/app-settings.json" "${DATA_PATH}/data/app-settings.json"
   fi
   if [[ -d "${seed_root}/uploads" ]]; then
     cp -a "${seed_root}/uploads/." "${DATA_PATH}/uploads/" 2>/dev/null || true

@@ -39,6 +39,28 @@ html:has(body.hk-elderly) {
   --hk-shadow-hover: 0 8px 22px rgba(70, 23, 143, 0.18);
   --hk-touch: 48px;
   --hk-font: "Montserrat", "Noto Sans TC", "PingFang HK", sans-serif;
+
+  /* Kahoot stage background */
+  --hk-kahoot-bg-base: linear-gradient(165deg, var(--kahoot-purple-deep) 0%, var(--kahoot-purple) 44%, #1a5aa8 100%);
+  --hk-kahoot-bg-glow:
+    radial-gradient(ellipse 85% 55% at 12% 8%, rgba(162, 209, 242, 0.38) 0%, transparent 58%),
+    radial-gradient(ellipse 65% 48% at 88% 92%, rgba(255, 221, 51, 0.16) 0%, transparent 52%),
+    radial-gradient(ellipse 45% 38% at 92% 12%, rgba(226, 27, 60, 0.14) 0%, transparent 48%),
+    radial-gradient(ellipse 40% 35% at 6% 88%, rgba(38, 137, 12, 0.1) 0%, transparent 45%);
+
+  /* Host MCQ — scales with viewport height (balanced: readable, no overlap) */
+  --hk-host-title: clamp(2.15rem, 3.2vw + 0.65vh, 3.5rem);
+  --hk-host-question: clamp(1.35rem, 1.55vw + 0.65vh, 2rem);
+  --hk-host-letter: clamp(1.85rem, 2.3vw + 0.95vh, 3rem);
+  --hk-host-option-copy: clamp(1.05rem, 1.2vw + 0.5vh, 1.55rem);
+  --hk-host-image-max: min(32dvh, 360px);
+  --hk-host-options-max: min(48dvh, calc(100dvh - 20rem), 420px);
+  --hk-host-options-min: min(34dvh, 280px);
+  --hk-host-question-box-max: min(52dvh, 480px);
+  --hk-host-question-box-max-image: min(56dvh, 520px);
+  --hk-host-preview-box-min: min(62dvh, 560px);
+  --hk-host-preview-box-max: min(calc(100dvh - 8rem), 780px);
+  --hk-host-preview-image-max: min(44dvh, 480px);
 }
 
 body.hk-elderly {
@@ -46,6 +68,26 @@ body.hk-elderly {
   font-size: 1.25rem;
   line-height: 1.45;
   color: var(--hk-text);
+  background-color: var(--kahoot-purple-deep);
+  background-image: var(--hk-kahoot-bg-glow), var(--hk-kahoot-bg-base);
+  background-attachment: fixed;
+}
+
+body.hk-elderly::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 6% 18%, rgba(255, 255, 255, 0.07) 0%, transparent 7%),
+    radial-gradient(circle at 94% 82%, rgba(255, 255, 255, 0.05) 0%, transparent 9%),
+    radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.04) 0%, transparent 6%);
+}
+
+body.hk-elderly #app {
+  position: relative;
+  z-index: 1;
 }
 
 body.hk-elderly button,
@@ -108,10 +150,11 @@ body.hk-elderly .error {
   font-weight: 700;
 }
 
-/* Student phone UI — high-contrast light theme */
+/* Student phone UI — Kahoot stage background */
 body.join-page.hk-elderly {
-  background-color: var(--hk-paper);
-  background-image: none;
+  background-color: var(--kahoot-purple-deep);
+  background-image: var(--hk-kahoot-bg-glow), var(--hk-kahoot-bg-base);
+  background-attachment: fixed;
   color: var(--hk-text);
 }
 
@@ -120,14 +163,14 @@ body.join-page.hk-elderly::before {
 }
 
 body.join-page.hk-elderly #app {
-  background: var(--hk-paper);
+  background: transparent;
 }
 
 body.join-page.hk-elderly #screen-join h2,
 body.join-page.hk-elderly .general-waiting-ui__header h1,
 body.join-page.hk-elderly #room-ended-title {
-  color: var(--hk-text);
-  text-shadow: none;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
   font-size: clamp(1.8rem, 6vw, 2.4rem);
   font-weight: 900;
   white-space: normal;
@@ -143,7 +186,7 @@ body.join-page.hk-elderly #screen-room-waiting.general-waiting-ui,
 body.join-page.hk-elderly #screen-room-ended.general-waiting-ui,
 body.join-page.hk-elderly #screen-room-passive-waiting.passive-waiting-ui {
   color: var(--hk-text);
-  background: var(--hk-paper);
+  background: transparent;
 }
 
 body.join-page.hk-elderly .general-waiting-ui__message-card {
@@ -225,15 +268,16 @@ body.hk-elderly .login-title {
   letter-spacing: 0;
 }
 
-/* Login — remove scenic/video background */
+/* Login — Kahoot stage; white card panel */
 body.hk-elderly:has(#screen-login.active) {
-  background: var(--hk-paper);
-  background-image: none;
+  background-color: var(--kahoot-purple-deep);
+  background-image: var(--hk-kahoot-bg-glow), var(--hk-kahoot-bg-base);
+  background-attachment: fixed;
 }
 
 body.hk-elderly .login-screen,
 body.hk-elderly .login-scene {
-  background: var(--hk-paper);
+  background: transparent;
 }
 
 body.hk-elderly .login-bg {
@@ -275,14 +319,15 @@ body.join-page.hk-elderly .buzzin-record-btn {
   border: 2px solid var(--hk-accent);
 }
 
-/* Host picker flows — mature, calm layout (class / course / section / waiting) */
+/* Host picker flows — Kahoot stage with white content cards */
 body.hk-elderly:has(#screen-class.active),
 body.hk-elderly:has(#screen-course.active),
 body.hk-elderly:has(#screen-section.active),
 body.hk-elderly:has(#screen-waiting.active),
 body.hk-elderly:has(#screen-settings.active) {
-  background: var(--hk-paper);
-  background-image: none;
+  background-color: var(--kahoot-purple-deep);
+  background-image: var(--hk-kahoot-bg-glow), var(--hk-kahoot-bg-base);
+  background-attachment: fixed;
 }
 
 body.hk-elderly .class-bg,
@@ -298,7 +343,19 @@ body.hk-elderly #app.lango-host .class-scene,
 body.hk-elderly #app.lango-host .course-scene,
 body.hk-elderly #app.lango-host .section-scene,
 body.hk-elderly #app.lango-host .waiting-scene {
-  background: var(--hk-paper) !important;
+  background: transparent !important;
+}
+
+body.hk-elderly #app.lango-host .course-page-title,
+body.hk-elderly #app.lango-host #screen-class .course-page-title,
+body.hk-elderly #app.lango-host #screen-course .course-page-title,
+body.hk-elderly #app.lango-host #screen-section .course-page-title {
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+body.hk-elderly #app.lango-host .course-step {
+  color: rgba(255, 255, 255, 0.82);
 }
 
 body.hk-elderly #app.lango-host .course-scene::before,
@@ -414,7 +471,7 @@ body.hk-elderly #app.lango-host .course-page-title {
   margin: 0;
   width: 100%;
   max-width: none;
-  color: var(--hk-text);
+  color: #fff;
   font-family: inherit;
   font-size: clamp(1.85rem, 3.5vw, 2.5rem);
   font-weight: 800;
@@ -426,7 +483,7 @@ body.hk-elderly #app.lango-host .course-page-title {
   -webkit-text-stroke: 0;
   paint-order: normal;
   filter: none;
-  text-shadow: none;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 body.hk-elderly #app.lango-host #screen-section .course-page-title,
@@ -524,8 +581,9 @@ body.hk-elderly #app.lango-host #screen-section .course-page-title {
   font-size: clamp(2.75rem, 5vw, 3.75rem);
   font-weight: 800;
   line-height: 1.12;
-  color: var(--hk-navy);
+  color: #fff;
   letter-spacing: 0.01em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 body.hk-elderly #app.lango-host #screen-section .course-count-badge {
@@ -785,7 +843,7 @@ body.hk-elderly #app.lango-host .section-exercise-panel .exercise-panel-inner {
 body.hk-elderly #app.lango-host .section-exercise-panel .exercise-page-title {
   color: var(--kahoot-purple);
   font-family: var(--hk-font);
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
   font-weight: 900;
   line-height: 1.1;
   -webkit-text-fill-color: currentColor;
@@ -811,12 +869,108 @@ body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item.active .e
   color: #fff;
 }
 
+/* Exercise cards — full-width titles (avoid vertical character stacking) */
+body.hk-elderly #app.lango-host .section-exercise-panel {
+  width: min(540px, 48vw);
+  min-width: 360px;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-list--section .exercise-item,
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 0.65rem;
+  row-gap: 0.45rem;
+  padding: 1rem 1.15rem;
+  min-height: 0;
+  opacity: 0.88;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item-main {
+  display: contents;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item-num {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  font-size: 1.6rem;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item-lottie {
+  grid-column: 2;
+  grid-row: 1;
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  transform: none;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item--mc .exercise-item-lottie {
+  transform: none;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item-pts {
+  grid-column: 4;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+  min-width: 0;
+  font-size: 1.3rem;
+  letter-spacing: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item-text {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  width: 100%;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item-title {
+  font-size: clamp(1.45rem, 2.8vw, 1.9rem);
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: 0;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item-sub {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0;
+  opacity: 0.92;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item--completed .exercise-item-title,
+body.hk-elderly #app.lango-host .section-exercise-panel .exercise-item--completed .exercise-item-sub {
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  text-shadow: none;
+}
+
 body.hk-elderly #app.lango-host .section-exercise-panel .exercise-cancel-btn {
   color: var(--hk-text);
   border-color: var(--hk-border);
   background: var(--hk-card);
   min-height: var(--hk-touch);
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
@@ -824,7 +978,7 @@ body.hk-elderly #app.lango-host .section-exercise-panel .exercise-start-btn {
   background: var(--hk-accent);
   color: var(--hk-accent-ink);
   min-height: var(--hk-touch);
-  font-size: 1.15rem;
+  font-size: 1.35rem;
   font-weight: 800;
 }
 
@@ -905,7 +1059,8 @@ body.hk-elderly #app.lango-host #screen-course .course-page {
   width: 100%;
   height: auto;
   min-height: 0;
-  padding: 2rem 2rem 1rem;
+  padding: 2rem 2rem 6.5rem;
+  overflow: hidden;
 }
 
 body.hk-elderly #app.lango-host #screen-class .course-panel,
@@ -919,7 +1074,7 @@ body.hk-elderly #app.lango-host #screen-course .course-panel {
   min-height: 0;
   gap: 0;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   --hk-class-content-width: min(100%, 420px);
 }
 
@@ -956,9 +1111,10 @@ body.hk-elderly #app.lango-host #screen-course .course-page-title {
   font-size: clamp(2.75rem, 5vw, 3.75rem);
   font-weight: 800;
   line-height: 1.12;
-  color: var(--hk-navy);
+  color: #fff;
   letter-spacing: 0.01em;
   margin: 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
 body.hk-elderly #app.lango-host #screen-class .class-teacher-chip,
@@ -978,7 +1134,7 @@ body.hk-elderly #app.lango-host #screen-course .class-teacher-chip strong {
 
 body.hk-elderly #app.lango-host #screen-class .course-grid-scroll,
 body.hk-elderly #app.lango-host #screen-course .course-grid-scroll {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -986,6 +1142,11 @@ body.hk-elderly #app.lango-host #screen-course .course-grid-scroll {
   max-width: 100%;
   min-height: 0;
   margin-inline: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 0.75rem;
 }
 
 body.hk-elderly #app.lango-host #screen-class .course-status,
@@ -1847,20 +2008,16 @@ body.hk-elderly #app.lango-host #screen-waiting .waiting-timer-value {
   color: var(--kahoot-purple);
 }
 
-/* ── Host MCQ — calm elderly layout (matches section/course pickers) ── */
-
-body.hk-elderly:has(#screen-host-quiz-question.active),
-body.hk-elderly:has(#screen-host-quiz-preview.active),
-body.hk-elderly:has(#screen-host-quiz-results.active) {
-  background: var(--hk-paper);
-  background-image: none;
-}
+/* ── Host MCQ — Kahoot stage with white content cards ── */
 
 body.hk-elderly #screen-host-quiz-preview.host-mcq-preview-screen,
 body.hk-elderly #screen-host-quiz-question.host-mcq-screen,
 body.hk-elderly #screen-host-quiz-results.host-mcq-result-screen {
-  background: var(--hk-paper);
+  background: transparent;
   color: var(--hk-text);
+  min-height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
 }
 
 body.hk-elderly .host-mcq-preview-bg,
@@ -1880,39 +2037,108 @@ body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-conta
   position: relative;
   left: auto;
   top: auto;
-  width: min(96vw, 1480px);
+  width: min(96vw, 1320px);
   height: auto;
+  max-height: 100dvh;
   min-height: min(100%, 100dvh);
   margin: 0 auto;
   transform: none;
-  padding: 1.5rem 1rem 6rem;
+  padding: clamp(0.5rem, 1.2dvh, 0.85rem) clamp(0.75rem, 2vw, 1rem) clamp(4.75rem, 10dvh, 6rem);
   box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: clamp(0.45rem, 1dvh, 0.75rem);
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-title,
-body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-title,
-body.hk-elderly #screen-host-quiz-results .host-mcq-result-title {
-  font-family: var(--hk-font);
-  font-weight: 800;
-  font-size: clamp(2.75rem, 5vw, 3.75rem);
-  color: var(--hk-navy);
-  text-shadow: none;
-  -webkit-text-stroke: 0;
-  paint-order: unset;
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-container {
+  gap: clamp(0.5rem, 1.5dvh, 1rem);
+  min-height: 100dvh;
+  max-height: 100dvh;
+  justify-content: center;
+  position: relative;
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-question,
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-header {
+  position: absolute;
+  top: clamp(0.75rem, 2dvh, 1.25rem);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(920px, 92vw);
+  max-width: min(920px, 92vw);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-question-box {
+  width: min(920px, 92vw);
+  flex: 0 1 auto;
+  min-height: var(--hk-host-preview-box-min);
+  max-height: var(--hk-host-preview-box-max);
+  padding: clamp(3rem, 7dvh, 3.75rem) clamp(1.5rem, 3vw, 2.25rem) clamp(1.25rem, 2.5dvh, 1.75rem);
+  gap: clamp(0.75rem, 2dvh, 1.25rem);
+  border: 2px solid var(--hk-border);
+  border-radius: 20px;
+  background: var(--hk-card);
+  box-shadow: var(--hk-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-preview.has-image .host-mcq-preview-question-box {
+  min-height: min(68dvh, 620px);
+  max-height: min(calc(100dvh - 7rem), 820px);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--hk-host-preview-image-max);
+  margin: 0;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-image {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: var(--hk-host-preview-image-max);
+  object-fit: contain;
+  border-radius: 14px;
+  border: 2px solid var(--hk-border);
+  background: var(--hk-paper);
+}
+
 body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-question {
-  font-family: var(--hk-font);
-  font-weight: 800;
-  font-size: clamp(1.85rem, 3.2vw, 2.35rem);
-  line-height: 1.35;
-  color: var(--hk-navy);
-  text-shadow: none;
+  font-size: clamp(1.5rem, 1.75vw + 0.75vh, 2.25rem);
+  flex: 0 0 auto;
 }
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-question-box,
-body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-question-box,
 body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-question-box {
   border: 2px solid var(--hk-border);
   border-radius: 20px;
@@ -1920,20 +2146,78 @@ body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-quest
   box-shadow: var(--hk-shadow);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: var(--hk-host-question-box-max);
+  padding: clamp(2.75rem, 6dvh, 3.25rem) clamp(1.15rem, 2.5vw, 1.75rem) clamp(0.85rem, 1.8dvh, 1.25rem);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: clamp(0.35rem, 1dvh, 0.75rem);
+  overflow: hidden;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-header,
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-header {
+  width: 100%;
+  flex: 0 0 auto;
+  text-align: center;
+  padding-bottom: clamp(0.15rem, 0.5dvh, 0.35rem);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question.has-image .host-mcq-question-box,
+body.hk-elderly #app.lango-host #screen-host-quiz-results.has-image .host-mcq-result-question-box {
+  max-height: var(--hk-host-question-box-max-image);
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-title,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-title,
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-title {
+  font-family: var(--hk-font);
+  font-weight: 800;
+  font-size: var(--hk-host-title);
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  -webkit-text-stroke: 0;
+  paint-order: unset;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-question,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-question,
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-question,
+body.hk-elderly #screen-host-quiz-results .host-quiz-results-question {
+  font-family: var(--hk-font);
+  font-weight: 800;
+  font-size: var(--hk-host-question);
+  line-height: 1.3;
+  color: var(--hk-navy);
+  text-shadow: none;
+  text-align: center;
+  width: 100%;
+  margin: 0;
 }
 
 body.hk-elderly #screen-host-quiz-question .host-mcq-points,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-points,
 body.hk-elderly #screen-host-quiz-results .host-mcq-result-points {
-  top: 1.15rem;
-  left: 1.5rem;
-  padding: 0.45rem 1rem;
+  position: absolute;
+  top: clamp(0.75rem, 1.8dvh, 1.15rem);
+  left: clamp(1rem, 2vw, 1.5rem);
+  margin: 0;
+  padding: 0.35rem 0.85rem;
   border-radius: 999px;
   background: var(--hk-highlight);
   color: var(--hk-navy);
   font-family: var(--hk-font);
-  font-size: clamp(1.2rem, 2.2vw, 1.5rem);
+  font-size: clamp(0.95rem, 1.2vw + 0.2vh, 1.25rem);
   font-weight: 800;
   text-shadow: none;
+  z-index: 1;
 }
 
 body.hk-elderly #screen-host-quiz-question .host-mcq-sparkle,
@@ -1952,48 +2236,100 @@ body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-progress > 
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-options,
 body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-options {
-  gap: 1.25rem;
+  width: 100%;
+  padding: 0.35rem 0 0.5rem;
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-options .option,
-body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options .option {
-  min-height: clamp(6.5rem, 16vh, 9rem);
-  padding: 1rem 1.25rem 1.15rem;
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-options.options-kahoot-grid,
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  flex: 0 1 auto;
+  min-height: var(--hk-host-options-min);
+  max-height: var(--hk-host-options-max);
+  width: 100%;
+  gap: clamp(0.55rem, 1.3dvh, 1rem);
+  align-content: stretch;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  height: 100%;
+  padding: clamp(0.35rem, 1dvh, 0.85rem) clamp(0.5rem, 1.2vw, 0.85rem);
   border: 2px solid rgba(255, 255, 255, 0.55);
-  border-radius: 20px;
+  border-radius: 18px;
   font-family: var(--hk-font);
   font-weight: 800;
-  font-size: clamp(1.4rem, 2.6vw, 1.85rem);
-  line-height: 1.25;
   color: #fff;
+  text-align: center;
   text-shadow: none;
-  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12);
+  overflow: hidden;
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-options .option-shape,
-body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options .option-shape {
-  font-size: clamp(2rem, 4vw, 2.75rem);
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option .label,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option .label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option-index,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font-weight: 900;
+  font-size: var(--hk-host-letter);
   line-height: 1;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.2));
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-options .option[data-index="0"],
-body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options .option[data-index="0"] {
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option-copy,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option-copy {
+  color: #fff;
+  font-weight: 800;
+  font-size: var(--hk-host-option-copy);
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option[data-index="0"],
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option[data-index="0"] {
   background: var(--kahoot-red);
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-options .option[data-index="1"],
-body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options .option[data-index="1"] {
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option[data-index="1"],
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option[data-index="1"] {
   background: var(--kahoot-blue);
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-options .option[data-index="2"],
-body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options .option[data-index="2"] {
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option[data-index="2"],
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option[data-index="2"] {
   background: var(--kahoot-yellow);
 }
 
-body.hk-elderly #screen-host-quiz-question .host-mcq-options .option[data-index="3"],
-body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options .option[data-index="3"] {
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option[data-index="3"],
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option[data-index="3"] {
   background: var(--kahoot-green);
 }
 
@@ -2066,11 +2402,16 @@ body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-next-btn .h
 /* Host MCQ timer — header row, calm card style */
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-container {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, min(1100px, 100%)) minmax(9rem, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, min(1040px, 100%)) minmax(5.5rem, 1fr);
+  grid-template-rows: auto auto auto;
   align-items: center;
-  column-gap: 16px;
-  row-gap: 14px;
+  align-content: center;
+  column-gap: 12px;
+  row-gap: clamp(0.35rem, 1dvh, 0.75rem);
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: calc(100dvh - clamp(4.75rem, 10dvh, 6rem));
+  justify-content: center;
 }
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-progress {
@@ -2082,7 +2423,7 @@ body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-header {
   grid-column: 1 / 3;
   grid-row: 2;
   width: 100%;
-  min-height: clamp(5.5rem, 12vh, 7rem);
+  min-height: 0;
   padding-right: 0.5rem;
   box-sizing: border-box;
 }
@@ -2090,8 +2431,33 @@ body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-header {
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-main {
   grid-column: 1 / -1;
   grid-row: 3;
-  width: min(1100px, 100%);
+  width: min(1040px, 100%);
   justify-self: center;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: visible;
+  gap: clamp(0.55rem, 1.3dvh, 1rem);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-options {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-status {
+  position: fixed;
+  left: 50%;
+  bottom: calc(clamp(4.75rem, 10dvh, 6rem) + 0.25rem);
+  transform: translateX(-50%);
+  z-index: 4;
+  width: auto;
+  max-width: min(90vw, 520px);
+  margin: 0;
+  pointer-events: none;
 }
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-countdown {
@@ -2104,9 +2470,9 @@ body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-countdown {
   grid-row: 2;
   justify-self: end;
   align-self: center;
-  width: clamp(6rem, 10vw, 7.5rem);
-  height: clamp(6rem, 10vw, 7.5rem);
-  border: 5px solid var(--hk-border);
+  width: clamp(4.5rem, 8vw, 6rem);
+  height: clamp(4.5rem, 8vw, 6rem);
+  border: 4px solid var(--hk-border);
   border-radius: 999px;
   margin-right: clamp(0px, 1vw, 12px);
   z-index: 2;
@@ -2116,28 +2482,395 @@ body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-countdown {
 }
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-countdown span {
-  font-size: clamp(3rem, 5.5vw, 3.85rem);
+  font-size: clamp(2rem, 4vw + 0.5vh, 2.75rem);
   color: var(--hk-accent);
   text-shadow: none;
 }
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-question-box {
-  padding: clamp(3.25rem, 6vh, 4rem) clamp(1.75rem, 3.5vw, 2.5rem) clamp(1.75rem, 3.5vw, 2.5rem);
-  min-height: min(400px, 50vh);
+  flex: 0 1 auto;
+  min-height: 0;
 }
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question.has-image .host-mcq-question {
-  padding-right: 0.5rem;
+  padding-right: 0;
+  max-width: 100%;
 }
 
-body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-image {
-  width: min(480px, 58vw);
-  height: min(280px, 34vh);
-  max-width: none;
-  max-height: none;
-  border-radius: 16px;
-  border: 1px solid var(--hk-border);
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-image-wrap {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-image,
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-image {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: var(--hk-host-image-max);
+  object-fit: contain;
+  border-radius: 14px;
+  border: 2px solid var(--hk-border);
   background: var(--hk-paper);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-image-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: var(--hk-host-image-max);
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-image-wrap[hidden],
+body.hk-elderly #app.lango-host #screen-host-quiz-preview .host-mcq-preview-image-wrap[hidden] {
+  display: none !important;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  flex: 1 1 auto;
+  gap: clamp(0.75rem, 1.6dvh, 1.1rem);
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-left {
+  position: static;
+  width: 100%;
+  height: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(0.65rem, 1.5dvh, 1rem);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-question-box,
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-distribution,
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-correct-board {
+  width: 100%;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-question-box {
+  flex: 0 0 auto;
+  min-height: clamp(9rem, 18dvh, 13rem);
+  max-height: min(34dvh, 320px);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-correct {
+  width: 100%;
+  margin-top: auto;
+  padding: clamp(0.55rem, 1.1dvh, 0.85rem) clamp(0.75rem, 1.4vw, 1rem);
+  border-radius: 14px;
+  background: rgba(70, 209, 117, 0.12);
+  border: 2px solid rgba(70, 209, 117, 0.35);
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  box-sizing: border-box;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-distribution {
+  position: static;
+  left: auto;
+  top: auto;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: clamp(0.75rem, 1.5dvh, 1rem) clamp(0.85rem, 1.8vw, 1.15rem);
+  border: 2px solid var(--hk-border);
+  border-radius: 20px;
+  background: var(--hk-card);
+  box-shadow: var(--hk-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.55rem, 1.2dvh, 0.85rem);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-distribution-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(7.5rem, auto) minmax(0, 1fr);
+  gap: clamp(0.75rem, 1.8vw, 1.35rem);
+  align-items: center;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-correct-board {
+  width: 100%;
+  height: auto;
+  min-height: min(16dvh, 160px);
+  max-height: none;
+  border-radius: 20px;
+  border-width: 2px;
+  border-color: var(--hk-border);
+  padding: clamp(0.85rem, 1.8dvh, 1.25rem);
+  box-shadow: var(--hk-shadow);
+  flex: 0 1 auto;
+  background: var(--hk-card);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-board-header {
+  flex: 0 0 auto;
+  min-height: 0;
+  padding-bottom: clamp(0.45rem, 1dvh, 0.75rem);
+  margin-bottom: clamp(0.35rem, 0.8dvh, 0.55rem);
+  border-bottom: 2px solid rgba(70, 23, 143, 0.1);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.35rem, 0.8dvh, 0.65rem);
+  align-content: start;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-grid:has(.host-mcq-correct-empty) {
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-empty {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: clamp(4.5rem, 10dvh, 7rem);
+  margin: 0;
+  padding: clamp(0.75rem, 1.5dvh, 1.25rem);
+  border-radius: 14px;
+  background: var(--hk-paper);
+  border: 2px dashed rgba(70, 23, 143, 0.16);
+  color: var(--hk-muted);
+  font-family: var(--hk-font);
+  font-size: clamp(1rem, 1.1vw + 0.3vh, 1.25rem);
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+}
+
+@media (min-width: 1100px) {
+  body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 30%);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "question correct"
+      "distribution correct";
+    align-items: stretch;
+    gap: clamp(0.75rem, 1.4dvh, 1rem);
+  }
+
+  body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-left {
+    display: contents;
+  }
+
+  body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-question-box {
+    grid-area: question;
+    max-height: min(28dvh, 260px);
+  }
+
+  body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-distribution {
+    grid-area: distribution;
+    min-height: 0;
+  }
+
+  body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-correct-board {
+    grid-area: correct;
+    width: auto;
+    min-height: 0;
+    height: auto;
+  }
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-distribution-title {
+  font-family: var(--hk-font);
+  font-size: clamp(1.15rem, 1.35vw + 0.35vh, 1.55rem);
+  font-weight: 900;
+  color: var(--hk-accent);
+  text-shadow: none;
+  -webkit-text-stroke: 0;
+  margin: 0;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-board-header h3 {
+  color: var(--hk-navy);
+  font-family: var(--hk-font);
+  font-size: clamp(1.35rem, 2vw + 0.4vh, 1.85rem);
+  font-weight: 900;
+  text-shadow: none;
+  margin: 0;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-board-header p {
+  color: var(--hk-muted);
+  font-family: var(--hk-font);
+  font-size: clamp(0.95rem, 1.05vw + 0.25vh, 1.15rem);
+  font-weight: 700;
+  margin: 0.2rem 0 0;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-donut {
+  width: clamp(9rem, 14vw + 1.5vh, 12.5rem);
+  height: clamp(9rem, 14vw + 1.5vh, 12.5rem);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-donut-label {
+  font-family: var(--hk-font);
+  font-size: clamp(0.85rem, 1vw + 0.2vh, 1.05rem);
+  font-weight: 800;
+  color: var(--hk-muted);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-donut strong {
+  font-family: var(--hk-font);
+  font-size: clamp(1.45rem, 1.8vw + 0.4vh, 2rem);
+  font-weight: 900;
+  color: var(--hk-accent);
+  text-shadow: none;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-correct p {
+  margin: 0;
+  color: var(--hk-navy);
+  font-family: var(--hk-font);
+  font-size: clamp(1.05rem, 1.2vw + 0.35vh, 1.45rem);
+  font-weight: 800;
+  line-height: 1.35;
+  text-shadow: none;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-check {
+  width: clamp(1.75rem, 3vw, 2.25rem);
+  height: clamp(1.75rem, 3vw, 2.25rem);
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  border-color: var(--hk-border);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(0.45rem, 1dvh, 0.75rem);
+  align-content: start;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(0.25rem, 0.6dvh, 0.45rem);
+  padding: clamp(0.45rem, 1dvh, 0.65rem) clamp(0.55rem, 1.1vw, 0.75rem);
+  border-radius: 12px;
+  background: var(--hk-paper);
+  border: 2px solid rgba(70, 23, 143, 0.08);
+  box-sizing: border-box;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-item--correct {
+  border-color: rgba(70, 209, 117, 0.45);
+  background: rgba(70, 209, 117, 0.1);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-item strong {
+  align-self: flex-end;
+  color: var(--hk-muted);
+  font-family: var(--hk-font);
+  font-size: clamp(0.8rem, 0.9vw + 0.18vh, 0.98rem);
+  font-weight: 700;
+  text-shadow: none;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-label {
+  color: var(--hk-navy);
+  font-family: var(--hk-font);
+  font-size: clamp(0.95rem, 1vw + 0.28vh, 1.2rem);
+  font-weight: 800;
+  line-height: 1.3;
+  text-shadow: none;
+  gap: clamp(0.35rem, 0.8vw, 0.55rem);
+  width: 100%;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-dot {
+  width: clamp(0.85rem, 1.2vw, 1.1rem);
+  height: clamp(0.85rem, 1.2vw, 1.1rem);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-letter {
+  flex: 0 0 auto;
+  min-width: 1.25rem;
+  color: var(--hk-accent);
+  font-weight: 900;
+  font-size: var(--hk-host-letter);
+  line-height: 1;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-copy {
+  min-width: 0;
+  color: var(--hk-navy);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-distribution-body {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  body.hk-elderly #screen-host-quiz-results .host-mcq-legend {
+    grid-template-columns: 1fr;
+  }
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  margin: 0 0.25rem;
+  color: var(--hk-accent);
+  font-family: var(--hk-font);
+  font-size: var(--hk-host-letter);
+  font-weight: 900;
+  line-height: 1;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-highlight,
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-copy.host-mcq-correct-highlight {
+  color: var(--kahoot-green);
+  font-weight: 800;
+  -webkit-text-stroke: 0;
+  paint-order: unset;
+  text-shadow: none;
 }
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-container {

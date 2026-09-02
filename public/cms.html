@@ -1,22 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" data-cms-theme="light" data-cms-text-size="md">
+<html lang="en" data-cms-theme="light" data-cms-text-size="lg">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lango - Course CMS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/cms.css" />
   <script>
     (function applyCmsThemeEarly() {
       document.documentElement.dataset.cmsTheme = "light";
-      try {
-        const textSize = localStorage.getItem("lango_cms_text_size");
-        if (textSize) document.documentElement.dataset.cmsTextSize = textSize;
-      } catch {
-        /* ignore */
-      }
+      document.documentElement.dataset.cmsTextSize = "lg";
     })();
   </script>
 </head>
@@ -31,8 +26,9 @@
         </a>
         <div class="cms-topbar-actions">
           <nav class="cms-nav-group cms-nav-main" aria-label="CMS navigation">
-            <a class="cms-link cms-link-nav" href="#" id="nav-cms-dashboard" data-screen="dashboard">Dashboard</a>
+            <a class="cms-link cms-link-nav" href="#" id="nav-cms-home" data-screen="home">Home</a>
             <a class="cms-link cms-link-nav" href="#" id="nav-cms-courses" data-screen="list">My courses</a>
+            <a class="cms-link cms-link-nav" href="#" id="nav-cms-community" data-screen="community">Community</a>
           </nav>
           <div class="cms-nav-group cms-nav-tools" aria-label="Tools">
             <a class="cms-link" href="/host.html">Host</a>
@@ -44,11 +40,6 @@
               </div>
             </details>
             <a class="cms-link" href="/config.html">Notifications</a>
-          </div>
-          <div class="cms-text-size-control" role="group" aria-label="Text size">
-            <button type="button" class="cms-text-size-btn" id="btn-cms-text-smaller" aria-label="Smaller text" title="Smaller text">−</button>
-            <span class="cms-text-size-label" id="cms-text-size-label" aria-live="polite">M</span>
-            <button type="button" class="cms-text-size-btn" id="btn-cms-text-larger" aria-label="Larger text" title="Larger text">+</button>
           </div>
           <div class="cms-nav-group cms-nav-account">
             <span class="cms-teacher" id="cms-teacher-label" hidden></span>
@@ -90,6 +81,50 @@
     </section>
 
 
+    <section id="screen-cms-home" class="screen">
+      <div class="cms-home-shell">
+        <header class="cms-home-intro">
+          <p class="cms-home-kicker">Course CMS</p>
+          <h1>What do you want to do?</h1>
+          <p class="hint" id="cms-home-greeting">Pick a task below.</p>
+        </header>
+        <div class="cms-home-grid" id="cms-home-grid" role="list">
+          <button type="button" class="cms-home-card" data-home-action="new-course" role="listitem">
+            <span class="cms-home-card-icon" aria-hidden="true">+</span>
+            <span class="cms-home-card-body">
+              <span class="cms-home-card-title">Create a new course</span>
+              <span class="cms-home-card-desc">Start from scratch and add sections and exercises.</span>
+            </span>
+            <span class="cms-home-card-arrow" aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="cms-home-card" data-home-action="courses" role="listitem">
+            <span class="cms-home-card-icon" aria-hidden="true">▦</span>
+            <span class="cms-home-card-body">
+              <span class="cms-home-card-title">Edit my courses</span>
+              <span class="cms-home-card-desc">Open your library, import backups, or share to Community.</span>
+            </span>
+            <span class="cms-home-card-arrow" aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="cms-home-card" data-home-action="community" role="listitem">
+            <span class="cms-home-card-icon" aria-hidden="true">◎</span>
+            <span class="cms-home-card-body">
+              <span class="cms-home-card-title">Browse Community</span>
+              <span class="cms-home-card-desc">Find public courses from other teachers and add them to My courses.</span>
+            </span>
+            <span class="cms-home-card-arrow" aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="cms-home-card" data-home-action="progress" role="listitem">
+            <span class="cms-home-card-icon" aria-hidden="true">▤</span>
+            <span class="cms-home-card-body">
+              <span class="cms-home-card-title">Track class progress</span>
+              <span class="cms-home-card-desc">See where each class is in your course journeys.</span>
+            </span>
+            <span class="cms-home-card-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
     <section id="screen-cms-dashboard" class="screen">
       <header class="cms-header cms-dashboard-header">
         <div>
@@ -128,6 +163,38 @@
       <div id="cms-course-list" class="cms-course-list"></div>
       <p class="status-msg" id="cms-list-status"></p>
       <p class="error" id="cms-list-error"></p>
+    </section>
+
+    <section id="screen-cms-community" class="screen">
+      <header class="cms-header">
+        <div>
+          <h1>Community</h1>
+          <p class="hint">Browse public courses from other teachers, then add them to My courses.</p>
+        </div>
+      </header>
+      <div class="cms-community-toolbar">
+        <label class="field cms-community-search-field">
+          <span class="visually-hidden">Search community courses</span>
+          <input type="search" id="cms-community-search" placeholder="Search title, author, or description" />
+        </label>
+        <label class="field cms-community-filter">
+          <span>Language</span>
+          <select id="cms-community-lang" aria-label="Filter by language">
+            <option value="all">All languages</option>
+          </select>
+        </label>
+        <label class="field cms-community-filter">
+          <span>Sort</span>
+          <select id="cms-community-sort" aria-label="Sort community courses">
+            <option value="featured">Featured</option>
+            <option value="newest">Newest</option>
+            <option value="popular">Most added</option>
+          </select>
+        </label>
+      </div>
+      <div id="cms-community-list" class="cms-community-list"></div>
+      <p class="status-msg" id="cms-community-status"></p>
+      <p class="error" id="cms-community-error"></p>
     </section>
 
     <section id="screen-cms-edit" class="screen">
@@ -177,12 +244,21 @@
               <p class="status-msg" id="cms-classes-status"></p>
             </div>
           </div>
+          <div class="cms-community-share-row" id="cms-community-share-row">
+            <label class="cms-ai-type-check">
+              <input type="checkbox" id="cms-community-featured" />
+              Feature this listing in Community
+            </label>
+            <p class="hint" id="cms-community-share-status">Share a snapshot of this course so other teachers can add it to My courses.</p>
+          </div>
           <div class="cms-actions-row cms-studio-dock">
             <button type="button" class="btn primary cms-cta" id="btn-save-details">
               <span>Save details</span>
               <span class="cms-btn-glyph" aria-hidden="true">→</span>
             </button>
             <button type="button" class="btn secondary" id="btn-export-course">Export course</button>
+            <button type="button" class="btn secondary cms-community-share-btn" id="btn-community-share">Share to Community</button>
+            <button type="button" class="btn secondary" id="btn-community-unshare" hidden>Unshare</button>
             <button type="button" class="btn secondary cms-danger" id="btn-delete-course">Delete course</button>
           </div>
           <p class="error" id="cms-details-error"></p>
@@ -261,11 +337,16 @@
 
         <div id="cms-exercises-view" class="cms-subview" hidden>
           <h2 class="cms-subview-title" id="cms-exercises-section-title">Section exercises</h2>
+          <p class="hint cms-section-duration-estimate" id="cms-exercises-section-duration" hidden aria-live="polite"></p>
           <div class="cms-playlist-head">
             <span class="hint">Drag the handle or use Move to reorder. Edit opens the questions.</span>
             <a class="cms-link cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener">Preview all student layouts</a>
           </div>
-          <div id="cms-exercise-list" class="cms-exercise-list"></div>
+          <div class="cms-exercise-edit-layout" id="cms-exercise-edit-layout">
+            <div class="cms-exercise-edit-main" id="cms-exercise-edit-main">
+              <div id="cms-exercise-list" class="cms-exercise-list"></div>
+            </div>
+          </div>
           <div class="cms-ai-panel" id="cms-ai-panel">
             <div class="cms-ai-entry-chooser" id="cms-ai-entry-chooser" hidden>
               <p class="cms-ai-label">Generate with AI</p>
@@ -361,6 +442,13 @@
                     </label>
                   </div>
                 </div>
+                <div class="cms-ai-settings-grid cms-ai-speak-lang-row">
+                  <label class="field cms-ai-field">
+                    <span>Question speech language</span>
+                    <select id="cms-ai-speak-lang" aria-label="Question speech language"></select>
+                    <p class="hint cms-ai-speak-lang-hint">Questions, answers, and AI speech during gameplay all use this language.</p>
+                  </label>
+                </div>
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="2" hidden>
@@ -417,9 +505,9 @@
               </div>
 
               <div class="cms-ai-step-panel" data-step-panel="3" hidden>
-                <div class="cms-ai-review-layout">
+                <div class="cms-ai-review-layout cms-ai-review-layout--solo">
                   <div class="cms-ai-review-main">
-                    <p class="hint cms-ai-intro">Review and edit before publishing.</p>
+                    <p class="hint cms-ai-intro">Review and edit before publishing. Use the Lango assistant (bottom right) to revise questions.</p>
                     <div id="cms-ai-review-assets" class="cms-ai-review-assets" hidden></div>
                     <div class="cms-ai-preview-toolbar" id="cms-ai-preview-toolbar" hidden>
                       <nav class="cms-ai-preview-nav" id="cms-ai-preview-nav" aria-label="Jump to section"></nav>
@@ -436,38 +524,6 @@
                       </div>
                     </details>
                   </div>
-                  <aside class="cms-ai-agent" id="cms-ai-agent" aria-label="Review assistant">
-                    <header class="cms-ai-agent-head">
-                      <div>
-                        <h4 class="cms-ai-agent-title">Review assistant</h4>
-                        <p class="cms-ai-agent-lead">Highlight text on the left, then ask for edits here.</p>
-                      </div>
-                      <button type="button" class="cms-row-btn cms-row-btn-quiet" id="btn-cms-ai-agent-undo" hidden>Undo last edit</button>
-                    </header>
-                    <div class="cms-ai-agent-chat">
-                      <div class="cms-ai-agent-log" id="cms-ai-agent-log" aria-live="polite"></div>
-                      <div class="cms-ai-agent-footer">
-                        <div class="cms-ai-agent-selection" id="cms-ai-agent-selection" hidden>
-                          <div class="cms-ai-agent-selection-head">
-                            <span class="cms-ai-agent-selection-label">Selected text</span>
-                            <button type="button" class="cms-ai-agent-selection-clear" id="btn-cms-ai-agent-clear-selection" aria-label="Clear selected text">×</button>
-                          </div>
-                          <blockquote class="cms-ai-agent-selection-text" id="cms-ai-agent-selection-text"></blockquote>
-                        </div>
-                        <form class="cms-ai-agent-compose" id="cms-ai-agent-form">
-                          <label class="visually-hidden" for="cms-ai-agent-input">Revision request</label>
-                          <div class="cms-ai-agent-input-row">
-                            <textarea id="cms-ai-agent-input" class="cms-ai-agent-input" rows="1" placeholder="Ask about highlighted text or type a revision…"></textarea>
-                            <button type="submit" class="cms-ai-agent-send" id="btn-cms-ai-agent-apply" aria-label="Send message">
-                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M3.4 20.6 21 12 3.4 3.4l2.8 7.2L17 11l-10.8 1.4 2.8 7.2Z" fill="currentColor"/></svg>
-                            </button>
-                          </div>
-                          <p class="hint cms-ai-agent-compose-hint">Enter to send · Shift+Enter for new line</p>
-                        </form>
-                      </div>
-                    </div>
-                  </aside>
-                  <button type="button" class="cms-ai-selection-add" id="cms-ai-selection-add" hidden>Add to chat</button>
                 </div>
               </div>
 
@@ -526,6 +582,85 @@
     </div>
   </div>
 
+  <div id="cms-toast" class="cms-toast cms-toast--success" role="status" aria-live="polite" aria-atomic="true" hidden>
+    <span class="cms-toast-icon" aria-hidden="true">✓</span>
+    <span class="cms-toast-message" id="cms-toast-message"></span>
+  </div>
+
+  <div class="cms-community-preview" id="cms-community-preview" hidden>
+    <div class="cms-community-preview-backdrop" id="cms-community-preview-backdrop"></div>
+    <div class="cms-community-preview-card" role="dialog" aria-modal="true" aria-labelledby="cms-community-preview-title">
+      <button type="button" class="cms-icon-btn cms-community-preview-close" id="btn-community-preview-close" aria-label="Close preview">×</button>
+      <p class="cms-community-preview-kicker" id="cms-community-preview-kicker">Community course</p>
+      <h2 id="cms-community-preview-title">Course</h2>
+      <p class="hint" id="cms-community-preview-meta"></p>
+      <p id="cms-community-preview-copy"></p>
+      <ul class="cms-community-preview-sections" id="cms-community-preview-sections"></ul>
+      <div class="cms-community-preview-actions">
+        <button type="button" class="btn primary cms-cta" id="btn-community-preview-add">
+          <span>Add to My courses</span>
+          <span class="cms-btn-glyph" aria-hidden="true">→</span>
+        </button>
+        <button type="button" class="btn secondary" id="btn-community-preview-report">Report</button>
+      </div>
+      <p class="error" id="cms-community-preview-error"></p>
+    </div>
+  </div>
+
+  <div class="cms-asset-preview" id="cms-asset-preview" hidden>
+    <div class="cms-asset-preview-backdrop" id="cms-asset-preview-backdrop"></div>
+    <div class="cms-asset-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="cms-asset-preview-title">
+      <button type="button" class="cms-icon-btn cms-asset-preview-close" id="btn-cms-asset-preview-close" aria-label="Close preview">×</button>
+      <p class="cms-asset-preview-title" id="cms-asset-preview-title">Material image</p>
+      <img class="cms-asset-preview-img" id="cms-asset-preview-img" alt="" />
+      <div class="cms-asset-preview-actions">
+        <button type="button" class="btn primary small" id="btn-cms-asset-preview-attach" hidden>Attach to question</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cms-global-agent-dock" id="cms-global-agent-dock" hidden>
+    <aside class="cms-ai-agent cms-global-agent-panel" id="cms-global-agent" hidden aria-label="Lango CMS assistant">
+      <header class="cms-ai-agent-head">
+        <div>
+          <p class="cms-global-agent-kicker" id="cms-global-agent-mode">CMS assistant</p>
+          <h4 class="cms-ai-agent-title" id="cms-global-agent-title">Lango assistant</h4>
+          <p class="cms-ai-agent-lead" id="cms-global-agent-lead">Ask anything about this page, or highlight text to revise exercises.</p>
+        </div>
+        <div class="cms-global-agent-head-actions">
+          <button type="button" class="cms-row-btn cms-row-btn-quiet" id="btn-cms-global-agent-undo" hidden>Undo</button>
+          <button type="button" class="cms-icon-btn cms-global-agent-close" id="btn-cms-global-agent-close" aria-label="Close assistant">×</button>
+        </div>
+      </header>
+      <div class="cms-ai-agent-chat">
+        <div class="cms-ai-agent-log" id="cms-global-agent-log" aria-live="polite"></div>
+        <div class="cms-ai-agent-footer">
+          <div class="cms-ai-agent-selection" id="cms-global-agent-selection" hidden>
+            <div class="cms-ai-agent-selection-head">
+              <span class="cms-ai-agent-selection-label">Selected text</span>
+              <button type="button" class="cms-ai-agent-selection-clear" id="btn-cms-global-agent-clear-selection" aria-label="Clear selected text">×</button>
+            </div>
+            <blockquote class="cms-ai-agent-selection-text" id="cms-global-agent-selection-text"></blockquote>
+          </div>
+          <form class="cms-ai-agent-compose" id="cms-global-agent-form">
+            <label class="visually-hidden" for="cms-global-agent-input">Assistant message</label>
+            <div class="cms-ai-agent-input-row">
+              <textarea id="cms-global-agent-input" class="cms-ai-agent-input" rows="1" placeholder="Ask Lango anything…"></textarea>
+              <button type="submit" class="cms-ai-agent-send" id="btn-cms-global-agent-apply" aria-label="Send message">
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M3.4 20.6 21 12 3.4 3.4l2.8 7.2L17 11l-10.8 1.4 2.8 7.2Z" fill="currentColor"/></svg>
+              </button>
+            </div>
+            <p class="hint cms-ai-agent-compose-hint">Enter to send · Shift+Enter for new line</p>
+          </form>
+        </div>
+      </div>
+    </aside>
+    <button type="button" class="btn primary cms-global-agent-toggle" id="btn-cms-global-agent-toggle" aria-expanded="false" aria-controls="cms-global-agent">
+      <span class="cms-global-agent-toggle-label">Ask Lango</span>
+    </button>
+    <button type="button" class="cms-ai-selection-add cms-global-selection-add" id="cms-global-selection-add" hidden>Add to chat</button>
+  </div>
+
   <template id="tpl-section-editor">
     <article class="cms-section-card">
       <div class="cms-section-media">
@@ -572,11 +707,14 @@
         </header>
         <footer class="cms-section-footer">
           <div class="cms-section-outline-wrap">
-            <span class="hint cms-section-exercise-count"></span>
+            <div class="cms-section-meta-row">
+              <span class="hint cms-section-exercise-count"></span>
+              <span class="hint cms-section-duration-estimate" hidden></span>
+            </div>
             <div class="cms-section-outline" aria-label="Exercises in this section"></div>
           </div>
           <div class="cms-section-footer-actions">
-            <button type="button" class="btn primary small cms-manage-exercises">Open</button>
+            <button type="button" class="btn primary small cms-manage-exercises">Edit</button>
           </div>
         </footer>
       </div>

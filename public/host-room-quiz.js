@@ -6,8 +6,10 @@ let roomQuizFastMode = false;
 const HOST_MCQ_OPTION_LABELS = ["A.", "B.", "C.", "D.", "E.", "F."];
 const HOST_MCQ_OPTION_COLORS = ["#15c4f8", "#45c937", "#f33b3d", "#eab308", "#a855f7", "#14b8a6"];
 
+const HOST_ELDERLY_OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
+
 function hostMcqOptionLabels() {
-  return isHkElderlyVariant() ? OPTION_LABELS : HOST_MCQ_OPTION_LABELS;
+  return isHkElderlyVariant() ? HOST_ELDERLY_OPTION_LABELS : HOST_MCQ_OPTION_LABELS;
 }
 
 function hostMcqOptionColors() {
@@ -849,13 +851,16 @@ function renderHostQuizPreview(data, { transition = true } = {}) {
   showScreen("host-quiz-preview", { transition });
 
   const points = data.points || 300;
+  const previewScreen = $("#screen-host-quiz-preview");
+  const questionImageUrl = resolvedMediaUrl(data.image);
+  previewScreen?.classList.toggle("has-image", !!questionImageUrl);
   $("#host-quiz-preview-title").textContent = uiT("mcq.questionN", { n: data.questionIndex + 1 });
   $("#host-quiz-preview-points").textContent = uiT("mcq.pts", { n: points });
   $("#host-quiz-preview-question-text").textContent = data.text || "";
   setQuestionImage(
     $("#host-quiz-preview-image"),
     $("#host-quiz-preview-image-wrap"),
-    resolvedMediaUrl(data.image)
+    questionImageUrl
   );
 }
 
@@ -919,7 +924,54 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
   renderOptions($("#host-quiz-options"), data.options || [], {
     clickable: false,
     optionLabels: hostMcqOptionLabels(),
+    kahootGrid: isHkElderlyVariant(),
   });
+  // #region agent log
+  if (isHkElderlyVariant()) {
+    requestAnimationFrame(() => {
+      const optionsEl = $("#host-quiz-options");
+      const firstOption = optionsEl?.querySelector(".option");
+      const lastOption = optionsEl?.querySelector('.option[data-index="3"]');
+      const mainEl = $("#screen-host-quiz-question .host-mcq-main");
+      const optionRect = firstOption?.getBoundingClientRect();
+      const lastOptionRect = lastOption?.getBoundingClientRect();
+      const mainRect = mainEl?.getBoundingClientRect();
+      const footerEl = $("#screen-host-quiz-question .host-mcq-footer");
+      const footerRect = footerEl?.getBoundingClientRect();
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+        body: JSON.stringify({
+          sessionId: "d0607f",
+          runId: "post-fix-centered",
+          hypothesisId: "H1-H6",
+          location: "host-room-quiz.js:renderHostQuizQuestion",
+          message: "Elderly MCQ layout metrics",
+          data: {
+            viewportHeight: window.innerHeight,
+            optionCount: optionsEl?.querySelectorAll(".option").length || 0,
+            optionHeight: optionRect?.height || 0,
+            lastOptionBottom: lastOptionRect?.bottom || 0,
+            mainBottom: mainRect?.bottom || 0,
+            mainCenterY: mainRect ? mainRect.top + mainRect.height / 2 : 0,
+            viewportCenterY: window.innerHeight / 2,
+            footerTop: footerRect?.top || 0,
+            footerOverlap: lastOptionRect && footerRect ? lastOptionRect.bottom > footerRect.top : null,
+            letterSize: firstOption?.querySelector(".option-index")
+              ? getComputedStyle(firstOption.querySelector(".option-index")).fontSize
+              : null,
+            optionsMaxHeight: optionsEl ? getComputedStyle(optionsEl).maxHeight : null,
+            optionsMinHeight: optionsEl ? getComputedStyle(optionsEl).minHeight : null,
+            imageMaxHeight: $("#host-quiz-question-image")
+              ? getComputedStyle($("#host-quiz-question-image")).maxHeight
+              : null,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    });
+  }
+  // #endregion
   $("#host-quiz-answered-count").textContent = preparing
     ? uiT("mcq.startingShortly")
     : isFastMode
@@ -960,15 +1012,15 @@ function renderHostResultDistribution(question, answerCounts, correctIndex) {
   if (!legend) return;
   legend.innerHTML = options
     .map((option, index) => {
-      const label = hostMcqOptionLabels()[index] || `${index + 1}.`;
+      const label = hostMcqOptionLabels()[index] || String.fromCharCode(65 + index);
       const color = hostMcqOptionColors()[index] || "#94a3b8";
       const count = answerCounts[index] || 0;
       const isCorrect = index === correctIndex;
-      const optionText = `${label} ${escapeHtml(option)}`;
       return `<div class="host-mcq-legend-item${isCorrect ? " host-mcq-legend-item--correct" : ""}">
         <span class="host-mcq-legend-label">
           <span class="host-mcq-legend-dot" style="--dot-color: ${color}"></span>
-          <span${isCorrect ? ' class="host-mcq-correct-highlight"' : ""}>${optionText}</span>
+          <span class="host-mcq-legend-letter">${escapeHtml(label)}</span>
+          <span class="host-mcq-legend-copy${isCorrect ? " host-mcq-correct-highlight" : ""}">${escapeHtml(option)}</span>
         </span>
         <strong>${escapeHtml(resultResponseLabel(count))}</strong>
       </div>`;
@@ -1159,20 +1211,21 @@ function setupHostRoomQuizSocket(socket) {
     const q = roomQuizCurrentQuestion;
     const correctAnswer = q?.options?.[correctIndex] || "";
     const points = q?.points || (q?.fastMode ? 500 : 300);
+    const questionImageUrl = resolvedMediaUrl(q?.image);
+    $("#screen-host-quiz-results")?.classList.toggle("has-image", !!questionImageUrl);
     setQuestionImage(
       $("#host-quiz-results-image"),
       $("#host-quiz-results-image-wrap"),
-      resolvedMediaUrl(q?.image)
+      questionImageUrl
     );
     $("#host-quiz-results-points").textContent = uiT("mcq.pts", { n: points });
     $("#host-quiz-results-question-text").textContent = q?.text || "";
     const correctLabel = hostMcqOptionLabels()[correctIndex] || "";
     const correctAnswerEl = $("#host-quiz-results-correct-answer");
     if (correctAnswerEl) {
-      const answerText = `${correctLabel} ${correctAnswer}`.trim();
       const label = uiT("mcq.correctAnswer");
-      correctAnswerEl.innerHTML = answerText
-        ? `${escapeHtml(label)} <span class="host-mcq-correct-highlight">${escapeHtml(answerText)}</span>`
+      correctAnswerEl.innerHTML = correctAnswer
+        ? `${escapeHtml(label)} <span class="host-mcq-correct-letter">${escapeHtml(correctLabel)}</span> <span class="host-mcq-correct-highlight">${escapeHtml(correctAnswer)}</span>`
         : escapeHtml(label);
     }
     $("#host-quiz-results-bars").innerHTML = "";
@@ -1890,6 +1943,25 @@ function startHostRoomQuiz(roomId, exercise) {
   if (!quiz?.questions?.length) {
     return Promise.reject(new Error("No quiz questions in this exercise."));
   }
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      location: "host-room-quiz.js:startHostRoomQuiz",
+      message: "quiz payload for room game",
+      data: {
+        exerciseSpeakLangCode: exercise?.speakLangCode || null,
+        quizSpeakLangCode: quiz?.speakLangCode || null,
+        questionCount: quiz.questions.length,
+      },
+      timestamp: Date.now(),
+      hypothesisId: "H2",
+      runId: "speak-lang",
+    }),
+  }).catch(() => {});
+  // #endregion
 
   roomQuizFastMode = !!quiz.fastMode;
   const socket = getRoomQuizSocket();

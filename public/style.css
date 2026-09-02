@@ -15848,6 +15848,11 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
     0 12px 20px rgba(255, 140, 42, 0.28);
 }
 
+#app.lango-host #screen-host-fast-results .host-fast-result-button--next[hidden],
+#app.lango-host .host-leaderboard__next[hidden] {
+  display: none !important;
+}
+
 #app.lango-host .host-btn-face,
 #app.lango-host .waiting-dashboard-face {
   width: 36px;

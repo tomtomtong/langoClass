@@ -763,9 +763,11 @@ function groupClassesByLevel(classes) {
 function renderOptions(
   container,
   options,
-  { clickable, onClick, showBars, counts, correctIndex, optionLabels, shapeOnly } = {}
+  { clickable, onClick, showBars, counts, correctIndex, optionLabels, shapeOnly, listLayout, kahootGrid } = {}
 ) {
   const useShapes = shapeOnly || (isHkElderlyVariant() && clickable);
+  const useKahootGrid = Boolean((kahootGrid || listLayout) && isHkElderlyVariant());
+  container.classList.toggle("options-kahoot-grid", useKahootGrid);
   container.innerHTML = options
     .map((opt, i) => {
       const optionLabel = optionLabels?.[i] || OPTION_LABELS[i] || String.fromCharCode(65 + i);
@@ -775,9 +777,11 @@ function renderOptions(
       const classes = ["option"];
       if (clickable) classes.push("player-btn");
       if (correctIndex === i) classes.push("correct");
-      const labelInner = useShapes
-        ? `<span class="option-shape" aria-hidden="true">${optionLabel}</span>`
-        : `<span>${optionLabel} ${escapeHtml(opt)}</span>`;
+      const labelInner = useKahootGrid
+        ? `<span class="option-index">${escapeHtml(optionLabel)}</span><span class="option-copy">${escapeHtml(opt)}</span>`
+        : useShapes
+          ? `<span class="option-shape" aria-hidden="true">${optionLabel}</span>`
+          : `<span>${optionLabel} ${escapeHtml(opt)}</span>`;
       const ariaLabel = useShapes ? ` aria-label="${escapeHtml(opt)}"` : "";
       return `<button type="button" class="${classes.join(" ")}" data-index="${i}"${ariaLabel}${clickable ? "" : " disabled"}>
           ${bar}

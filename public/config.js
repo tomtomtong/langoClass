@@ -124,6 +124,27 @@ function updateAuthUi() {
   }
 }
 
+function renderTtsRouting(data) {
+  const routing = data.ttsRouting || {};
+  const classroom = routing.classroom || {};
+  const elderly = routing.elderly || {};
+  const classroomEl = $("#config-tts-classroom");
+  const elderlyEl = $("#config-tts-elderly");
+  const currentEl = $("#config-tts-current");
+  if (classroomEl) {
+    classroomEl.textContent = `${classroom.provider || "Inworld"} · ${classroom.model || "—"} · voice ${classroom.voice || "—"}`;
+  }
+  if (elderlyEl) {
+    elderlyEl.textContent = `${elderly.provider || "OpenRouter"} · ${elderly.model || "—"} · voice ${elderly.voice || "—"}`;
+  }
+  if (currentEl) {
+    currentEl.textContent =
+      routing.currentVariant === "elderly"
+        ? `HK Elderly (${elderly.provider || "OpenRouter"} ${elderly.model || "—"})`
+        : `Classroom (${classroom.provider || "Inworld"} ${classroom.model || "—"})`;
+  }
+}
+
 function renderConfig(data) {
   state.envDefault = data.envDefault || "";
   state.effectivePublicBaseUrl = data.effectivePublicBaseUrl || "";
@@ -135,6 +156,7 @@ function renderConfig(data) {
     null,
     2
   );
+  renderTtsRouting(data);
 
   const inworldConfigured = !!data.inworldApiKeyConfigured;
   const inworldSaved = !!data.inworldApiKeySaved;
@@ -208,6 +230,12 @@ function renderConfig(data) {
     data.effectiveOpenRouterGenerateModel || "—";
   $("#config-openrouter-generate-model-env-default").textContent =
     data.openrouterGenerateModelEnvDefault || "—";
+
+  $("#config-openrouter-tts-model").value = data.openrouterTtsModelSaved || "";
+  $("#config-openrouter-tts-model-effective").textContent =
+    data.effectiveOpenRouterTtsModel || "—";
+  $("#config-openrouter-tts-model-env-default").textContent =
+    data.openrouterTtsModelEnvDefault || "—";
 
   $("#config-video-generator-url").value = data.videoGeneratorApiUrlSaved || "";
   $("#config-video-generator-url-effective").textContent =
@@ -431,6 +459,29 @@ async function saveOpenRouterGenerateModel(openrouterGenerateModel) {
     $("#config-openrouter-save-status").textContent = openrouterGenerateModel
       ? `Generate model saved: ${data.effectiveOpenRouterGenerateModel}`
       : "Saved generate model cleared. Using environment default.";
+  } catch (err) {
+    $("#config-openrouter-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveOpenRouterTtsModel(openrouterTtsModel) {
+  $("#config-openrouter-error").textContent = "";
+  $("#config-openrouter-save-status").textContent = "";
+  clearOpenRouterTestResult();
+
+  const btn = $("#btn-config-save-openrouter-tts-model");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { openrouterTtsModel },
+    });
+    renderConfig(data);
+    $("#config-openrouter-save-status").textContent = openrouterTtsModel
+      ? `TTS model saved: ${data.effectiveOpenRouterTtsModel}`
+      : "Saved TTS model cleared. Using environment default.";
   } catch (err) {
     $("#config-openrouter-error").textContent = err.message;
   } finally {
@@ -717,6 +768,9 @@ async function init() {
   $("#btn-config-save-openrouter-generate-model").addEventListener("click", () => {
     saveOpenRouterGenerateModel($("#config-openrouter-generate-model").value.trim());
   });
+  $("#btn-config-save-openrouter-tts-model").addEventListener("click", () => {
+    saveOpenRouterTtsModel($("#config-openrouter-tts-model").value.trim());
+  });
   $("#btn-config-test-openrouter").addEventListener("click", testOpenRouterKey);
   $("#btn-config-clear-openrouter").addEventListener("click", () => {
     $("#config-openrouter-key").value = "";
@@ -729,6 +783,10 @@ async function init() {
   $("#btn-config-reset-openrouter-generate-model").addEventListener("click", () => {
     $("#config-openrouter-generate-model").value = "";
     saveOpenRouterGenerateModel("");
+  });
+  $("#btn-config-reset-openrouter-tts-model").addEventListener("click", () => {
+    $("#config-openrouter-tts-model").value = "";
+    saveOpenRouterTtsModel("");
   });
   $("#btn-config-save-video-generator-url").addEventListener("click", () => {
     saveVideoGeneratorApiUrl($("#config-video-generator-url").value.trim());

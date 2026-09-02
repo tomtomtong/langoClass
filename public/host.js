@@ -1144,30 +1144,112 @@ function isLastExerciseInSection(exercise, section = state.selectedSection) {
 function getNextHostStep() {
   const nextExercise = getNextExerciseAfter(state.selectedExercise);
   if (nextExercise) {
-    return {
+    const step = {
       type: "exercise",
       section: state.selectedSection,
       exercise: nextExercise,
       label: nextExercise.title || `Exercise ${nextExercise.id}`,
     };
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+      body: JSON.stringify({
+        sessionId: "365eeb",
+        hypothesisId: "A",
+        location: "host.js:getNextHostStep",
+        message: "next step resolved",
+        data: {
+          stepType: step.type,
+          selectedExerciseId: state.selectedExercise?.id,
+          isLastInSection: isLastExerciseInSection(state.selectedExercise),
+          nextExerciseId: step.exercise?.id,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return step;
   }
 
   const nextSection = getNextSectionAfter(state.selectedSection);
-  if (!nextSection) return null;
+  if (!nextSection) {
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+      body: JSON.stringify({
+        sessionId: "365eeb",
+        hypothesisId: "A",
+        location: "host.js:getNextHostStep",
+        message: "no next step",
+        data: {
+          selectedExerciseId: state.selectedExercise?.id,
+          isLastInSection: isLastExerciseInSection(state.selectedExercise),
+          hasNextSection: false,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return null;
+  }
 
   const playableSections = getPlayableSections();
-  if (!isHostSectionUnlocked(nextSection, playableSections)) return null;
+  if (!isHostSectionUnlocked(nextSection, playableSections)) {
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+      body: JSON.stringify({
+        sessionId: "365eeb",
+        hypothesisId: "C",
+        location: "host.js:getNextHostStep",
+        message: "next section locked",
+        data: {
+          selectedExerciseId: state.selectedExercise?.id,
+          isLastInSection: isLastExerciseInSection(state.selectedExercise),
+          nextSectionId: nextSection.id,
+          completedIds: state.hostProgress?.completedExerciseIds || [],
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    return null;
+  }
 
   const exercises = sectionExerciseList(nextSection);
   if (!exercises.length) return null;
 
   const exercise = preferredHostExercise(exercises) || exercises[0];
-  return {
+  const step = {
     type: "section",
     section: nextSection,
     exercise,
     label: nextSection.title || `Section ${nextSection.id}`,
   };
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      hypothesisId: "B",
+      location: "host.js:getNextHostStep",
+      message: "next section step",
+      data: {
+        stepType: step.type,
+        selectedExerciseId: state.selectedExercise?.id,
+        isLastInSection: isLastExerciseInSection(state.selectedExercise),
+        nextSectionId: nextSection.id,
+        nextExerciseId: exercise.id,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  return step;
 }
 
 function shouldAdvanceToNextSection(exercise = state.selectedExercise, section = state.selectedSection) {
@@ -1175,6 +1257,37 @@ function shouldAdvanceToNextSection(exercise = state.selectedExercise, section =
   const nextSection = getNextSectionAfter(section);
   if (!nextSection) return false;
   return isHostSectionUnlocked(nextSection, getPlayableSections());
+}
+
+function resolveHostNextAction() {
+  const step = getNextHostStep();
+  const isLast = isLastExerciseInSection(state.selectedExercise);
+  const nextExerciseLabel = hostT("quiz.nextExercise");
+
+  if (step) {
+    const displayLabel = isLast
+      ? nextExerciseLabel
+      : step.type === "section"
+        ? `Next section: ${step.label}`
+        : `Next exercise: ${step.label}`;
+    return { ...step, displayLabel };
+  }
+
+  if (isLast) {
+    return { type: "section-end", displayLabel: nextExerciseLabel };
+  }
+
+  return null;
+}
+
+function updateSectionStartButtonLabel() {
+  const startBtn = $("#btn-start-session");
+  const startLabel = startBtn?.querySelector(".host-btn-label") || startBtn;
+  if (!startLabel) return;
+  const isLast =
+    state.selectedExercise &&
+    isLastExerciseInSection(state.selectedExercise, state.selectedSection);
+  startLabel.textContent = isLast ? hostT("quiz.nextExercise") : hostT("section.startExercise");
 }
 
 function setNextStepButtonLabel(btn, buttonLabel) {
@@ -1190,12 +1303,29 @@ function setNextStepButtonLabel(btn, buttonLabel) {
 }
 
 function refreshNextExerciseUi() {
-  const step = getNextHostStep();
-  const buttonLabel = step
-    ? step.type === "section"
-      ? `Next section: ${step.label}`
-      : `Next exercise: ${step.label}`
-    : null;
+  const action = resolveHostNextAction();
+  const buttonLabel = action?.displayLabel || null;
+
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      runId: "post-fix",
+      hypothesisId: "B",
+      location: "host.js:refreshNextExerciseUi",
+      message: "next exercise ui refreshed",
+      data: {
+        isLastInSection: isLastExerciseInSection(state.selectedExercise),
+        actionType: action?.type || null,
+        buttonLabel,
+        selectedExerciseId: state.selectedExercise?.id,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   for (const id of [
     "btn-host-quiz-next-exercise",
@@ -2058,6 +2188,32 @@ function renderClassGrid(container, classes, { selectedId, onSelect }) {
       onSelect(Number(btn.dataset.id));
     });
   });
+
+  // #region agent log
+  requestAnimationFrame(() => {
+    const scrollEl = container.closest(".course-grid-scroll");
+    if (!scrollEl) return;
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+      body: JSON.stringify({
+        sessionId: "365eeb",
+        location: "host.js:renderClassGrid",
+        message: "class grid scroll metrics",
+        data: {
+          classCount: classes.length,
+          scrollHeight: scrollEl.scrollHeight,
+          clientHeight: scrollEl.clientHeight,
+          overflowY: getComputedStyle(scrollEl).overflowY,
+          scrollable: scrollEl.scrollHeight > scrollEl.clientHeight + 1,
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H-SCROLL",
+        runId: "class-scroll",
+      }),
+    }).catch(() => {});
+  });
+  // #endregion
 }
 
 function renderPickList(container, items, { selectedId, onSelect }) {
@@ -2340,6 +2496,33 @@ function renderExercises({ animate = false } = {}) {
 
   if (animate) revealExerciseListItems(container);
   initExerciseLotties();
+  updateSectionStartButtonLabel();
+
+  const startBtn = $("#btn-start-session");
+  const startLabel = startBtn?.querySelector(".host-btn-label") || startBtn;
+  const isLastSelected =
+    state.selectedExercise &&
+    isLastExerciseInSection(state.selectedExercise, state.selectedSection);
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      runId: "post-fix",
+      hypothesisId: "D",
+      location: "host.js:renderExercises",
+      message: "section start button label",
+      data: {
+        isLastSelected: Boolean(isLastSelected),
+        startLabel: startLabel?.textContent || null,
+        selectedExerciseId: state.selectedExercise?.id,
+        exerciseCount: exercises.length,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 }
 
 async function handleLogin() {
@@ -3582,8 +3765,42 @@ async function runHostExercise(roomId, exercise) {
 }
 
 async function handleStartNextExercise() {
-  const step = getNextHostStep();
-  if (!step?.exercise || !state.activeRoomId) return;
+  const action = resolveHostNextAction();
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
+    body: JSON.stringify({
+      sessionId: "365eeb",
+      runId: "post-fix",
+      hypothesisId: "E",
+      location: "host.js:handleStartNextExercise",
+      message: "handle next clicked",
+      data: {
+        actionType: action?.type || null,
+        hasExercise: Boolean(action?.exercise),
+        isLastInSection: isLastExerciseInSection(state.selectedExercise),
+        activeRoomId: state.activeRoomId || null,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  if (!state.activeRoomId) return;
+
+  if (action?.type === "section-end") {
+    playPageNextSound();
+    wrapUpRoomExercise(async () => {
+      if (state.selectedExercise?.id) {
+        await markHostExerciseCompleted(state.selectedExercise.id);
+      }
+      await returnHostToJourney();
+    });
+    return;
+  }
+
+  const step = action;
+  if (!step?.exercise) return;
 
   if (typeof stopHostVideoPlayback === "function") stopHostVideoPlayback();
   playPageNextSound();
@@ -3921,7 +4138,12 @@ $("#btn-host-fast-results-done")?.addEventListener("click", () => {
 
 function handleHostVideoNextClick() {
   playPageNextSound();
-  if (getNextHostStep()) {
+  const action = resolveHostNextAction();
+  if (action?.type === "section-end") {
+    finishVideoOrBuzzinExercise();
+    return;
+  }
+  if (action?.exercise) {
     void handleStartNextExercise();
     return;
   }
