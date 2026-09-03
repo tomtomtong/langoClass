@@ -606,7 +606,9 @@ async function maybePlayHostBuzzinAnswerAnnouncement(payload) {
   if (!announcement) return;
 
   const key = buzzinAnswerAnnouncementKey(payload);
-  if (!key || hostBuzzinPlayedAnnouncements.has(key)) return;
+  if (!key) return;
+  if (hostBuzzinPlayedAnnouncements.has(key)) return;
+  if (!announcement.audio) return;
   hostBuzzinPlayedAnnouncements.add(key);
 
   await playHostBuzzinAnswerAnnouncement({

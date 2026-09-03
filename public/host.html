@@ -40,13 +40,14 @@
               type="button"
               class="host-persistent-room-code__display"
               id="btn-copy-persistent-room-id"
-              title="Copy room code"
-              data-i18n="waiting.copyHint"
+              title="Tap for QR code"
+              aria-describedby="persistent-room-code-action"
+              data-i18n="waiting.qrHint"
               data-i18n-attr="title"
             >
-              <span id="persistent-room-id" aria-live="polite"></span>
+              <span class="host-persistent-room-code__digits" id="persistent-room-id" aria-live="polite"></span>
+              <span class="host-persistent-room-code__action" id="persistent-room-code-action" data-i18n="waiting.qrHint">Tap for QR</span>
             </button>
-            <span class="host-persistent-room-code__hint" id="persistent-room-code-hint" hidden data-i18n="waiting.copyHint">Tap to copy</span>
           </div>
 
           <div
@@ -331,7 +332,7 @@
                 </svg>
               </button>
               <p class="login-error" id="login-error" role="alert"></p>
-              <p class="login-version">Version 2026.08.13.183841.098</p>
+              <p class="login-version">Version 2026.09.03.155127.619</p>
             </div>
           </div>
         </div>
@@ -537,10 +538,18 @@
           <div class="waiting-room-code-body">
             <div class="waiting-room-code-main">
               <p class="waiting-room-code-label" data-i18n="waiting.roomCode">Room Code</p>
-              <button type="button" class="waiting-room-code-display" id="btn-copy-room-id" title="Copy room code">
+              <button
+                type="button"
+                class="waiting-room-code-display"
+                id="btn-copy-room-id"
+                title="Tap for QR code"
+                aria-describedby="waiting-room-code-hint"
+                data-i18n="waiting.qrHint"
+                data-i18n-attr="title"
+              >
                 <span class="waiting-room-code-digits" id="waiting-room-id" aria-live="polite"></span>
               </button>
-              <p class="waiting-room-code-hint" id="waiting-room-code-hint" data-i18n="waiting.copyHint">Tap to copy</p>
+              <p class="waiting-room-code-hint" id="waiting-room-code-hint" data-i18n="waiting.qrHint">Tap for QR</p>
             </div>
             <div class="waiting-room-qr-wrap" id="waiting-room-qr-wrap" hidden>
               <img
@@ -1113,6 +1122,40 @@
         </button>
       </footer>
     </section>
+
+    <div id="host-room-qr-modal" class="host-room-qr-modal" hidden aria-hidden="true">
+      <div class="host-room-qr-modal__backdrop" data-host-room-qr-dismiss></div>
+      <div
+        class="host-room-qr-modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="host-room-qr-modal-title"
+        aria-describedby="host-room-qr-modal-desc"
+      >
+        <button
+          type="button"
+          class="host-room-qr-modal__close"
+          id="host-room-qr-modal-close"
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <p class="host-room-qr-modal__eyebrow" id="host-room-qr-modal-title" data-i18n="waiting.roomCode">Room Code</p>
+        <p class="host-room-qr-modal__code" id="host-room-qr-modal-code" aria-live="polite"></p>
+        <img
+          class="host-room-qr-modal__qr"
+          id="host-room-qr-modal-qr"
+          width="200"
+          height="200"
+          alt=""
+          decoding="async"
+        />
+        <p class="host-room-qr-modal__desc" id="host-room-qr-modal-desc" data-i18n="waiting.scanToJoin">Scan to join</p>
+        <button type="button" class="btn secondary host-room-qr-modal__copy" id="btn-host-room-qr-copy" data-i18n="waiting.copyCodeBtn">
+          Copy code
+        </button>
+      </div>
+    </div>
 
     <div id="host-buzzin-lucky-draw" class="host-buzzin-lucky-draw" hidden aria-hidden="true">
       <div class="host-buzzin-lucky-draw__backdrop"></div>

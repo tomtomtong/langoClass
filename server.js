@@ -22,8 +22,10 @@ const paths = require("./lib/paths");
 const settingsStore = require("./lib/settings-store");
 const videoCaptions = require("./lib/video-captions");
 const videoGenerator = require("./lib/video-generator");
+const routerImage = require("./lib/router-image");
 const materialExtract = require("./lib/material-extract");
 const materialImages = require("./lib/material-images");
+const pathTileImages = require("./lib/path-tile-images");
 const exerciseGenerator = require("./lib/exercise-generator");
 const cmsAssistant = require("./lib/cms-assistant");
 const communityStore = require("./lib/community-store");
@@ -67,6 +69,9 @@ const ENV_OPENROUTER_BUZZIN_MODEL = String(
 ).trim();
 const ENV_OPENROUTER_GENERATE_MODEL = String(
   process.env.OPENROUTER_GENERATE_MODEL || "x-ai/grok-4.3"
+).trim();
+const ENV_OPENROUTER_VISION_MODEL = String(
+  process.env.OPENROUTER_VISION_MODEL || "google/gemini-2.5-flash"
 ).trim();
 const ENV_OPENROUTER_TTS_MODEL = String(
   process.env.OPENROUTER_TTS_MODEL || "x-ai/grok-voice-tts-1.0"
@@ -153,6 +158,11 @@ function getOpenRouterGenerateModel() {
   return saved || ENV_OPENROUTER_GENERATE_MODEL || exerciseGenerator.DEFAULT_GENERATE_MODEL;
 }
 
+function getOpenRouterVisionModel() {
+  const saved = settingsStore.readSettings().openrouterVisionModel;
+  return saved || ENV_OPENROUTER_VISION_MODEL;
+}
+
 function getOpenRouterTtsModel() {
   const saved = settingsStore.readSettings().openrouterTtsModel;
   return saved || ENV_OPENROUTER_TTS_MODEL || "";
@@ -192,6 +202,15 @@ const MATERIAL_UPLOADS_DIR = paths.uploadsMaterialDir;
 const CAPTION_STT_MODEL = "groq/whisper-large-v3";
 const MAX_MC_OPTIONS = 6;
 const ALLOWED_IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+const CMS_MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+function imageUploadErrorMessage(err) {
+  if (!err) return "Upload failed.";
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return "Image file is too large (max 2 MB).";
+  }
+  return err.message || "Upload failed.";
+}
 
 const bannerUpload = multer({
   storage: multer.diskStorage({
@@ -310,7 +329,7 @@ const materialUpload = multer({
 function handleQuestionImageUpload(req, res) {
   questionImageUpload.single("image")(req, res, (err) => {
     if (err) {
-      return res.status(400).json({ message: err.message || "Upload failed." });
+      return res.status(400).json({ message: imageUploadErrorMessage(err) });
     }
     if (!req.file) {
       return res.status(400).json({ message: "No image file provided." });
@@ -319,6 +338,104 @@ function handleQuestionImageUpload(req, res) {
     const url = `/uploads/questions/${req.file.filename}`;
     return res.json({ url });
   });
+}
+
+function parseQuestionImageDataUrl(imageData) {
+  const raw = String(imageData || "").trim();
+  if (!raw) return null;
+
+  const match = /^data:image\/([\w+.-]+);base64,(.+)$/i.exec(raw);
+  if (match) {
+    const subtype = match[1].toLowerCase();
+    const ext =
+      subtype === "jpeg" || subtype === "jpg"
+        ? ".jpg"
+        : subtype === "png"
+          ? ".png"
+          : subtype === "webp"
+            ? ".webp"
+            : subtype === "gif"
+              ? ".gif"
+              : ".png";
+    return { ext, buffer: Buffer.from(match[2], "base64") };
+  }
+
+  if (/^[A-Za-z0-9+/=\s]+$/.test(raw)) {
+    return { ext: ".png", buffer: Buffer.from(raw.replace(/\s/g, ""), "base64") };
+  }
+
+  return null;
+}
+
+function saveGeneratedQuestionImage(imageData, ownerId) {
+  const parsed = parseQuestionImageDataUrl(imageData);
+  if (!parsed || !parsed.buffer.length) {
+    throw new Error("Invalid image data from Router API.");
+  }
+
+  const owner = String(ownerId || "upload").replace(/\W/g, "") || "upload";
+  const filename = `question-ai-${owner}-${Date.now()}${parsed.ext}`;
+  const filePath = path.join(QUESTION_UPLOADS_DIR, filename);
+  fs.writeFileSync(filePath, parsed.buffer);
+  return `/uploads/questions/${filename}`;
+}
+
+async function saveGeneratedSectionBanner(imageData, ownerId, meta = {}) {
+  const parsed = parseQuestionImageDataUrl(imageData);
+  if (!parsed || !parsed.buffer.length) {
+    throw new Error("Invalid image data from Router API.");
+  }
+
+  let buffer = parsed.buffer;
+  try {
+    buffer = await pathTileImages.processGeneratedPathTile(buffer);
+  } catch (err) {
+    console.warn("path tile post-process failed:", err.message);
+  }
+
+  const owner = String(ownerId || "upload").replace(/\W/g, "") || "upload";
+  const coursePart = meta.courseId != null ? `course-${meta.courseId}-` : "";
+  const sectionPart = meta.sectionId != null ? `section-${meta.sectionId}-` : "";
+  const filename = `section-ai-${coursePart}${sectionPart}${owner}-${Date.now()}.png`;
+  const filePath = path.join(SECTION_UPLOADS_DIR, filename);
+  fs.writeFileSync(filePath, buffer);
+  return `/uploads/sections/${filename}`;
+}
+
+async function finalizeExerciseImages(exercises, { imageAssets, teacherId, model, autoGenerateImages = true }) {
+  let resolved = Array.isArray(exercises) ? exercises : [];
+  const assets = Array.isArray(imageAssets) ? imageAssets : [];
+  const llmModel = String(model || getOpenRouterGenerateModel()).trim() || getOpenRouterGenerateModel();
+
+  if (assets.length) {
+    resolved = await materialImages.assignImagesWithLlm(
+      resolved,
+      assets,
+      openRouterGenerateComplete,
+      getOpenRouterApiKey(),
+      llmModel
+    );
+  }
+  resolved = materialImages.resolveExerciseImageRefs(resolved, assets);
+
+  let autoImageStats = null;
+  if (autoGenerateImages !== false) {
+    const routerBaseUrl = getVideoGeneratorApiUrl();
+    if (routerBaseUrl) {
+      const autoResult = await materialImages.autoGenerateMissingQuestionImages(resolved, {
+        llmComplete: openRouterGenerateComplete,
+        apiKey: getOpenRouterApiKey(),
+        model: llmModel,
+        routerBaseUrl,
+        generateImage: routerImage.generateImage,
+        saveGeneratedImage: (imageData) => saveGeneratedQuestionImage(imageData, teacherId),
+      });
+      resolved = autoResult.exercises;
+      autoImageStats = autoResult.stats;
+    }
+  }
+
+  return { exercises: resolved, autoImageStats };
 }
 
 function deleteLocalUpload(uploadUrl) {
@@ -373,7 +490,7 @@ const BUZZIN_STT_SAMPLE_RATE = 16000;
 /** @type {Map<string, BuzzInRound>} */
 const buzzInRounds = new Map();
 
-/** @typedef {{ roundId: number, phase: 'ready' | 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, sttLanguage: string, topics: Array<{ topic: string, sttLanguage: string }>, questionIndex: number, totalQuestions: number, answeredPlayerIds: string[], buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, responseAudio: string | null, responseAudioFormat: string | null, analysis: string | null, spokenFeedback: string | null, analysisStatus: 'pending' | 'done' | 'error', analysisAudio: string | null, analysisAudioFormat: string | null }>, turnIndex: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
+/** @typedef {{ roundId: number, phase: 'ready' | 'join' | 'typing' | 'done', status: 'open' | 'closed', topic: string, sttLanguage: string, topics: Array<{ topic: string, sttLanguage: string }>, questionIndex: number, totalQuestions: number, answeredPlayerIds: string[], buzzes: Array<{ playerId: string, displayName: string, rank: number, at: number, elapsedMs: number }>, responses: Array<{ playerId: string, displayName: string, rank: number, text: string, at: number, responseAudio: string | null, responseAudioFormat: string | null, analysis: string | null, spokenFeedback: string | null, analysisStatus: 'pending' | 'done' | 'error', analysisAudio: string | null, analysisAudioFormat: string | null }>, turnIndex: number, joinOpenedAt: number, joinEndsAt: number, joinTimer: ReturnType<typeof setTimeout> | null }} BuzzInRound */
 
 function normalizeBuzzinSttLanguage(value, fallback) {
   const normalized = String(value || "")
@@ -1134,7 +1251,7 @@ async function describeMaterialImageBuffer(buffer, mimeType, filename) {
       "X-Title": "Lango Material Extract",
     },
     body: JSON.stringify({
-      model: getOpenRouterGenerateModel(),
+      model: getOpenRouterVisionModel(),
       messages: [
         {
           role: "user",
@@ -1159,7 +1276,7 @@ async function describeMaterialImageBuffer(buffer, mimeType, filename) {
   const data = await parseOpenRouterResponse(res);
   if (!res.ok) {
     throw new Error(
-      `Image conversion (${getOpenRouterGenerateModel()}): ${openRouterErrorMessage(data, res.status)}`
+      `Image conversion (${getOpenRouterVisionModel()}): ${openRouterErrorMessage(data, res.status)}`
     );
   }
 
@@ -1180,14 +1297,15 @@ async function openRouterVisionComplete(apiKey, model, messages, maxTokens = 120
       "X-Title": "Lango Material Vision",
     },
     body: JSON.stringify({
-      model: String(model || getOpenRouterGenerateModel()).trim() || getOpenRouterGenerateModel(),
+      model: String(model || getOpenRouterVisionModel()).trim() || getOpenRouterVisionModel(),
       messages,
       max_tokens: maxTokens,
     }),
   });
   const data = await parseOpenRouterResponse(res);
   if (!res.ok) {
-    throw new Error(`Vision (${model}): ${openRouterErrorMessage(data, res.status)}`);
+    const visionModel = String(model || getOpenRouterVisionModel()).trim() || getOpenRouterVisionModel();
+    throw new Error(`Vision (${visionModel}): ${openRouterErrorMessage(data, res.status)}`);
   }
   return extractOpenRouterMessageText(data);
 }
@@ -1224,6 +1342,7 @@ function buzzInPublicPayload(round) {
     totalBuzzes: round.buzzes.length,
     winnerCount: BUZZIN_WINNER_COUNT,
     joinSeconds: BUZZIN_JOIN_SECONDS,
+    joinOpenedAt: round.joinOpenedAt || 0,
     joinEndsAt: round.joinEndsAt,
     joinSecondsRemaining: Math.ceil(joinRemainingMs / 1000),
     topic: round.topic || "",
@@ -1247,10 +1366,41 @@ function buzzInPublicPayload(round) {
   };
 }
 
+function stripBuzzinAudioFromPayload(payload) {
+  if (!payload) return payload;
+  const next = { ...payload };
+  if (next.answerAnnouncement) {
+    next.answerAnnouncement = {
+      ...next.answerAnnouncement,
+      audio: null,
+    };
+  }
+  if (Array.isArray(next.responses)) {
+    next.responses = next.responses.map((entry) => ({
+      ...entry,
+      responseAudio: null,
+      analysisAudio: null,
+      hasResponseAudio: Boolean(entry?.responseAudio),
+      hasAnalysisAudio: Boolean(entry?.analysisAudio),
+    }));
+  }
+  return next;
+}
+
+function buzzInPayloadForSocket(round, socketId) {
+  const payload = buzzInPublicPayload(round);
+  const meta = socketMeta.get(socketId);
+  return meta?.role === "host" ? payload : stripBuzzinAudioFromPayload(payload);
+}
+
 function broadcastBuzzInUpdate(pin, eventName = "buzzin_update") {
   const round = buzzInRounds.get(pin);
   if (!round) return;
-  io.to(pin).emit(eventName, buzzInPublicPayload(round));
+  const room = io.sockets.adapter.rooms.get(pin);
+  if (!room) return;
+  for (const socketId of room) {
+    io.to(socketId).emit(eventName, buzzInPayloadForSocket(round, socketId));
+  }
 }
 
 function closeBuzzInJoinWindow(pin) {
@@ -1324,11 +1474,15 @@ async function finalizeBuzzInJoinToTyping(pin) {
   clearBuzzInJoinTimer(round);
   const winner = round.buzzes[0];
   const session = sessionStore.getSession(pin);
-  await synthesizeBuzzinAnswerAnnouncement(round, winner, resolveSessionSpeakLangCode(session));
   round.phase = "typing";
   round.status = "closed";
   round.turnIndex = 0;
   broadcastBuzzInUpdate(pin, "buzzin_join_closed");
+
+  await synthesizeBuzzinAnswerAnnouncement(round, winner, resolveSessionSpeakLangCode(session));
+  if (buzzInRounds.get(pin) === round) {
+    broadcastBuzzInUpdate(pin, "buzzin_update");
+  }
 }
 
 function assignBuzzinLuckyDrawWinner(pin, winner) {
@@ -1342,6 +1496,7 @@ function assignBuzzinLuckyDrawWinner(pin, winner) {
       displayName: winner.displayName || "Student",
       rank: round.buzzes.length + 1,
       at: Date.now(),
+      elapsedMs: Math.max(0, Date.now() - (round.joinOpenedAt || Date.now())),
     };
     round.buzzes.push(buzz);
   } else {
@@ -1404,6 +1559,7 @@ function createBuzzInRound(
     answeredPlayerIds: [],
     ineligiblePlayerIds: [],
     turnIndex: 0,
+    joinOpenedAt: 0,
     joinEndsAt: 0,
     joinTimer: null,
     answerAnnouncement: null,
@@ -1416,9 +1572,11 @@ function openBuzzInJoinWindow(pin) {
   const round = buzzInRounds.get(pin);
   if (!round || round.phase !== "ready") return false;
 
-  const joinEndsAt = Date.now() + BUZZIN_JOIN_SECONDS * 1000;
+  const now = Date.now();
+  const joinEndsAt = now + BUZZIN_JOIN_SECONDS * 1000;
   round.phase = "join";
   round.status = "open";
+  round.joinOpenedAt = now;
   round.joinEndsAt = joinEndsAt;
   round.joinTimer = setTimeout(() => closeBuzzInJoinWindow(pin), BUZZIN_JOIN_SECONDS * 1000);
   return true;
@@ -2395,6 +2553,9 @@ function buildConfigResponse() {
     openrouterGenerateModelSaved: settings.openrouterGenerateModel || "",
     openrouterGenerateModelEnvDefault: ENV_OPENROUTER_GENERATE_MODEL,
     effectiveOpenRouterGenerateModel: getOpenRouterGenerateModel(),
+    openrouterVisionModelSaved: settings.openrouterVisionModel || "",
+    openrouterVisionModelEnvDefault: ENV_OPENROUTER_VISION_MODEL,
+    effectiveOpenRouterVisionModel: getOpenRouterVisionModel(),
     openrouterTtsModelSaved: settings.openrouterTtsModel || "",
     openrouterTtsModelEnvDefault: ENV_OPENROUTER_TTS_MODEL,
     effectiveOpenRouterTtsModel: getOpenRouterTtsModel(),
@@ -2874,6 +3035,7 @@ app.put("/api/config", async (req, res) => {
     openrouterApiKey,
     openrouterBuzzinModel,
     openrouterGenerateModel,
+    openrouterVisionModel,
     openrouterTtsModel,
     videoGeneratorApiUrl,
   } = req.body || {};
@@ -2924,6 +3086,10 @@ app.put("/api/config", async (req, res) => {
 
   if (openrouterGenerateModel !== undefined) {
     updates.openrouterGenerateModel = String(openrouterGenerateModel || "").trim();
+  }
+
+  if (openrouterVisionModel !== undefined) {
+    updates.openrouterVisionModel = String(openrouterVisionModel || "").trim();
   }
 
   if (openrouterTtsModel !== undefined) {
@@ -3223,6 +3389,7 @@ app.get("/api/cms/app-context", (_req, res) => {
   return res.json({
     appVariant: APP_VARIANT || "",
     speakLanguages,
+    questionLanguages: cmsSpeakLanguages.getCmsQuestionLanguages(APP_VARIANT),
     defaultSpeakLangCode: cmsSpeakLanguages.getDefaultCmsSpeakLangCode(APP_VARIANT),
     ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
   });
@@ -3611,7 +3778,7 @@ app.post("/api/cms/courses/:courseId/sections/:sectionId/banner", async (req, re
 
   sectionBannerUpload.single("banner")(req, res, (err) => {
     if (err) {
-      return res.status(400).json({ message: err.message || "Upload failed." });
+      return res.status(400).json({ message: imageUploadErrorMessage(err) });
     }
     if (!req.file) {
       return res.status(400).json({ message: "No image file provided." });
@@ -3646,6 +3813,92 @@ app.post("/api/cms/courses/:courseId/question-image", async (req, res) => {
   if (!course) return res.status(404).json({ message: "Course not found." });
 
   handleQuestionImageUpload(req, res);
+});
+
+app.post("/api/cms/question-image/generate", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const prompt = String(req.body?.prompt || "").trim();
+  if (!prompt) {
+    return res.status(400).json({ message: "prompt is required." });
+  }
+
+  const baseUrl = getVideoGeneratorApiUrl();
+  if (!baseUrl) {
+    return res.status(400).json({
+      message: "Configure the Router API URL in Config before generating images.",
+    });
+  }
+
+  try {
+    const { image } = await routerImage.generateImage(baseUrl, prompt);
+    const url = saveGeneratedQuestionImage(image, auth.teacherId);
+    return res.json({ url });
+  } catch (err) {
+    console.error("question-image generate failed:", err);
+    return res.status(502).json({
+      message: err.message || "Could not generate image.",
+    });
+  }
+});
+
+app.post("/api/cms/section-banner/generate", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const sectionTitle = String(req.body?.sectionTitle || "").trim();
+  const courseName = String(req.body?.courseName || "").trim();
+  const sectionContent = String(req.body?.sectionContent || req.body?.contentSummary || "").trim();
+  const prompt = pathTileImages.buildPathTileImagePrompt(sectionTitle || "Language lesson", {
+    courseName,
+    sectionContent,
+  });
+
+  if (!sectionTitle && !sectionContent) {
+    return res.status(400).json({
+      message: "Add a section title or exercises before generating a path tile.",
+    });
+  }
+
+  const baseUrl = getVideoGeneratorApiUrl();
+  if (!baseUrl) {
+    return res.status(400).json({
+      message: "Configure the Router API URL in Config before generating images.",
+    });
+  }
+
+  const courseId = req.body?.courseId != null ? Number(req.body.courseId) : null;
+  const sectionId = req.body?.sectionId != null ? Number(req.body.sectionId) : null;
+
+  if (courseId && sectionId) {
+    const course = cmsStore.getCourseForTeacher(courseId, auth.teacherId);
+    if (!course) return res.status(404).json({ message: "Course not found." });
+  }
+
+  try {
+    const { image } = await routerImage.generateImage(baseUrl, prompt);
+    const url = await saveGeneratedSectionBanner(image, auth.teacherId, { courseId, sectionId });
+
+    if (courseId && sectionId) {
+      const updated = cmsStore.updateSectionBanner(courseId, auth.teacherId, sectionId, url);
+      if (updated?.oldBanner) {
+        deleteLocalUpload(updated.oldBanner);
+      }
+      return res.json({
+        url,
+        section: updated?.section || { id: sectionId, banner: url },
+        updatedAt: updated?.updatedAt || null,
+      });
+    }
+
+    return res.json({ url });
+  } catch (err) {
+    console.error("section-banner generate failed:", err);
+    return res.status(502).json({
+      message: err.message || "Could not generate path tile.",
+    });
+  }
 });
 
 app.post("/api/cms/generate-video", async (req, res) => {
@@ -3957,7 +4210,7 @@ async function extractUploadedMaterialFile(uploadedFile, { language, materialHin
       enableVisionCrop: enableVisionCrop && !!getOpenRouterApiKey(),
       materialHint,
       apiKey: getOpenRouterApiKey(),
-      model: getOpenRouterGenerateModel(),
+      model: getOpenRouterVisionModel(),
       visionComplete: openRouterVisionComplete,
     });
   } catch (imageErr) {
@@ -4212,17 +4465,12 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
     );
 
     const model = String(req.body?.model || getOpenRouterGenerateModel()).trim();
-    let exercises = result.exercises;
-    if (imageAssets.length) {
-      exercises = await materialImages.assignImagesWithLlm(
-        exercises,
-        imageAssets,
-        openRouterGenerateComplete,
-        getOpenRouterApiKey(),
-        model
-      );
-    }
-    exercises = materialImages.resolveExerciseImageRefs(exercises, imageAssets);
+    const { exercises, autoImageStats } = await finalizeExerciseImages(result.exercises, {
+      imageAssets,
+      teacherId: auth.teacherId,
+      model,
+      autoGenerateImages: req.body?.autoGenerateImages,
+    });
     try {
       const sampleItems = exercises
         .flatMap((exercise) => exercise.items || [])
@@ -4266,6 +4514,7 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
               (count, exercise) => count + (exercise.items || []).filter((item) => item?.image).length,
               0
             ),
+            autoImageStats,
           },
         })}\n`
       );
@@ -4278,6 +4527,7 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
       exercises,
       model: result.model,
       stats: result.stats,
+      autoImageStats,
       imageAssetsUsed: exercises.reduce(
         (count, exercise) =>
           count + (exercise.items || []).filter((item) => item?.image).length,
@@ -4336,7 +4586,16 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
       openRouterGenerateComplete
     );
 
-    const resolvedExercises = materialImages.resolveExerciseImageRefs(result.exercises, imageAssets);
+    const model = String(req.body?.model || getOpenRouterGenerateModel()).trim();
+    const { exercises: resolvedExercises, autoImageStats } = await finalizeExerciseImages(
+      result.exercises,
+      {
+        imageAssets,
+        teacherId: auth.teacherId,
+        model,
+        autoGenerateImages: req.body?.autoGenerateImages,
+      }
+    );
 
     return res.json({
       ok: true,
@@ -4345,6 +4604,7 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
       model: result.model,
       revisionMode: result.revisionMode || null,
       stats: result.stats,
+      autoImageStats,
     });
   } catch (err) {
     console.error("revise-exercises failed:", err);
@@ -4491,10 +4751,6 @@ app.post("/api/cms/analyze-course-material", async (req, res) => {
   const instructions = String(req.body?.instructions || "").trim();
 
   const types = coursePlan.lockTypes(req.body?.types);
-  if (!Object.keys(types).length) {
-    return res.status(400).json({ message: "Pick a format with at least one exercise type first." });
-  }
-
   try {
     const llmReady = !!getOpenRouterApiKey();
     const plan = await coursePlan.analyzeCourseMaterial(
@@ -4697,7 +4953,7 @@ app.post("/api/cms/courses/:courseId/banner", async (req, res) => {
 
   bannerUpload.single("banner")(req, res, (err) => {
     if (err) {
-      return res.status(400).json({ message: err.message || "Upload failed." });
+      return res.status(400).json({ message: imageUploadErrorMessage(err) });
     }
     if (!req.file) {
       return res.status(400).json({ message: "No image file provided." });
@@ -5352,12 +5608,15 @@ io.on("connection", (socket) => {
     const participant = session?.participants.get(meta.playerId);
     const displayName = participant?.displayName || "Student";
     const rank = round.buzzes.length + 1;
+    const now = Date.now();
+    const openedAt = round.joinOpenedAt || now;
 
     round.buzzes.push({
       playerId: meta.playerId,
       displayName,
       rank,
-      at: Date.now(),
+      at: now,
+      elapsedMs: Math.max(0, now - openedAt),
     });
     markBuzzinAnswered(round, meta.playerId);
     if (session) {
@@ -5442,8 +5701,8 @@ io.on("connection", (socket) => {
       winner,
       resolveSessionSpeakLangCode(session)
     );
-    const payload = buzzInPublicPayload(round);
-    io.to(pin).emit("buzzin_update", payload);
+    broadcastBuzzInUpdate(pin, "buzzin_update");
+    const payload = buzzInPayloadForSocket(round, socket.id);
     callback?.({
       ok: true,
       winner,
@@ -5541,7 +5800,7 @@ io.on("connection", (socket) => {
     });
 
     advanceBuzzInTurn(meta.pin);
-    callback?.({ ok: true, ...buzzInPublicPayload(round) });
+    callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
 
     void analyzeAndAttachBuzzinResponse(meta.pin, meta.playerId, {
       topic: round.topic,
@@ -5567,7 +5826,11 @@ io.on("connection", (socket) => {
       return;
     }
 
-    callback?.({ ok: true, active: true, ...buzzInPublicPayload(round) });
+    callback?.({
+      ok: true,
+      active: true,
+      ...buzzInPayloadForSocket(round, socket.id),
+    });
   });
 
   socket.on("end_room_exercise", ({ roomId, exerciseId, exerciseType }, callback) => {

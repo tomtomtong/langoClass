@@ -301,7 +301,11 @@ function renderHostBuzzinLuckyStarCard(container, student, { animate = false } =
 }
 
 function buzzinBuzzElapsedSeconds(buzz, payload) {
+  const elapsedMs = Number(buzz?.elapsedMs);
+  if (Number.isFinite(elapsedMs)) return Math.max(0, elapsedMs / 1000);
   if (!buzz?.at) return null;
+  const openedAt = Number(payload?.joinOpenedAt) || 0;
+  if (openedAt) return Math.max(0, (buzz.at - openedAt) / 1000);
   const joinSeconds = payload?.joinSeconds || 20;
   const joinEndsAt = payload?.joinEndsAt;
   const startAt = joinEndsAt ? joinEndsAt - joinSeconds * 1000 : null;
@@ -504,9 +508,9 @@ function renderBuzzinResponsesList(listEl, responses, currentTurn, emptyText) {
 }
 
 const BUZZIN_SCORE_METRICS = [
-  { key: "correctness", labelKey: "buzzin.scoreCorrectness", pattern: /Correctness\s*\((\d+)\)/i, color: "#45c937" },
-  { key: "completeness", labelKey: "buzzin.scoreCompleteness", pattern: /Completeness\s*\((\d+)\)/i, color: "#15c4f8" },
-  { key: "fluency", labelKey: "buzzin.scoreFluency", pattern: /Fluency\s*\((\d+)\)/i, color: "#f59e0b" },
+  { key: "correctness", labelKey: "buzzin.scoreCorrectness", pattern: /(?:Correctness|正確度|正确度)[^\d]{0,24}(\d{1,3})/i, color: "#45c937" },
+  { key: "completeness", labelKey: "buzzin.scoreCompleteness", pattern: /(?:Completeness|完整度)[^\d]{0,24}(\d{1,3})/i, color: "#15c4f8" },
+  { key: "fluency", labelKey: "buzzin.scoreFluency", pattern: /(?:Fluency|流暢度|流畅度)[^\d]{0,24}(\d{1,3})/i, color: "#f59e0b" },
 ];
 
 function buzzinAnswerVerdictBadgeHtml(item) {

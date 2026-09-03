@@ -1,8 +1,10 @@
 const fs = require("fs");
 const path = require("path");
 
-const hostPath = path.join(__dirname, "..", "public", "host.html");
-const html = fs.readFileSync(hostPath, "utf8");
+const targets = [
+  path.join(__dirname, "..", "public", "host.html"),
+  path.join(__dirname, "..", "public", "hk", "host.html"),
+];
 
 const now = new Date();
 const parts = new Intl.DateTimeFormat("en-CA", {
@@ -23,14 +25,16 @@ const parts = new Intl.DateTimeFormat("en-CA", {
 
 const milliseconds = String(now.getMilliseconds()).padStart(3, "0");
 const version = `${parts.year}.${parts.month}.${parts.day}.${parts.hour}${parts.minute}${parts.second}.${milliseconds}`;
-const nextHtml = html.replace(
-  /<p class="login-version">Version [^<]*<\/p>/,
-  `<p class="login-version">Version ${version}</p>`,
-);
+const versionMarkup = `<p class="login-version">Version ${version}</p>`;
+const versionPattern = /<p class="login-version">Version [^<]*<\/p>/;
 
-if (nextHtml === html) {
-  throw new Error("Could not find the host login version marker in public/host.html");
+for (const hostPath of targets) {
+  const html = fs.readFileSync(hostPath, "utf8");
+  const nextHtml = html.replace(versionPattern, versionMarkup);
+  if (nextHtml === html) {
+    throw new Error(`Could not find the host login version marker in ${hostPath}`);
+  }
+  fs.writeFileSync(hostPath, nextHtml);
 }
 
-fs.writeFileSync(hostPath, nextHtml);
 console.log(version);

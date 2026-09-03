@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lango - Course CMS</title>
+  <title data-i18n="cms.pageTitle">Lango - Course CMS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
@@ -17,33 +17,49 @@
 </head>
 <body class="cms-light">
   <div id="app" class="cms-app">
-    <nav class="cms-topbar" aria-label="CMS">
+    <nav class="cms-topbar" aria-label="CMS" data-i18n="cms.nav" data-i18n-attr="aria-label">
       <div class="cms-island">
         <a class="cms-brand" href="/cms.html">
           <img class="cms-brand-logo" src="/assets/login/logo.png" alt="LangoClassRoom" width="132" height="28" />
           <span class="cms-brand-sep" aria-hidden="true"></span>
-          <span class="cms-brand-product">Course CMS</span>
+          <span class="cms-brand-product" data-i18n="cms.brand">Course CMS</span>
         </a>
         <div class="cms-topbar-actions">
-          <nav class="cms-nav-group cms-nav-main" aria-label="CMS navigation">
-            <a class="cms-link cms-link-nav" href="#" id="nav-cms-home" data-screen="home">Home</a>
-            <a class="cms-link cms-link-nav" href="#" id="nav-cms-courses" data-screen="list">My courses</a>
-            <a class="cms-link cms-link-nav" href="#" id="nav-cms-community" data-screen="community">Community</a>
+          <nav class="cms-nav-group cms-nav-main" aria-label="CMS navigation" data-i18n="cms.nav.main" data-i18n-attr="aria-label">
+            <a class="cms-link cms-link-nav" href="#" id="nav-cms-home" data-screen="home" data-i18n="cms.nav.home">Home</a>
+            <a class="cms-link cms-link-nav" href="#" id="nav-cms-courses" data-screen="list" data-i18n="cms.nav.courses">My courses</a>
+            <a class="cms-link cms-link-nav" href="#" id="nav-cms-community" data-screen="community" data-i18n="cms.nav.community">Community</a>
           </nav>
-          <div class="cms-nav-group cms-nav-tools" aria-label="Tools">
-            <a class="cms-link" href="/host.html">Host</a>
+          <div class="cms-nav-group cms-nav-tools" aria-label="Tools" data-i18n="cms.nav.tools" data-i18n-attr="aria-label">
+            <a class="cms-link" href="/host.html" data-i18n="cms.nav.host">Host</a>
             <details class="cms-nav-more">
-              <summary class="cms-link cms-nav-more-trigger">Previews</summary>
+              <summary class="cms-link cms-nav-more-trigger" data-i18n="cms.nav.previews">Previews</summary>
               <div class="cms-nav-more-menu" role="menu">
-                <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener" role="menuitem">Student preview</a>
-                <a class="cms-link" href="/host.html?preview=1" target="_blank" rel="noopener" role="menuitem">Host preview</a>
+                <a class="cms-link" href="/join.html?preview=1" target="_blank" rel="noopener" role="menuitem" data-i18n="cms.nav.studentPreview">Student preview</a>
+                <a class="cms-link" href="/host.html?preview=1" target="_blank" rel="noopener" role="menuitem" data-i18n="cms.nav.hostPreview">Host preview</a>
               </div>
             </details>
-            <a class="cms-link" href="/config.html">Notifications</a>
+            <a class="cms-link" href="/config.html" data-i18n="cms.nav.notifications">Notifications</a>
           </div>
           <div class="cms-nav-group cms-nav-account">
+            <div class="cms-language" id="cms-ui-language">
+              <button
+                type="button"
+                class="cms-language-trigger"
+                id="btn-cms-ui-language"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-controls="cms-ui-language-menu"
+                data-i18n="cms.language"
+                data-i18n-attr="aria-label"
+              >
+                <span class="cms-language-value" id="cms-ui-language-value">English</span>
+                <span class="cms-language-caret" aria-hidden="true"></span>
+              </button>
+              <ul class="cms-language-menu" id="cms-ui-language-menu" role="listbox" hidden></ul>
+            </div>
             <span class="cms-teacher" id="cms-teacher-label" hidden></span>
-            <button type="button" class="btn secondary small cms-logout" id="btn-cms-logout" hidden>Log out</button>
+            <button type="button" class="btn secondary small cms-logout" id="btn-cms-logout" hidden data-i18n="common.logout">Log out</button>
           </div>
         </div>
       </div>
@@ -55,24 +71,24 @@
           <source src="/assets/login/BG_Video.mp4" type="video/mp4" />
         </video>
         <div class="cms-login-copy">
-          <h1>Prep the lesson. Host it live.</h1>
-          <p class="hint">Build quiz, video, and buzz-in exercises, then take them into class.</p>
+          <h1 data-i18n="cms.login.headline">Prep the lesson. Host it live.</h1>
+          <p class="hint" data-i18n="cms.login.sub">Build quiz, video, and buzz-in exercises, then take them into class.</p>
         </div>
         <div class="cms-panel cms-panel-login">
           <div class="cms-login-logo">
             <img src="/assets/login/langoclass_logo.svg" alt="Lango Class" width="160" height="160" />
           </div>
-          <h2>Sign in</h2>
+          <h2 data-i18n="cms.login.title">Sign in</h2>
           <label class="field">
-            <span>Username or email</span>
+            <span data-i18n="cms.login.username">Username or email</span>
             <input type="text" id="cms-login-username" autocomplete="username" />
           </label>
           <label class="field">
-            <span>Password</span>
+            <span data-i18n="cms.login.password">Password</span>
             <input type="password" id="cms-login-password" autocomplete="current-password" />
           </label>
           <button type="button" class="btn primary cms-cta" id="btn-cms-login">
-            <span>Login</span>
+            <span data-i18n="login.button">Login</span>
             <span class="cms-btn-glyph" aria-hidden="true">→</span>
           </button>
           <p class="error" id="cms-login-error"></p>
@@ -84,40 +100,40 @@
     <section id="screen-cms-home" class="screen">
       <div class="cms-home-shell">
         <header class="cms-home-intro">
-          <p class="cms-home-kicker">Course CMS</p>
-          <h1>What do you want to do?</h1>
+          <p class="cms-home-kicker" data-i18n="cms.home.kicker">Course CMS</p>
+          <h1 data-i18n="cms.home.title">What do you want to do?</h1>
           <p class="hint" id="cms-home-greeting">Pick a task below.</p>
         </header>
         <div class="cms-home-grid" id="cms-home-grid" role="list">
           <button type="button" class="cms-home-card" data-home-action="new-course" role="listitem">
             <span class="cms-home-card-icon" aria-hidden="true">+</span>
             <span class="cms-home-card-body">
-              <span class="cms-home-card-title">Create a new course</span>
-              <span class="cms-home-card-desc">Start from scratch and add sections and exercises.</span>
+              <span class="cms-home-card-title" data-i18n="cms.home.newCourse">Create a new course</span>
+              <span class="cms-home-card-desc" data-i18n="cms.home.newCourseDesc">Start from scratch and add sections and exercises.</span>
             </span>
             <span class="cms-home-card-arrow" aria-hidden="true">→</span>
           </button>
           <button type="button" class="cms-home-card" data-home-action="courses" role="listitem">
             <span class="cms-home-card-icon" aria-hidden="true">▦</span>
             <span class="cms-home-card-body">
-              <span class="cms-home-card-title">Edit my courses</span>
-              <span class="cms-home-card-desc">Open your library, import backups, or share to Community.</span>
+              <span class="cms-home-card-title" data-i18n="cms.home.editCourses">Edit my courses</span>
+              <span class="cms-home-card-desc" data-i18n="cms.home.editCoursesDesc">Open your library, import backups, or share to Community.</span>
             </span>
             <span class="cms-home-card-arrow" aria-hidden="true">→</span>
           </button>
           <button type="button" class="cms-home-card" data-home-action="community" role="listitem">
             <span class="cms-home-card-icon" aria-hidden="true">◎</span>
             <span class="cms-home-card-body">
-              <span class="cms-home-card-title">Browse Community</span>
-              <span class="cms-home-card-desc">Find public courses from other teachers and add them to My courses.</span>
+              <span class="cms-home-card-title" data-i18n="cms.home.community">Browse Community</span>
+              <span class="cms-home-card-desc" data-i18n="cms.home.communityDesc">Find public courses from other teachers and add them to My courses.</span>
             </span>
             <span class="cms-home-card-arrow" aria-hidden="true">→</span>
           </button>
           <button type="button" class="cms-home-card" data-home-action="progress" role="listitem">
             <span class="cms-home-card-icon" aria-hidden="true">▤</span>
             <span class="cms-home-card-body">
-              <span class="cms-home-card-title">Track class progress</span>
-              <span class="cms-home-card-desc">See where each class is in your course journeys.</span>
+              <span class="cms-home-card-title" data-i18n="cms.home.progress">Track class progress</span>
+              <span class="cms-home-card-desc" data-i18n="cms.home.progressDesc">See where each class is in your course journeys.</span>
             </span>
             <span class="cms-home-card-arrow" aria-hidden="true">→</span>
           </button>
@@ -128,13 +144,13 @@
     <section id="screen-cms-dashboard" class="screen">
       <header class="cms-header cms-dashboard-header">
         <div>
-          <h1>Class progress</h1>
-          <p class="hint">Track where this class is in each course journey.</p>
+          <h1 data-i18n="cms.dash.title">Class progress</h1>
+          <p class="hint" data-i18n="cms.dash.hint">Track where this class is in each course journey.</p>
         </div>
         <div class="cms-header-actions cms-dashboard-toolbar">
           <label class="field cms-dashboard-class-field">
-            <span>Class</span>
-            <select id="cms-dashboard-class" aria-label="Select class"></select>
+            <span data-i18n="cms.dash.class">Class</span>
+            <select id="cms-dashboard-class" aria-label="Select class" data-i18n="cms.dash.selectClass" data-i18n-attr="aria-label"></select>
           </label>
         </div>
       </header>
@@ -147,15 +163,15 @@
     <section id="screen-cms-list" class="screen">
       <header class="cms-header">
         <div>
-          <h1>My courses</h1>
-          <p class="hint">A library of lessons you can open, edit, and host.</p>
+          <h1 data-i18n="cms.list.title">My courses</h1>
+          <p class="hint" data-i18n="cms.list.hint">A library of lessons you can open, edit, and host.</p>
         </div>
         <div class="cms-header-actions">
           <input type="file" id="import-all-file" accept=".zip,application/zip" hidden />
-          <button type="button" class="btn secondary" id="btn-import-all-courses">Import all</button>
-          <button type="button" class="btn secondary" id="btn-export-all-courses">Export all</button>
+          <button type="button" class="btn secondary" id="btn-import-all-courses" data-i18n="cms.list.importAll">Import all</button>
+          <button type="button" class="btn secondary" id="btn-export-all-courses" data-i18n="cms.list.exportAll">Export all</button>
           <button type="button" class="btn primary cms-new-btn cms-cta" id="btn-new-course">
-            <span>New course</span>
+            <span data-i18n="cms.list.newCourse">New course</span>
             <span class="cms-btn-glyph" aria-hidden="true">+</span>
           </button>
         </div>
@@ -168,27 +184,27 @@
     <section id="screen-cms-community" class="screen">
       <header class="cms-header">
         <div>
-          <h1>Community</h1>
-          <p class="hint">Browse public courses from other teachers, then add them to My courses.</p>
+          <h1 data-i18n="cms.community.title">Community</h1>
+          <p class="hint" data-i18n="cms.community.hint">Browse public courses from other teachers, then add them to My courses.</p>
         </div>
       </header>
       <div class="cms-community-toolbar">
         <label class="field cms-community-search-field">
-          <span class="visually-hidden">Search community courses</span>
-          <input type="search" id="cms-community-search" placeholder="Search title, author, or description" />
+          <span class="visually-hidden" data-i18n="cms.community.search">Search community courses</span>
+          <input type="search" id="cms-community-search" placeholder="Search title, author, or description" data-i18n="cms.community.searchPlaceholder" data-i18n-attr="placeholder" />
         </label>
         <label class="field cms-community-filter">
-          <span>Language</span>
-          <select id="cms-community-lang" aria-label="Filter by language">
-            <option value="all">All languages</option>
+          <span data-i18n="cms.community.language">Language</span>
+          <select id="cms-community-lang" aria-label="Filter by language" data-i18n="cms.community.filterLang" data-i18n-attr="aria-label">
+            <option value="all" data-i18n="cms.community.allLangs">All languages</option>
           </select>
         </label>
         <label class="field cms-community-filter">
-          <span>Sort</span>
-          <select id="cms-community-sort" aria-label="Sort community courses">
-            <option value="featured">Featured</option>
-            <option value="newest">Newest</option>
-            <option value="popular">Most added</option>
+          <span data-i18n="cms.community.sort">Sort</span>
+          <select id="cms-community-sort" aria-label="Sort community courses" data-i18n="cms.community.sortAria" data-i18n-attr="aria-label">
+            <option value="featured" data-i18n="cms.community.featured">Featured</option>
+            <option value="newest" data-i18n="cms.community.newest">Newest</option>
+            <option value="popular" data-i18n="cms.community.popular">Most added</option>
           </select>
         </label>
       </div>
@@ -199,124 +215,153 @@
 
     <section id="screen-cms-edit" class="screen">
       <div class="cms-edit-chrome">
-        <button type="button" class="back-btn" id="btn-back-list">All courses</button>
-        <h1 id="cms-edit-title">Edit course</h1>
+        <button type="button" class="back-btn" id="btn-back-list" data-i18n="cms.edit.back">All courses</button>
+        <div class="cms-edit-chrome-copy">
+          <h1 id="cms-edit-title">Edit course</h1>
+          <p class="cms-edit-lead" id="cms-edit-lead">Name the course here. Add lessons on the Sections tab.</p>
+        </div>
         <span class="cms-autosave-status" id="cms-autosave-status" hidden aria-live="polite">All changes saved</span>
       </div>
 
-      <div class="cms-tabs" role="tablist">
-        <span class="cms-tab-glider" aria-hidden="true"></span>
-        <button type="button" class="cms-tab active" data-tab="details" role="tab" aria-selected="true">Details</button>
-        <button type="button" class="cms-tab" data-tab="sections" role="tab" aria-selected="false">Sections</button>
+      <div class="cms-tabs-wrap">
+        <div class="cms-tabs" role="tablist" aria-describedby="cms-tab-caption">
+          <span class="cms-tab-glider" aria-hidden="true"></span>
+          <button type="button" class="cms-tab active" data-tab="details" role="tab" aria-selected="true" data-i18n="cms.tab.details">1 · Details</button>
+          <button type="button" class="cms-tab" data-tab="sections" role="tab" aria-selected="false" data-i18n="cms.tab.sections">2 · Sections</button>
+        </div>
+        <p class="cms-tab-caption" id="cms-tab-caption">Step 1 of 2 — Save the name and cover, then continue to Sections.</p>
       </div>
 
       <div id="cms-tab-details" class="cms-tab-panel active">
         <div class="cms-edit-surface cms-studio">
           <div class="cms-studio-masthead">
             <label class="field cms-field-display">
-              <span>Course name</span>
-              <input type="text" id="course-name" maxlength="120" placeholder="Untitled course" />
+              <span data-i18n="cms.details.name">Course name</span>
+              <input type="text" id="course-name" maxlength="120" placeholder="Untitled course" data-i18n="cms.details.namePlaceholder" data-i18n-attr="placeholder" />
             </label>
             <label class="field">
-              <span>Description</span>
-              <textarea id="course-description" rows="3" maxlength="500" placeholder="What this course is for"></textarea>
+              <span data-i18n="cms.details.description">Description</span>
+              <textarea id="course-description" rows="3" maxlength="500" placeholder="e.g. Everyday Hong Kong culture for Primary 5" data-i18n="cms.details.descPlaceholder" data-i18n-attr="placeholder"></textarea>
             </label>
           </div>
           <div class="cms-studio-grid">
             <div class="field cms-thumbnail-field cms-studio-media">
-              <span>Course thumbnail</span>
-              <div class="cms-thumbnail-preview" id="course-banner-preview">
-                <img id="course-banner-img" alt="Course thumbnail" src="/assets/cms/cover-empty.svg" />
-                <button type="button" class="btn secondary small" id="btn-remove-banner" hidden>Remove</button>
+              <span data-i18n="cms.details.cover">Cover image</span>
+              <div class="cms-thumbnail-preview cms-studio-cover" id="course-banner-preview">
+                <div class="cms-studio-cover-image" id="course-banner-image-preview" hidden>
+                  <img id="course-banner-img" alt="Course thumbnail" src="/assets/cms/cover-empty.svg" data-i18n="cms.details.coverAlt" data-i18n-attr="alt" />
+                </div>
+                <div class="cms-studio-cover-empty cms-media-empty cms-media-empty-thumb cms-media-empty-thumb--tile" id="course-banner-empty">
+                  <div class="cms-q-image-empty-art" aria-hidden="true"></div>
+                  <p class="cms-q-image-empty-label">No image yet</p>
+                  <p class="cms-q-image-empty-hint">Upload image below</p>
+                </div>
+                <button type="button" class="btn secondary small cms-studio-cover-remove" id="btn-remove-banner" hidden data-i18n="cms.details.remove">Remove</button>
               </div>
               <label class="cms-thumbnail-upload btn secondary">
                 <input type="file" id="course-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
-                Upload image
+                <span data-i18n="cms.details.upload">Upload image</span>
               </label>
-              <p class="hint cms-thumbnail-hint">Shown on course cards in the dashboard and host. JPEG, PNG, WebP, or GIF. Max 2 MB.</p>
+              <p class="hint cms-thumbnail-hint" data-i18n="cms.details.coverHint">Shows on course cards. JPEG, PNG, WebP, or GIF · max 2 MB.</p>
               <input type="hidden" id="course-banner" />
               <p class="status-msg" id="cms-banner-status"></p>
             </div>
             <div class="field cms-studio-classes">
-              <span>Assigned classes</span>
-              <p class="hint cms-class-hint">Leave all unchecked to make this course available for any class when hosting.</p>
+              <span data-i18n="cms.details.whoHost">Who can host this</span>
+              <p class="hint cms-class-hint" data-i18n="cms.details.classHint">Leave all unchecked to allow any class.</p>
               <div id="course-class-list" class="cms-class-picker"></div>
               <p class="status-msg" id="cms-classes-status"></p>
             </div>
           </div>
-          <div class="cms-community-share-row" id="cms-community-share-row">
-            <label class="cms-ai-type-check">
-              <input type="checkbox" id="cms-community-featured" />
-              Feature this listing in Community
-            </label>
-            <p class="hint" id="cms-community-share-status">Share a snapshot of this course so other teachers can add it to My courses.</p>
-          </div>
           <div class="cms-actions-row cms-studio-dock">
-            <button type="button" class="btn primary cms-cta" id="btn-save-details">
-              <span>Save details</span>
-              <span class="cms-btn-glyph" aria-hidden="true">→</span>
-            </button>
-            <button type="button" class="btn secondary" id="btn-export-course">Export course</button>
-            <button type="button" class="btn secondary cms-community-share-btn" id="btn-community-share">Share to Community</button>
-            <button type="button" class="btn secondary" id="btn-community-unshare" hidden>Unshare</button>
-            <button type="button" class="btn secondary cms-danger" id="btn-delete-course">Delete course</button>
+            <div class="cms-studio-dock-primary">
+              <button type="button" class="btn primary cms-cta" id="btn-save-details">
+                <span data-i18n="cms.details.save">Save</span>
+              </button>
+              <button type="button" class="btn cms-btn-next" id="btn-goto-sections" data-i18n="cms.details.continue">Continue</button>
+            </div>
+            <div class="cms-studio-dock-more" id="cms-studio-dock-more">
+              <button type="button" class="btn secondary small" id="btn-export-course" data-i18n="cms.details.export">Export</button>
+              <button type="button" class="btn secondary small" id="btn-community-share" data-i18n="cms.details.share">Share to Community</button>
+              <button type="button" class="btn secondary small" id="btn-community-unshare" hidden data-i18n="cms.details.unshare">Unshare</button>
+              <button type="button" class="cms-text-danger" id="btn-delete-course" data-i18n="cms.details.delete">Delete course</button>
+            </div>
           </div>
+          <p class="hint cms-community-share-status" id="cms-community-share-status" data-i18n="cms.details.shareHint" data-i18n-dynamic>Other teachers can add a copy to My courses.</p>
           <p class="error" id="cms-details-error"></p>
           <p class="status-msg" id="cms-details-status"></p>
         </div>
       </div>
 
       <div id="cms-tab-sections" class="cms-tab-panel">
+          <div class="cms-ai-entry-chooser" id="cms-ai-entry-chooser">
+            <p class="cms-ai-label" id="cms-sections-start-title" data-i18n="cms.sections.startTitle">Start a section</p>
+            <p class="hint cms-ai-entry-intro" id="cms-sections-start-intro" data-i18n="cms.sections.startIntro">Choose how to add a lesson. Open a section card below to edit one later.</p>
+            <div class="cms-ai-entry-grid cms-ai-entry-grid-3">
+              <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-section">
+                <strong data-i18n="cms.ai.pathSection">Generate one section</strong>
+                <span data-i18n="cms.ai.pathSectionDesc">Create a section and generate its exercises with AI.</span>
+              </button>
+              <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-course">
+                <strong data-i18n="cms.ai.pathCourse">Build full course from document</strong>
+                <span data-i18n="cms.ai.pathCourseDesc">Upload a document, approve the outline, then generate every section.</span>
+              </button>
+              <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-manual">
+                <strong data-i18n="cms.ai.pathManual">Add section manually</strong>
+                <span data-i18n="cms.ai.pathManualDesc">Open a new section and type the exercises yourself.</span>
+              </button>
+            </div>
+          </div>
         <div id="cms-sections-view" class="cms-subview active">
-          <div class="cms-exercise-toolbar">
-            <span class="hint">Drag to reorder. Open a section to build its playlist.</span>
+          <div class="cms-exercise-toolbar" id="cms-sections-toolbar">
+            <span class="hint" data-i18n="cms.sections.reorderHint">Drag to reorder. Open a section to build its playlist.</span>
           </div>
           <div class="cms-ai-panel cms-batch-panel" id="cms-batch-ai-panel" hidden>
             <details class="cms-ai-details">
-              <summary class="cms-ai-summary">Batch AI Generate (all sections)</summary>
+              <summary class="cms-ai-summary" data-i18n="cms.batch.summary">Batch AI Generate (all sections)</summary>
               <div class="cms-ai-body">
-                <p class="hint cms-ai-intro">Assign material to each section below, then generate exercises for the whole course in one run. You can also import/export JSON backups.</p>
+                <p class="hint cms-ai-intro" data-i18n="cms.batch.intro">Assign material to each section below, then generate exercises for the whole course in one run. You can also import/export JSON backups.</p>
                 <div class="cms-ai-section">
-                  <p class="cms-ai-label">Generation settings (shared)</p>
-                  <div class="cms-ai-types" role="group" aria-label="Batch exercise types">
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-mcquiz" checked /> MC Quiz</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-fastmcquiz" checked /> Fast MC Quiz</label>
-                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-buzzin" checked /> Buzz in Question</label>
+                  <p class="cms-ai-label" data-i18n="cms.batch.settings">Generation settings (shared)</p>
+                  <div class="cms-ai-types" role="group" aria-label="Batch exercise types" data-i18n="cms.batch.types" data-i18n-attr="aria-label">
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-mcquiz" checked /> <span data-i18n="cms.type.mcquiz">MC Quiz</span></label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-fastmcquiz" checked /> <span data-i18n="cms.type.fastmcquiz">Lightning round</span></label>
+                    <label class="cms-ai-type-check"><input type="checkbox" id="cms-batch-type-buzzin" checked /> <span data-i18n="cms.type.buzzin">Buzz in Question</span></label>
                   </div>
                   <div class="cms-ai-settings-grid">
                     <label class="field cms-ai-field">
-                      <span>Questions per type</span>
+                      <span data-i18n="cms.batch.qPerType">Questions per type</span>
                       <input type="number" id="cms-batch-count" min="1" max="10" value="3" />
                     </label>
                     <label class="field cms-ai-field">
-                      <span>Difficulty</span>
+                      <span data-i18n="cms.batch.difficulty">Difficulty</span>
                       <select id="cms-batch-difficulty">
-                        <option value="easy">Easy</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="hard">Hard</option>
+                        <option value="easy" data-i18n="cms.batch.easy">Easy</option>
+                        <option value="medium" selected data-i18n="cms.batch.medium">Medium</option>
+                        <option value="hard" data-i18n="cms.batch.hard">Hard</option>
                       </select>
                     </label>
                   </div>
                 </div>
                 <div class="cms-ai-section">
-                  <p class="cms-ai-label">Section materials</p>
+                  <p class="cms-ai-label" data-i18n="cms.batch.materials">Section materials</p>
                   <div id="cms-batch-ai-rows" class="cms-batch-rows"></div>
                 </div>
                 <div class="cms-ai-actions cms-batch-actions">
-                  <button type="button" class="btn primary small" id="btn-cms-batch-generate">Generate all sections</button>
-                  <button type="button" class="btn secondary small" id="btn-cms-batch-export-json">Export JSON</button>
+                  <button type="button" class="btn primary small" id="btn-cms-batch-generate" data-i18n="cms.batch.generate">Generate all sections</button>
+                  <button type="button" class="btn secondary small" id="btn-cms-batch-export-json" data-i18n="cms.batch.exportJson">Export JSON</button>
                   <label class="btn secondary small cms-ai-file-label">
                     <input type="file" id="cms-batch-import-json" hidden accept=".json,application/json" />
-                    Import JSON
+                    <span data-i18n="cms.batch.importJson">Import JSON</span>
                   </label>
                   <span class="status-msg" id="cms-batch-generate-status"></span>
                 </div>
                 <p class="error" id="cms-batch-error"></p>
                 <div class="cms-ai-section" id="cms-batch-preview-section" hidden>
-                  <p class="cms-ai-label">Preview &amp; apply</p>
+                  <p class="cms-ai-label" data-i18n="cms.batch.preview">Preview &amp; apply</p>
                   <div id="cms-batch-preview" class="cms-batch-preview"></div>
                   <button type="button" class="btn primary cms-cta cms-ai-add-btn" id="btn-cms-batch-apply">
-                    <span>Apply selected to sections</span>
+                    <span data-i18n="cms.batch.apply">Apply selected to sections</span>
                     <span class="cms-btn-glyph" aria-hidden="true">→</span>
                   </button>
                 </div>
@@ -324,13 +369,15 @@
             </details>
           </div>
           <div id="cms-section-list" class="cms-section-list"></div>
-          <div class="cms-section-add cms-section-add-bottom">
-            <button type="button" class="btn secondary small" id="btn-add-section">Add section</button>
+          <div class="cms-section-dock">
+            <div class="cms-section-add cms-section-add-bottom">
+              <button type="button" class="btn secondary" id="btn-add-section" data-i18n="cms.sections.add">Add section</button>
+            </div>
+            <button type="button" class="btn primary cms-cta" id="btn-save-sections">
+              <span data-i18n="cms.sections.save">Save sections</span>
+              <span class="cms-btn-glyph" aria-hidden="true">→</span>
+            </button>
           </div>
-          <button type="button" class="btn primary cms-cta" id="btn-save-sections">
-            <span>Save sections</span>
-            <span class="cms-btn-glyph" aria-hidden="true">→</span>
-          </button>
           <p class="error" id="cms-sections-error"></p>
           <p class="status-msg" id="cms-sections-status"></p>
         </div>
@@ -339,8 +386,15 @@
           <h2 class="cms-subview-title" id="cms-exercises-section-title">Section exercises</h2>
           <p class="hint cms-section-duration-estimate" id="cms-exercises-section-duration" hidden aria-live="polite"></p>
           <div class="cms-playlist-head">
-            <span class="hint">Drag the handle or use Move to reorder. Edit opens the questions.</span>
-            <a class="cms-link cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener">Preview all student layouts</a>
+            <span class="hint" data-i18n="cms.ex.reorderHint">Drag the handle or use Move to reorder. Edit opens the questions.</span>
+            <a class="cms-link cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener" data-i18n="cms.ex.previewAll">Preview all student layouts</a>
+          </div>
+          <div class="cms-playlist-add" id="cms-playlist-add">
+            <span class="cms-playlist-add-label" data-i18n="cms.ex.add">Add question</span>
+            <button type="button" class="btn secondary small" data-add-exercise="mcquiz" data-i18n="cms.type.mcquiz">MC Quiz</button>
+            <button type="button" class="btn secondary small" data-add-exercise="fastmcquiz" data-i18n="cms.type.fastmcquiz">Lightning round</button>
+            <button type="button" class="btn secondary small" data-add-exercise="buzzin" data-i18n="cms.type.buzzin">Buzz in Question</button>
+            <button type="button" class="btn secondary small" data-add-exercise="video" data-i18n="cms.type.video">Video</button>
           </div>
           <div class="cms-exercise-edit-layout" id="cms-exercise-edit-layout">
             <div class="cms-exercise-edit-main" id="cms-exercise-edit-main">
@@ -348,114 +402,114 @@
             </div>
           </div>
           <div class="cms-ai-panel" id="cms-ai-panel">
-            <div class="cms-ai-entry-chooser" id="cms-ai-entry-chooser" hidden>
-              <p class="cms-ai-label">Generate with AI</p>
-              <p class="hint cms-ai-entry-intro">Choose whether you are filling this section only or building a full course from one document.</p>
-              <div class="cms-ai-entry-grid">
-                <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-section">
-                  <strong>Add to this section</strong>
-                  <span>Generate exercises from your material for the section you are editing.</span>
-                </button>
-                <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-course">
-                  <strong>Build full course from document</strong>
-                  <span>Split a document into sections, then generate the whole course.</span>
-                </button>
-              </div>
+            <div class="cms-ai-idle" id="cms-ai-idle" hidden>
+              <p class="cms-ai-label" data-i18n="cms.ai.generate">Generate with AI</p>
+              <p class="hint cms-ai-idle-intro" data-i18n="cms.ai.idleIntro">Create questions from a document or pasted text for this section.</p>
+              <button type="button" class="btn primary" id="btn-cms-ai-start-section" data-i18n="cms.ai.startSection">Generate for this section</button>
             </div>
-            <div class="cms-ai-wizard" id="cms-ai-wizard">
+            <div class="cms-ai-wizard" id="cms-ai-wizard" hidden>
               <header class="cms-ai-wizard-head">
                 <div class="cms-ai-wizard-head-row">
-                  <h3 class="cms-ai-wizard-title">Generate from material</h3>
-                  <button type="button" class="cms-link cms-ai-change-path" id="btn-cms-ai-change-path" hidden>Change approach</button>
+                  <h3 class="cms-ai-wizard-title" id="cms-ai-wizard-title">Generate from material</h3>
+                  <button type="button" class="cms-link cms-ai-change-path" id="btn-cms-ai-change-path" data-i18n="cms.ai.changeApproach">Change approach</button>
                 </div>
-                <ol class="cms-ai-steps" aria-label="Generation steps">
-                  <li><button type="button" class="cms-ai-step is-current" data-step="1"><span class="cms-ai-step-num">1</span><span class="cms-ai-step-name">Format</span></button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="2"><span class="cms-ai-step-num">2</span><span class="cms-ai-step-name">Material</span></button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="3"><span class="cms-ai-step-num">3</span><span class="cms-ai-step-name">Review</span></button></li>
-                  <li><button type="button" class="cms-ai-step" data-step="4"><span class="cms-ai-step-num">4</span><span class="cms-ai-step-name">Publish</span></button></li>
+                <p class="hint cms-ai-course-banner" id="cms-ai-course-banner" hidden>Full-course mode. The section playlist is hidden until you publish or change approach.</p>
+                <ol class="cms-ai-steps" aria-label="Generation steps" data-i18n="cms.ai.steps" data-i18n-attr="aria-label">
+                  <li><button type="button" class="cms-ai-step is-current" data-step="1"><span class="cms-ai-step-num">1</span><span class="cms-ai-step-name" data-i18n="cms.ai.step.format">Format</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="2"><span class="cms-ai-step-num">2</span><span class="cms-ai-step-name" data-i18n="cms.ai.step.material">Material</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="3"><span class="cms-ai-step-num">3</span><span class="cms-ai-step-name" data-i18n="cms.ai.step.review">Review</span></button></li>
+                  <li><button type="button" class="cms-ai-step" data-step="4"><span class="cms-ai-step-num">4</span><span class="cms-ai-step-name" data-i18n="cms.ai.step.publish">Publish</span></button></li>
                 </ol>
                 <p class="cms-ai-wizard-summary" id="cms-ai-wizard-summary" aria-live="polite"></p>
                 <p class="cms-ai-gen-summary" id="cms-ai-gen-summary" hidden aria-live="polite"></p>
               </header>
 
               <div class="cms-ai-step-body">
-              <div class="cms-ai-step-panel is-active" data-step-panel="1">
-                <p class="hint cms-ai-intro">Choose a template.</p>
+              <div class="cms-ai-step-panel is-active" data-step-kind="format">
+                <p class="hint cms-ai-intro" id="cms-ai-format-intro">Choose how this section will play.</p>
                 <div class="cms-ai-templates" role="list">
                   <button type="button" class="cms-ai-template is-selected" data-template="vocab" role="listitem">
-                    <span class="cms-ai-template-name">Vocab drill</span>
-                    <span class="cms-ai-template-meta">5 MC Quiz · 3 Fast MC Quiz · Easy</span>
+                    <span class="cms-ai-template-name" data-i18n="cms.ai.tpl.vocab">Vocab drill</span>
+                    <span class="cms-ai-template-meta" data-i18n="cms.ai.tpl.vocabMeta">5 MC Quiz · 3 Lightning round · Easy</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="reading" role="listitem">
-                    <span class="cms-ai-template-name">Reading check</span>
-                    <span class="cms-ai-template-meta">4 MC Quiz · 2 Buzz in Question · Medium</span>
+                    <span class="cms-ai-template-name" data-i18n="cms.ai.tpl.reading">Reading check</span>
+                    <span class="cms-ai-template-meta" data-i18n="cms.ai.tpl.readingMeta">4 MC Quiz · 2 Buzz in Question · Medium</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="speaking" role="listitem">
-                    <span class="cms-ai-template-name">Speaking class</span>
-                    <span class="cms-ai-template-meta">4 Buzz in Question · Medium</span>
+                    <span class="cms-ai-template-name" data-i18n="cms.ai.tpl.speaking">Speaking class</span>
+                    <span class="cms-ai-template-meta" data-i18n="cms.ai.tpl.speakingMeta">4 Buzz in Question · Medium</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="mixed" role="listitem">
-                    <span class="cms-ai-template-name">Mixed lesson</span>
-                    <span class="cms-ai-template-meta">3 MC Quiz · 2 Fast MC Quiz · 2 Buzz in Question</span>
+                    <span class="cms-ai-template-name" data-i18n="cms.ai.tpl.mixed">Mixed lesson</span>
+                    <span class="cms-ai-template-meta" data-i18n="cms.ai.tpl.mixedMeta">3 MC Quiz · 2 Lightning round · 2 Buzz in Question</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="video" role="listitem">
-                    <span class="cms-ai-template-name">Video lesson</span>
-                    <span class="cms-ai-template-meta">1 AI Video · Medium</span>
+                    <span class="cms-ai-template-name" data-i18n="cms.ai.tpl.video">Video lesson</span>
+                    <span class="cms-ai-template-meta" data-i18n="cms.ai.tpl.videoMeta">1 AI Video · Medium</span>
                   </button>
                   <button type="button" class="cms-ai-template" data-template="custom" role="listitem">
-                    <span class="cms-ai-template-name">Custom make</span>
-                    <span class="cms-ai-template-meta">Choose types and counts yourself</span>
+                    <span class="cms-ai-template-name" data-i18n="cms.ai.tpl.custom">Custom make</span>
+                    <span class="cms-ai-template-meta" data-i18n="cms.ai.tpl.customMeta">Choose types and counts yourself</span>
                   </button>
                 </div>
+                <div id="cms-ai-format-extras-home">
+                  <div id="cms-ai-format-extras">
                 <div class="cms-ai-section" id="cms-ai-custom-settings" hidden>
-                  <p class="cms-ai-label">Custom mix</p>
-                  <div class="cms-ai-type-rows" role="group" aria-label="Exercise types to generate">
+                  <p class="cms-ai-label" data-i18n="cms.ai.customMix">Custom mix</p>
+                  <div class="cms-ai-type-rows" role="group" aria-label="Exercise types to generate" data-i18n="cms.ai.typesGroup" data-i18n-attr="aria-label">
                     <label class="cms-ai-type-row">
                       <input type="checkbox" id="cms-ai-type-mcquiz" checked />
-                      <span class="cms-ai-type-name">MC Quiz</span>
-                      <input type="number" id="cms-ai-count-mcquiz" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="MC Quiz count" />
+                      <span class="cms-ai-type-name" data-i18n="cms.type.mcquiz">MC Quiz</span>
+                      <input type="number" id="cms-ai-count-mcquiz" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="MC Quiz count" data-i18n="cms.ai.count.mcquiz" data-i18n-attr="aria-label" />
                     </label>
                     <label class="cms-ai-type-row">
                       <input type="checkbox" id="cms-ai-type-fastmcquiz" checked />
-                      <span class="cms-ai-type-name">Fast MC Quiz</span>
-                      <input type="number" id="cms-ai-count-fastmcquiz" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="Fast MC Quiz count" />
+                      <span class="cms-ai-type-name" data-i18n="cms.type.fastmcquiz">Lightning round</span>
+                      <input type="number" id="cms-ai-count-fastmcquiz" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="Lightning round count" data-i18n="cms.ai.count.fast" data-i18n-attr="aria-label" />
                     </label>
                     <label class="cms-ai-type-row">
                       <input type="checkbox" id="cms-ai-type-buzzin" />
-                      <span class="cms-ai-type-name">Buzz in Question</span>
-                      <input type="number" id="cms-ai-count-buzzin" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="Buzz in Question count" disabled />
+                      <span class="cms-ai-type-name" data-i18n="cms.type.buzzin">Buzz in Question</span>
+                      <input type="number" id="cms-ai-count-buzzin" class="cms-ai-type-count" min="1" max="10" value="3" aria-label="Buzz in Question count" data-i18n="cms.ai.count.buzzin" data-i18n-attr="aria-label" disabled />
                     </label>
                     <label class="cms-ai-type-row">
                       <input type="checkbox" id="cms-ai-type-video" />
-                      <span class="cms-ai-type-name">Video</span>
-                      <input type="number" id="cms-ai-count-video" class="cms-ai-type-count" min="1" max="10" value="1" aria-label="Video count" disabled />
+                      <span class="cms-ai-type-name" data-i18n="cms.type.video">Video</span>
+                      <input type="number" id="cms-ai-count-video" class="cms-ai-type-count" min="1" max="10" value="1" aria-label="Video count" data-i18n="cms.ai.count.video" data-i18n-attr="aria-label" disabled />
                     </label>
                   </div>
                   <div class="cms-ai-settings-grid cms-ai-settings-grid-single">
                     <label class="field cms-ai-field">
-                      <span>Difficulty</span>
+                      <span data-i18n="cms.batch.difficulty">Difficulty</span>
                       <select id="cms-ai-difficulty">
-                        <option value="easy">Easy</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="hard">Hard</option>
+                        <option value="easy" data-i18n="cms.batch.easy">Easy</option>
+                        <option value="medium" selected data-i18n="cms.batch.medium">Medium</option>
+                        <option value="hard" data-i18n="cms.batch.hard">Hard</option>
                       </select>
                     </label>
                   </div>
                 </div>
-                <div class="cms-ai-settings-grid cms-ai-speak-lang-row">
+                <div id="cms-ai-speak-lang-format-home">
+                <div class="cms-ai-settings-grid cms-ai-speak-lang-row" id="cms-ai-speak-lang-row">
                   <label class="field cms-ai-field">
-                    <span>Question speech language</span>
-                    <select id="cms-ai-speak-lang" aria-label="Question speech language"></select>
-                    <p class="hint cms-ai-speak-lang-hint">Questions, answers, and AI speech during gameplay all use this language.</p>
+                    <span data-i18n="cms.ai.speakLang">Question language</span>
+                    <select id="cms-ai-speak-lang" aria-label="Question language" data-i18n="cms.ai.speakLang" data-i18n-attr="aria-label"></select>
+                    <p class="hint cms-ai-speak-lang-hint" data-i18n="cms.ai.speakHint">Generated questions and answers use this language.</p>
                   </label>
+                </div>
+                </div>
+                  </div>
                 </div>
               </div>
 
-              <div class="cms-ai-step-panel" data-step-panel="2" hidden>
+              <div class="cms-ai-step-panel" data-step-kind="material" hidden>
+                <p class="hint cms-ai-intro" id="cms-ai-material-intro">Add the material for this section.</p>
+                <div id="cms-ai-speak-lang-material-mount" class="cms-ai-speak-lang-mount"></div>
                 <div class="cms-ai-material-layout">
                   <section class="cms-ai-material-card">
                     <div class="cms-ai-material-card-head">
-                      <h4 class="cms-ai-material-card-title">Source</h4>
+                      <h4 class="cms-ai-material-card-title" data-i18n="cms.ai.source">Source</h4>
                       <div class="cms-ai-material-state" id="cms-ai-material-state" hidden aria-label="Material status"></div>
                     </div>
                     <textarea id="cms-ai-paste" class="cms-ai-textarea cms-ai-textarea-compact" rows="4" placeholder="Paste lesson text…"></textarea>
@@ -491,8 +545,8 @@
                   </section>
                   <section class="cms-ai-material-card cms-ai-material-card-side cms-ai-prompt-card">
                     <div class="cms-ai-prompt-head">
-                      <h4 class="cms-ai-material-card-title">Prompt</h4>
-                      <span class="cms-ai-optional">optional</span>
+                      <h4 class="cms-ai-material-card-title" data-i18n="cms.ai.prompt">Prompt</h4>
+                      <span class="cms-ai-optional" data-i18n="cms.ai.optional">optional</span>
                     </div>
                     <div class="cms-ai-prompt-compose">
                       <textarea id="cms-ai-instructions" class="cms-ai-prompt-input" rows="5" placeholder="Only Topic 3. Focus on travel vocabulary…"></textarea>
@@ -504,10 +558,54 @@
                 <pre id="cms-ai-video-log" class="cms-ai-video-log" hidden aria-live="polite"></pre>
               </div>
 
-              <div class="cms-ai-step-panel" data-step-panel="3" hidden>
+              <div class="cms-ai-step-panel" data-step-kind="plan" hidden>
+                <p class="hint cms-ai-intro" id="cms-ai-plan-intro">Approve the outline before generating. Uncheck a section to skip it.</p>
+                <div class="cms-ai-plan-format-bar" id="cms-ai-plan-format-bar">
+                  <div class="cms-ai-plan-format-row">
+                    <label class="field cms-ai-field">
+                      <span>Play format</span>
+                      <select id="cms-ai-plan-format-select" aria-label="Play format for generated sections">
+                        <option value="vocab">Vocab drill</option>
+                        <option value="reading">Reading check</option>
+                        <option value="speaking">Speaking class</option>
+                        <option value="mixed">Mixed lesson</option>
+                        <option value="video">Video lesson</option>
+                        <option value="custom">Custom make</option>
+                      </select>
+                    </label>
+                    <div id="cms-ai-speak-lang-plan-mount" class="cms-ai-speak-lang-mount"></div>
+                    <p class="hint" id="cms-ai-plan-format-hint">Used when you generate. Changing it does not rebuild the outline.</p>
+                  </div>
+                  <div id="cms-ai-plan-format-mount"></div>
+                </div>
+                <div class="cms-ai-plan-meta" id="cms-ai-plan-meta"></div>
+                <div class="cms-ai-plan-list" id="cms-ai-plan-list"></div>
+                <div class="cms-ai-plan-actions" id="cms-ai-plan-actions">
+                  <button type="button" class="btn primary cms-cta" id="btn-cms-ai-generate-course">Generate sections</button>
+                  <div class="cms-ai-plan-confirm-row" id="cms-ai-plan-confirm-row" hidden>
+                    <p class="cms-ai-plan-confirm" id="cms-ai-plan-confirm"></p>
+                    <div class="cms-ai-plan-confirm-btns">
+                      <button type="button" class="btn primary small" id="btn-cms-ai-confirm-generate">Confirm generate</button>
+                      <button type="button" class="btn secondary small" id="btn-cms-ai-cancel-generate">Not yet</button>
+                    </div>
+                  </div>
+                </div>
+                <details class="cms-ai-advanced">
+                  <summary>Advanced: import / export outline JSON</summary>
+                  <div class="cms-ai-json-actions">
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-plan">Export outline</button>
+                    <label class="btn secondary small cms-ai-file-label">
+                      <input type="file" id="cms-ai-import-plan" hidden accept=".json,application/json" />
+                      Import outline
+                    </label>
+                  </div>
+                </details>
+              </div>
+
+              <div class="cms-ai-step-panel" data-step-kind="review" hidden>
                 <div class="cms-ai-review-layout cms-ai-review-layout--solo">
                   <div class="cms-ai-review-main">
-                    <p class="hint cms-ai-intro">Review and edit before publishing. Use the Lango assistant (bottom right) to revise questions.</p>
+                    <p class="hint cms-ai-intro" id="cms-ai-review-intro">Review and edit questions. Ask Lango (bottom right) to revise a highlighted question.</p>
                     <div id="cms-ai-review-assets" class="cms-ai-review-assets" hidden></div>
                     <div class="cms-ai-preview-toolbar" id="cms-ai-preview-toolbar" hidden>
                       <nav class="cms-ai-preview-nav" id="cms-ai-preview-nav" aria-label="Jump to section"></nav>
@@ -527,8 +625,8 @@
                 </div>
               </div>
 
-              <div class="cms-ai-step-panel" data-step-panel="4" hidden>
-                <p class="hint cms-ai-intro" id="cms-ai-publish-intro" hidden></p>
+              <div class="cms-ai-step-panel" data-step-kind="publish" hidden>
+                <p class="hint cms-ai-intro" id="cms-ai-publish-intro">Save the selected exercises into the course.</p>
                 <div id="cms-ai-publish-summary" class="cms-ai-publish-summary"></div>
               </div>
 
@@ -548,8 +646,8 @@
               </div>
               <p class="status-msg" id="cms-ai-generate-status"></p>
               <div class="cms-ai-wizard-nav">
-                <button type="button" class="btn secondary small" id="btn-cms-ai-back" hidden>Back</button>
-                <button type="button" class="btn primary cms-cta" id="btn-cms-ai-next">Continue</button>
+                <button type="button" class="btn secondary small" id="btn-cms-ai-back" hidden data-i18n="cms.ai.back">Back</button>
+                <button type="button" class="btn primary cms-cta" id="btn-cms-ai-next" data-i18n="cms.ai.continue">Continue</button>
                 <button type="button" class="btn primary cms-cta" id="btn-cms-ai-publish" hidden>
                   <span id="cms-ai-publish-label">Publish to section</span>
                   <span class="cms-btn-glyph" aria-hidden="true">→</span>
@@ -559,7 +657,7 @@
             </div>
           </div>
           <button type="button" class="btn primary cms-cta" id="btn-save-exercises" hidden>
-            <span>Save exercises</span>
+            <span data-i18n="cms.ex.save">Save exercises</span>
             <span class="cms-btn-glyph" aria-hidden="true">→</span>
           </button>
           <p class="error" id="cms-exercises-error"></p>
@@ -576,8 +674,20 @@
       <h2 id="cms-onboarding-title">Build your course</h2>
       <p id="cms-onboarding-copy">Open Sections to add lesson units, covers, and exercise lists.</p>
       <div class="cms-onboarding-actions">
-        <button type="button" class="btn secondary small" id="btn-cms-onboarding-skip">Skip tour</button>
-        <button type="button" class="btn primary small" id="btn-cms-onboarding-next">Next</button>
+        <button type="button" class="btn secondary small" id="btn-cms-onboarding-skip" data-i18n="cms.tour.skip">Skip tour</button>
+        <button type="button" class="btn primary small" id="btn-cms-onboarding-next" data-i18n="cms.tour.next">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cms-confirm" id="cms-confirm" hidden>
+    <div class="cms-confirm-backdrop" id="cms-confirm-backdrop"></div>
+    <div class="cms-confirm-card" role="dialog" aria-modal="true" aria-labelledby="cms-confirm-title" aria-describedby="cms-confirm-body">
+      <h2 id="cms-confirm-title">Remove this section?</h2>
+      <p id="cms-confirm-body">This will also delete its exercises.</p>
+      <div class="cms-confirm-actions">
+        <button type="button" class="btn secondary" id="btn-cms-confirm-cancel" data-i18n="cms.confirm.cancel">Cancel</button>
+        <button type="button" class="btn cms-danger" id="btn-cms-confirm-ok" data-i18n="cms.sections.removeConfirm">Remove</button>
       </div>
     </div>
   </div>
@@ -590,7 +700,7 @@
   <div class="cms-community-preview" id="cms-community-preview" hidden>
     <div class="cms-community-preview-backdrop" id="cms-community-preview-backdrop"></div>
     <div class="cms-community-preview-card" role="dialog" aria-modal="true" aria-labelledby="cms-community-preview-title">
-      <button type="button" class="cms-icon-btn cms-community-preview-close" id="btn-community-preview-close" aria-label="Close preview">×</button>
+      <button type="button" class="cms-icon-btn cms-community-preview-close" id="btn-community-preview-close" aria-label="Close preview" data-i18n="cms.community.closePreview" data-i18n-attr="aria-label">×</button>
       <p class="cms-community-preview-kicker" id="cms-community-preview-kicker">Community course</p>
       <h2 id="cms-community-preview-title">Course</h2>
       <p class="hint" id="cms-community-preview-meta"></p>
@@ -598,10 +708,10 @@
       <ul class="cms-community-preview-sections" id="cms-community-preview-sections"></ul>
       <div class="cms-community-preview-actions">
         <button type="button" class="btn primary cms-cta" id="btn-community-preview-add">
-          <span>Add to My courses</span>
+          <span data-i18n="cms.community.add">Add to My courses</span>
           <span class="cms-btn-glyph" aria-hidden="true">→</span>
         </button>
-        <button type="button" class="btn secondary" id="btn-community-preview-report">Report</button>
+        <button type="button" class="btn secondary" id="btn-community-preview-report" data-i18n="cms.community.report">Report</button>
       </div>
       <p class="error" id="cms-community-preview-error"></p>
     </div>
@@ -612,7 +722,7 @@
     <div class="cms-asset-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="cms-asset-preview-title">
       <button type="button" class="cms-icon-btn cms-asset-preview-close" id="btn-cms-asset-preview-close" aria-label="Close preview">×</button>
       <p class="cms-asset-preview-title" id="cms-asset-preview-title">Material image</p>
-      <img class="cms-asset-preview-img" id="cms-asset-preview-img" alt="" />
+      <img class="cms-asset-preview-img" id="cms-asset-preview-img" src="/assets/cms/cover-empty.svg" alt="" />
       <div class="cms-asset-preview-actions">
         <button type="button" class="btn primary small" id="btn-cms-asset-preview-attach" hidden>Attach to question</button>
       </div>
@@ -628,8 +738,8 @@
           <p class="cms-ai-agent-lead" id="cms-global-agent-lead">Ask anything about this page, or highlight text to revise exercises.</p>
         </div>
         <div class="cms-global-agent-head-actions">
-          <button type="button" class="cms-row-btn cms-row-btn-quiet" id="btn-cms-global-agent-undo" hidden>Undo</button>
-          <button type="button" class="cms-icon-btn cms-global-agent-close" id="btn-cms-global-agent-close" aria-label="Close assistant">×</button>
+          <button type="button" class="cms-row-btn cms-row-btn-quiet" id="btn-cms-global-agent-undo" hidden data-i18n="cms.agent.undo">Undo</button>
+          <button type="button" class="cms-icon-btn cms-global-agent-close" id="btn-cms-global-agent-close" aria-label="Close assistant" data-i18n="cms.agent.close" data-i18n-attr="aria-label">×</button>
         </div>
       </header>
       <div class="cms-ai-agent-chat">
@@ -637,54 +747,63 @@
         <div class="cms-ai-agent-footer">
           <div class="cms-ai-agent-selection" id="cms-global-agent-selection" hidden>
             <div class="cms-ai-agent-selection-head">
-              <span class="cms-ai-agent-selection-label">Selected text</span>
-              <button type="button" class="cms-ai-agent-selection-clear" id="btn-cms-global-agent-clear-selection" aria-label="Clear selected text">×</button>
+              <span class="cms-ai-agent-selection-label" data-i18n="cms.agent.selected">Selected text</span>
+              <button type="button" class="cms-ai-agent-selection-clear" id="btn-cms-global-agent-clear-selection" aria-label="Clear selected text" data-i18n="cms.agent.clearSelection" data-i18n-attr="aria-label">×</button>
             </div>
             <blockquote class="cms-ai-agent-selection-text" id="cms-global-agent-selection-text"></blockquote>
           </div>
           <form class="cms-ai-agent-compose" id="cms-global-agent-form">
-            <label class="visually-hidden" for="cms-global-agent-input">Assistant message</label>
+            <label class="visually-hidden" for="cms-global-agent-input" data-i18n="cms.agent.message">Assistant message</label>
             <div class="cms-ai-agent-input-row">
-              <textarea id="cms-global-agent-input" class="cms-ai-agent-input" rows="1" placeholder="Ask Lango anything…"></textarea>
-              <button type="submit" class="cms-ai-agent-send" id="btn-cms-global-agent-apply" aria-label="Send message">
+              <textarea id="cms-global-agent-input" class="cms-ai-agent-input" rows="1" placeholder="Ask Lango anything…" data-i18n="cms.agent.placeholder" data-i18n-attr="placeholder"></textarea>
+              <button type="submit" class="cms-ai-agent-send" id="btn-cms-global-agent-apply" aria-label="Send message" data-i18n="cms.agent.send" data-i18n-attr="aria-label">
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M3.4 20.6 21 12 3.4 3.4l2.8 7.2L17 11l-10.8 1.4 2.8 7.2Z" fill="currentColor"/></svg>
               </button>
             </div>
-            <p class="hint cms-ai-agent-compose-hint">Enter to send · Shift+Enter for new line</p>
+            <p class="hint cms-ai-agent-compose-hint" data-i18n="cms.agent.composeHint">Enter to send · Shift+Enter for new line</p>
           </form>
         </div>
       </div>
     </aside>
     <button type="button" class="btn primary cms-global-agent-toggle" id="btn-cms-global-agent-toggle" aria-expanded="false" aria-controls="cms-global-agent">
-      <span class="cms-global-agent-toggle-label">Ask Lango</span>
+      <span class="cms-global-agent-toggle-label" data-i18n="cms.agent.ask">Ask Lango</span>
     </button>
-    <button type="button" class="cms-ai-selection-add cms-global-selection-add" id="cms-global-selection-add" hidden>Add to chat</button>
+    <button type="button" class="cms-ai-selection-add cms-global-selection-add" id="cms-global-selection-add" hidden data-i18n="cms.agent.addToChat">Add to chat</button>
   </div>
 
   <template id="tpl-section-editor">
     <article class="cms-section-card">
       <div class="cms-section-media">
-        <span class="cms-section-cover-label">Path tile</span>
+        <span class="cms-section-cover-label" data-i18n="cms.sections.pathTile">Path tile</span>
         <div class="cms-section-cover">
           <div class="cms-section-thumbnail-preview" hidden>
-            <img class="cms-section-banner-img" alt="Section path tile" src="/assets/cms/cover-empty.svg" />
+            <img class="cms-section-banner-img" alt="Section path tile" src="/assets/cms/cover-empty.svg" data-i18n="cms.sections.pathAlt" data-i18n-attr="alt" />
           </div>
-          <div class="cms-section-cover-empty" aria-hidden="true"></div>
+          <div class="cms-section-cover-empty cms-media-empty">
+            <div class="cms-q-image-empty-art" aria-hidden="true"></div>
+            <p class="cms-q-image-empty-label" data-i18n="cms.sections.tileEmpty">No image yet</p>
+            <p class="cms-q-image-empty-hint" data-i18n="cms.sections.tileEmptyHint">Hover to upload or generate</p>
+          </div>
+          <div class="cms-section-banner-loading cms-q-image-loading" hidden>
+            <span class="cms-q-image-loading-spinner" aria-hidden="true"></span>
+            <span class="cms-q-image-loading-text" data-i18n="cms.sections.generatingTile">Generating path tile…</span>
+          </div>
           <div class="cms-section-cover-actions">
             <label class="cms-thumbnail-upload btn secondary small">
               <input type="file" class="cms-section-banner-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
-              Upload image
+              <span data-i18n="cms.details.upload">Upload image</span>
             </label>
-            <button type="button" class="btn secondary small cms-remove-section-banner" hidden>Remove</button>
+            <button type="button" class="btn secondary small cms-section-banner-generate" data-i18n="cms.sections.generateTile">Generate with AI</button>
+            <button type="button" class="btn secondary small cms-remove-section-banner" hidden data-i18n="cms.details.remove">Remove</button>
           </div>
           <input type="hidden" class="cms-section-banner-value" />
           <p class="status-msg cms-section-banner-status"></p>
         </div>
-        <p class="hint cms-section-cover-hint">Art for this level on the journey map.</p>
+        <p class="hint cms-section-cover-hint" data-i18n="cms.sections.coverHint">Art for this level on the journey map.</p>
       </div>
       <div class="cms-section-body">
         <header class="cms-section-card-head">
-          <span class="cms-drag-handle" title="Drag to reorder section" aria-label="Drag to reorder section">
+          <span class="cms-drag-handle" title="Drag to reorder section" aria-label="Drag to reorder section" data-i18n="cms.sections.drag" data-i18n-attr="title,aria-label">
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
               <circle cx="5" cy="4" r="1.25" fill="currentColor" />
               <circle cx="11" cy="4" r="1.25" fill="currentColor" />
@@ -696,14 +815,9 @@
           </span>
           <label class="cms-section-order-field" title="Display order">
             <span class="cms-order-label">#</span>
-            <input type="number" class="cms-section-order" min="1" aria-label="Section display order" />
+            <input type="number" class="cms-section-order" min="1" aria-label="Section display order" data-i18n="cms.sections.order" data-i18n-attr="aria-label" />
           </label>
-          <input type="text" class="cms-section-title" placeholder="Section title" />
-          <button type="button" class="cms-icon-btn cms-remove-section" title="Remove section" aria-label="Remove section">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
-              <path d="M5 5l6 6M11 5l-6 6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
-            </svg>
-          </button>
+          <input type="text" class="cms-section-title" placeholder="Section title" data-i18n="cms.sections.titlePlaceholder" data-i18n-attr="placeholder" />
         </header>
         <footer class="cms-section-footer">
           <div class="cms-section-outline-wrap">
@@ -711,12 +825,13 @@
               <span class="hint cms-section-exercise-count"></span>
               <span class="hint cms-section-duration-estimate" hidden></span>
             </div>
-            <div class="cms-section-outline" aria-label="Exercises in this section"></div>
-          </div>
-          <div class="cms-section-footer-actions">
-            <button type="button" class="btn primary small cms-manage-exercises">Edit</button>
+            <div class="cms-section-outline" aria-label="Exercises in this section" data-i18n="cms.sections.outline" data-i18n-attr="aria-label"></div>
           </div>
         </footer>
+      </div>
+      <div class="cms-section-aside">
+        <button type="button" class="btn primary cms-manage-exercises" data-i18n="cms.sections.edit">Edit</button>
+        <button type="button" class="btn cms-danger cms-remove-section" data-i18n="cms.sections.remove">Remove section</button>
       </div>
     </article>
   </template>
@@ -724,7 +839,7 @@
   <template id="tpl-exercise-editor">
     <article class="cms-exercise-card">
       <header class="cms-playlist-row">
-        <span class="cms-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+        <span class="cms-drag-handle" title="Drag to reorder" aria-label="Drag to reorder" data-i18n="cms.ex.drag" data-i18n-attr="title,aria-label">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
             <circle cx="5" cy="4" r="1.25" fill="currentColor" />
             <circle cx="11" cy="4" r="1.25" fill="currentColor" />
@@ -736,50 +851,52 @@
         </span>
         <span class="cms-playlist-index" aria-hidden="true"></span>
         <span class="cms-type-chip">MC Quiz</span>
-        <input type="text" class="cms-exercise-title" data-field="title" placeholder="Exercise title" />
+        <input type="text" class="cms-exercise-title" data-field="title" placeholder="Exercise title" data-i18n="cms.ex.titlePlaceholder" data-i18n-attr="placeholder" />
         <div class="cms-playlist-actions">
-          <div class="cms-order-stepper" role="group" aria-label="Move in playlist">
-            <button type="button" class="cms-icon-btn cms-move-up" title="Move up" aria-label="Move up">
+          <div class="cms-order-stepper" role="group" aria-label="Move in playlist" data-i18n="cms.ex.move" data-i18n-attr="aria-label">
+            <button type="button" class="cms-icon-btn cms-move-up" title="Move up" aria-label="Move up" data-i18n="cms.ex.moveUp" data-i18n-attr="title,aria-label">
               <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
                 <path d="M8 12V4M5 7l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </button>
-            <button type="button" class="cms-icon-btn cms-move-down" title="Move down" aria-label="Move down">
+            <button type="button" class="cms-icon-btn cms-move-down" title="Move down" aria-label="Move down" data-i18n="cms.ex.moveDown" data-i18n-attr="title,aria-label">
               <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
                 <path d="M8 4v8M5 9l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
             </button>
           </div>
-          <button type="button" class="cms-row-btn cms-exercise-toggle" aria-expanded="false">Edit</button>
-          <button type="button" class="cms-row-btn cms-row-btn-quiet cms-remove-exercise">Remove</button>
+          <button type="button" class="cms-row-btn cms-exercise-toggle" aria-expanded="false" data-i18n="cms.ex.edit">Edit</button>
+          <button type="button" class="cms-row-btn cms-row-btn-quiet cms-remove-exercise" data-i18n="cms.ex.remove">Remove</button>
         </div>
       </header>
       <div class="cms-exercise-editor" hidden>
         <div class="cms-exercise-fields">
           <input type="hidden" class="cms-exercise-order" />
           <label class="field cms-field-inline">
-            <span>Exercise type</span>
-            <select class="cms-exercise-type-select" aria-label="Exercise type">
-              <option value="mcquiz">MC Quiz</option>
-              <option value="fastmcquiz">Fast MC Quiz</option>
-              <option value="video">Video</option>
-              <option value="buzzin">Buzz in Question</option>
+            <span data-i18n="cms.ex.type">Exercise type</span>
+            <select class="cms-exercise-type-select" aria-label="Exercise type" data-i18n="cms.ex.type" data-i18n-attr="aria-label">
+              <option value="mcquiz" data-i18n="cms.type.mcquiz">MC Quiz</option>
+              <option value="fastmcquiz" data-i18n="cms.type.fastmcquiz">Lightning round</option>
+              <option value="video" data-i18n="cms.type.video">Video</option>
+              <option value="buzzin" data-i18n="cms.type.buzzin">Buzz in Question</option>
             </select>
           </label>
           <label class="field cms-field-inline">
-            <span>Subtitle</span>
-            <input type="text" data-field="subTitle" placeholder="MC Quiz, Video, ..." />
+            <span data-i18n="cms.ex.subtitle">Subtitle</span>
+            <input type="text" data-field="subTitle" placeholder="MC Quiz, Video, ..." data-i18n="cms.ex.subtitlePlaceholder" data-i18n-attr="placeholder" />
           </label>
         </div>
         <div class="cms-exercise-body"></div>
         <footer class="cms-exercise-footer">
-          <a class="btn secondary small cms-exercise-preview" target="_blank" rel="noopener">Preview student layout</a>
+          <a class="btn secondary small cms-exercise-preview" target="_blank" rel="noopener" data-i18n="cms.ex.preview">Preview student layout</a>
         </footer>
       </div>
     </article>
   </template>
 
   <script src="/common.js"></script>
+  <script src="/i18n.js"></script>
+  <script src="/i18n-cms.js"></script>
   <script src="/exercise-utils.js"></script>
   <script src="/vendor/gsap/gsap.min.js"></script>
   <script src="/vendor/gsap/Flip.min.js"></script>

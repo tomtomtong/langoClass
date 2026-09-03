@@ -1370,23 +1370,50 @@ function courseTitle(course) {
   return course?.name || course?.title || course?.courseName || "Whiteboard session";
 }
 
+function isLocalJoinHostname(hostname) {
+  const host = String(hostname || "").trim().toLowerCase();
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+function isIpv4Hostname(hostname) {
+  return /^\d+\.\d+\.\d+\.\d+$/.test(String(hostname || "").trim());
+}
+
+function isPublicJoinHost(hostname) {
+  const host = String(hostname || "").trim().toLowerCase();
+  return host && !isLocalJoinHostname(host) && !isIpv4Hostname(host);
+}
+
 async function resolveBestStudentJoinUrl(roomId) {
   const path = `${langoJoinPagePath()}?room=${encodeURIComponent(roomId)}`;
   const origin = window.location.origin.replace(/\/$/, "");
   const host = window.location.hostname;
-  const isLocalHost = host === "localhost" || host === "127.0.0.1";
+  const isLocalHost = isLocalJoinHostname(host);
+
+  // Host on production must send students to the same server as this page.
+  if (isPublicJoinHost(host)) {
+    return `${origin}${path}`;
+  }
 
   try {
     const res = await fetch("/api/network-urls");
-    const { port, addresses, configuredPublicBaseUrl } = await res.json();
+    const { port, addresses, publicBaseUrl } = await res.json();
+
+    const explicitPublic = String(publicBaseUrl || "").trim().replace(/\/$/, "");
+    if (explicitPublic) {
+      let publicHost = "";
+      try {
+        publicHost = new URL(explicitPublic).hostname;
+      } catch {
+        publicHost = "";
+      }
+      if (isPublicJoinHost(publicHost)) {
+        return `${explicitPublic}${path}`;
+      }
+    }
 
     if (isLocalHost && addresses?.length) {
       return `http://${addresses[0]}:${port}${path}`;
-    }
-
-    const explicitPublic = String(configuredPublicBaseUrl || "").trim();
-    if (explicitPublic) {
-      return `${explicitPublic.replace(/\/$/, "")}${path}`;
     }
   } catch {
     /* ignore */
@@ -3293,7 +3320,7 @@ function updateWaitingStudentCount(connected, totalOverride, { onlineTotal } = {
   const online = Math.max(rosterJoined, Number(onlineTotal ?? connected) || 0);
   const guestCount = Math.max(0, online - rosterJoined);
 
-  const connectedText = hasRoster ? String(rosterJoined) : String(online);
+  const connectedText = String(online);
   const totalText = String(rosterTotal);
 
   if (currentEl) currentEl.textContent = connectedText;
@@ -3973,7 +4000,65 @@ $("#btn-open-waiting-section")?.addEventListener("click", () => {
   void showWaitingRoom();
 });
 
-async function copyRoomCode({ sourceId, buttonId, hintId, errorId }) {
+async function renderHostRoomQrModal(roomId) {
+  const img = $("#host-room-qr-modal-qr");
+  const codeEl = $("#host-room-qr-modal-code");
+  if (!img || !codeEl || !roomId) return;
+
+  codeEl.textContent = formatRoomCode(roomId);
+  const joinUrl = await resolveBestStudentJoinUrl(roomId);
+  img.src = `/api/room-qr.svg?url=${encodeURIComponent(joinUrl)}`;
+  img.alt = hostT("waiting.scanToJoin");
+}
+
+let hostRoomQrModalOpen = false;
+let hostRoomQrModalTrigger = null;
+
+function openHostRoomQrModal(triggerEl) {
+  const roomId = getVisibleRoomCode();
+  if (!roomId) return;
+
+  const modal = $("#host-room-qr-modal");
+  if (!modal) return;
+
+  hostRoomQrModalTrigger = triggerEl || null;
+  void renderHostRoomQrModal(roomId);
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  hostRoomQrModalOpen = true;
+  $("#host-room-qr-modal-close")?.focus();
+}
+
+function closeHostRoomQrModal() {
+  const modal = $("#host-room-qr-modal");
+  if (!modal || modal.hidden) return;
+
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+  hostRoomQrModalOpen = false;
+  hostRoomQrModalTrigger?.focus?.();
+  hostRoomQrModalTrigger = null;
+}
+
+function initHostRoomQrModal() {
+  const modal = $("#host-room-qr-modal");
+  if (!modal || modal.dataset.wired === "1") return;
+  modal.dataset.wired = "1";
+
+  modal.querySelectorAll("[data-host-room-qr-dismiss]").forEach((el) => {
+    el.addEventListener("click", closeHostRoomQrModal);
+  });
+  $("#host-room-qr-modal-close")?.addEventListener("click", closeHostRoomQrModal);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && hostRoomQrModalOpen) {
+      event.preventDefault();
+      closeHostRoomQrModal();
+    }
+  });
+}
+
+async function copyRoomCode({ sourceId, buttonId, hintId, errorId, resetHintKey = "waiting.copyHint" }) {
   const source = sourceId ? $(`#${sourceId}`) : null;
   const roomId = normalizePin(source?.textContent || state.activeRoomId);
   if (!roomId) return;
@@ -3985,8 +4070,8 @@ async function copyRoomCode({ sourceId, buttonId, hintId, errorId }) {
     if (btn) btn.title = hostT("waiting.copied");
     if (hint) hint.textContent = hostT("waiting.copied");
     setTimeout(() => {
-      if (btn) btn.title = prevTitle || hostT("waiting.roomCode");
-      if (hint) hint.textContent = hostT("waiting.copyHint");
+      if (btn) btn.title = prevTitle || hostT(resetHintKey);
+      if (hint) hint.textContent = hostT(resetHintKey);
     }, 1500);
   } catch {
     const errorEl = errorId ? $(`#${errorId}`) : $("#waiting-error");
@@ -3994,23 +4079,25 @@ async function copyRoomCode({ sourceId, buttonId, hintId, errorId }) {
   }
 }
 
-$("#btn-copy-room-id").addEventListener("click", () => {
+$("#btn-copy-room-id").addEventListener("click", (event) => {
+  event.preventDefault();
+  openHostRoomQrModal(event.currentTarget);
+});
+
+$("#btn-copy-persistent-room-id")?.addEventListener("click", (event) => {
+  event.preventDefault();
+  openHostRoomQrModal(event.currentTarget);
+});
+
+$("#btn-host-room-qr-copy")?.addEventListener("click", () => {
   void copyRoomCode({
-    sourceId: "waiting-room-id",
-    buttonId: "btn-copy-room-id",
-    hintId: "waiting-room-code-hint",
-    errorId: "waiting-error",
+    sourceId: "host-room-qr-modal-code",
+    buttonId: "btn-host-room-qr-copy",
+    resetHintKey: "waiting.copyCodeBtn",
   });
 });
 
-$("#btn-copy-persistent-room-id")?.addEventListener("click", () => {
-  void copyRoomCode({
-    sourceId: "persistent-room-id",
-    buttonId: "btn-copy-persistent-room-id",
-    hintId: "persistent-room-code-hint",
-    errorId: "waiting-error",
-  });
-});
+initHostRoomQrModal();
 
 function resetSessionAndGoToJourney() {
   void returnHostToJourney();

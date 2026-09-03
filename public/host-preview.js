@@ -121,7 +121,7 @@
           { id: 101, title: "Ocean MC Quiz", type: "mcquiz", order: 1, subTitle: "Choose the correct answer.", items: [{}, {}, {}] },
           { id: 102, title: "Coral Reef Video", type: "video", order: 2, subTitle: "Watch the lesson video.", videoUrl: "" },
           { id: 103, title: "Marine Buzz In", type: "buzzin", order: 3, subTitle: "First to buzz in answers." },
-          { id: 104, title: "Fast MC", type: "fastmcquiz", order: 4, subTitle: "Answer quickly — results at the end.", items: [{}, {}, {}, {}, {}] },
+          { id: 104, title: "Lightning round", type: "fastmcquiz", order: 4, subTitle: "Answer quickly — results at the end.", items: [{}, {}, {}, {}, {}] },
           { id: 105, title: "Image Assignment", type: "imageassignment", order: 5, subTitle: "Match words to images." },
           { id: 106, title: "Voice Assignment", type: "voiceassignment", order: 6, subTitle: "Speak and check pronunciation." },
         ],
@@ -244,7 +244,7 @@
       { name: "Noah Brown", correctAnswers: 2 },
       { name: "Olivia Davis", correctAnswers: 1 },
     ],
-    buzzes: [{ rank: 1, displayName: "Sophia Patel", playerId: "p1", at: Date.now() - 1700 }],
+    buzzes: [{ rank: 1, displayName: "Sophia Patel", playerId: "p1", at: Date.now() - 1700, elapsedMs: 1700 }],
     buzzResponses: [
       {
         rank: 1,
@@ -680,7 +680,8 @@
           phase: "done",
           topic: SAMPLE.buzzTopic,
           joinSeconds: 20,
-          joinEndsAt: Date.now() + 5000,
+          joinOpenedAt: Date.now() - 1700,
+          joinEndsAt: Date.now() + 18300,
           totalBuzzes: 1,
           buzzes: SAMPLE.buzzes,
           winners: SAMPLE.buzzes,

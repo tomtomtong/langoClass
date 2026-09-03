@@ -5,11 +5,11 @@
       "classId": 1,
       "studentUserId": "web_abc",
       "displayName": "Alice",
-      "totalScore": 2000,
-      "exerciseCount": 2,
-      "firstScoreAt": "2026-06-16T02:46:51.723Z",
-      "lastScoreAt": "2026-06-16T02:46:51.723Z",
-      "updatedAt": "2026-06-16T02:46:51.723Z"
+      "totalScore": 0,
+      "exerciseCount": 0,
+      "firstScoreAt": null,
+      "lastScoreAt": null,
+      "updatedAt": "2026-09-03T05:14:29.334Z"
     },
     "835:2913:web_1781594822662_x604eecy": {
       "teacherId": 835,
@@ -17,68 +17,11 @@
       "studentUserId": "web_1781594822662_x604eecy",
       "displayName": "Student 001",
       "totalScore": 0,
-      "exerciseCount": 1,
-      "firstScoreAt": "2026-06-16T07:27:13.604Z",
-      "lastScoreAt": "2026-06-16T07:27:13.604Z",
-      "updatedAt": "2026-06-16T07:27:13.604Z"
+      "exerciseCount": 0,
+      "firstScoreAt": null,
+      "lastScoreAt": null,
+      "updatedAt": "2026-09-03T05:14:29.334Z"
     }
   },
-  "records": [
-    {
-      "recordKey": "835:1:123456:1:web_abc",
-      "teacherId": 835,
-      "classId": 1,
-      "courseId": -1,
-      "exerciseId": 1,
-      "exerciseTitle": "Quiz",
-      "exerciseType": "mcquiz",
-      "roomId": "123456",
-      "studentUserId": "web_abc",
-      "displayName": "Alice",
-      "score": 1200,
-      "savedAt": "2026-06-16T02:44:29.197Z"
-    },
-    {
-      "recordKey": "835:1:111111:1:web_abc",
-      "teacherId": 835,
-      "classId": 1,
-      "courseId": -1,
-      "exerciseId": 1,
-      "exerciseTitle": "Quiz",
-      "exerciseType": "mcquiz",
-      "roomId": "111111",
-      "studentUserId": "web_abc",
-      "displayName": "Alice",
-      "score": 1200,
-      "savedAt": "2026-06-16T02:46:51.722Z"
-    },
-    {
-      "recordKey": "835:1:222222:2:web_abc",
-      "teacherId": 835,
-      "classId": 1,
-      "courseId": -1,
-      "exerciseId": 2,
-      "exerciseTitle": "Quiz",
-      "exerciseType": "mcquiz",
-      "roomId": "222222",
-      "studentUserId": "web_abc",
-      "displayName": "Alice",
-      "score": 800,
-      "savedAt": "2026-06-16T02:46:51.723Z"
-    },
-    {
-      "recordKey": "835:2913:585663:3:web_1781594822662_x604eecy",
-      "teacherId": 835,
-      "classId": 2913,
-      "courseId": -1,
-      "exerciseId": 3,
-      "exerciseTitle": "Quiz2",
-      "exerciseType": "mcquiz",
-      "roomId": "585663",
-      "studentUserId": "web_1781594822662_x604eecy",
-      "displayName": "Student 001",
-      "score": 0,
-      "savedAt": "2026-06-16T07:27:13.604Z"
-    }
-  ]
+  "records": []
 }

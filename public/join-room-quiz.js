@@ -9,10 +9,24 @@ let roomBuzzinRoundId = null;
 let roomBuzzinJoinTimer = null;
 let roomBuzzinPcmRecorder = null;
 let roomBuzzinRecordTimer = null;
+let roomBuzzinRecordTimeout = null;
 let roomBuzzinRecordEndsAt = 0;
 let roomBuzzinRecordStartedAt = 0;
+let roomBuzzinSubmitInFlight = false;
 const ROOM_BUZZIN_MAX_RECORD_MS = 30000;
 const ROOM_BUZZIN_MIN_RECORD_MS = 600;
+const ROOM_BUZZIN_SUBMIT_TIMEOUT_MS = 60000;
+
+function isRoomBuzzinBusy() {
+  return roomBuzzinSubmitInFlight || Boolean(roomBuzzinPcmRecorder?.isRecording());
+}
+
+function clearRoomBuzzinRecordTimeout() {
+  if (roomBuzzinRecordTimeout) {
+    clearTimeout(roomBuzzinRecordTimeout);
+    roomBuzzinRecordTimeout = null;
+  }
+}
 
 function formatRoomBuzzinRecordTime(ms) {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -150,6 +164,7 @@ function startRoomBuzzinRecordTimer() {
 }
 
 function cancelRoomBuzzinRecording() {
+  clearRoomBuzzinRecordTimeout();
   roomBuzzinRecordStartedAt = 0;
   if (roomBuzzinPcmRecorder?.cancel) {
     roomBuzzinPcmRecorder.cancel();
@@ -303,7 +318,9 @@ async function startRoomBuzzinRecording() {
   }
   setRoomBuzzinRecordStatus("", false);
 
-  setTimeout(() => {
+  clearRoomBuzzinRecordTimeout();
+  roomBuzzinRecordTimeout = setTimeout(() => {
+    roomBuzzinRecordTimeout = null;
     if (roomBuzzinPcmRecorder?.isRecording()) {
       void finishRoomBuzzinRecordingAndSubmit({ timedOut: true });
     }
@@ -316,6 +333,9 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
   const turnStatus = $("#room-buzzin-turn-status");
   const recorder = roomBuzzinPcmRecorder;
 
+  if (roomBuzzinSubmitInFlight) return;
+
+  clearRoomBuzzinRecordTimeout();
   stopRoomBuzzinRecordTimer();
   roomBuzzinRecordEndsAt = 0;
   setRoomBuzzinRecordingMode(false);
@@ -344,6 +364,7 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
     return;
   }
 
+  roomBuzzinSubmitInFlight = true;
   setRoomBuzzinRecordStatus(
     timedOut ? uiT("buzzin.timeLimitSubmit") : uiT("buzzin.submitting")
   );
@@ -353,32 +374,53 @@ async function finishRoomBuzzinRecordingAndSubmit({ timedOut = false } = {}) {
       : uiT("buzzin.submitting");
   }
 
+  const failSubmit = (message) => {
+    roomBuzzinSubmitInFlight = false;
+    if (recordBtn) recordBtn.disabled = false;
+    setRoomBuzzinRecordStatus(message || uiT("buzzin.submitError"));
+    if (turnStatus) turnStatus.textContent = message || uiT("buzzin.submitError");
+  };
+
   try {
     const wavBlob = await recorder.stop();
     roomBuzzinPcmRecorder = null;
     roomBuzzinRecordStartedAt = 0;
     setRoomBuzzinRecordStatus(uiT("buzzin.uploading"));
     const audioBase64 = await blobToWavBase64(wavBlob);
-    socket.emit(
-      "submit_buzzin_response",
-      { audioBase64, format: "wav" },
-      (res) => {
-        if (!res?.ok) {
-          if (recordBtn) recordBtn.disabled = false;
-          setRoomBuzzinRecordStatus(res?.error || uiT("buzzin.submitError"));
-          if (turnStatus) turnStatus.textContent = res?.error || uiT("buzzin.submitError");
-          return;
-        }
-        resetRoomBuzzinRecordingUi();
-        updateStudentBuzzinUi(res);
+    if (!socket?.connected) {
+      failSubmit(uiT("buzzin.submitError"));
+      return;
+    }
+
+    const ack = (err, res) => {
+      if (err) {
+        failSubmit(uiT("buzzin.submitError"));
+        return;
       }
-    );
+      if (!res?.ok) {
+        failSubmit(res?.error || uiT("buzzin.submitError"));
+        return;
+      }
+      roomBuzzinSubmitInFlight = false;
+      resetRoomBuzzinRecordingUi();
+      updateStudentBuzzinUi(res);
+    };
+
+    if (typeof socket.timeout === "function") {
+      socket.timeout(ROOM_BUZZIN_SUBMIT_TIMEOUT_MS).emit(
+        "submit_buzzin_response",
+        { audioBase64, format: "wav" },
+        ack
+      );
+    } else {
+      socket.emit("submit_buzzin_response", { audioBase64, format: "wav" }, (res) =>
+        ack(null, res)
+      );
+    }
   } catch (err) {
     roomBuzzinPcmRecorder = null;
     roomBuzzinRecordStartedAt = 0;
-    if (recordBtn) recordBtn.disabled = false;
-    setRoomBuzzinRecordStatus(err.message || uiT("buzzin.submitError"));
-    if (turnStatus) turnStatus.textContent = err.message || uiT("buzzin.submitError");
+    failSubmit(err.message || uiT("buzzin.submitError"));
   }
 }
 
@@ -504,6 +546,13 @@ function updateStudentBuzzinTurnUi(payload) {
 
 function updateStudentBuzzinUi(payload) {
   if (payload) joinLastBuzzinPayload = payload;
+  const roundChanged =
+    payload?.roundId != null &&
+    roomBuzzinRoundId != null &&
+    payload.roundId !== roomBuzzinRoundId;
+  if (isRoomBuzzinBusy() && !roundChanged && payload?.phase !== "ready") {
+    return;
+  }
   const btn = $("#btn-room-buzz-in");
   const status = $("#room-buzzin-status");
   const result = $("#room-buzzin-result");
@@ -589,6 +638,7 @@ function updateStudentBuzzinUi(payload) {
 
 function resetStudentBuzzinUi() {
   roomBuzzinRoundId = null;
+  roomBuzzinSubmitInFlight = false;
   stopRoomBuzzinJoinTimer();
   resetRoomBuzzinTurnUi();
   const btn = $("#btn-room-buzz-in");

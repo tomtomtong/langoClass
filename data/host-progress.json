@@ -16,22 +16,15 @@
     },
     {
       "teacherId": 835,
-      "classId": 2913,
-      "courseId": -1,
-      "completedExerciseIds": [
-        1,
-        2,
-        6,
-        7,
-        10
-      ],
+      "classId": 62,
+      "courseId": -16,
+      "completedExerciseIds": [],
       "visitedSectionIds": [
-        1,
-        2
+        1
       ],
       "lastSectionId": 1,
-      "lastExerciseId": 1,
-      "updatedAt": "2026-06-26T09:04:34.280Z"
+      "lastExerciseId": null,
+      "updatedAt": "2026-09-03T07:41:26.023Z"
     }
   ]
 }

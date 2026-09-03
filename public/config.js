@@ -231,6 +231,12 @@ function renderConfig(data) {
   $("#config-openrouter-generate-model-env-default").textContent =
     data.openrouterGenerateModelEnvDefault || "—";
 
+  $("#config-openrouter-vision-model").value = data.openrouterVisionModelSaved || "";
+  $("#config-openrouter-vision-model-effective").textContent =
+    data.effectiveOpenRouterVisionModel || "—";
+  $("#config-openrouter-vision-model-env-default").textContent =
+    data.openrouterVisionModelEnvDefault || "—";
+
   $("#config-openrouter-tts-model").value = data.openrouterTtsModelSaved || "";
   $("#config-openrouter-tts-model-effective").textContent =
     data.effectiveOpenRouterTtsModel || "—";
@@ -459,6 +465,29 @@ async function saveOpenRouterGenerateModel(openrouterGenerateModel) {
     $("#config-openrouter-save-status").textContent = openrouterGenerateModel
       ? `Generate model saved: ${data.effectiveOpenRouterGenerateModel}`
       : "Saved generate model cleared. Using environment default.";
+  } catch (err) {
+    $("#config-openrouter-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveOpenRouterVisionModel(openrouterVisionModel) {
+  $("#config-openrouter-error").textContent = "";
+  $("#config-openrouter-save-status").textContent = "";
+  clearOpenRouterTestResult();
+
+  const btn = $("#btn-config-save-openrouter-vision-model");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { openrouterVisionModel },
+    });
+    renderConfig(data);
+    $("#config-openrouter-save-status").textContent = openrouterVisionModel
+      ? `Vision model saved: ${data.effectiveOpenRouterVisionModel}`
+      : "Saved vision model cleared. Using environment default.";
   } catch (err) {
     $("#config-openrouter-error").textContent = err.message;
   } finally {
@@ -768,6 +797,9 @@ async function init() {
   $("#btn-config-save-openrouter-generate-model").addEventListener("click", () => {
     saveOpenRouterGenerateModel($("#config-openrouter-generate-model").value.trim());
   });
+  $("#btn-config-save-openrouter-vision-model").addEventListener("click", () => {
+    saveOpenRouterVisionModel($("#config-openrouter-vision-model").value.trim());
+  });
   $("#btn-config-save-openrouter-tts-model").addEventListener("click", () => {
     saveOpenRouterTtsModel($("#config-openrouter-tts-model").value.trim());
   });
@@ -783,6 +815,10 @@ async function init() {
   $("#btn-config-reset-openrouter-generate-model").addEventListener("click", () => {
     $("#config-openrouter-generate-model").value = "";
     saveOpenRouterGenerateModel("");
+  });
+  $("#btn-config-reset-openrouter-vision-model").addEventListener("click", () => {
+    $("#config-openrouter-vision-model").value = "";
+    saveOpenRouterVisionModel("");
   });
   $("#btn-config-reset-openrouter-tts-model").addEventListener("click", () => {
     $("#config-openrouter-tts-model").value = "";

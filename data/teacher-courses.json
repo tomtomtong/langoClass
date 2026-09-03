@@ -1,281 +1,6 @@
 {
   "courses": [
     {
-      "id": -1,
-      "teacherId": 835,
-      "name": "test",
-      "description": "",
-      "banner": "/uploads/courses/course--1-1781587595180.jpg",
-      "langCode": "en",
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "/uploads/sections/section--1-1-1781592693865.png",
-          "order": 1,
-          "exercises": [
-            {
-              "id": 1,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question2?",
-                  "options": [
-                    {
-                      "text": "Apple",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Ball",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Cat",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Dog",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 10,
-                  "image": "/uploads/questions/question-835-1782200973892.jpeg"
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 2,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 6,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 3,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4",
-                  "captionUrl": "/uploads/captions/captions-1785833557976-54dbec83.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/captions-1785833557976-54dbec83.vtt"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": 7,
-              "title": "Fast quiz",
-              "subTitle": "Fast MC Quiz",
-              "order": 4,
-              "type": "fastmcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 10,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 5,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 2,
-          "title": "Section 2",
-          "banner": "/uploads/sections/section--1-2-1781592695845.png",
-          "order": 2,
-          "exercises": [
-            {
-              "id": 3,
-              "title": "Quiz2",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": "/uploads/questions/question-835-1781575837002.jpg"
-                }
-              ]
-            },
-            {
-              "id": 4,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 2,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4",
-                  "captionUrl": "/uploads/captions/captions-1785833557976-54dbec83.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/captions-1785833557976-54dbec83.vtt"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": 9,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 3,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 3,
-          "title": "Section 3",
-          "banner": "/uploads/sections/section--1-3-1781695084896.png",
-          "order": 3,
-          "exercises": []
-        },
-        {
-          "id": 4,
-          "title": "Section 4",
-          "banner": "/uploads/sections/section--1-4-1781695102180.png",
-          "order": 4,
-          "exercises": []
-        },
-        {
-          "id": 5,
-          "title": "Section 5",
-          "banner": "",
-          "order": 5,
-          "exercises": []
-        },
-        {
-          "id": 6,
-          "title": "Section 6",
-          "banner": "",
-          "order": 6,
-          "exercises": []
-        },
-        {
-          "id": 7,
-          "title": "Section 7",
-          "banner": "",
-          "order": 7,
-          "exercises": []
-        }
-      ],
-      "createdAt": "2026-06-15T02:57:28.201Z",
-      "updatedAt": "2026-08-04T08:55:54.061Z",
-      "classIds": [
-        2913
-      ]
-    },
-    {
-      "id": -2,
-      "teacherId": 835,
-      "name": "New course",
-      "description": "",
-      "banner": "/uploads/courses/course--2-1781587617346.jpg",
-      "langCode": "en",
-      "classIds": [
-        2913
-      ],
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "",
-          "order": 1,
-          "exercises": []
-        }
-      ],
-      "createdAt": "2026-06-16T05:24:25.712Z",
-      "updatedAt": "2026-06-16T05:27:03.466Z"
-    },
-    {
-      "id": -3,
-      "teacherId": 835,
-      "name": "New course",
-      "description": "",
-      "banner": "",
-      "langCode": "en",
-      "classIds": [],
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "order": 1,
-          "exercises": []
-        }
-      ],
-      "createdAt": "2026-06-23T08:57:57.798Z",
-      "updatedAt": "2026-06-23T08:57:57.798Z"
-    },
-    {
       "id": -4,
       "teacherId": 821,
       "name": "New course",
@@ -297,480 +22,242 @@
     {
       "id": -5,
       "teacherId": 835,
-      "name": "test",
-      "description": "",
-      "banner": "/uploads/courses/import-835-1786443755498-qdzvjk.jpg",
+      "name": "New Course 2/9 Eng",
+      "description": "english course",
+      "banner": "",
       "langCode": "en",
       "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
       "sections": [
         {
           "id": 1,
           "title": "Section 1",
-          "banner": "/uploads/sections/import-835-1786443755499-q1ods2.png",
+          "banner": "",
           "order": 1,
-          "exercises": [
-            {
-              "id": 1,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question2?",
-                  "options": [
-                    {
-                      "text": "Apple",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Ball",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Cat",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Dog",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 10,
-                  "image": "/uploads/questions/import-835-1786443755499-cg8e9k.jpeg"
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 2,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 3,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 3,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "/uploads/videos/import-835-1786443755500-bs0gbw.mp4",
-                  "captionUrl": "/uploads/captions/import-835-1786443755503-9jxsz0.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/import-835-1786443755503-9jxsz0.vtt"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": 4,
-              "title": "Fast quiz",
-              "subTitle": "Fast MC Quiz",
-              "order": 4,
-              "type": "fastmcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 5,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 5,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 2,
-          "title": "Section 2",
-          "banner": "/uploads/sections/import-835-1786443755509-w6wg46.png",
-          "order": 2,
-          "exercises": [
-            {
-              "id": 6,
-              "title": "Quiz2",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": "/uploads/questions/import-835-1786443755510-vuolsl.jpg"
-                }
-              ]
-            },
-            {
-              "id": 7,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 2,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "/uploads/videos/import-835-1786443755510-3uhv9l.mp4",
-                  "captionUrl": "/uploads/captions/import-835-1786443755513-zocuhf.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/import-835-1786443755513-zocuhf.vtt"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": 8,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 3,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 3,
-          "title": "Section 3",
-          "banner": "/uploads/sections/import-835-1786443755514-or5c95.png",
-          "order": 3,
-          "exercises": []
-        },
-        {
-          "id": 4,
-          "title": "Section 4",
-          "banner": "/uploads/sections/import-835-1786443755514-47geul.png",
-          "order": 4,
-          "exercises": []
-        },
-        {
-          "id": 5,
-          "title": "Section 5",
-          "banner": "",
-          "order": 5,
-          "exercises": []
-        },
-        {
-          "id": 6,
-          "title": "Section 6",
-          "banner": "",
-          "order": 6,
-          "exercises": []
-        },
-        {
-          "id": 7,
-          "title": "Section 7",
-          "banner": "",
-          "order": 7,
           "exercises": []
         }
       ],
-      "createdAt": "2026-08-11T10:22:35.515Z",
-      "updatedAt": "2026-08-11T10:22:35.516Z"
+      "createdAt": "2026-09-03T05:14:29.703Z",
+      "updatedAt": "2026-09-03T05:14:29.703Z"
     },
     {
       "id": -6,
       "teacherId": 835,
-      "name": "test",
+      "name": "New course",
       "description": "",
-      "banner": "/uploads/courses/import-835-1786443794386-jk6m7x.jpg",
+      "banner": "",
       "langCode": "en",
       "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
       "sections": [
         {
           "id": 1,
           "title": "Section 1",
-          "banner": "/uploads/sections/import-835-1786443794388-hw9o9g.png",
+          "banner": "",
           "order": 1,
-          "exercises": [
-            {
-              "id": 1,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question2?",
-                  "options": [
-                    {
-                      "text": "Apple",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Ball",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Cat",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Dog",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 10,
-                  "image": "/uploads/questions/import-835-1786443794389-3x380s.jpeg"
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 2,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 3,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 3,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "/uploads/videos/import-835-1786443794389-z5wjbx.mp4",
-                  "captionUrl": "/uploads/captions/import-835-1786443794393-qjdidv.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/import-835-1786443794393-qjdidv.vtt"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": 4,
-              "title": "Fast quiz",
-              "subTitle": "Fast MC Quiz",
-              "order": 4,
-              "type": "fastmcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 5,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 5,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 2,
-          "title": "Section 2",
-          "banner": "/uploads/sections/import-835-1786443794394-mqsub1.png",
-          "order": 2,
-          "exercises": [
-            {
-              "id": 6,
-              "title": "Quiz2",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": "/uploads/questions/import-835-1786443794394-n8wk9r.jpg"
-                }
-              ]
-            },
-            {
-              "id": 7,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 2,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "/uploads/videos/import-835-1786443794395-1goct5.mp4",
-                  "captionUrl": "/uploads/captions/import-835-1786443794397-ofia80.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/import-835-1786443794397-ofia80.vtt"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": 8,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 3,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 3,
-          "title": "Section 3",
-          "banner": "/uploads/sections/import-835-1786443794398-0bmf05.png",
-          "order": 3,
-          "exercises": []
-        },
-        {
-          "id": 4,
-          "title": "Section 4",
-          "banner": "/uploads/sections/import-835-1786443794398-hd309n.png",
-          "order": 4,
-          "exercises": []
-        },
-        {
-          "id": 5,
-          "title": "Section 5",
-          "banner": "",
-          "order": 5,
-          "exercises": []
-        },
-        {
-          "id": 6,
-          "title": "Section 6",
-          "banner": "",
-          "order": 6,
-          "exercises": []
-        },
-        {
-          "id": 7,
-          "title": "Section 7",
-          "banner": "",
-          "order": 7,
           "exercises": []
         }
       ],
-      "createdAt": "2026-08-11T10:23:14.399Z",
-      "updatedAt": "2026-08-11T10:23:14.400Z"
+      "createdAt": "2026-09-03T05:14:29.703Z",
+      "updatedAt": "2026-09-03T05:14:29.704Z"
     },
     {
       "id": -7,
       "teacherId": 835,
-      "name": "test",
+      "name": "New course",
       "description": "",
-      "banner": "/uploads/courses/import-835-1786443794401-17po6o.jpg",
+      "banner": "",
       "langCode": "en",
       "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
       "sections": [
         {
           "id": 1,
           "title": "Section 1",
-          "banner": "/uploads/sections/import-835-1786443794402-xqom9c.png",
+          "banner": "",
+          "order": 1,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-09-03T05:14:29.704Z",
+      "updatedAt": "2026-09-03T05:14:29.704Z"
+    },
+    {
+      "id": -8,
+      "teacherId": 835,
+      "name": "New course",
+      "description": "testing course 3/9",
+      "banner": "/uploads/courses/import-835-1788412469707-9h09z0.jpeg",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "/uploads/sections/import-835-1788412469707-hninjl.jpeg",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Fantasy Adventure Quiz",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Who trapped the Demon King long ago?",
+                  "options": [
+                    {
+                      "text": "A powerful wizard",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "The children at school",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "The mango moms",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "An army of soldiers",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "What is the Demon King trying to reach inside the school?",
+                  "options": [
+                    {
+                      "text": "A hidden powerful gem",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "A magical shield",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Lost spell books",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Ancient wizard robes",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "Why do the mango moms need help from students?",
+                  "options": [
+                    {
+                      "text": "They cannot speak magic spells themselves",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "They have no magic power at all",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "They are trapped in the dark",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "They forgot where the school is",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": null
+                },
+                {
+                  "title": "What has happened to human magic in this story?",
+                  "options": [
+                    {
+                      "text": "Humans have lost their magic",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Humans gained new spells",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Humans taught magic to wizards",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Humans destroyed all magic",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Story Discussion",
+              "subTitle": "Buzz In",
+              "order": 2,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "Explain why the children are needed to help save the world in this tale.",
+                  "correctAnswer": "Students should mention that humans lost magic and only children can help mango moms cast spells to stop the Demon King."
+                },
+                {
+                  "topic": "Describe what the wizard is doing to protect the school and why it is important.",
+                  "correctAnswer": "Students should note the wizard used magic to create a shield around Lango School to keep the Demon King's army away from the gem."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Section 2",
+          "banner": "",
+          "order": 2,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-09-03T05:14:29.707Z",
+      "updatedAt": "2026-09-03T05:14:29.708Z"
+    },
+    {
+      "id": -9,
+      "teacherId": 835,
+      "name": "New course",
+      "description": "",
+      "banner": "/uploads/courses/import-835-1788412469708-rwoggb.jpeg",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "/uploads/sections/import-835-1788412469708-sel7na.png",
           "order": 1,
           "exercises": [
             {
@@ -781,50 +268,73 @@
               "type": "mcquiz",
               "items": [
                 {
-                  "title": "Sample question2?",
+                  "title": "Where do the sea animals live?",
                   "options": [
                     {
-                      "text": "Apple",
+                      "text": "In the sea",
                       "isCorrect": true
                     },
                     {
-                      "text": "Ball",
+                      "text": "In the sky",
                       "isCorrect": false
+                    },
+                    {
+                      "text": "In the tree",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "In the house",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Demo: Fast Quiz",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "Which animal swims in the sea?",
+                  "options": [
+                    {
+                      "text": "Fish",
+                      "isCorrect": true
                     },
                     {
                       "text": "Cat",
                       "isCorrect": false
                     },
                     {
-                      "text": "Dog",
+                      "text": "Cow",
                       "isCorrect": false
                     }
                   ],
                   "timeLimit": 10,
-                  "image": "/uploads/questions/import-835-1786443794402-z9gvub.jpeg"
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 2,
-              "type": "mcquiz",
-              "items": [
+                  "image": null
+                },
                 {
-                  "title": "Sample question?",
+                  "title": "Which animal is big?",
                   "options": [
                     {
-                      "text": "Option A",
+                      "text": "Mercury",
                       "isCorrect": true
                     },
                     {
-                      "text": "Option B",
+                      "text": "Ant",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Bird",
                       "isCorrect": false
                     }
                   ],
-                  "timeLimit": 15,
+                  "timeLimit": 10,
                   "image": null
                 }
               ]
@@ -837,47 +347,15 @@
               "type": "video",
               "items": [
                 {
-                  "videoUrl": "/uploads/videos/import-835-1786443794403-juz47v.mp4",
-                  "captionUrl": "/uploads/captions/import-835-1786443794405-dd14hs.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/import-835-1786443794405-dd14hs.vtt"
-                    }
-                  ]
+                  "videoUrl": "/uploads/videos/import-835-1788412469708-l9bttc.mp4"
                 }
               ]
             },
             {
               "id": 4,
-              "title": "Fast quiz",
-              "subTitle": "Fast MC Quiz",
-              "order": 4,
-              "type": "fastmcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 5,
               "title": "Buzz In",
               "subTitle": "Buzz In",
-              "order": 5,
+              "order": 4,
               "type": "buzzin",
               "items": [
                 {
@@ -890,12 +368,12 @@
         {
           "id": 2,
           "title": "Section 2",
-          "banner": "/uploads/sections/import-835-1786443794405-lwxhz6.png",
+          "banner": "/uploads/sections/import-835-1788412469711-2dt0zo.png",
           "order": 2,
           "exercises": [
             {
-              "id": 6,
-              "title": "Quiz2",
+              "id": 5,
+              "title": "Quiz",
               "subTitle": "MC Quiz",
               "order": 1,
               "type": "mcquiz",
@@ -913,39 +391,7 @@
                     }
                   ],
                   "timeLimit": 15,
-                  "image": "/uploads/questions/import-835-1786443794406-jyyaz0.jpg"
-                }
-              ]
-            },
-            {
-              "id": 7,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 2,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "/uploads/videos/import-835-1786443794406-i8srs0.mp4",
-                  "captionUrl": "/uploads/captions/import-835-1786443794409-jvy6kk.vtt",
-                  "captionLanguage": "en",
-                  "captionTracks": [
-                    {
-                      "language": "en",
-                      "url": "/uploads/captions/import-835-1786443794409-jvy6kk.vtt"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": 8,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 3,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
+                  "image": null
                 }
               ]
             }
@@ -954,14 +400,39 @@
         {
           "id": 3,
           "title": "Section 3",
-          "banner": "/uploads/sections/import-835-1786443794409-kzxmlp.png",
+          "banner": "/uploads/sections/import-835-1788412469711-2p91on.png",
           "order": 3,
-          "exercises": []
+          "exercises": [
+            {
+              "id": 6,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Sample question?",
+                  "options": [
+                    {
+                      "text": "Option A",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Option B",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            }
+          ]
         },
         {
           "id": 4,
           "title": "Section 4",
-          "banner": "/uploads/sections/import-835-1786443794410-z5tqo5.png",
+          "banner": "/uploads/sections/import-835-1788412469712-s6lepo.png",
           "order": 4,
           "exercises": []
         },
@@ -987,8 +458,1044 @@
           "exercises": []
         }
       ],
-      "createdAt": "2026-08-11T10:23:14.411Z",
-      "updatedAt": "2026-08-11T10:23:14.412Z"
+      "createdAt": "2026-09-03T05:14:29.712Z",
+      "updatedAt": "2026-09-03T05:14:29.712Z"
+    },
+    {
+      "id": -10,
+      "teacherId": 835,
+      "name": "Aviation Course",
+      "description": "",
+      "banner": "/uploads/courses/import-835-1788412469714-u149od.png",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 1,
+          "title": "Airplane Introduction & Jet Engine Basics",
+          "banner": "/uploads/sections/import-835-1788412469714-9y6ptu.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 1,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1788412469715-2xbuc9.mp4"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "MC Quiz",
+              "subTitle": "MC Quiz",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "What is the approximate weight of the airplane mentioned in the video?",
+                  "options": [
+                    {
+                      "text": "Fifty-ton",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Hundred-ton",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Two hundred-ton",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "How many parts does an airplane consist of?",
+                  "options": [
+                    {
+                      "text": "Thousands",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Hundreds",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Millions",
+                      "isCorrect": true
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "What is called the “heart of the aircraft”?",
+                  "options": [
+                    {
+                      "text": "The wings",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "The cockpit",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "The jet engine",
+                      "isCorrect": true
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1788412469719-1fjlz8.png"
+                },
+                {
+                  "title": "What is the function of the front cowling?",
+                  "options": [
+                    {
+                      "text": "To provide thrust",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "To scoop a massive amount of air inside",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "To store fuel",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "What happens inside the compressor section?",
+                  "options": [
+                    {
+                      "text": "Air is cooled down",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Air is mixed with fuel",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Air is squeezed and compressed intensely",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Air is expelled out",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1788412469720-0r6zjd.png"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "How Jet Engine Works",
+          "banner": "/uploads/sections/import-835-1788412469721-x16ev9.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 3,
+              "title": "Video lesson",
+              "subTitle": "Video",
+              "order": 1,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1788412469721-675348.mp4"
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "title": "Fast quiz",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "What happens after air is compressed?",
+                  "options": [
+                    {
+                      "text": "It cools down",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "It mixes with fuel and ignites",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "It goes to the fan",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 20,
+                  "image": null
+                },
+                {
+                  "title": "What is the correct jet engine cycle?",
+                  "options": [
+                    {
+                      "text": "Intake → Compression → Combustion → Exhaust",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Combustion → Intake → Exhaust → Compression",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Exhaust → Compression → Intake → Combustion",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 20,
+                  "image": null
+                },
+                {
+                  "title": "What do the big front fan blades mainly do?",
+                  "options": [
+                    {
+                      "text": "Compress air",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Provide primary thrust",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Burn fuel",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Steer the plane",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 20,
+                  "image": "/uploads/questions/import-835-1788412469725-ogyj7o.png"
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 3,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "What happens after the air is compressed?",
+                  "options": [
+                    {
+                      "text": "It is cooled",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "It mixes with fuel and ignites",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "It goes directly to the fan",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "It is stored",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "What color are the large fan blades shown in the close-up?",
+                  "options": [
+                    {
+                      "text": "All silver",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Red and silver",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Blue",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1788412469725-b8cwkv.png"
+                }
+              ]
+            },
+            {
+              "id": 6,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 4,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "Where is the engine typically mounted?",
+                  "sttLanguage": "en"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-03T05:14:29.726Z",
+      "updatedAt": "2026-09-03T05:14:29.726Z"
+    },
+    {
+      "id": -11,
+      "teacherId": 835,
+      "name": "First Radio Contact: Aviation English Clarity & Readback",
+      "description": "",
+      "banner": "/uploads/courses/import-835-1788412469727-j27t17.jpeg",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "",
+          "order": 1,
+          "exercises": []
+        }
+      ],
+      "createdAt": "2026-09-03T05:14:29.727Z",
+      "updatedAt": "2026-09-03T05:14:29.728Z"
+    },
+    {
+      "id": -12,
+      "teacherId": 835,
+      "name": "Around the World",
+      "description": "",
+      "banner": "/uploads/courses/import-835-1788412469728-p8bw0u.jpeg",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 1,
+          "title": "Part 1: Japan and British",
+          "banner": "/uploads/sections/import-835-1788412469729-r6hkl4.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Japan and British",
+              "subTitle": "Video",
+              "order": 1,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1788412469729-vk17az.mp4",
+                  "captionUrl": "/uploads/captions/import-835-1788412469732-utvz6y.vtt",
+                  "captionLanguage": "yue",
+                  "captionTracks": [
+                    {
+                      "language": "en",
+                      "url": "/uploads/captions/import-835-1788412469731-2ouxfo.vtt"
+                    },
+                    {
+                      "language": "yue",
+                      "url": "/uploads/captions/import-835-1788412469732-utvz6y.vtt"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Quiz",
+              "subTitle": "MC Quiz",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "What can Japanese robots do?",
+                  "options": [
+                    {
+                      "text": "Walk, talk, and dance",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Swim and drive",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Castles",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "Where is Big Ben?",
+                  "options": [
+                    {
+                      "text": "California",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Hong Kong",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "London",
+                      "isCorrect": true
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1788412469732-1yl58b.jpeg"
+                },
+                {
+                  "title": "Where is Harry Potter from?",
+                  "options": [
+                    {
+                      "text": "USA",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "UK",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Japan",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1788412469732-vj5jjq.jpeg"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Part 2: German and Indian",
+          "banner": "/uploads/sections/import-835-1788412469733-n6n824.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 3,
+              "title": "German and Indian",
+              "subTitle": "Video",
+              "order": 1,
+              "type": "video",
+              "items": [
+                {
+                  "videoUrl": "/uploads/videos/import-835-1788412469733-vh3qws.mp4"
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "title": "Fast quiz",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "What is Germany famous for making?",
+                  "options": [
+                    {
+                      "text": "Toys",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Car",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Video Games",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
+                },
+                {
+                  "title": "What do people in India love to watch and play?",
+                  "options": [
+                    {
+                      "text": "Cricket",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Soccer",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Baseball",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/import-835-1788412469736-hgclmj.png"
+                },
+                {
+                  "title": "What are Indian people excellent at making?",
+                  "options": [
+                    {
+                      "text": "Big clocks",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Castles",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Computer programs and medicines",
+                      "isCorrect": true
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/questions/import-835-1788412469737-48fo4g.png"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-03T05:14:29.738Z",
+      "updatedAt": "2026-09-03T05:14:29.739Z"
+    },
+    {
+      "id": -13,
+      "teacherId": 835,
+      "name": "香港文化",
+      "description": "",
+      "banner": "/uploads/courses/course--13-1788414847857.png",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Hong Kong Urban Heritage",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Which two creators documented the daily life of Kowloon Walled City in a well-known book?",
+                  "options": [
+                    {
+                      "text": "Ian Lambot and Greg Girard",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Peter Cookson Smith and Keith Macgregor",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "John Thomson and Ed Van der Elsken",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Rex Koo and Poki Chan",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "What did architect He Yi learn from her research in Kowloon Walled City?",
+                  "options": [
+                    {
+                      "text": "The value of low-density suburban planning",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "How residents adapted to high-density living",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "The best techniques for neon sign design",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Methods for preserving traditional calligraphy",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 12,
+                  "image": null
+                },
+                {
+                  "title": "Which type of creative work has been inspired by Kowloon Walled City after its demolition?",
+                  "options": [
+                    {
+                      "text": "Only academic research papers",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Novels, comics, films, and games",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Government urban planning reports",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Classical music compositions",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "What is the main goal of young Hong Kong designers working with traditional street fonts?",
+                  "options": [
+                    {
+                      "text": "To replace all signs with digital displays",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "To digitize and preserve disappearing local typefaces",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "To remove calligraphy from public spaces",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "To focus only on English lettering",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Hong Kong Cultural Topics",
+              "subTitle": "Buzz In",
+              "order": 2,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "Explain how Kowloon Walled City continues to influence creative works today.",
+                  "correctAnswer": "Accept answers that mention novels, comics, films, games, or cultural memory of the site."
+                },
+                {
+                  "topic": "Describe efforts to preserve traditional Hong Kong street typography and signage.",
+                  "correctAnswer": "Accept answers that mention neon signs, local typefaces, calligraphy, or documentation projects."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-03T05:14:29.740Z",
+      "updatedAt": "2026-09-03T05:55:01.218Z"
+    },
+    {
+      "id": -16,
+      "teacherId": 835,
+      "name": "New course",
+      "description": "",
+      "banner": "/uploads/courses/course--16-1788418666380.png",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 1,
+          "title": "Untitled",
+          "banner": "/uploads/sections/section-ai-course--16-section-1-835-1788418987412.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Hong Kong Cultural Heritage Quiz",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Which authors created the classic book documenting Kowloon Walled City day and night?",
+                  "options": [
+                    {
+                      "text": "Ian Lambot and Greg Girard",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "John Thomson and Ed Van der Elsken",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Peter Cookson Smith and Keith Macgregor",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Ho Yi and Rex Koo",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "What did architect Ho Yi study for ten months in Kowloon Walled City?",
+                  "options": [
+                    {
+                      "text": "How residents adapted to high-density living",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Neon sign typography techniques",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Traditional Chinese restaurant architecture",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Street photography methods",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "Which nickname belonged to the calligrapher whose street writings were once common across Hong Kong?",
+                  "options": [
+                    {
+                      "text": "The Kowloon Emperor",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "The Neon King",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "The Street Scribe",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "The Wall Artist",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 12,
+                  "image": "/uploads/material/mat-1788418765367-c54fa552.jpg"
+                },
+                {
+                  "title": "Which area is highlighted for its mix of new and old shops and community interactions in recent typography studies?",
+                  "options": [
+                    {
+                      "text": "Tai Nan Street in Sham Shui Po",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Central tram tracks",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Kowloon Walled City rooftop",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "North Point restaurant district",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": "/uploads/material/mat-1788418782684-9c974896.jpg"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Hong Kong Heritage Discussion",
+              "subTitle": "Buzz In",
+              "order": 2,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "Describe how Kowloon Walled City has inspired creative works in books, comics, games, or films after its demolition.",
+                  "correctAnswer": "Accept answers mentioning novels, anime-style illustrations, local comics, virtual games, or emotional connections to the site's history and density.",
+                  "image": "/uploads/material/mat-1788418746864-0ef2540a.jpg"
+                },
+                {
+                  "topic": "Explain the efforts by designers and photographers to preserve Hong Kong's disappearing neon signs and traditional street typography.",
+                  "correctAnswer": "Accept answers referencing recording old signs, digital revival of fonts like Bei Wei or prison styles, or documenting street life along areas like Tai Nan Street.",
+                  "image": "/uploads/material/mat-1788418765368-1a5759c3.jpg"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Untitled",
+          "banner": "/uploads/sections/section-ai-course--16-section-2-835-1788419490199.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 3,
+              "title": "Hong Kong Trails Buzz",
+              "subTitle": "Buzz In",
+              "order": 1,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "Who drew the map of backyard trails?",
+                  "correctAnswer": "The artist Mao Shan",
+                  "image": "/uploads/material/mat-1788419184160-c68ac3c9.jpg"
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "title": "Hong Kong Trails and Nature",
+              "subTitle": "MC Quiz",
+              "order": 2,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "What are backyard trails in Hong Kong?",
+                  "options": [
+                    {
+                      "text": "Green areas near homes for rest",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Big city roads with cars",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Tall buildings only",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Places far from people",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/material/mat-1788419184160-c68ac3c9.jpg"
+                },
+                {
+                  "title": "Who created the illustrated map?",
+                  "options": [
+                    {
+                      "text": "A famous singer",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "An artist named Mao Shan",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "A school teacher",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "A bus driver",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "Why do people use backyard trails?",
+                  "options": [
+                    {
+                      "text": "To feel better and relax",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "To buy food only",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "To work in offices",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "To watch movies",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/question-ai-835-1788419338388.png"
+                },
+                {
+                  "title": "What material was used for old buildings in Hong Kong?",
+                  "options": [
+                    {
+                      "text": "Plastic and glass",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Local granite stone",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Soft paper",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Thin wood only",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 20,
+                  "image": "/uploads/material/mat-1788419184161-efd3ba42.jpg"
+                },
+                {
+                  "title": "What do stone wall trees show?",
+                  "options": [
+                    {
+                      "text": "Strong life in the city",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Fast cars on roads",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Empty parks at night",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "New shopping malls",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/questions/question-ai-835-1788419349295.png"
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "title": "Hong Kong Rocky Words",
+              "subTitle": "Lightning round",
+              "order": 3,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "What does remove mean here?",
+                  "options": [
+                    {
+                      "text": "Moving small hills for homes",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Planting new flowers",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Building tall towers",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Painting old walls",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
+                },
+                {
+                  "title": "What was Hong Kong like long ago?",
+                  "options": [
+                    {
+                      "text": "A place with many trees only",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "A barren rock with stones",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "A big green park",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "A busy shopping center",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 8,
+                  "image": "/uploads/questions/question-ai-835-1788419365548.png"
+                },
+                {
+                  "title": "What do boundary stones show?",
+                  "options": [
+                    {
+                      "text": "Changes in the city history",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "New games for kids",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Food in markets",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Colors of flags",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/questions/question-ai-835-1788419374923.png"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-03T06:57:32.429Z",
+      "updatedAt": "2026-09-03T07:11:58.967Z"
     }
   ]
 }

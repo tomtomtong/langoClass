@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@600;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/cms.css" />
 </head>
 <body class="cms-light">
   <div id="app" class="cms-app config-app">
@@ -403,6 +404,30 @@
                       </p>
                     </label>
                     <label class="field">
+                      <span>Material vision / OCR</span>
+                      <input
+                        type="text"
+                        id="config-openrouter-vision-model"
+                        list="config-openrouter-vision-models"
+                        placeholder="google/gemini-2.5-flash"
+                        autocomplete="off"
+                      />
+                      <datalist id="config-openrouter-vision-models">
+                        <option value="google/gemini-2.5-flash"></option>
+                        <option value="google/gemini-2.0-flash-001"></option>
+                        <option value="openai/gpt-4o"></option>
+                        <option value="openai/gpt-4o-mini"></option>
+                        <option value="anthropic/claude-3.5-sonnet"></option>
+                      </datalist>
+                      <p class="hint">
+                        Used for image uploads, PDF page scans, and material image cropping. Must support vision input.
+                      </p>
+                      <p class="hint config-field-meta">
+                        Active: <strong id="config-openrouter-vision-model-effective">—</strong>
+                        · Env: <strong id="config-openrouter-vision-model-env-default">—</strong>
+                      </p>
+                    </label>
+                    <label class="field">
                       <span>HK Elderly live TTS</span>
                       <input
                         type="text"
@@ -445,11 +470,13 @@
               <button type="button" class="btn primary small" id="btn-config-save-openrouter">Save key</button>
               <button type="button" class="btn primary small" id="btn-config-save-openrouter-model">Save Buzz In model</button>
               <button type="button" class="btn primary small" id="btn-config-save-openrouter-generate-model">Save generate model</button>
+              <button type="button" class="btn primary small" id="btn-config-save-openrouter-vision-model">Save vision model</button>
               <button type="button" class="btn primary small" id="btn-config-save-openrouter-tts-model">Save TTS model</button>
               <button type="button" class="btn secondary small" id="btn-config-test-openrouter">Test API</button>
               <button type="button" class="btn secondary small" id="btn-config-clear-openrouter">Clear saved key</button>
               <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-model">Reset Buzz In model</button>
               <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-generate-model">Reset generate model</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-vision-model">Reset vision model</button>
               <button type="button" class="btn secondary small" id="btn-config-reset-openrouter-tts-model">Reset TTS model</button>
             </div>
 
@@ -467,8 +494,8 @@
           <div class="cms-panel config-panel">
             <h2>Video generator API</h2>
             <p class="hint config-panel-intro">
-              LangoCMS video generation at <code>https://newcms.lango.ai</code> —
-              <code>POST /api/video</code>, poll <code>GET /api/jobs/:id</code>, then use absolute <code>video_url</code>.
+              LangoCMS Router API at <code>https://newcms.lango.ai</code> —
+              video <code>POST /api/video</code>, image <code>POST /api/router/image</code>.
             </p>
 
             <div class="config-split config-split-compact">
