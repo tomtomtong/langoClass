@@ -1399,6 +1399,27 @@ async function resolveBestStudentJoinUrl(roomId) {
     const res = await fetch("/api/network-urls");
     const { port, addresses, publicBaseUrl } = await res.json();
 
+    // Host on localhost: phones on the same Wi‑Fi must use LAN IP, not a remote public base URL.
+    if (isLocalHost && addresses?.length) {
+      const joinUrl = `http://${addresses[0]}:${port}${path}`;
+      // #region agent log
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+        body: JSON.stringify({
+          sessionId: "d0607f",
+          runId: "qr-join-url",
+          hypothesisId: "H1",
+          location: "host.js:resolveBestStudentJoinUrl",
+          message: "Using LAN join URL for local host",
+          data: { joinUrl, publicBaseUrl: publicBaseUrl || null, addresses, port, roomId },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
+      return joinUrl;
+    }
+
     const explicitPublic = String(publicBaseUrl || "").trim().replace(/\/$/, "");
     if (explicitPublic) {
       let publicHost = "";
@@ -1410,10 +1431,6 @@ async function resolveBestStudentJoinUrl(roomId) {
       if (isPublicJoinHost(publicHost)) {
         return `${explicitPublic}${path}`;
       }
-    }
-
-    if (isLocalHost && addresses?.length) {
-      return `http://${addresses[0]}:${port}${path}`;
     }
   } catch {
     /* ignore */
@@ -1453,12 +1470,6 @@ async function renderRoomJoinLinks(roomId) {
   try {
     const res = await fetch("/api/network-urls");
     const { port, addresses, publicBaseUrl } = await res.json();
-    if (publicBaseUrl) {
-      links.push({
-        label: "Student join link",
-        url: `${publicBaseUrl.replace(/\/$/, "")}${path}`,
-      });
-    }
     if (isLocal && addresses?.length) {
       for (const ip of addresses) {
         links.push({
@@ -1466,6 +1477,11 @@ async function renderRoomJoinLinks(roomId) {
           url: `http://${ip}:${port}${path}`,
         });
       }
+    } else if (publicBaseUrl) {
+      links.push({
+        label: "Student join link",
+        url: `${publicBaseUrl.replace(/\/$/, "")}${path}`,
+      });
     }
   } catch {
     /* ignore */
