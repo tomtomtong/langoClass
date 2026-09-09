@@ -2990,6 +2990,36 @@ body.cms-light .cms-ai-item-block-actions {
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+body.cms-light .cms-ai-tts-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+body.cms-light .cms-ai-tts-lang {
+  max-width: 8.5rem;
+  min-width: 5.5rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+body.cms-light .cms-ai-tts-preview.is-ready {
+  color: #6d28d9;
+  font-weight: 800;
+}
+
+body.cms-light .cms-ai-tts-preview:not(.is-ready) {
+  opacity: 0.55;
 }
 
 body.cms-light .cms-ai-item-number {
@@ -3067,8 +3097,12 @@ body.cms-light .cms-ai-opt-text {
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.4rem 0.55rem;
+  padding: 0.5rem 0.65rem;
   background: var(--paper, #fff);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--text);
 }
 
 body.cms-light .cms-ai-publish-summary {
@@ -3853,6 +3887,10 @@ body.cms-light .cms-ai-entry-card {
   transition: border-color 160ms ease, transform 160ms ease;
 }
 
+body.cms-light .cms-ai-entry-card[hidden] {
+  display: none !important;
+}
+
 body.cms-light .cms-ai-entry-card:hover {
   border-color: var(--gold, #d4a017);
   transform: translateY(-1px);
@@ -3962,12 +4000,32 @@ body.cms-light .cms-ai-gen-progress.is-complete .cms-ai-gen-progress-bar {
 
 body.cms-light .cms-ai-gen-progress-label {
   margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+body.cms-light .cms-ai-gen-progress-detail {
+  margin: 0;
   font-size: 0.82rem;
+  line-height: 1.45;
   color: var(--muted);
+}
+
+body.cms-light .cms-ai-gen-progress-eta {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--gold, #d4a017) 82%, var(--text));
 }
 
 body.cms-light .cms-ai-gen-progress[hidden] {
   display: none !important;
+}
+
+body.cms-light .cms-ai-gen-progress:not([hidden]) + .status-msg#cms-ai-generate-status {
+  display: none;
 }
 
 body.cms-light .cms-ai-material-state {

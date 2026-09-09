@@ -297,12 +297,12 @@
           <div class="cms-ai-entry-chooser" id="cms-ai-entry-chooser">
             <p class="cms-ai-label" id="cms-sections-start-title" data-i18n="cms.sections.startTitle">Start a section</p>
             <p class="hint cms-ai-entry-intro" id="cms-sections-start-intro" data-i18n="cms.sections.startIntro">Choose how to add a lesson. Open a section card below to edit one later.</p>
-            <div class="cms-ai-entry-grid cms-ai-entry-grid-3">
+            <div class="cms-ai-entry-grid">
               <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-section">
                 <strong data-i18n="cms.ai.pathSection">Generate one section</strong>
                 <span data-i18n="cms.ai.pathSectionDesc">Create a section and generate its exercises with AI.</span>
               </button>
-              <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-course">
+              <button type="button" class="cms-ai-entry-card" id="btn-cms-ai-path-course" hidden>
                 <strong data-i18n="cms.ai.pathCourse">Build full course from document</strong>
                 <span data-i18n="cms.ai.pathCourseDesc">Upload a document, approve the outline, then generate every section.</span>
               </button>
@@ -517,7 +517,7 @@
                       <div class="cms-ai-file-upload">
                         <span class="cms-ai-link-paste-label">Upload file</span>
                         <label class="cms-ai-file-drop" id="cms-ai-file-drop">
-                          <input type="file" id="cms-ai-file" hidden multiple accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
+                          <input type="file" id="cms-ai-file" hidden multiple accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,video/*,audio/*,image/*" />
                           <svg class="cms-ai-file-drop-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
                             <path d="M12 16V6.5M12 6.5 9.25 9.25M12 6.5l2.75 2.75" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
                             <path d="M5 14.5v2.25A2.25 2.25 0 0 0 7.25 19h9.5A2.25 2.25 0 0 0 18.75 16.75V14.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
@@ -643,6 +643,8 @@
                   <div class="cms-ai-gen-progress-bar" id="cms-ai-gen-progress-bar"></div>
                 </div>
                 <p class="cms-ai-gen-progress-label" id="cms-ai-gen-progress-label"></p>
+                <p class="cms-ai-gen-progress-detail" id="cms-ai-gen-progress-detail" hidden></p>
+                <p class="cms-ai-gen-progress-eta" id="cms-ai-gen-progress-eta" hidden></p>
               </div>
               <p class="status-msg" id="cms-ai-generate-status"></p>
               <div class="cms-ai-wizard-nav">

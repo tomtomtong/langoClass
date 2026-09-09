@@ -38,6 +38,8 @@ const coursePlan = require("./lib/course-plan");
 const cmsSpeakLanguages = require("./lib/cms-speak-languages");
 const gameplayTtsStyle = require("./lib/gameplay-tts-style");
 const questionTtsCache = require("./lib/question-tts-cache");
+const cmsQuestionTts = require("./lib/cms-question-tts");
+const cantoneseSpeechText = require("./lib/cantonese-speech-text");
 
 const app = express();
 const server = http.createServer(app);
@@ -63,6 +65,14 @@ const ENV_INWORLD_STT_LANGUAGE = String(
 ).trim();
 const ENV_QWEN_API_KEY = String(process.env.QWEN_API_KEY || "").trim();
 const ENV_QWEN_MODEL = String(process.env.QWEN_MODEL || "qwen-plus").trim();
+const ENV_AZURE_API_KEY = String(process.env.AZURE_OPENAI_API_KEY || "").trim();
+const ENV_AZURE_ENDPOINT = String(process.env.AZURE_OPENAI_ENDPOINT || "")
+  .trim()
+  .replace(/\/$/, "");
+const ENV_AZURE_DEPLOYMENT = String(process.env.AZURE_OPENAI_DEPLOYMENT || "").trim();
+const ENV_AZURE_API_VERSION = String(
+  process.env.AZURE_OPENAI_API_VERSION || "2024-08-01-preview"
+).trim();
 const ENV_OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || "").trim();
 const ENV_OPENROUTER_BUZZIN_MODEL = String(
   process.env.OPENROUTER_BUZZIN_MODEL || "mistralai/voxtral-small-24b-2507"
@@ -141,6 +151,30 @@ function getQwenApiKey() {
 function getQwenModel() {
   const saved = settingsStore.readSettings().qwenModel;
   return saved || ENV_QWEN_MODEL || "qwen-plus";
+}
+
+function getAzureApiKey() {
+  const saved = settingsStore.readSettings().azureApiKey;
+  return saved || ENV_AZURE_API_KEY;
+}
+
+function getAzureEndpoint() {
+  const saved = settingsStore.readSettings().azureEndpoint;
+  return saved || ENV_AZURE_ENDPOINT;
+}
+
+function getAzureDeployment() {
+  const saved = settingsStore.readSettings().azureDeployment;
+  return saved || ENV_AZURE_DEPLOYMENT;
+}
+
+function getAzureApiVersion() {
+  const saved = settingsStore.readSettings().azureApiVersion;
+  return saved || ENV_AZURE_API_VERSION || "2024-08-01-preview";
+}
+
+function isAzureConfigured() {
+  return !!(getAzureApiKey() && getAzureEndpoint() && getAzureDeployment());
 }
 
 function getOpenRouterApiKey() {
@@ -319,7 +353,7 @@ const materialUpload = multer({
       ok
         ? null
         : new Error(
-            "Supported formats: .txt, .md, .pdf, .docx, .pptx, .vtt, video (.mp4, .mov, .m4v, .mkv, .avi, .webm), audio (.mp3, .wav, .m4a, .ogg, .flac, .aac), images (.jpg, .jpeg, .png, .webp, .gif)"
+            "Supported formats: .txt, .md, .pdf, .docx, .pptx, .vtt, video (.mp4, .mov, .m4v, .mkv, .avi, .webm), audio (.mp3, .wav, .m4a, .ogg, .flac, .aac), images (.jpg, .jpeg, .png, .webp, .gif, .heic, .heif)"
           ),
       ok
     );
@@ -566,6 +600,7 @@ async function analyzeBuzzinStudentResponse({
   responseText,
   audioBase64,
   audioFormat,
+  sttLanguage = "",
 }) {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
@@ -574,16 +609,49 @@ async function analyzeBuzzinStudentResponse({
 
   const model = getOpenRouterBuzzinModel();
   const expectedAnswer = String(correctAnswer || "").trim();
+  const lang = String(sttLanguage || (IS_HK_ELDERLY_VARIANT ? "yue" : "en"))
+    .trim()
+    .toLowerCase();
+  const isCantonese = lang === "yue" || lang.startsWith("yue-") || lang === "zh-hk";
   const fluencyInstruction = audioBase64
-    ? "Listen to the supplied recording and assess fluency from the actual delivery, including pace, pauses, hesitation, confidence, and continuity. Do not infer delivery from the transcript alone."
-    : "No recording was supplied. Return Fluency (0): Not assessed — no recording supplied. Do not infer delivery from the transcript.";
+    ? isCantonese
+      ? "聆聽學生錄音，根據實際語速、停頓、猶疑、信心同連貫性評估流利度。唔好只靠文字稿推斷。"
+      : "Listen to the supplied recording and assess fluency from the actual delivery, including pace, pauses, hesitation, confidence, and continuity. Do not infer delivery from the transcript alone."
+    : isCantonese
+      ? "冇提供錄音。流利度 (0)：未能評估 — 冇錄音。唔好只靠文字稿推斷。"
+      : "No recording was supplied. Return Fluency (0): Not assessed — no recording supplied. Do not infer delivery from the transcript.";
   const correctnessInstruction = expectedAnswer
-    ? `Expected correct answer (teacher key): ${expectedAnswer}
+    ? isCantonese
+      ? `預期正確答案（老師參考）：${expectedAnswer}
+
+根據預期答案判斷正確性。接受意思相同嘅改寫。只有學生答案符合預期意思先標為 Correct。Partially correct 用於相關但唔完整嘅答案。Incorrect 用於答錯或離題。`
+      : `Expected correct answer (teacher key): ${expectedAnswer}
 
 Judge Correctness against that expected answer. Accept clear paraphrases and equivalent meaning. Mark Verdict as Correct only when the student's answer matches the expected meaning. Use Partially correct for incomplete but related answers. Use Incorrect when the answer conflicts with or misses the expected answer.`
-    : `No teacher answer key was provided. Judge Correctness by whether the transcript is a relevant, sensible answer to the discussion topic.`;
+    : isCantonese
+      ? "冇提供老師參考答案。根據學生答案是否切合討論題目同合理嚟判斷正確性。"
+      : `No teacher answer key was provided. Judge Correctness by whether the transcript is a relevant, sensible answer to the discussion topic.`;
 
-  const prompt = `Review this student's spoken answer as a helpful English teacher assistant.
+  const prompt = isCantonese
+    ? `你係一位香港廣東話老師助手，評估學生嘅口語回答。
+
+討論題目：${topic}
+學生姓名：${studentName}
+文字稿：${responseText}
+
+${correctnessInstruction}
+
+${fluencyInstruction}
+
+請用以下格式回覆，剛好五行：
+Verdict: <Correct|Incorrect|Partially correct>
+✅ Correctness (<0-100分>): <2-5個字評語，用繁體中文>
+🧩 Completeness (<0-100分>): <2-5個字評語，用繁體中文>
+🗣️ Fluency (<0-100分>): <2-5個字評語，用繁體中文>
+Spoken Feedback: <12-25字，用自然香港廣東話口語，俾Uncle Tommy讀出>
+
+評語行必須用繁體中文。Spoken Feedback 必須用香港廣東話口語（唔係普通話），包含學生姓名，直接回應佢講嘅內容。如果答錯或部分正確，溫柔引導佢接近正確方向，但唔好逐字讀出參考答案。Spoken Feedback 唔好提及分數、emoji、Verdict、Correctness、Completeness 或 Fluency。`
+    : `Review this student's spoken answer as a helpful English teacher assistant.
 
 Discussion topic: ${topic}
 Student name: ${studentName}
@@ -2038,20 +2106,66 @@ function buildQuestionTtsCacheMeta() {
   };
 }
 
-async function resolveQuestionTts(text, speakLangCode) {
-  const purpose = "question";
+async function prepareTextForGameplayTts(text, speakLangCode) {
+  const code = String(speakLangCode || "")
+    .trim()
+    .toLowerCase();
+  const trimmed = String(text || "").trim();
+  if (!trimmed || (code !== "yue" && !code.startsWith("yue-"))) return trimmed;
+  if (!cantoneseSpeechText.needsCantoneseSpeechPrep(trimmed)) return trimmed;
+
+  const apiKey = getOpenRouterApiKey();
+  if (!apiKey) return trimmed;
+
+  const prepped = await cantoneseSpeechText.prepareCantoneseSpeechText(trimmed, {
+    llmComplete: openRouterGenerateComplete,
+    apiKey,
+    model: getOpenRouterGenerateModel(),
+  });
+  // #region agent log
+  try {
+    fs.appendFileSync(
+      path.join(__dirname, ".cursor", "debug-d0607f.log"),
+      `${JSON.stringify({
+        sessionId: "d0607f",
+        runId: "cantonese-tts-prep",
+        hypothesisId: "H2",
+        location: "server.js:prepareTextForGameplayTts",
+        message: "Cantonese TTS prep applied",
+        data: {
+          originalPreview: trimmed.slice(0, 80),
+          preppedPreview: String(prepped || "").slice(0, 80),
+          changed: prepped !== trimmed,
+        },
+        timestamp: Date.now(),
+      })}\n`
+    );
+  } catch {}
+  // #endregion
+  return prepped || trimmed;
+}
+
+async function resolveGameplayTts(text, speakLangCode, purpose = "question", options = {}) {
+  const skipCache = Boolean(options.skipCache);
+  const speakText = await prepareTextForGameplayTts(text, speakLangCode);
   const cacheKey = questionTtsCache.buildQuestionTtsCacheKey({
-    text,
+    text: speakText,
     speakLangCode,
     purpose,
     meta: buildQuestionTtsCacheMeta(),
   });
-  const cached = questionTtsCache.loadCachedQuestionTts(cacheKey);
-  if (cached) return cached;
+  if (!skipCache) {
+    const cached = questionTtsCache.loadCachedQuestionTts(cacheKey);
+    if (cached) return { ...cached, cacheKey, cached: true };
+  }
 
-  const tts = await synthesizeGameplayTts(text, speakLangCode, { purpose });
+  const tts = await synthesizeGameplayTts(speakText, speakLangCode, { purpose });
   questionTtsCache.saveCachedQuestionTts(cacheKey, tts.audioContent, tts.format);
-  return { ...tts, cached: false };
+  return { ...tts, cacheKey, cached: false };
+}
+
+async function resolveQuestionTts(text, speakLangCode) {
+  return resolveGameplayTts(text, speakLangCode, "question");
 }
 
 async function speakQuestionThenOpen(game, questionIndex) {
@@ -2543,6 +2657,20 @@ function buildConfigResponse() {
     qwenModelSaved: settings.qwenModel || "",
     qwenModelEnvDefault: ENV_QWEN_MODEL,
     effectiveQwenModel: getQwenModel(),
+    azureApiKeySaved: !!settings.azureApiKey,
+    azureEnvDefaultConfigured: !!ENV_AZURE_API_KEY,
+    azureApiKeyConfigured: !!getAzureApiKey(),
+    azureApiKeyMasked: maskApiKey(getAzureApiKey()),
+    azureEndpointSaved: settings.azureEndpoint || "",
+    azureEndpointEnvDefault: ENV_AZURE_ENDPOINT,
+    effectiveAzureEndpoint: getAzureEndpoint(),
+    azureDeploymentSaved: settings.azureDeployment || "",
+    azureDeploymentEnvDefault: ENV_AZURE_DEPLOYMENT,
+    effectiveAzureDeployment: getAzureDeployment(),
+    azureApiVersionSaved: settings.azureApiVersion || "",
+    azureApiVersionEnvDefault: ENV_AZURE_API_VERSION,
+    effectiveAzureApiVersion: getAzureApiVersion(),
+    azureConfigured: isAzureConfigured(),
     openrouterApiKeySaved: !!settings.openrouterApiKey,
     openrouterEnvDefaultConfigured: !!ENV_OPENROUTER_API_KEY,
     openrouterApiKeyConfigured: !!getOpenRouterApiKey(),
@@ -2992,6 +3120,102 @@ async function testQwenApiKey(apiKey, model) {
   };
 }
 
+function azureErrorMessage(data, status) {
+  return (
+    data?.error?.message ||
+    data?.message ||
+    `Azure OpenAI API returned ${status}.`
+  );
+}
+
+function buildAzureChatCompletionsUrl(endpoint, deployment, apiVersion) {
+  const base = String(endpoint || "")
+    .trim()
+    .replace(/\/$/, "");
+  const dep = encodeURIComponent(String(deployment || "").trim());
+  const version = encodeURIComponent(String(apiVersion || "2024-08-01-preview").trim());
+  return `${base}/openai/deployments/${dep}/chat/completions?api-version=${version}`;
+}
+
+async function azureLlmComplete(apiKey, endpoint, deployment, apiVersion, messages, maxTokens = 256) {
+  const key = String(apiKey || "").trim();
+  const dep = String(deployment || "").trim();
+  const base = String(endpoint || "").trim();
+  const version = String(apiVersion || "2024-08-01-preview").trim();
+  if (!key || !base || !dep) {
+    throw new Error("Azure OpenAI requires API key, endpoint, and deployment name.");
+  }
+
+  const res = await fetch(buildAzureChatCompletionsUrl(base, dep, version), {
+    method: "POST",
+    headers: {
+      "api-key": key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messages,
+      max_tokens: maxTokens,
+    }),
+  });
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text || res.statusText };
+  }
+
+  if (!res.ok) {
+    throw new Error(`LLM (Azure ${dep}): ${azureErrorMessage(data, res.status)}`);
+  }
+
+  return data?.choices?.[0]?.message?.content?.trim?.() || "";
+}
+
+async function testAzureLlm(apiKey, endpoint, deployment, apiVersion) {
+  const started = Date.now();
+  const reply = await azureLlmComplete(
+    apiKey,
+    endpoint,
+    deployment,
+    apiVersion,
+    [{ role: "user", content: "Reply with exactly: OK" }],
+    16
+  );
+  return {
+    ok: true,
+    deployment: String(deployment || "").trim(),
+    endpoint: String(endpoint || "").trim(),
+    apiVersion: String(apiVersion || "2024-08-01-preview").trim(),
+    latencyMs: Date.now() - started,
+    reply: reply.slice(0, 200),
+  };
+}
+
+async function testAzureApiKey(apiKey, endpoint, deployment, apiVersion) {
+  const key = String(apiKey || "").trim();
+  const base = String(endpoint || "").trim();
+  const dep = String(deployment || "").trim();
+  if (!key) {
+    throw new Error("No Azure API key to test. Enter a key or set AZURE_OPENAI_API_KEY.");
+  }
+  if (!base) {
+    throw new Error("Azure endpoint is required (e.g. https://your-resource.openai.azure.com).");
+  }
+  if (!dep) {
+    throw new Error("Azure deployment name is required.");
+  }
+
+  const started = Date.now();
+  const llm = await testAzureLlm(key, base, dep, apiVersion);
+
+  return {
+    ok: true,
+    latencyMs: Date.now() - started,
+    llm,
+  };
+}
+
 async function testOpenRouterBuzzinModel(apiKey, model) {
   const key = String(apiKey || getOpenRouterApiKey() || "").trim();
   if (!key) {
@@ -3032,6 +3256,10 @@ app.put("/api/config", async (req, res) => {
     inworldSttLanguage,
     qwenApiKey,
     qwenModel,
+    azureApiKey,
+    azureEndpoint,
+    azureDeployment,
+    azureApiVersion,
     openrouterApiKey,
     openrouterBuzzinModel,
     openrouterGenerateModel,
@@ -3074,6 +3302,24 @@ app.put("/api/config", async (req, res) => {
 
   if (qwenModel !== undefined) {
     updates.qwenModel = String(qwenModel || "").trim();
+  }
+
+  if (azureApiKey !== undefined) {
+    updates.azureApiKey = String(azureApiKey || "").trim();
+  }
+
+  if (azureEndpoint !== undefined) {
+    updates.azureEndpoint = String(azureEndpoint || "")
+      .trim()
+      .replace(/\/$/, "");
+  }
+
+  if (azureDeployment !== undefined) {
+    updates.azureDeployment = String(azureDeployment || "").trim();
+  }
+
+  if (azureApiVersion !== undefined) {
+    updates.azureApiVersion = String(azureApiVersion || "").trim();
   }
 
   if (openrouterApiKey !== undefined) {
@@ -3151,6 +3397,42 @@ app.post("/api/config/test-qwen", async (req, res) => {
     return res.json(result);
   } catch (err) {
     return res.status(400).json({ message: err.message || "Qwen API test failed." });
+  }
+});
+
+app.post("/api/config/test-azure", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const bodyKey = req.body?.azureApiKey;
+  const bodyEndpoint = req.body?.azureEndpoint;
+  const bodyDeployment = req.body?.azureDeployment;
+  const bodyApiVersion = req.body?.azureApiVersion;
+  const keyToTest =
+    bodyKey != null && String(bodyKey).trim() ? String(bodyKey).trim() : getAzureApiKey();
+  const endpointToTest =
+    bodyEndpoint != null && String(bodyEndpoint).trim()
+      ? String(bodyEndpoint).trim().replace(/\/$/, "")
+      : getAzureEndpoint();
+  const deploymentToTest =
+    bodyDeployment != null && String(bodyDeployment).trim()
+      ? String(bodyDeployment).trim()
+      : getAzureDeployment();
+  const apiVersionToTest =
+    bodyApiVersion != null && String(bodyApiVersion).trim()
+      ? String(bodyApiVersion).trim()
+      : getAzureApiVersion();
+
+  try {
+    const result = await testAzureApiKey(
+      keyToTest,
+      endpointToTest,
+      deploymentToTest,
+      apiVersionToTest
+    );
+    return res.json(result);
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Azure OpenAI test failed." });
   }
 });
 
@@ -3392,6 +3674,7 @@ app.get("/api/cms/app-context", (_req, res) => {
     questionLanguages: cmsSpeakLanguages.getCmsQuestionLanguages(APP_VARIANT),
     defaultSpeakLangCode: cmsSpeakLanguages.getDefaultCmsSpeakLangCode(APP_VARIANT),
     ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
+    ttsAvailable: Boolean(getGameplayTtsApiKey()),
   });
 });
 
@@ -4055,13 +4338,23 @@ async function completeCaptionTranslationLlm(messages, maxTokens) {
   if (getInworldApiKey()) {
     return inworldLlmComplete(getInworldApiKey(), getInworldLlmModel(), messages, maxTokens);
   }
+  if (isAzureConfigured()) {
+    return azureLlmComplete(
+      getAzureApiKey(),
+      getAzureEndpoint(),
+      getAzureDeployment(),
+      getAzureApiVersion(),
+      messages,
+      maxTokens
+    );
+  }
   if (getQwenApiKey()) {
     return qwenLlmComplete(getQwenApiKey(), getQwenModel(), messages, maxTokens);
   }
   if (getOpenRouterApiKey()) {
     return openRouterLlmComplete(getOpenRouterApiKey(), getOpenRouterBuzzinModel(), messages, maxTokens);
   }
-  throw new Error("Configure Inworld, Qwen, or OpenRouter LLM in Config before translating captions.");
+  throw new Error("Configure Inworld, Azure, or OpenRouter LLM in Config before translating captions.");
 }
 
 async function readCaptionSourceText(captionUrl) {
@@ -4177,12 +4470,14 @@ async function extractUploadedMaterialFile(uploadedFile, { language, materialHin
   }
 
   let videoMeta = null;
+  const hasVisionApi = Boolean(getOpenRouterApiKey());
   const result = await materialExtract.extractFromBuffer(
     uploadedFile.buffer,
     uploadedFile.originalname,
     uploadedFile.mimetype,
     {
       language,
+      hasVisionApi,
       transcribeAudio: async (buffer, audioFormat) =>
         transcribeMaterialAudioBuffer(
           buffer,
@@ -4312,6 +4607,7 @@ app.post("/api/cms/extract-material", async (req, res) => {
         let lastVideoMeta = null;
         const imageAssets = [];
         const materialHint = String(req.body?.materialHint || req.body?.instructions || "").trim();
+        const extractStartedAt = Date.now();
         for (const uploadedFile of uploads) {
           const { result, videoMeta, source, imageAssets: fileAssets } = await extractUploadedMaterialFile(
             uploadedFile,
@@ -4324,6 +4620,7 @@ app.post("/api/cms/extract-material", async (req, res) => {
           if (videoMeta) lastVideoMeta = videoMeta;
           if (fileAssets?.length) imageAssets.push(...fileAssets);
         }
+        const extractDurationMs = Date.now() - extractStartedAt;
 
         const combinedText =
           extracted.length === 1
@@ -4336,6 +4633,39 @@ app.post("/api/cms/extract-material", async (req, res) => {
         const filenames = extracted.map(({ result }) => result.filename).filter(Boolean);
         const source = extracted.length > 1 ? "files" : extracted[0]?.source || "file";
 
+        const extractionMethods = extracted.map(({ result }) => result.extractionMethod).filter(Boolean);
+        const extractionMeta = {
+          durationMs: extractDurationMs,
+          methods: extractionMethods,
+          pageCount: extracted.reduce((sum, { result }) => sum + (result.pageCount || 0), 0),
+          pagesProcessed: extracted.reduce((sum, { result }) => sum + (result.pagesProcessed || 0), 0),
+          usedVisionOcr: extractionMethods.some((method) => method === "pdf-ocr"),
+        };
+
+        // #region agent log
+        try {
+          fs.appendFileSync(
+            path.join(__dirname, ".cursor", "debug-d0607f.log"),
+            `${JSON.stringify({
+              sessionId: "d0607f",
+              runId: "extract-material",
+              hypothesisId: "H1-H3",
+              location: "server.js:extract-material:success",
+              message: "Material extracted",
+              data: {
+                fileCount: extracted.length,
+                filenames,
+                extractionMeta,
+                charCount: truncateResult.text.length,
+                hasOpenRouterKey: Boolean(getOpenRouterApiKey()),
+                visionModel: getOpenRouterVisionModel(),
+              },
+              timestamp: Date.now(),
+            })}\n`
+          );
+        } catch {}
+        // #endregion
+
         return res.json({
           ok: true,
           source,
@@ -4346,6 +4676,7 @@ app.post("/api/cms/extract-material", async (req, res) => {
           text: truncateResult.text,
           truncated: truncateResult.truncated,
           originalLength: truncateResult.originalLength,
+          extraction: extractionMeta,
           videoUrl: lastVideoMeta?.videoUrl,
           captionUrl: lastVideoMeta?.captionUrl,
           cueCount: lastVideoMeta?.cueCount,
@@ -4424,9 +4755,138 @@ app.post("/api/cms/extract-material", async (req, res) => {
       });
     } catch (err) {
       console.error("extract-material failed:", err);
+      // #region agent log
+      try {
+        fs.appendFileSync(
+          path.join(__dirname, ".cursor", "debug-d0607f.log"),
+          `${JSON.stringify({
+            sessionId: "d0607f",
+            runId: "extract-material",
+            hypothesisId: "H1-H3",
+            location: "server.js:extract-material:error",
+            message: "Material extraction failed",
+            data: {
+              error: err?.message || String(err),
+              hasOpenRouterKey: Boolean(getOpenRouterApiKey()),
+              visionModel: getOpenRouterVisionModel(),
+            },
+            timestamp: Date.now(),
+          })}\n`
+        );
+      } catch {}
+      // #endregion
       return res.status(500).json({ message: err.message || "Material extraction failed." });
     }
   });
+});
+
+app.post("/api/cms/prefetch-question-tts", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  if (!getGameplayTtsApiKey()) {
+    return res.status(400).json({ message: "Speech TTS is not configured for this app variant." });
+  }
+
+  const defaultSpeakLangCode = cmsQuestionTts.normalizeSpeakLangCode(req.body?.speakLangCode);
+  const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+  const items = cmsQuestionTts.dedupeTtsItems(
+    rawItems
+      .map((raw, index) => ({
+        key: String(raw?.key || index).trim() || String(index),
+        text: String(raw?.text || "").trim(),
+        speakLangCode: cmsQuestionTts.normalizeSpeakLangCode(raw?.speakLangCode || defaultSpeakLangCode),
+        purpose: String(raw?.purpose || "question").trim() || "question",
+        force: Boolean(raw?.force),
+      }))
+      .filter((item) => item.text)
+      .slice(0, 200)
+  );
+
+  const results = [];
+  for (const item of items) {
+    try {
+      let deletedCache = false;
+      if (item.force) {
+        const cacheKey = questionTtsCache.buildQuestionTtsCacheKey({
+          text: item.text,
+          speakLangCode: item.speakLangCode,
+          purpose: item.purpose,
+          meta: buildQuestionTtsCacheMeta(),
+        });
+        deletedCache = questionTtsCache.deleteCachedQuestionTts(cacheKey);
+      }
+      const tts = await resolveGameplayTts(item.text, item.speakLangCode, item.purpose, {
+        skipCache: item.force,
+      });
+      // #region agent log
+      if (item.force) {
+        try {
+          fs.appendFileSync(
+            path.join(__dirname, ".cursor", "debug-d0607f.log"),
+            `${JSON.stringify({
+              sessionId: "d0607f",
+              runId: "tts-regen",
+              hypothesisId: "H-REGEN",
+              location: "server.js:prefetch-question-tts:force",
+              message: "Forced TTS regen",
+              data: {
+                key: item.key,
+                deletedCache,
+                cacheKey: tts.cacheKey,
+                cached: !!tts.cached,
+                speakLangCode: item.speakLangCode,
+                textPreview: item.text.slice(0, 60),
+              },
+              timestamp: Date.now(),
+            })}\n`
+          );
+        } catch {}
+      }
+      // #endregion
+      results.push({
+        key: item.key,
+        ok: true,
+        cacheKey: tts.cacheKey,
+        cached: !!tts.cached,
+        regenerated: item.force && !tts.cached,
+      });
+    } catch (err) {
+      results.push({
+        key: item.key,
+        ok: false,
+        error: err.message || "TTS failed.",
+      });
+    }
+  }
+
+  return res.json({
+    results,
+    generated: results.filter((entry) => entry.ok && !entry.cached).length,
+    cached: results.filter((entry) => entry.ok && entry.cached).length,
+    failed: results.filter((entry) => !entry.ok).length,
+  });
+});
+
+app.get("/api/cms/question-tts/:cacheKey", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const cacheKey = String(req.params.cacheKey || "")
+    .replace(/\.mp3$/i, "")
+    .trim();
+  if (!/^[a-f0-9]{64}$/i.test(cacheKey)) {
+    return res.status(400).json({ message: "Invalid audio id." });
+  }
+
+  const filePath = questionTtsCache.getCacheFilePath(cacheKey, "mp3");
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ message: "Speech audio not found." });
+  }
+
+  res.setHeader("Content-Type", "audio/mpeg");
+  res.setHeader("Cache-Control", "private, no-cache");
+  return fs.createReadStream(filePath).pipe(res);
 });
 
 app.post("/api/cms/generate-exercises", async (req, res) => {
@@ -4569,6 +5029,7 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
   const imageAssets = Array.isArray(req.body?.imageAssets) ? req.body.imageAssets : [];
 
   try {
+    const questionNumber = Number(req.body?.questionNumber) || undefined;
     const result = await exerciseGenerator.reviseExercisesFromDraft(
       {
         material,
@@ -4579,12 +5040,34 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
         exercises,
         history,
         imageAssets,
-        questionNumber: Number(req.body?.questionNumber) || undefined,
+        questionNumber,
         model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
         apiKey: getOpenRouterApiKey(),
       },
       openRouterGenerateComplete
     );
+    // #region agent log
+    try {
+      fs.appendFileSync(
+        path.join(__dirname, ".cursor", "debug-d0607f.log"),
+        `${JSON.stringify({
+          sessionId: "d0607f",
+          runId: "regen-q",
+          hypothesisId: "H-REGEN",
+          location: "server.js:revise-exercises",
+          message: "Revision complete",
+          data: {
+            revisionPreview: revision.slice(0, 120),
+            questionNumber: questionNumber || null,
+            revisionMode: result.revisionMode || null,
+            stats: result.stats || null,
+            summary: result.summary || null,
+          },
+          timestamp: Date.now(),
+        })}\n`
+      );
+    } catch {}
+    // #endregion
 
     const model = String(req.body?.model || getOpenRouterGenerateModel()).trim();
     const { exercises: resolvedExercises, autoImageStats } = await finalizeExerciseImages(
@@ -4914,9 +5397,9 @@ app.post("/api/cms/translate-video-captions", async (req, res) => {
   if (!captionUrl) {
     return res.status(400).json({ message: "Source caption URL is required." });
   }
-  if (!getInworldApiKey() && !getQwenApiKey() && !getOpenRouterApiKey()) {
+  if (!getInworldApiKey() && !isAzureConfigured() && !getQwenApiKey() && !getOpenRouterApiKey()) {
     return res.status(400).json({
-      message: "Configure Inworld, Qwen, or OpenRouter LLM in Config before translating captions.",
+      message: "Configure Inworld, Azure, or OpenRouter LLM in Config before translating captions.",
     });
   }
 
@@ -5809,6 +6292,7 @@ io.on("connection", (socket) => {
       responseText: trimmed,
       audioBase64,
       audioFormat: format,
+      sttLanguage: round.sttLanguage || "",
     });
   });
 

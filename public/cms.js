@@ -92,6 +92,7 @@ const state = {
   exercisesSaveUnlocked: false,
   globalAgentOpen: false,
   globalAgentBusy: false,
+  globalAgentStatus: "",
   globalAgentContextKey: "",
   globalAgentHistory: [],
   globalAgentUndo: [],
@@ -111,6 +112,8 @@ const state = {
   cmsQuestionLanguages: CMS_FALLBACK_SPEAK_LANGUAGES.slice(),
   cmsDefaultSpeakLangCode: "en",
   cmsTtsProvider: "inworld",
+  cmsTtsAvailable: false,
+  aiQuestionTts: {},
   aiSpeakLangCode: "",
 };
 
@@ -222,6 +225,32 @@ function syncSectionsStartUi() {
   const tab = document.getElementById("cms-tab-sections");
   tab?.classList.toggle("is-sections-empty", empty);
   tab?.classList.toggle("has-sections", !empty);
+
+  // #region agent log
+  const courseBtn = $("#btn-cms-ai-path-course");
+  if (courseBtn) {
+    const cs = getComputedStyle(courseBtn);
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+      body: JSON.stringify({
+        sessionId: "d0607f",
+        runId: "hide-course-btn",
+        hypothesisId: "H1-H3",
+        location: "cms.js:syncSectionsStartUi",
+        message: "Course entry button visibility",
+        data: {
+          hasHiddenAttr: courseBtn.hasAttribute("hidden"),
+          hiddenProp: courseBtn.hidden,
+          computedDisplay: cs.display,
+          offsetHeight: courseBtn.offsetHeight,
+          sectionCount: (state.sections || []).length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }
+  // #endregion
 }
 
 function syncAiIdleUi() {
@@ -438,12 +467,25 @@ function setAiWizardBusy(busy, message) {
   });
   if (busy && message) {
     const status = $("#cms-ai-generate-status");
-    if (status) status.textContent = message;
+    const progress = $("#cms-ai-gen-progress");
+    if (status && (!progress || progress.hidden)) {
+      status.hidden = false;
+      status.textContent = message;
+    }
+  } else if (!busy) {
+    const status = $("#cms-ai-generate-status");
+    const progress = $("#cms-ai-gen-progress");
+    if (status && progress && !progress.hidden) {
+      status.textContent = "";
+      status.hidden = true;
+    }
   }
   syncAiReviewAgentBusy();
 }
 
 let aiGenProgressTicker = null;
+let aiGenEtaTicker = null;
+let materialExtractPhaseTimer = null;
 
 function stopAiGenProgressTicker() {
   if (aiGenProgressTicker) {
@@ -452,17 +494,226 @@ function stopAiGenProgressTicker() {
   }
 }
 
+function stopAiGenEtaTicker() {
+  if (aiGenEtaTicker) {
+    clearInterval(aiGenEtaTicker);
+    aiGenEtaTicker = null;
+  }
+}
+
+function stopMaterialExtractPhaseTimer() {
+  if (materialExtractPhaseTimer) {
+    clearInterval(materialExtractPhaseTimer);
+    materialExtractPhaseTimer = null;
+  }
+}
+
+function formatAiGenEta(seconds) {
+  const value = Math.max(0, Math.ceil(Number(seconds) || 0));
+  if (value <= 0) return "Finishing up…";
+  if (value < 60) return `About ${value}s remaining`;
+  return `About ${Math.ceil(value / 60)} min remaining`;
+}
+
+function estimateExerciseGenerationMs(material = "", llmTypes = {}) {
+  const chars = String(material || "").length;
+  const itemCount = Object.values(llmTypes).reduce((sum, count) => sum + (Number(count) || 0), 0);
+  return Math.min(240000, Math.max(25000, 18000 + chars / 40 + itemCount * 12000));
+}
+
+function describeExerciseGenerationDetail(material, llmTypes) {
+  const chars = String(material || "").length;
+  const parts = Object.entries(llmTypes)
+    .filter(([, count]) => Number(count) > 0)
+    .map(([type, count]) => `${count}× ${type}`)
+    .join(", ");
+  if (!parts) return `Working from ${chars.toLocaleString()} characters of source material.`;
+  return `Creating ${parts} from ${chars.toLocaleString()} characters of material.`;
+}
+
+function estimateMaterialExtractMs(files = [], pasted = "", videoUrl = "") {
+  if (videoUrl) return 180000;
+  if (pasted && !files.length) return 8000;
+  let ms = 12000;
+  for (const file of files) {
+    const name = String(file?.name || "").toLowerCase();
+    if (name.endsWith(".pdf")) {
+      const pageGuess = Math.min(12, Math.max(2, Math.round((file.size || 0) / 100000)));
+      ms += pageGuess * 6000;
+    } else if (/\.(mp4|mov|webm|mkv|avi|m4v)$/.test(name)) {
+      ms += 120000;
+    } else if (/\.(mp3|wav|m4a|ogg|flac|aac)$/.test(name)) {
+      ms += 45000;
+    } else {
+      ms += 15000;
+    }
+  }
+  return Math.min(Math.max(ms, 15000), 300000);
+}
+
+function startAiGenEtaCountdown(durationMs) {
+  stopAiGenEtaTicker();
+  const etaEl = $("#cms-ai-gen-progress-eta");
+  const endsAt = Date.now() + Math.max(5000, Number(durationMs) || 0);
+  const tick = () => {
+    const leftMs = Math.max(0, endsAt - Date.now());
+    const label = formatAiGenEta(Math.ceil(leftMs / 1000));
+    if (etaEl) {
+      etaEl.textContent = label;
+      etaEl.hidden = false;
+    }
+  };
+  tick();
+  aiGenEtaTicker = setInterval(tick, 500);
+}
+
+function beginMaterialExtractProgress(files, pasted, videoUrl) {
+  const uploadFiles = files?.length ? files : [];
+  const durationMs = estimateMaterialExtractMs(uploadFiles, pasted, videoUrl);
+  const isPdf = uploadFiles.some((f) => /\.pdf$/i.test(f.name));
+  const isVideo =
+    Boolean(videoUrl) || uploadFiles.some((f) => /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(f.name));
+  const isAudio = uploadFiles.some((f) => /\.(mp3|wav|m4a|ogg|flac|aac)$/i.test(f.name));
+
+  resetAiGenProgress();
+  stopMaterialExtractPhaseTimer();
+
+  const phases = isPdf
+    ? [
+        { t: 0, label: "Uploading PDF…", detail: "Sending your file to the server." },
+        { t: 0.1, label: "Checking text layer…", detail: "Looking for embedded text in the PDF." },
+        {
+          t: 0.18,
+          label: "Running vision OCR…",
+          detail: "Scanned pages are read with AI vision (~5 sec/page).",
+        },
+        { t: 0.55, label: "Extracting figures…", detail: "Finding diagrams and photos in the document." },
+        { t: 0.82, label: "Finalizing material…", detail: "Cleaning and formatting text for generation." },
+      ]
+    : isVideo
+      ? [
+          { t: 0, label: "Uploading video…", detail: "Sending media to the server." },
+          { t: 0.2, label: "Transcribing speech…", detail: "Speech-to-text can take a few minutes." },
+          { t: 0.75, label: "Finalizing transcript…", detail: "Preparing lesson text." },
+        ]
+      : isAudio
+        ? [
+            { t: 0, label: "Uploading audio…", detail: "Sending file to the server." },
+            { t: 0.25, label: "Transcribing audio…", detail: "Converting speech to text." },
+            { t: 0.8, label: "Finalizing transcript…", detail: "Preparing lesson text." },
+          ]
+        : pasted && !uploadFiles.length && !videoUrl
+          ? [
+              { t: 0, label: "Processing pasted text…", detail: "Formatting your source material." },
+              { t: 0.6, label: "Finalizing material…", detail: "Preparing text for generation." },
+            ]
+          : [
+              { t: 0, label: "Uploading file…", detail: "Sending document to the server." },
+              { t: 0.3, label: "Extracting text…", detail: "Parsing document content." },
+              { t: 0.75, label: "Finalizing material…", detail: "Preparing text for generation." },
+            ];
+
+  const startedAt = Date.now();
+  const applyPhase = (phase) => {
+    const pct = Math.min(92, Math.max(5, Math.round(phase.t * 88) + 5));
+    setAiGenProgress(pct, phase.label, { detail: phase.detail });
+  };
+
+  applyPhase(phases[0]);
+  startAiGenEtaCountdown(durationMs);
+  startAiGenProgressTicker(5, 92, durationMs);
+
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+    body: JSON.stringify({
+      sessionId: "d0607f",
+      runId: "extract-progress-ui",
+      hypothesisId: "H-UI",
+      location: "cms.js:beginMaterialExtractProgress",
+      message: "Material extract progress started",
+      data: {
+        durationMs,
+        isPdf,
+        isVideo,
+        isAudio,
+        fileCount: uploadFiles.length,
+        phaseCount: phases.length,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
+  materialExtractPhaseTimer = setInterval(() => {
+    const elapsed = (Date.now() - startedAt) / durationMs;
+    let active = phases[0];
+    for (const phase of phases) {
+      if (elapsed >= phase.t) active = phase;
+    }
+    applyPhase(active);
+  }, 800);
+}
+
+function finishMaterialExtractProgress(data, { keepForGenerate = false } = {}) {
+  stopMaterialExtractPhaseTimer();
+  stopAiGenEtaTicker();
+  stopAiGenProgressTicker();
+
+  const extraction = data?.extraction || {};
+  const chars = data?.text?.length || state.aiMaterialText?.length || 0;
+  let detail = `${chars.toLocaleString()} characters ready`;
+  if (extraction.usedVisionOcr) {
+    detail = `Vision OCR read ${extraction.pagesProcessed || "?"} page(s) · ${detail}`;
+  } else if (extraction.methods?.includes("pdf-text")) {
+    detail = `Text layer extracted · ${detail}`;
+  }
+  if (data?.imageAssetCount > 0) {
+    detail += ` · ${data.imageAssetCount} figure(s)`;
+  }
+  if (extraction.durationMs) {
+    detail += ` · ${Math.round(extraction.durationMs / 1000)}s on server`;
+  }
+
+  setAiGenProgress(keepForGenerate ? 35 : 100, "Material ready", { detail, eta: "" });
+
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+    body: JSON.stringify({
+      sessionId: "d0607f",
+      runId: "extract-progress-ui",
+      hypothesisId: "H-UI",
+      location: "cms.js:finishMaterialExtractProgress",
+      message: "Material extract progress complete",
+      data: { chars, extraction, keepForGenerate },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
+function abortMaterialExtractProgress() {
+  stopMaterialExtractPhaseTimer();
+  stopAiGenEtaTicker();
+  resetAiGenProgress();
+}
+
 function setAiGenBarScale(bar, percent) {
   if (!bar) return;
   const value = Math.max(0, Math.min(100, Number(percent) || 0));
   bar.style.transform = `scaleX(${value / 100})`;
 }
 
-function setAiGenProgress(percent, label) {
+function setAiGenProgress(percent, label, options = {}) {
   const wrap = $("#cms-ai-gen-progress");
   const bar = $("#cms-ai-gen-progress-bar");
   const track = wrap?.querySelector("[role=progressbar]");
   const labelEl = $("#cms-ai-gen-progress-label");
+  const detailEl = $("#cms-ai-gen-progress-detail");
+  const etaEl = $("#cms-ai-gen-progress-eta");
   const statusEl = $("#cms-ai-generate-status");
   if (!wrap || !bar) return;
   const value = Math.max(0, Math.min(100, Math.round(percent)));
@@ -471,22 +722,44 @@ function setAiGenProgress(percent, label) {
   track?.setAttribute("aria-valuenow", String(value));
   track?.setAttribute("aria-valuetext", `${value}%`);
   wrap.classList.toggle("is-complete", value >= 100);
-  if (label) {
-    if (labelEl) labelEl.textContent = label;
-    if (statusEl) statusEl.textContent = label;
+  if (labelEl && label !== undefined) labelEl.textContent = label || "";
+  if (detailEl) {
+    const detail = options.detail || "";
+    detailEl.textContent = detail;
+    detailEl.hidden = !detail;
+  }
+  if (etaEl && options.eta !== undefined) {
+    etaEl.textContent = options.eta || "";
+    etaEl.hidden = !options.eta;
+  }
+  if (options.mirrorStatus && statusEl && label) {
+    statusEl.hidden = false;
+    statusEl.textContent = label;
   }
 }
 
 function resetAiGenProgress() {
   stopAiGenProgressTicker();
+  stopAiGenEtaTicker();
+  stopMaterialExtractPhaseTimer();
   const wrap = $("#cms-ai-gen-progress");
   const bar = $("#cms-ai-gen-progress-bar");
   const labelEl = $("#cms-ai-gen-progress-label");
+  const detailEl = $("#cms-ai-gen-progress-detail");
+  const etaEl = $("#cms-ai-gen-progress-eta");
   const track = wrap?.querySelector("[role=progressbar]");
   if (bar) setAiGenBarScale(bar, 0);
   track?.setAttribute("aria-valuenow", "0");
   track?.setAttribute("aria-valuetext", "0%");
   if (labelEl) labelEl.textContent = "";
+  if (detailEl) {
+    detailEl.textContent = "";
+    detailEl.hidden = true;
+  }
+  if (etaEl) {
+    etaEl.textContent = "";
+    etaEl.hidden = true;
+  }
   if (wrap) {
     wrap.hidden = true;
     wrap.classList.remove("is-complete");
@@ -741,6 +1014,7 @@ function renderAiPreviewGrouped(groups) {
   wireAiVideoPreviews();
   wireAiQuestionLists();
   initQuestionImageFields(container);
+  syncCmsQuestionTtsButtons();
   renderAiPreviewNav(groups);
   if (state.aiWizardStep === 3) {
     scheduleAiPreviewScrollToStart("render-preview");
@@ -1638,7 +1912,7 @@ function renderGlobalAgent() {
     const typing = busy
       ? `<div class="cms-ai-agent-turn cms-ai-agent-turn--assistant cms-ai-agent-turn--typing" aria-live="polite">
           <div class="cms-ai-agent-avatar" aria-hidden="true">AI</div>
-          <div class="cms-ai-agent-bubble"><span class="cms-ai-agent-typing">Thinking…</span></div>
+          <div class="cms-ai-agent-bubble"><span class="cms-ai-agent-typing">${escapeHtml(state.globalAgentStatus || "Thinking…")}</span></div>
         </div>`
       : "";
     log.innerHTML = welcome + typing;
@@ -1674,6 +1948,11 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
     return false;
   }
   if (state.globalAgentBusy || state.aiWizardBusy) return false;
+
+  const regenIntent = parseAiRegenIntent(revision, state.globalAgentSelectionQuestion);
+  state.globalAgentStatus = regenIntent
+    ? `Regenerating question ${regenIntent.questionNumber}…`
+    : "Thinking…";
 
   const material =
     getGlobalAgentMode() === "exercise-edit"
@@ -1711,6 +1990,9 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
       next = applyInPlaceQuestionReplacement(draftExercises, next, convertIntent);
     }
     state.globalAgentUndo = [...(state.globalAgentUndo || []), snapshot].slice(-8);
+    if (data.revisionMode === "regen-in-place" && data.stats?.questionNumber) {
+      invalidateAiReviewQuestionTtsByNumber(data.stats.questionNumber);
+    }
     onApplied(next, data, convertIntent);
     state.globalAgentHistory = [
       ...(state.globalAgentHistory || []),
@@ -1733,6 +2015,7 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
     return false;
   } finally {
     state.globalAgentBusy = false;
+    state.globalAgentStatus = "";
     syncGlobalAgentBusy();
   }
 }
@@ -1767,13 +2050,17 @@ async function applyGlobalAgentMessage(rawRequest) {
       onApplied: (next, data, convertIntent) => {
         state.aiDraftExercises = next;
         renderAiPreview(state.aiDraftExercises);
+        const regenNumber = data.revisionMode === "regen-in-place" ? data.stats?.questionNumber : null;
         showAiGenSummary(
-          convertIntent
-            ? `Moved the new question to position ${convertIntent.questionNumber}.`
-            : data.summary || buildAiGenSummaryFromExercises(next)
+          regenNumber
+            ? `Regenerated question ${regenNumber}.`
+            : convertIntent
+              ? `Moved the new question to position ${convertIntent.questionNumber}.`
+              : data.summary || buildAiGenSummaryFromExercises(next)
         );
-        $("#cms-ai-generate-status").textContent =
-          convertIntent
+        $("#cms-ai-generate-status").textContent = regenNumber
+          ? `Question ${regenNumber} regenerated.`
+          : convertIntent
             ? `Question ${convertIntent.questionNumber} updated in place.`
             : data.summary || "Questions updated.";
       },
@@ -2554,6 +2841,7 @@ async function loadCmsAppContext() {
     const data = await res.json();
     state.cmsAppVariant = String(data.appVariant || "");
     state.cmsTtsProvider = String(data.ttsProvider || "inworld");
+    state.cmsTtsAvailable = Boolean(data.ttsAvailable);
     state.cmsSpeakLanguages = patchElderlySpeakLanguages(
       Array.isArray(data.speakLanguages) && data.speakLanguages.length
         ? data.speakLanguages
@@ -2607,6 +2895,7 @@ async function loadCmsAppContext() {
     state.cmsQuestionLanguages = CMS_FALLBACK_SPEAK_LANGUAGES.slice();
     state.cmsDefaultSpeakLangCode = "en";
     state.cmsTtsProvider = "inworld";
+    state.cmsTtsAvailable = false;
   }
   renderCmsSpeakLangSelect();
   updateCmsSpeakLangHint();
@@ -2636,6 +2925,285 @@ function syncAiSpeakLangSelect() {
   );
   el.value = preferred;
   state.aiSpeakLangCode = preferred;
+}
+
+function cmsSpeakLangOptionsHtml(selectedCode) {
+  const selected = normalizeCmsSpeakLangCode(selectedCode || getAiSpeakLangCode());
+  const languages = state.cmsSpeakLanguages?.length
+    ? state.cmsSpeakLanguages
+    : CMS_FALLBACK_SPEAK_LANGUAGES;
+  return languages
+    .map((entry) => {
+      const code = normalizeCmsSpeakLangCode(entry.code);
+      return `<option value="${escapeHtml(code)}"${code === selected ? " selected" : ""}>${escapeHtml(entry.label || code)}</option>`;
+    })
+    .join("");
+}
+
+function flattenAiPreviewGroupItems(groupItems) {
+  const flat = [];
+  (groupItems || []).forEach(({ exercise }) => {
+    if (!exercise || exercise.type === "video") return;
+    (exercise.items || []).forEach((item) => {
+      flat.push({
+        type: exercise.type || "mcquiz",
+        item,
+        exercise,
+      });
+    });
+  });
+  return flat;
+}
+
+function collectCmsTtsItemsForAiDraft(exercises, defaultSpeakLangCode) {
+  const items = [];
+  const pushFlatItems = (flat, questionOffset, resolveExercise) => {
+    flat.forEach((entry, index) => {
+      const exercise = resolveExercise(entry);
+      const speakLangCode = normalizeCmsSpeakLangCode(
+        exercise?.speakLangCode || defaultSpeakLangCode
+      );
+      const text =
+        entry.type === "buzzin"
+          ? String(entry.item?.topic || "").trim()
+          : String(entry.item?.title || "").trim();
+      const purpose = entry.type === "buzzin" ? "topic" : "question";
+      if (!text) return;
+      items.push({
+        key: `flat:${questionOffset + index}`,
+        text,
+        speakLangCode,
+        purpose,
+      });
+    });
+  };
+
+  if (state.aiCourseMode) {
+    const groupMap = new Map();
+    (exercises || []).forEach((exercise, index) => {
+      const key = exercise._courseKey || `g-${exercise._courseGroup ?? 0}`;
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key).push({ exercise, index });
+    });
+    let questionOffset = 0;
+    for (const groupItems of groupMap.values()) {
+      const flat = flattenAiPreviewGroupItems(groupItems);
+      pushFlatItems(flat, questionOffset, (entry) => entry.exercise);
+      questionOffset += flat.length;
+    }
+    return items;
+  }
+
+  const groupItems = (exercises || []).map((exercise, index) => ({ exercise, index }));
+  pushFlatItems(flattenAiPreviewGroupItems(groupItems), 0, (entry) => entry.exercise);
+  return items;
+}
+
+function renderAiQuestionTtsControls(flatIndex, speakLangCode) {
+  if (!state.cmsTtsAvailable) return "";
+  const key = `flat:${flatIndex}`;
+  const entry = state.aiQuestionTts?.[key];
+  const selectedLang = entry?.speakLangCode || speakLangCode || getAiSpeakLangCode();
+  return `
+    <div class="cms-ai-tts-controls">
+      <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-tts-preview${entry?.cacheKey ? " is-ready" : ""}" data-tts-key="${escapeHtml(key)}" ${entry?.cacheKey ? "" : "disabled"} aria-label="Play speech preview">${entry?.cacheKey ? "▶ Speech" : "…"}</button>
+      <select class="cms-ai-tts-lang" data-tts-key="${escapeHtml(key)}" aria-label="Speech language">${cmsSpeakLangOptionsHtml(selectedLang)}</select>
+      <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-tts-regen" data-tts-key="${escapeHtml(key)}" aria-label="Regenerate speech">↻ Regen</button>
+    </div>`;
+}
+
+function syncCmsQuestionTtsButtons() {
+  document.querySelectorAll(".cms-ai-tts-preview").forEach((btn) => {
+    const key = btn.dataset.ttsKey;
+    const entry = key ? state.aiQuestionTts?.[key] : null;
+    btn.disabled = !entry?.cacheKey;
+    btn.classList.toggle("is-ready", !!entry?.cacheKey);
+    btn.textContent = entry?.cacheKey ? "▶ Speech" : "…";
+  });
+}
+
+async function fetchCmsQuestionTtsBlobUrl(cacheKey, rev = 0) {
+  const headers = { Accept: "audio/mpeg" };
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  headers["X-Teacher-Id"] = String(state.user?.id || "");
+  const bust = rev ? `?v=${encodeURIComponent(String(rev))}` : "";
+  const res = await fetch(`/api/cms/question-tts/${cacheKey}.mp3${bust}`, {
+    headers,
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("Could not load speech preview.");
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+async function playCmsQuestionTts(key) {
+  const entry = state.aiQuestionTts?.[key];
+  if (!entry?.cacheKey) return;
+  const rev = entry.rev || 0;
+  const needsFetch = !entry.blobUrl || entry._playRev !== rev;
+  if (needsFetch) {
+    if (entry.blobUrl) URL.revokeObjectURL(entry.blobUrl);
+    entry.blobUrl = await fetchCmsQuestionTtsBlobUrl(entry.cacheKey, rev || Date.now());
+    entry._playRev = rev || entry._playRev;
+  }
+  if (entry.audioEl) entry.audioEl.pause();
+  const audio = new Audio(entry.blobUrl);
+  entry.audioEl = audio;
+  await audio.play();
+}
+
+function invalidateCmsQuestionTts(key) {
+  const entry = state.aiQuestionTts?.[key];
+  if (entry?.blobUrl) URL.revokeObjectURL(entry.blobUrl);
+  if (entry?.audioEl) entry.audioEl.pause();
+  delete state.aiQuestionTts?.[key];
+  syncCmsQuestionTtsButtons();
+}
+
+async function prefetchExerciseQuestionTts(exercises, speakLangCode, options = {}) {
+  const { statusEl, label = "Generating speech previews…", silent = false, useDraftKeys = false } =
+    options;
+  if (!state.cmsTtsAvailable) return { ok: true, skipped: true, count: 0 };
+
+  const items = useDraftKeys
+    ? collectCmsTtsItemsForAiDraft(exercises, speakLangCode)
+    : collectCmsTtsItemsFromExercises(exercises, speakLangCode);
+  if (!items.length) return { ok: true, count: 0 };
+
+  if (statusEl && !silent) statusEl.textContent = label;
+  try {
+    const data = await api("/api/cms/prefetch-question-tts", {
+      method: "POST",
+      body: { items, speakLangCode },
+    });
+    if (!state.aiQuestionTts) state.aiQuestionTts = {};
+    for (const result of data.results || []) {
+      if (result.ok && result.cacheKey) {
+        const item = items.find((entry) => entry.key === result.key);
+        state.aiQuestionTts[result.key] = {
+          cacheKey: result.cacheKey,
+          cached: result.cached,
+          speakLangCode: item?.speakLangCode || speakLangCode,
+          text: item?.text || "",
+          purpose: item?.purpose || "question",
+        };
+      }
+    }
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+      body: JSON.stringify({
+        sessionId: "d0607f",
+        runId: "cms-tts-prefetch",
+        hypothesisId: "H-TTS",
+        location: "cms.js:prefetchExerciseQuestionTts",
+        message: "CMS question TTS prefetch complete",
+        data: {
+          itemCount: items.length,
+          generated: data.generated || 0,
+          cached: data.cached || 0,
+          failed: data.failed || 0,
+          speakLangCode,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    syncCmsQuestionTtsButtons();
+    if (statusEl && !silent) {
+      const generated = data.generated || 0;
+      const cached = data.cached || 0;
+      if (generated || cached) {
+        statusEl.textContent = `Speech ready (${cached} cached${generated ? `, ${generated} new` : ""}).`;
+      }
+    }
+    return data;
+  } catch (err) {
+    if (statusEl && !silent) {
+      statusEl.textContent = `Speech preview skipped: ${err.message}`;
+    }
+    return { ok: false, error: err.message };
+  }
+}
+
+function collectCmsTtsItemsFromExercises(exercises, defaultSpeakLangCode) {
+  const items = [];
+  (exercises || []).forEach((exercise, exerciseIndex) => {
+    const speakLangCode = normalizeCmsSpeakLangCode(exercise.speakLangCode || defaultSpeakLangCode);
+    (exercise.items || []).forEach((item, itemIndex) => {
+      if (exercise.type === "video") return;
+      const text =
+        exercise.type === "buzzin"
+          ? String(item.topic || "").trim()
+          : String(item.title || "").trim();
+      const purpose = exercise.type === "buzzin" ? "topic" : "question";
+      if (!text) return;
+      items.push({
+        key: `${exerciseIndex}:${itemIndex}`,
+        text,
+        speakLangCode,
+        purpose,
+      });
+    });
+  });
+  return items;
+}
+
+async function regenerateCmsQuestionTts(key) {
+  collectAiDraftFromDom();
+  const speakLangCodeDefault = getAiSpeakLangCode();
+  const items = collectCmsTtsItemsForAiDraft(state.aiDraftExercises, speakLangCodeDefault);
+  const item = items.find((entry) => entry.key === key);
+  if (!item) throw new Error("Question text not found.");
+
+  const langSelect = document.querySelector(`.cms-ai-tts-lang[data-tts-key="${CSS.escape(key)}"]`);
+  const speakLangCode = normalizeCmsSpeakLangCode(langSelect?.value || item.speakLangCode);
+  invalidateCmsQuestionTts(key);
+
+  const data = await api("/api/cms/prefetch-question-tts", {
+    method: "POST",
+    body: {
+      items: [{ ...item, speakLangCode, force: true }],
+      speakLangCode,
+    },
+  });
+  const result = (data.results || [])[0];
+  if (!result?.ok) throw new Error(result?.error || "Speech regeneration failed.");
+  if (!state.aiQuestionTts) state.aiQuestionTts = {};
+  const rev = Date.now();
+  state.aiQuestionTts[key] = {
+    cacheKey: result.cacheKey,
+    cached: false,
+    regenerated: Boolean(result.regenerated),
+    speakLangCode,
+    text: item.text,
+    purpose: item.purpose,
+    rev,
+  };
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+    body: JSON.stringify({
+      sessionId: "d0607f",
+      runId: "tts-regen",
+      hypothesisId: "H-REGEN",
+      location: "cms.js:regenerateCmsQuestionTts",
+      message: "Speech regen complete",
+      data: {
+        key,
+        cacheKey: result.cacheKey,
+        regenerated: Boolean(result.regenerated),
+        rev,
+        speakLangCode,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+  syncCmsQuestionTtsButtons();
+  return key;
 }
 
 function communityCopiedInLibrary(listingId) {
@@ -3759,6 +4327,39 @@ function resolveAiQuestionTargetType(typeRaw) {
   return "mcquiz";
 }
 
+function parseAiRegenIntent(revision, contextQuestionNumber) {
+  const text = String(revision || "").trim();
+  const lower = text.toLowerCase();
+  if (
+    !/\b(?:regen(?:erate)?|redo|remake|try\s+again|another\s+one|new\s+one|fresh\s+one)\b/i.test(
+      lower
+    ) &&
+    !/重新生成|再生成|重做/.test(text)
+  ) {
+    return null;
+  }
+  if (parseAiConvertIntent(text, contextQuestionNumber)) return null;
+  const contextNumber =
+    Number.isFinite(Number(contextQuestionNumber)) && Number(contextQuestionNumber) > 0
+      ? Number(contextQuestionNumber)
+      : null;
+  const questionMatch = text.match(/question\s*(\d+)/i);
+  const qMatch = text.match(/\bq\s*(\d+)\b/i);
+  const cnMatch = text.match(/問題\s*(\d+)/);
+  const questionNumber =
+    (questionMatch && Math.max(1, Number.parseInt(questionMatch[1], 10) || 1)) ||
+    (qMatch && Math.max(1, Number.parseInt(qMatch[1], 10) || 1)) ||
+    (cnMatch && Math.max(1, Number.parseInt(cnMatch[1], 10) || 1)) ||
+    contextNumber;
+  return questionNumber ? { questionNumber } : null;
+}
+
+function invalidateAiReviewQuestionTtsByNumber(questionNumber) {
+  const flatIndex = Number(questionNumber) - 1;
+  if (!Number.isFinite(flatIndex) || flatIndex < 0) return;
+  invalidateCmsQuestionTts(`flat:${flatIndex}`);
+}
+
 function parseAiConvertIntent(revision, contextQuestionNumber) {
   const text = String(revision || "").trim();
   const contextNumber =
@@ -4240,8 +4841,9 @@ async function analyzeAiCoursePlan(options = {}) {
       const prepared = await extractAiMaterial({
         forCourse: true,
         manageBusy: false,
+        showProgress: true,
+        silentStatus: true,
         statusEl,
-        silentStatus: options.silentStatus,
       });
       if (!prepared) return false;
       material = getAiMaterialText();
@@ -4386,6 +4988,18 @@ async function generateCourseFromPlan(options = {}) {
 
     state.aiCourseResults = results;
     renderAiCoursePreview(results);
+    if (state.cmsTtsAvailable) {
+      setAiGenProgress(92, "Generating speech previews…", {
+        detail: "Creating voice audio for each question.",
+        eta: "",
+      });
+      state.aiQuestionTts = {};
+      await prefetchExerciseQuestionTts(state.aiDraftExercises, settings.speakLangCode, {
+        statusEl,
+        useDraftKeys: true,
+        silent: true,
+      });
+    }
     const stats = data.stats || {};
     statusEl.textContent = `Done: ${stats.succeeded || 0} section(s) generated, ${stats.failed || 0} failed. Review below.`;
     showAiGenSummary(buildAiGenSummaryFromCourseResults(results, stats));
@@ -4860,7 +5474,7 @@ function renderBatchAiRows() {
           <textarea class="cms-batch-paste" data-section-index="${sectionIndex}" placeholder="Paste material for this section…">${escapeHtml(prepared || "")}</textarea>
           <div class="cms-batch-row-actions">
             <label class="btn secondary small cms-ai-file-label">
-              <input type="file" class="cms-batch-file" data-section-index="${sectionIndex}" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,video/*,audio/*,image/*" />
+              <input type="file" class="cms-batch-file" data-section-index="${sectionIndex}" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,video/*,audio/*,image/*" />
               Upload
             </label>
             <button type="button" class="btn secondary small cms-batch-prepare" data-section-index="${sectionIndex}">Prepare</button>
@@ -5278,6 +5892,7 @@ function renderAiAddQuestionRow() {
 
 function renderAiQuestionBlock(type, item, questionNumber, flatIndex, included = true) {
   const blockType = type || "mcquiz";
+  const ttsControls = renderAiQuestionTtsControls(flatIndex, getAiSpeakLangCode());
   const head = `
     <div class="cms-ai-item-block-head">
       <div class="cms-ai-item-block-head-start">
@@ -5290,6 +5905,7 @@ function renderAiQuestionBlock(type, item, questionNumber, flatIndex, included =
         <span class="cms-ai-item-number">Question ${questionNumber}</span>
       </div>
       <div class="cms-ai-item-block-actions">
+        ${ttsControls}
         <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-item">Remove</button>
       </div>
     </div>`;
@@ -5600,11 +6216,6 @@ async function extractAiMaterial(options = {}) {
   if (!errorEl || !previewEl) return false;
 
   setCmsError(errorEl, "");
-  if (statusEl && !options.silentStatus) {
-    statusEl.hidden = false;
-    statusEl.textContent = "Preparing material…";
-  }
-  if (manageBusy) setAiWizardBusy(true, "Preparing material…");
 
   try {
     const files = getAiSelectedFiles();
@@ -5613,6 +6224,14 @@ async function extractAiMaterial(options = {}) {
     if (!files.length && !pasted && !videoUrl) {
       throw new Error("Paste text, upload file(s), or provide a video URL.");
     }
+
+    if (options.showProgress !== false) {
+      beginMaterialExtractProgress(files, pasted, videoUrl);
+    } else if (statusEl && !options.silentStatus) {
+      statusEl.hidden = false;
+      statusEl.textContent = "Preparing material…";
+    }
+    if (manageBusy) setAiWizardBusy(true);
 
     const data = await extractMaterialRequest({
       files,
@@ -5646,12 +6265,15 @@ async function extractAiMaterial(options = {}) {
     }
     previewEl.value = state.aiMaterialText;
     previewEl.hidden = true;
-    if (statusEl && !options.silentStatus) {
+    if (options.showProgress !== false) {
+      finishMaterialExtractProgress(data, { keepForGenerate: options.keepForGenerate });
+    } else if (statusEl && !options.silentStatus) {
       const filePrefix = data.fileCount > 1 ? `${data.fileCount} files · ` : "";
       const assetSuffix =
         data.imageAssetCount > 0
           ? ` · ${data.imageAssetCount} figure(s) extracted${data.imageAssetCount > 1 ? " (cropped)" : ""}`
           : "";
+      statusEl.hidden = false;
       statusEl.textContent = data.truncated
         ? `${filePrefix}Ready (${data.originalLength} chars, truncated for generation).${assetSuffix}`
         : `${filePrefix}Ready (${state.aiMaterialText.length} chars).${assetSuffix}`;
@@ -5667,6 +6289,7 @@ async function extractAiMaterial(options = {}) {
     renderMaterialAssetLibrary();
     return true;
   } catch (err) {
+    abortMaterialExtractProgress();
     if (statusEl) {
       statusEl.textContent = "";
       statusEl.hidden = true;
@@ -5740,9 +6363,7 @@ async function generateAiExercises(options = {}) {
   const manageBusy = options.manageBusy !== false;
 
   errorEl.textContent = "";
-  resetAiGenProgress();
-  setAiGenProgress(0, "Starting…");
-  if (manageBusy) setAiWizardBusy(true, "Starting…");
+  if (manageBusy) setAiWizardBusy(true);
 
   try {
     if (!material) {
@@ -5750,10 +6371,10 @@ async function generateAiExercises(options = {}) {
       const pasted = $("#cms-ai-paste")?.value.trim();
       const videoUrl = $("#cms-ai-video-url")?.value.trim();
       if (files.length || pasted || videoUrl) {
-        setAiGenProgress(8, "Preparing material…");
         const prepared = await extractAiMaterial({
           manageBusy: false,
-          statusEl,
+          showProgress: true,
+          keepForGenerate: true,
           forCourse: state.aiCourseMode,
           silentStatus: true,
         });
@@ -5762,10 +6383,13 @@ async function generateAiExercises(options = {}) {
           return false;
         }
         material = getAiMaterialText();
-        setAiGenProgress(35, "Material ready");
       }
     } else {
-      setAiGenProgress(20, "Material ready");
+      resetAiGenProgress();
+      setAiGenProgress(20, "Material ready", {
+        detail: `${material.length.toLocaleString()} characters loaded from your source.`,
+        eta: "",
+      });
     }
     if (!material) {
       resetAiGenProgress();
@@ -5787,8 +6411,12 @@ async function generateAiExercises(options = {}) {
         : getAiInstructions()
           ? "Applying your prompt, then generating exercises…"
           : "Generating exercises…";
-    setAiGenProgress(45, generatingLabel);
-    startAiGenProgressTicker(45, 88, 90000);
+    const genDurationMs = estimateExerciseGenerationMs(material, llmTypes);
+    setAiGenProgress(45, generatingLabel, {
+      detail: describeExerciseGenerationDetail(material, llmTypes),
+    });
+    startAiGenEtaCountdown(genDurationMs);
+    startAiGenProgressTicker(45, 88, genDurationMs);
 
     let exercises = [];
 
@@ -5859,7 +6487,11 @@ async function generateAiExercises(options = {}) {
       const stats = data.stats || {};
       const autoImageStats = data.autoImageStats || {};
       stopAiGenProgressTicker();
-      setAiGenProgress(90, "Finishing…");
+      stopAiGenEtaTicker();
+      setAiGenProgress(90, "Finishing…", {
+        detail: `Generated ${stats.generated || exercises.length} item(s). Attaching images and preparing preview.`,
+        eta: "",
+      });
       if (!options.silentStatus) {
         if (autoImageStats.generated > 0) {
           statusEl.textContent = `Generated exercises with ${autoImageStats.generated} auto image${
@@ -5936,7 +6568,19 @@ async function generateAiExercises(options = {}) {
     renderAiPreview(state.aiDraftExercises);
     renderMaterialAssetLibrary();
     stopAiGenProgressTicker();
-    setAiGenProgress(100, "Done");
+    stopAiGenEtaTicker();
+    if (state.cmsTtsAvailable && exercises.length) {
+      setAiGenProgress(92, "Generating speech previews…", {
+        detail: "Creating voice audio for each question.",
+      });
+      state.aiQuestionTts = {};
+      await prefetchExerciseQuestionTts(state.aiDraftExercises, settings.speakLangCode, {
+        statusEl,
+        useDraftKeys: true,
+        silent: true,
+      });
+    }
+    setAiGenProgress(100, "Done", { detail: "Exercises are ready to review.", eta: "" });
     if (!options.silentStatus) {
       const withImages = exercises.reduce(
         (count, exercise) => count + (exercise.items || []).filter((item) => item?.image).length,
@@ -5951,8 +6595,10 @@ async function generateAiExercises(options = {}) {
     return exercises.length > 0;
   } catch (err) {
     stopAiGenProgressTicker();
+    stopAiGenEtaTicker();
     resetAiGenProgress();
     statusEl.textContent = "";
+    statusEl.hidden = true;
     setCmsError(errorEl, err.message);
     return false;
   } finally {
@@ -6172,6 +6818,32 @@ function handleAiPreviewClick(event) {
   if (!block || !list) return;
   const flatIndex = Number(block.dataset.flatIndex);
   if (!Number.isFinite(flatIndex)) return;
+
+  if (event.target.closest(".cms-ai-tts-preview")) {
+    const btn = event.target.closest(".cms-ai-tts-preview");
+    const key = btn?.dataset.ttsKey;
+    if (!key) return;
+    playCmsQuestionTts(key).catch((err) => {
+      setCmsError($("#cms-ai-error"), err.message || "Could not play speech preview.");
+    });
+    return;
+  }
+
+  if (event.target.closest(".cms-ai-tts-regen")) {
+    const btn = event.target.closest(".cms-ai-tts-regen");
+    const key = btn?.dataset.ttsKey;
+    if (!key) return;
+    btn.disabled = true;
+    regenerateCmsQuestionTts(key)
+      .then((regenKey) => playCmsQuestionTts(regenKey))
+      .catch((err) => {
+        setCmsError($("#cms-ai-error"), err.message || "Could not regenerate speech.");
+      })
+      .finally(() => {
+        btn.disabled = false;
+      });
+    return;
+  }
 
   collectAiDraftFromDom();
 
@@ -9182,6 +9854,20 @@ $("#cms-ai-wizard")?.addEventListener("click", (event) => {
   handleAiPreviewClick(event);
 });
 $("#cms-ai-wizard")?.addEventListener("change", async (event) => {
+  const langSelect = event.target.closest(".cms-ai-tts-lang");
+  if (langSelect?.dataset.ttsKey) {
+    const key = langSelect.dataset.ttsKey;
+    const lang = normalizeCmsSpeakLangCode(langSelect.value);
+    if (!state.aiQuestionTts) state.aiQuestionTts = {};
+    const prev = state.aiQuestionTts[key];
+    if (prev?.speakLangCode !== lang) {
+      invalidateCmsQuestionTts(key);
+      state.aiQuestionTts[key] = { speakLangCode: lang };
+    }
+    syncCmsQuestionTtsButtons();
+    return;
+  }
+
   const input = event.target.closest(".cms-ai-q-image-file");
   if (!input) return;
   const file = input.files?.[0];

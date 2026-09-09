@@ -87,7 +87,7 @@ function showConfigScreen(id) {
   document.querySelector(`#screen-config-${id}`).classList.add("active");
 }
 
-const CONFIG_TABS = ["notifications", "inworld", "qwen", "openrouter", "video", "database"];
+const CONFIG_TABS = ["notifications", "inworld", "azure", "openrouter", "video", "database"];
 
 function setConfigTab(tabId, { updateHash = true } = {}) {
   const tab = CONFIG_TABS.includes(tabId) ? tabId : "notifications";
@@ -186,21 +186,46 @@ function renderConfig(data) {
   $("#config-inworld-stt-language-effective").textContent = data.effectiveInworldSttLanguage || "—";
   $("#config-inworld-stt-language-env-default").textContent = data.inworldSttLanguageEnvDefault || "—";
 
-  const qwenConfigured = !!data.qwenApiKeyConfigured;
-  const qwenSaved = !!data.qwenApiKeySaved;
-  $("#config-qwen-status-label").textContent = qwenConfigured ? "Configured" : "Not configured";
-  $("#config-qwen-masked").textContent = qwenConfigured ? data.qwenApiKeyMasked || "—" : "—";
-  $("#config-qwen-env-hint").hidden = !data.qwenEnvDefaultConfigured || qwenSaved;
+  const azureConfigured = !!data.azureConfigured;
+  const azureSaved = !!data.azureApiKeySaved;
+  $("#config-azure-status-label").textContent = azureConfigured ? "Configured" : "Not configured";
+  $("#config-azure-masked").textContent = data.azureApiKeyConfigured
+    ? data.azureApiKeyMasked || "—"
+    : "—";
+  $("#config-azure-env-hint").hidden = !data.azureEnvDefaultConfigured || azureSaved;
 
-  if (qwenSaved) {
-    $("#config-qwen-key").placeholder = "Key saved — paste to replace";
+  if (azureSaved) {
+    $("#config-azure-key").placeholder = "Key saved — paste to replace";
   } else {
-    $("#config-qwen-key").placeholder = "Paste key here";
+    $("#config-azure-key").placeholder = "Paste key here";
   }
 
-  $("#config-qwen-model").value = data.qwenModelSaved || "";
-  $("#config-qwen-model-effective").textContent = data.effectiveQwenModel || "—";
-  $("#config-qwen-model-env-default").textContent = data.qwenModelEnvDefault || "—";
+  $("#config-azure-endpoint").value = data.azureEndpointSaved || "";
+  $("#config-azure-endpoint-effective").textContent = data.effectiveAzureEndpoint || "—";
+  $("#config-azure-endpoint-env-default").textContent = data.azureEndpointEnvDefault || "—";
+
+  $("#config-azure-deployment").value = data.azureDeploymentSaved || "";
+  $("#config-azure-deployment-effective").textContent = data.effectiveAzureDeployment || "—";
+  $("#config-azure-deployment-env-default").textContent = data.azureDeploymentEnvDefault || "—";
+
+  $("#config-azure-api-version").value = data.azureApiVersionSaved || "";
+  $("#config-azure-api-version-effective").textContent = data.effectiveAzureApiVersion || "—";
+  $("#config-azure-api-version-env-default").textContent = data.azureApiVersionEnvDefault || "—";
+
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
+    body: JSON.stringify({
+      sessionId: "d0607f",
+      location: "config.js:renderConfig",
+      message: "Azure config rendered",
+      data: { azureConfigured, azureSaved, hasEndpoint: !!data.effectiveAzureEndpoint },
+      timestamp: Date.now(),
+      hypothesisId: "H1",
+    }),
+  }).catch(() => {});
+  // #endregion
 
   const openrouterConfigured = !!data.openrouterApiKeyConfigured;
   const openrouterSaved = !!data.openrouterApiKeySaved;
@@ -264,9 +289,9 @@ function clearInworldTestResult() {
   $("#config-inworld-test-result").textContent = "";
 }
 
-function clearQwenTestResult() {
-  $("#config-qwen-test-wrap").hidden = true;
-  $("#config-qwen-test-result").textContent = "";
+function clearAzureTestResult() {
+  $("#config-azure-test-wrap").hidden = true;
+  $("#config-azure-test-result").textContent = "";
 }
 
 function clearOpenRouterTestResult() {
@@ -374,76 +399,82 @@ async function testInworldKey() {
   }
 }
 
-async function saveQwenModel(qwenModel) {
-  $("#config-qwen-error").textContent = "";
-  $("#config-qwen-save-status").textContent = "";
-  clearQwenTestResult();
+async function saveAzureSettings({ azureEndpoint, azureDeployment, azureApiVersion }) {
+  $("#config-azure-error").textContent = "";
+  $("#config-azure-save-status").textContent = "";
+  clearAzureTestResult();
 
-  const btn = $("#btn-config-save-qwen-model");
-  btn.disabled = true;
-  try {
-    const data = await api("/api/config", {
-      method: "PUT",
-      body: { qwenModel },
-    });
-    renderConfig(data);
-    $("#config-qwen-save-status").textContent = qwenModel
-      ? `Model saved: ${data.effectiveQwenModel}`
-      : "Saved model cleared. Using environment default.";
-  } catch (err) {
-    $("#config-qwen-error").textContent = err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function saveQwenKey(qwenApiKey) {
-  $("#config-qwen-error").textContent = "";
-  $("#config-qwen-save-status").textContent = "";
-  clearQwenTestResult();
-
-  const btn = $("#btn-config-save-qwen");
-  btn.disabled = true;
-  try {
-    const data = await api("/api/config", {
-      method: "PUT",
-      body: { qwenApiKey },
-    });
-    renderConfig(data);
-    $("#config-qwen-key").value = "";
-    $("#config-qwen-save-status").textContent = qwenApiKey
-      ? "Qwen key saved."
-      : "Saved key cleared. Using environment default if set.";
-  } catch (err) {
-    $("#config-qwen-error").textContent = err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function testQwenKey() {
-  $("#config-qwen-error").textContent = "";
-  $("#config-qwen-save-status").textContent = "";
-  clearQwenTestResult();
-
-  const inputKey = $("#config-qwen-key").value.trim();
-  const inputModel = $("#config-qwen-model").value.trim();
-  const btn = $("#btn-config-test-qwen");
+  const btn = $("#btn-config-save-azure-settings");
   btn.disabled = true;
   try {
     const body = {};
-    if (inputKey) body.qwenApiKey = inputKey;
-    if (inputModel) body.qwenModel = inputModel;
-    const data = await api("/api/config/test-qwen", {
+    if (azureEndpoint !== undefined) body.azureEndpoint = azureEndpoint;
+    if (azureDeployment !== undefined) body.azureDeployment = azureDeployment;
+    if (azureApiVersion !== undefined) body.azureApiVersion = azureApiVersion;
+    const data = await api("/api/config", {
+      method: "PUT",
+      body,
+    });
+    renderConfig(data);
+    $("#config-azure-save-status").textContent = "Azure settings saved.";
+  } catch (err) {
+    $("#config-azure-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function saveAzureKey(azureApiKey) {
+  $("#config-azure-error").textContent = "";
+  $("#config-azure-save-status").textContent = "";
+  clearAzureTestResult();
+
+  const btn = $("#btn-config-save-azure");
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: { azureApiKey },
+    });
+    renderConfig(data);
+    $("#config-azure-key").value = "";
+    $("#config-azure-save-status").textContent = azureApiKey
+      ? "Azure key saved."
+      : "Saved key cleared. Using environment default if set.";
+  } catch (err) {
+    $("#config-azure-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function testAzureKey() {
+  $("#config-azure-error").textContent = "";
+  $("#config-azure-save-status").textContent = "";
+  clearAzureTestResult();
+
+  const inputKey = $("#config-azure-key").value.trim();
+  const inputEndpoint = $("#config-azure-endpoint").value.trim();
+  const inputDeployment = $("#config-azure-deployment").value.trim();
+  const inputApiVersion = $("#config-azure-api-version").value.trim();
+  const btn = $("#btn-config-test-azure");
+  btn.disabled = true;
+  try {
+    const body = {};
+    if (inputKey) body.azureApiKey = inputKey;
+    if (inputEndpoint) body.azureEndpoint = inputEndpoint;
+    if (inputDeployment) body.azureDeployment = inputDeployment;
+    if (inputApiVersion) body.azureApiVersion = inputApiVersion;
+    const data = await api("/api/config/test-azure", {
       method: "POST",
       body,
     });
-    $("#config-qwen-test-wrap").hidden = false;
-    $("#config-qwen-test-result").textContent = JSON.stringify(data, null, 2);
+    $("#config-azure-test-wrap").hidden = false;
+    $("#config-azure-test-result").textContent = JSON.stringify(data, null, 2);
     const llmMs = data.llm?.latencyMs ?? "—";
-    $("#config-qwen-save-status").textContent = `API test succeeded (LLM ${llmMs} ms).`;
+    $("#config-azure-save-status").textContent = `API test succeeded (LLM ${llmMs} ms).`;
   } catch (err) {
-    $("#config-qwen-error").textContent = err.message;
+    $("#config-azure-error").textContent = err.message;
   } finally {
     btn.disabled = false;
   }
@@ -773,20 +804,27 @@ async function init() {
     $("#config-inworld-stt-language").value = "";
     saveInworldSttSettings("", "");
   });
-  $("#btn-config-save-qwen").addEventListener("click", () => {
-    saveQwenKey($("#config-qwen-key").value.trim());
+  $("#btn-config-save-azure").addEventListener("click", () => {
+    saveAzureKey($("#config-azure-key").value.trim());
   });
-  $("#btn-config-save-qwen-model").addEventListener("click", () => {
-    saveQwenModel($("#config-qwen-model").value.trim());
+  $("#btn-config-save-azure-settings").addEventListener("click", () => {
+    saveAzureSettings({
+      azureEndpoint: $("#config-azure-endpoint").value.trim(),
+      azureDeployment: $("#config-azure-deployment").value.trim(),
+      azureApiVersion: $("#config-azure-api-version").value.trim(),
+    });
   });
-  $("#btn-config-test-qwen").addEventListener("click", testQwenKey);
-  $("#btn-config-clear-qwen").addEventListener("click", () => {
-    $("#config-qwen-key").value = "";
-    saveQwenKey("");
+  $("#btn-config-test-azure").addEventListener("click", testAzureKey);
+  $("#btn-config-clear-azure").addEventListener("click", () => {
+    $("#config-azure-key").value = "";
+    saveAzureKey("");
   });
-  $("#btn-config-reset-qwen-model").addEventListener("click", () => {
-    $("#config-qwen-model").value = "";
-    saveQwenModel("");
+  $("#btn-config-reset-azure-settings").addEventListener("click", () => {
+    saveAzureSettings({
+      azureEndpoint: "",
+      azureDeployment: "",
+      azureApiVersion: "",
+    });
   });
   $("#btn-config-save-openrouter").addEventListener("click", () => {
     saveOpenRouterKey($("#config-openrouter-key").value.trim());

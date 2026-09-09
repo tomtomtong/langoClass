@@ -74,7 +74,7 @@
       <nav class="config-section-nav" aria-label="Settings sections">
         <button type="button" class="config-section-tab is-active" data-config-tab="notifications">Notifications</button>
         <button type="button" class="config-section-tab" data-config-tab="inworld">Inworld</button>
-        <button type="button" class="config-section-tab" data-config-tab="qwen">Qwen</button>
+        <button type="button" class="config-section-tab" data-config-tab="azure">Azure</button>
         <button type="button" class="config-section-tab" data-config-tab="openrouter">OpenRouter</button>
         <button type="button" class="config-section-tab" data-config-tab="video">Video API</button>
         <button type="button" class="config-section-tab" data-config-tab="database">Student DB</button>
@@ -266,46 +266,72 @@
           </div>
         </div>
 
-        <div class="config-section-panel" data-config-panel="qwen">
+        <div class="config-section-panel" data-config-panel="azure">
           <div class="cms-panel config-panel">
-            <h2>Qwen API</h2>
+            <h2>Azure OpenAI</h2>
             <p class="hint config-panel-intro">
-              DashScope key from
-              <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" rel="noopener">Alibaba Cloud DashScope</a>
-              for Qwen LLM requests.
+              Microsoft Azure OpenAI credentials from
+              <a href="https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.CognitiveServices%2Faccounts" target="_blank" rel="noopener">Azure Portal</a>
+              for LLM requests (GPT-4o, GPT-4.1, etc.).
             </p>
 
             <div class="config-split">
               <div class="config-split-main">
                 <div class="config-field-grid">
                   <label class="field field-span-2">
-                    <span>Qwen API key</span>
+                    <span>Azure API key</span>
                     <input
                       type="password"
-                      id="config-qwen-key"
+                      id="config-azure-key"
                       placeholder="Paste key here"
                       autocomplete="off"
                     />
                     <p class="hint">Leave empty when saving to clear the saved key and use the environment default.</p>
                   </label>
                   <label class="field field-span-2">
-                    <span>Model</span>
+                    <span>Endpoint</span>
                     <input
-                      type="text"
-                      id="config-qwen-model"
-                      list="config-qwen-models"
-                      placeholder="qwen-plus"
+                      type="url"
+                      id="config-azure-endpoint"
+                      placeholder="https://your-resource.openai.azure.com"
                       autocomplete="off"
                     />
-                    <datalist id="config-qwen-models">
-                      <option value="qwen-turbo"></option>
-                      <option value="qwen-plus"></option>
-                      <option value="qwen-max"></option>
-                      <option value="qwen-long"></option>
+                    <p class="hint config-field-meta">
+                      Active: <strong id="config-azure-endpoint-effective">—</strong>
+                      · Env default: <strong id="config-azure-endpoint-env-default">—</strong>
+                    </p>
+                  </label>
+                  <label class="field">
+                    <span>Deployment name</span>
+                    <input
+                      type="text"
+                      id="config-azure-deployment"
+                      list="config-azure-deployments"
+                      placeholder="gpt-4o"
+                      autocomplete="off"
+                    />
+                    <datalist id="config-azure-deployments">
+                      <option value="gpt-4o"></option>
+                      <option value="gpt-4o-mini"></option>
+                      <option value="gpt-4.1"></option>
+                      <option value="gpt-4.1-mini"></option>
                     </datalist>
                     <p class="hint config-field-meta">
-                      Active: <strong id="config-qwen-model-effective">—</strong>
-                      · Env default: <strong id="config-qwen-model-env-default">—</strong>
+                      Active: <strong id="config-azure-deployment-effective">—</strong>
+                      · Env default: <strong id="config-azure-deployment-env-default">—</strong>
+                    </p>
+                  </label>
+                  <label class="field">
+                    <span>API version</span>
+                    <input
+                      type="text"
+                      id="config-azure-api-version"
+                      placeholder="2024-08-01-preview"
+                      autocomplete="off"
+                    />
+                    <p class="hint config-field-meta">
+                      Active: <strong id="config-azure-api-version-effective">—</strong>
+                      · Env default: <strong id="config-azure-api-version-env-default">—</strong>
                     </p>
                   </label>
                 </div>
@@ -313,29 +339,29 @@
 
               <aside class="config-split-side">
                 <div class="config-meta config-meta-compact">
-                  <p><strong>Status:</strong> <span id="config-qwen-status-label">—</span></p>
-                  <p><strong>Active key:</strong> <span id="config-qwen-masked">—</span></p>
-                  <p class="hint" id="config-qwen-env-hint" hidden>
-                    Using <code>QWEN_API_KEY</code> environment variable (no saved key).
+                  <p><strong>Status:</strong> <span id="config-azure-status-label">—</span></p>
+                  <p><strong>Active key:</strong> <span id="config-azure-masked">—</span></p>
+                  <p class="hint" id="config-azure-env-hint" hidden>
+                    Using <code>AZURE_OPENAI_API_KEY</code> environment variable (no saved key).
                   </p>
                 </div>
               </aside>
             </div>
 
             <div class="config-actions config-actions-bar">
-              <button type="button" class="btn primary small" id="btn-config-save-qwen">Save key</button>
-              <button type="button" class="btn primary small" id="btn-config-save-qwen-model">Save model</button>
-              <button type="button" class="btn secondary small" id="btn-config-test-qwen">Test API</button>
-              <button type="button" class="btn secondary small" id="btn-config-clear-qwen">Clear saved key</button>
-              <button type="button" class="btn secondary small" id="btn-config-reset-qwen-model">Reset model</button>
+              <button type="button" class="btn primary small" id="btn-config-save-azure">Save key</button>
+              <button type="button" class="btn primary small" id="btn-config-save-azure-settings">Save settings</button>
+              <button type="button" class="btn secondary small" id="btn-config-test-azure">Test API</button>
+              <button type="button" class="btn secondary small" id="btn-config-clear-azure">Clear saved key</button>
+              <button type="button" class="btn secondary small" id="btn-config-reset-azure-settings">Reset settings</button>
             </div>
 
-            <p class="status-msg" id="config-qwen-save-status"></p>
-            <p class="error" id="config-qwen-error"></p>
+            <p class="status-msg" id="config-azure-save-status"></p>
+            <p class="error" id="config-azure-error"></p>
 
-            <div class="config-preview config-preview-wide" id="config-qwen-test-wrap" hidden>
+            <div class="config-preview config-preview-wide" id="config-azure-test-wrap" hidden>
               <span class="field-label">Test result</span>
-              <pre id="config-qwen-test-result" class="config-preview-json"></pre>
+              <pre id="config-azure-test-result" class="config-preview-json"></pre>
             </div>
           </div>
         </div>
