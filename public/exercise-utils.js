@@ -428,14 +428,18 @@ function renderHostBuzzinFeedbackChat(container, {
         ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || uiT("buzzin.analysisUnavailable"))}</p></div>
       </div>`;
-    } else if (response.analysis) {
+    } else if (response.analysis || response.spokenFeedback || response.analysisAudio) {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
         ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-feedback-group">
           ${buzzinAnswerVerdictBadgeHtml(response)}
-          <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--scores">
+          ${
+            response.analysis
+              ? `<div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--scores">
             ${renderBuzzinAnalysisScorePiesHtml(response.analysis)}
-          </div>
+          </div>`
+              : ""
+          }
           ${buzzinSpokenFeedbackBubbleHtml(response)}
         </div>
       </div>`;
@@ -848,15 +852,21 @@ function playBuzzinResponseRecordingAudio(item) {
 }
 
 function playNewBuzzinSpokenFeedbackAudio(responses, playedKeys) {
-  if (!Array.isArray(responses) || !playedKeys) return;
+  if (!Array.isArray(responses) || !playedKeys) return Promise.resolve();
 
+  const pending = [];
   for (const item of responses) {
     if (item.analysisStatus !== "done" || !item.analysisAudio) continue;
     const key = buzzinSpokenFeedbackAudioKey(item);
     if (playedKeys.has(key)) continue;
     playedKeys.add(key);
-    playBuzzinSpokenFeedbackAudio(item);
+    pending.push(item);
   }
+
+  return pending.reduce(
+    (chain, item) => chain.then(() => playBuzzinSpokenFeedbackAudio(item)),
+    Promise.resolve()
+  );
 }
 
 function exerciseMetaLabel(exercise) {

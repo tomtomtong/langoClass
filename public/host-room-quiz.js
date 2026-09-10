@@ -354,9 +354,11 @@ function updateHostBuzzinTurnUi(payload) {
       feedback: animate.feedback,
     },
   });
-  playNewBuzzinSpokenFeedbackAudio(
-    response ? [response] : [],
-    hostBuzzinPlayedSpokenFeedbackAudio
+  enqueueHostUncleTommySpeech(() =>
+    playNewBuzzinSpokenFeedbackAudio(
+      response ? [response] : [],
+      hostBuzzinPlayedSpokenFeedbackAudio
+    )
   );
 }
 
@@ -411,7 +413,7 @@ function updateHostBuzzinUi(payload) {
   if (showFeedback) {
     hideHostBuzzinJoinTimer();
     setHostBuzzinPrompt(uiT("buzzin.promptNow"));
-    showHostBuzzinScreenForPhase(hostBuzzinScreenPhase(payload), { force: true });
+    showHostBuzzinScreenForPhase(hostBuzzinScreenPhase(payload));
   } else {
     setHostBuzzinPrompt(uiT("buzzin.promptNow"));
     startHostBuzzinJoinTimer(payload.joinEndsAt);
@@ -572,10 +574,30 @@ function requestHostBuzzinLuckyDrawWinner() {
   });
 }
 
+let hostBuzzinSpeechQueue = Promise.resolve();
+
+function enqueueHostUncleTommySpeech(task) {
+  hostBuzzinSpeechQueue = hostBuzzinSpeechQueue.then(async () => {
+    try {
+      await task();
+    } catch (err) {
+      console.warn(err?.message || err);
+    }
+  });
+  return hostBuzzinSpeechQueue;
+}
+
 function buzzinAnswerAnnouncementKey(payload) {
   const announcement = payload?.answerAnnouncement;
   if (!announcement?.playerId) return "";
   return `${payload.roundId || 0}:${announcement.playerId}`;
+}
+
+function buzzinStudentAlreadyAnswered(payload, playerId) {
+  if (!playerId) return false;
+  return (payload?.responses || []).some(
+    (entry) => entry.playerId === playerId && String(entry.text || "").trim()
+  );
 }
 
 async function playHostBuzzinAnswerAnnouncement({ winner, announcementAudio, announcementAudioFormat } = {}) {
@@ -608,17 +630,23 @@ async function maybePlayHostBuzzinAnswerAnnouncement(payload) {
   const key = buzzinAnswerAnnouncementKey(payload);
   if (!key) return;
   if (hostBuzzinPlayedAnnouncements.has(key)) return;
+  if (buzzinStudentAlreadyAnswered(payload, announcement.playerId)) {
+    hostBuzzinPlayedAnnouncements.add(key);
+    return;
+  }
   if (!announcement.audio) return;
   hostBuzzinPlayedAnnouncements.add(key);
 
-  await playHostBuzzinAnswerAnnouncement({
-    winner: {
-      playerId: announcement.playerId,
-      displayName: announcement.displayName,
-    },
-    announcementAudio: announcement.audio,
-    announcementAudioFormat: announcement.format,
-  });
+  await enqueueHostUncleTommySpeech(() =>
+    playHostBuzzinAnswerAnnouncement({
+      winner: {
+        playerId: announcement.playerId,
+        displayName: announcement.displayName,
+      },
+      announcementAudio: announcement.audio,
+      announcementAudioFormat: announcement.format,
+    })
+  );
 }
 
 async function playHostBuzzinLuckyDraw(winner) {
@@ -707,8 +735,8 @@ function bindHostBuzzinSocketHandlers(socket) {
       hostBuzzinLastResponses = [];
       hostBuzzinLuckyStar = null;
     }
-    updateHostBuzzinUi(payload);
     void maybePlayHostBuzzinAnswerAnnouncement(payload);
+    updateHostBuzzinUi(payload);
   };
 
   socket.on("buzzin_round_started", applyBuzzinPayload);
