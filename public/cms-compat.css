@@ -1326,6 +1326,85 @@ body.cms-asset-preview-open {
   line-height: 1.5;
 }
 
+#app-shell #cms-ai-wizard .cms-ai-gen-progress {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #faf8fc;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-head {
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-label {
+  margin: 0;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-pct {
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--purple);
+  flex-shrink: 0;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--wash);
+  overflow: hidden;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--purple) 0%, #9b6bb8 100%);
+  transition: transform 0.35s ease;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-meta {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 0.55rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-detail {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-eta {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--purple);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress.is-complete .cms-ai-gen-progress-bar {
+  background: var(--ok);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress.is-complete .cms-ai-gen-progress-pct,
+#app-shell #cms-ai-wizard .cms-ai-gen-progress.is-complete .cms-ai-gen-progress-eta {
+  color: var(--ok);
+}
+
 #app-shell #cms-ai-wizard .cms-ai-wizard-nav {
   display: flex;
   gap: 0.65rem;

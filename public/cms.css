@@ -457,6 +457,52 @@ p { margin: 0 0 0.75rem; }
   white-space: nowrap;
   border: 0;
 }
+.cms-list-import-anchor {
+  height: 1px;
+  scroll-margin-bottom: 120px;
+}
+.cms-import-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 140;
+  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+.cms-import-dock-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0.9rem 1rem 0.85rem;
+  border: 1px solid var(--line);
+  box-shadow: 0 -10px 36px rgba(35, 0, 70, 0.14);
+  pointer-events: auto;
+}
+.cms-import-dock-head {
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.cms-import-dock-pct {
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--purple);
+  flex-shrink: 0;
+}
+.cms-import-dock-bar {
+  margin-top: 0;
+}
+.cms-import-dock-label {
+  margin: 0.55rem 0 0;
+}
+.cms-import-dock.is-complete .cms-import-dock-pct {
+  color: var(--ok);
+}
+.cms-import-dock.is-complete .cms-import-dock-bar > span {
+  background: var(--ok);
+}
 .menu { position: relative; }
 .menu-list {
   position: absolute;

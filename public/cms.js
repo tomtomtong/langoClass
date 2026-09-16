@@ -742,6 +742,7 @@ function setAiGenProgress(percent, label, options = {}) {
   const labelEl = $("#cms-ai-gen-progress-label");
   const detailEl = $("#cms-ai-gen-progress-detail");
   const etaEl = $("#cms-ai-gen-progress-eta");
+  const pctEl = $("#cms-ai-gen-progress-pct");
   const statusEl = $("#cms-ai-generate-status");
   if (!wrap || !bar) return;
   const value = Math.max(0, Math.min(100, Math.round(percent)));
@@ -749,6 +750,7 @@ function setAiGenProgress(percent, label, options = {}) {
   setAiGenBarScale(bar, value);
   track?.setAttribute("aria-valuenow", String(value));
   track?.setAttribute("aria-valuetext", `${value}%`);
+  if (pctEl) pctEl.textContent = `${value}%`;
   wrap.classList.toggle("is-complete", value >= 100);
   if (labelEl && label !== undefined) labelEl.textContent = label || "";
   if (detailEl) {
@@ -759,6 +761,10 @@ function setAiGenProgress(percent, label, options = {}) {
   if (etaEl && options.eta !== undefined) {
     etaEl.textContent = options.eta || "";
     etaEl.hidden = !options.eta;
+  }
+  if (statusEl && !options.mirrorStatus) {
+    statusEl.textContent = "";
+    statusEl.hidden = true;
   }
   if (options.mirrorStatus && statusEl && label) {
     statusEl.hidden = false;
@@ -775,10 +781,12 @@ function resetAiGenProgress() {
   const labelEl = $("#cms-ai-gen-progress-label");
   const detailEl = $("#cms-ai-gen-progress-detail");
   const etaEl = $("#cms-ai-gen-progress-eta");
+  const pctEl = $("#cms-ai-gen-progress-pct");
   const track = wrap?.querySelector("[role=progressbar]");
   if (bar) setAiGenBarScale(bar, 0);
   track?.setAttribute("aria-valuenow", "0");
   track?.setAttribute("aria-valuetext", "0%");
+  if (pctEl) pctEl.textContent = "0%";
   if (labelEl) labelEl.textContent = "";
   if (detailEl) {
     detailEl.textContent = "";
@@ -802,9 +810,11 @@ function startAiGenProgressTicker(from, to, durationMs = 60000) {
     const value = Math.round(from + (to - from) * t);
     const bar = $("#cms-ai-gen-progress-bar");
     const track = $("#cms-ai-gen-progress")?.querySelector("[role=progressbar]");
+    const pctEl = $("#cms-ai-gen-progress-pct");
     if (bar) setAiGenBarScale(bar, value);
     track?.setAttribute("aria-valuenow", String(value));
     track?.setAttribute("aria-valuetext", `${value}%`);
+    if (pctEl) pctEl.textContent = `${value}%`;
     if (t >= 1) stopAiGenProgressTicker();
   }, 120);
 }
@@ -1526,9 +1536,60 @@ async function readImportResponse(res) {
   return data;
 }
 
-async function importOneCourseChunked(file, status) {
+function setImportDockProgress(percent, label, options = {}) {
+  const dock = $("#cms-import-dock");
+  const bar = $("#cms-import-dock-bar");
+  const track = $("#cms-import-dock-track");
+  const pctEl = $("#cms-import-dock-pct");
+  const labelEl = $("#cms-import-dock-label");
+  const titleEl = $("#cms-import-dock-title");
+  if (!dock || !bar) return;
+  const value = Math.max(0, Math.min(100, Math.round(percent)));
+  dock.hidden = false;
+  bar.style.width = `${value}%`;
+  track?.setAttribute("aria-valuenow", String(value));
+  track?.setAttribute("aria-valuetext", `${value}%`);
+  if (pctEl) pctEl.textContent = `${value}%`;
+  if (labelEl && label !== undefined) labelEl.textContent = label || "";
+  if (titleEl && options.title) titleEl.textContent = options.title;
+  dock.classList.toggle("is-complete", value >= 100);
+}
+
+function scrollToImportProgress() {
+  $("#cms-list-import-anchor")?.scrollIntoView({ behavior: "smooth", block: "end" });
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+  });
+}
+
+function showImportDock(fileName) {
+  const safeName = String(fileName || "course backup").trim();
+  const shortName = safeName.length > 42 ? `${safeName.slice(0, 39)}…` : safeName;
+  setImportDockProgress(0, "Preparing import…", { title: `Importing ${shortName}` });
+  scrollToImportProgress();
+}
+
+function hideImportDock(delayMs = 0) {
+  const hide = () => {
+    const dock = $("#cms-import-dock");
+    const bar = $("#cms-import-dock-bar");
+    if (bar) bar.style.width = "0%";
+    if (dock) {
+      dock.hidden = true;
+      dock.classList.remove("is-complete");
+    }
+    const labelEl = $("#cms-import-dock-label");
+    if (labelEl) labelEl.textContent = "";
+  };
+  if (delayMs > 0) window.setTimeout(hide, delayMs);
+  else hide();
+}
+
+async function importOneCourseChunked(file, onProgress) {
   const totalBytes = file.size;
   const totalChunks = Math.ceil(totalBytes / IMPORT_CHUNK_BYTES);
+
+  onProgress?.(4, "Starting upload…");
 
   const initData = await readImportResponse(
     await fetch("/api/cms/courses/import-one/init", {
@@ -1548,7 +1609,8 @@ async function importOneCourseChunked(file, status) {
     formData.append("chunkIndex", String(i));
     formData.append("chunk", file.slice(start, end), `chunk-${i}`);
 
-    status.textContent = `Uploading course backup… ${i + 1}/${totalChunks}`;
+    const uploadPct = 8 + Math.round(((i + 1) / totalChunks) * 78);
+    onProgress?.(uploadPct, `Uploading course backup… ${i + 1}/${totalChunks}`);
 
     await readImportResponse(
       await fetch("/api/cms/courses/import-one/chunk", {
@@ -1559,15 +1621,18 @@ async function importOneCourseChunked(file, status) {
     );
   }
 
-  status.textContent = "Importing course…";
+  onProgress?.(90, "Importing course…");
 
-  return readImportResponse(
+  const result = await readImportResponse(
     await fetch("/api/cms/courses/import-one/complete", {
       method: "POST",
       headers: { ...cmsImportHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ uploadId }),
     })
   );
+
+  onProgress?.(100, "Import complete");
+  return result;
 }
 
 async function importOneCourse(file) {
@@ -1587,16 +1652,21 @@ async function importOneCourse(file) {
   }
 
   btn.disabled = true;
+  showImportDock(file.name);
   status.textContent = "Preparing import…";
 
   try {
-    const data = await importOneCourseChunked(file, status);
+    const data = await importOneCourseChunked(file, (percent, label) => {
+      setImportDockProgress(percent, label);
+      status.textContent = label;
+    });
     const importedCourse = data?.courses?.[0];
-    if (importedCourse?.name) {
-      status.textContent = `Imported "${importedCourse.name}".`;
-    } else {
-      status.textContent = "Course imported.";
-    }
+    const doneLabel = importedCourse?.name
+      ? `Imported "${importedCourse.name}".`
+      : "Course imported.";
+    setImportDockProgress(100, doneLabel);
+    status.textContent = doneLabel;
+    hideImportDock(1800);
     if (importedCourse?.id) {
       await openCourseEditor(importedCourse.id);
     } else {
@@ -1605,6 +1675,7 @@ async function importOneCourse(file) {
   } catch (err) {
     status.textContent = "";
     error.textContent = err.message;
+    hideImportDock();
   } finally {
     btn.disabled = false;
     if (input) input.value = "";

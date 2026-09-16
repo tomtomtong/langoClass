@@ -256,6 +256,7 @@
       <div id="cms-course-list" class="cms-course-list" hidden aria-hidden="true"></div>
       <p class="status-msg" id="cms-list-status"></p>
       <p class="error" id="cms-list-error"></p>
+      <div id="cms-list-import-anchor" class="cms-list-import-anchor" aria-hidden="true"></div>
     </section>
 
     <section id="screen-cms-community" class="screen">
@@ -713,6 +714,10 @@
 
               <p class="error" id="cms-ai-error"></p>
               <div class="cms-ai-gen-progress" id="cms-ai-gen-progress" hidden>
+                <div class="row cms-ai-gen-progress-head">
+                  <p class="cms-ai-gen-progress-label" id="cms-ai-gen-progress-label"></p>
+                  <span class="cms-ai-gen-progress-pct" id="cms-ai-gen-progress-pct" aria-hidden="true">0%</span>
+                </div>
                 <div
                   class="cms-ai-gen-progress-track"
                   role="progressbar"
@@ -723,9 +728,10 @@
                 >
                   <div class="cms-ai-gen-progress-bar" id="cms-ai-gen-progress-bar"></div>
                 </div>
-                <p class="cms-ai-gen-progress-label" id="cms-ai-gen-progress-label"></p>
-                <p class="cms-ai-gen-progress-detail" id="cms-ai-gen-progress-detail" hidden></p>
-                <p class="cms-ai-gen-progress-eta" id="cms-ai-gen-progress-eta" hidden></p>
+                <div class="row cms-ai-gen-progress-meta">
+                  <p class="hint cms-ai-gen-progress-detail" id="cms-ai-gen-progress-detail" hidden></p>
+                  <p class="cms-ai-gen-progress-eta" id="cms-ai-gen-progress-eta" hidden></p>
+                </div>
               </div>
               <p class="status-msg" id="cms-ai-generate-status"></p>
               <div class="cms-ai-wizard-nav">
@@ -992,5 +998,26 @@
   <script src="/lango-gsap.js"></script>
   <script src="/cms-ui-bridge.js"></script>
   <script src="/cms.js"></script>
+
+  <div class="cms-import-dock" id="cms-import-dock" hidden aria-live="polite">
+    <div class="cms-import-dock-inner paper">
+      <div class="row cms-import-dock-head">
+        <strong id="cms-import-dock-title">Importing course</strong>
+        <span class="cms-import-dock-pct" id="cms-import-dock-pct">0%</span>
+      </div>
+      <div
+        class="bar cms-import-dock-bar"
+        id="cms-import-dock-track"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+        aria-label="Course import progress"
+      >
+        <span id="cms-import-dock-bar"></span>
+      </div>
+      <p class="hint cms-import-dock-label" id="cms-import-dock-label"></p>
+    </div>
+  </div>
 </body>
 </html>
