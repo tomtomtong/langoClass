@@ -205,6 +205,23 @@ function collectBuzzinQuestions(exercise) {
   return [];
 }
 
+function buzzinImageFromExercise(exercise, questionIndex = 0) {
+  if (!exercise || !isBuzzinExercise(exercise)) return "";
+  const items = Array.isArray(exercise.items) ? exercise.items : [];
+  const entries = items
+    .map((item) => ({
+      topic: normalizeBuzzinQuestionText(item?.topic || item?.title || item?.question || item?.text),
+      image: String(item?.image || item?.imageUrl || "").trim(),
+    }))
+    .filter((entry) => entry.topic);
+  if (entries.length) {
+    const entry = entries[questionIndex] || entries[0];
+    return entry?.image || "";
+  }
+  const first = items[0] || {};
+  return String(first?.image || first?.imageUrl || "").trim();
+}
+
 function buzzinFromExercise(exercise) {
   if (!exercise || !isBuzzinExercise(exercise)) return null;
 
@@ -910,6 +927,12 @@ function collectExerciseMediaUrls(exercises) {
       if (video) urls.add(String(video).trim());
     }
     if (isLiveMcQuizExercise(exercise)) {
+      for (const item of exercise.items || []) {
+        const image = String(item.image || item.imageUrl || "").trim();
+        if (image) urls.add(image);
+      }
+    }
+    if (isBuzzinExercise(exercise)) {
       for (const item of exercise.items || []) {
         const image = String(item.image || item.imageUrl || "").trim();
         if (image) urls.add(image);

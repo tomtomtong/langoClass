@@ -103,6 +103,16 @@ function syncHostBuzzinTopic(topic, meta = null) {
   updateHostBuzzinAdvanceButtons(Boolean(meta?.hasNextQuestion));
 }
 
+function syncHostBuzzinQuestionImage(imageUrl) {
+  const url = resolvedMediaUrl(imageUrl);
+  $("#screen-host-buzzin")?.classList.toggle("has-image", !!url);
+  setQuestionImage(
+    $("#host-buzzin-question-image"),
+    $("#host-buzzin-question-image-wrap"),
+    url
+  );
+}
+
 function updateHostBuzzinAdvanceButtons(hasNext) {
   hostBuzzinHasNextQuestion = Boolean(hasNext);
   const label = hasNext ? uiT("quiz.nextQuestion") : uiT("common.next");
@@ -381,6 +391,9 @@ function updateHostBuzzinUi(payload) {
   const showFeedback = hostBuzzinShowFeedbackPhase(payload);
   if (payload.topic || payload.totalQuestions != null || payload.questionIndex != null) {
     syncHostBuzzinTopic(payload.topic, payload);
+    if (Object.prototype.hasOwnProperty.call(payload, "image")) {
+      syncHostBuzzinQuestionImage(payload.image);
+    }
   } else {
     updateHostBuzzinAdvanceButtons(Boolean(payload.hasNextQuestion));
   }
@@ -1941,6 +1954,7 @@ function showHostBuzzinExercise(exercise, roomId) {
     totalQuestions: buzzin.totalQuestions || buzzin.topics?.length || 1,
     hasNextQuestion: (buzzin.totalQuestions || buzzin.topics?.length || 1) > 1,
   });
+  syncHostBuzzinQuestionImage(buzzinImageFromExercise(exercise, buzzin.questionIndex || 0));
   const points = typeof exercisePointsValue === "function" ? exercisePointsValue(exercise) : 300;
   hostBuzzinExercisePoints = points;
   const pointsEl = $("#host-buzzin-points");

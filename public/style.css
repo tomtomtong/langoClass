@@ -11390,6 +11390,33 @@ html:not(.lango-gsap-ready) #app.lango-host .host-sound-mute-btn:hover {
   text-align: center;
 }
 
+#app.lango-host .host-buzzin-image-wrap {
+  width: 100%;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+}
+
+#app.lango-host .host-buzzin-image-wrap[hidden] {
+  display: none;
+}
+
+#app.lango-host #screen-host-buzzin.has-image .host-buzzin-image {
+  width: min(520px, 72%);
+  max-height: min(240px, 32vh);
+  object-fit: contain;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+#app.lango-host #screen-host-buzzin.has-image .host-buzzin-question-card {
+  min-height: 420px;
+}
+
+#app.lango-host #screen-host-buzzin.has-image .host-buzzin-sparkle {
+  display: none;
+}
+
 #app.lango-host .host-buzzin-sparkle {
   position: absolute;
   top: -16px;

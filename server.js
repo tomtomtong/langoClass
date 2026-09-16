@@ -563,6 +563,7 @@ function buzzinTopicsFromExercise(exercise) {
         topic,
         correctAnswer,
         sttLanguage,
+        image: String(item?.image || item?.imageUrl || "").trim(),
       };
     })
     .filter(Boolean);
@@ -1431,6 +1432,7 @@ function buzzInPublicPayload(round) {
     joinEndsAt: round.joinEndsAt,
     joinSecondsRemaining: Math.ceil(joinRemainingMs / 1000),
     topic: round.topic || "",
+    image: round.image || "",
     questionIndex,
     totalQuestions,
     hasNextQuestion: questionIndex + 1 < totalQuestions,
@@ -1636,6 +1638,7 @@ function createBuzzInRound(
     phase: "ready",
     status: "closed",
     topic: String(current.topic || topic || "").trim(),
+    image: String(current.image || "").trim(),
     correctAnswer: String(current.correctAnswer || "").trim(),
     sttLanguage: normalizeBuzzinSttLanguage(
       current.sttLanguage || sttLanguage,
