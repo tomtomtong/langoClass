@@ -365,18 +365,6 @@
   };
 
   function wireComingSoonInteractions() {
-    const upload = document.getElementById("home-upload-block");
-    if (upload) {
-      upload.addEventListener("click", (e) => {
-        if (e.target.closest("#home-upload-block")) {
-          const interactive = e.target.closest("button, .home-dropzone, input");
-          if (interactive) {
-            e.preventDefault();
-            showComingSoonToast("Drop materials to start a section");
-          }
-        }
-      });
-    }
     document.getElementById("community-main")?.addEventListener("mousedown", (e) => {
       e.preventDefault();
       showComingSoonToast("Category filters");

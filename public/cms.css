@@ -439,6 +439,24 @@ p { margin: 0 0 0.75rem; }
   padding-top: 0.35rem;
   border-top: 1px solid var(--line);
 }
+.home-upload-assign-actions {
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.home-upload-assign select {
+  width: 100%;
+}
+.cms-file-input-offscreen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .menu { position: relative; }
 .menu-list {
   position: absolute;

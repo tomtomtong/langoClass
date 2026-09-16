@@ -97,6 +97,17 @@
         </div>
         <ul class="home-upload-list" id="home-upload-list" hidden></ul>
         <p class="hint home-upload-size" id="home-upload-size"></p>
+        <div class="home-upload-assign" id="home-upload-assign" hidden>
+          <div class="field" style="margin-bottom:0.75rem">
+            <label for="home-upload-course">Choose a course for this section</label>
+            <select id="home-upload-course"></select>
+          </div>
+          <div class="row home-upload-assign-actions">
+            <button class="btn primary" type="button" id="home-upload-continue">Continue to generate</button>
+            <button class="btn ghost" type="button" id="home-upload-clear">Clear materials</button>
+          </div>
+          <p class="status-msg" id="home-upload-status" hidden></p>
+        </div>
       </div>
       <div class="home-hero">
         <div>
@@ -221,8 +232,8 @@
           <h1 data-i18n="cms.list.title">Courses in progress</h1>
         </div>
         <div class="row">
-          <input type="file" id="import-all-file" accept=".zip,application/zip" hidden />
-          <button type="button" class="btn ghost" id="btn-import-all-courses" data-i18n="cms.list.importAll">Import all</button>
+          <input type="file" id="import-one-file" class="cms-file-input-offscreen" accept=".zip,application/zip" />
+          <button type="button" class="btn ghost" id="btn-import-one-course" data-i18n="cms.list.importOne">Import one course</button>
           <button type="button" class="btn ghost" id="btn-export-all-courses" data-i18n="cms.list.exportAll">Export all</button>
           <button type="button" class="btn primary" id="btn-new-course">+ New course</button>
         </div>

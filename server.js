@@ -4004,7 +4004,7 @@ app.post("/api/cms/courses/import-all/complete", async (req, res) => {
 
   try {
     const uploadId = String(req.body?.uploadId || "");
-    const result = courseImportChunked.completeSession(uploadId, auth.teacherId);
+    const result = courseImportChunked.completeSession(uploadId, auth.teacherId, { replace: true });
     return res.json({
       ok: true,
       imported: result.courses.length,
@@ -4014,6 +4014,105 @@ app.post("/api/cms/courses/import-all/complete", async (req, res) => {
   } catch (err) {
     return res.status(400).json({ message: err.message || "Import failed." });
   }
+});
+
+app.post("/api/cms/courses/import-one/init", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  try {
+    const totalBytes = Number(req.body?.totalBytes);
+    const totalChunks = Number(req.body?.totalChunks);
+    const fileName = req.body?.fileName;
+    const session = courseImportChunked.createSession(
+      auth.teacherId,
+      totalBytes,
+      totalChunks,
+      fileName
+    );
+    return res.json({ ok: true, ...session });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Could not start import." });
+  }
+});
+
+app.post("/api/cms/courses/import-one/chunk", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  courseImportChunkUpload.single("chunk")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Chunk upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "No chunk data provided." });
+    }
+
+    const uploadId = String(req.body?.uploadId || "");
+    const chunkIndex = Number(req.body?.chunkIndex);
+
+    try {
+      const progress = courseImportChunked.writeChunk(
+        uploadId,
+        auth.teacherId,
+        chunkIndex,
+        req.file.buffer
+      );
+      return res.json({ ok: true, ...progress });
+    } catch (writeErr) {
+      return res.status(400).json({ message: writeErr.message || "Chunk upload failed." });
+    }
+  });
+});
+
+app.post("/api/cms/courses/import-one/complete", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  try {
+    const uploadId = String(req.body?.uploadId || "");
+    const result = courseImportChunked.completeSession(uploadId, auth.teacherId, {
+      replace: false,
+      maxCourses: 1,
+    });
+    return res.json({
+      ok: true,
+      imported: result.courses.length,
+      replaced: result.replaced,
+      courses: result.courses,
+    });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Import failed." });
+  }
+});
+
+app.post("/api/cms/courses/import-one", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  courseImportUpload.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "Upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: "No ZIP file provided." });
+    }
+
+    try {
+      const result = courseImport.importCoursesFromZip(req.file.buffer, auth.teacherId, {
+        replace: false,
+        maxCourses: 1,
+      });
+      return res.json({
+        ok: true,
+        imported: result.courses.length,
+        replaced: result.replaced,
+        courses: result.courses,
+      });
+    } catch (importErr) {
+      return res.status(400).json({ message: importErr.message || "Import failed." });
+    }
+  });
 });
 
 app.post("/api/cms/courses/import-all", async (req, res) => {

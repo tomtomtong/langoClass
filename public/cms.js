@@ -3,6 +3,7 @@ const CMS_THEME_KEY = "lango_cms_theme";
 const CMS_TEXT_SIZE_DEFAULT = "lg";
 const CMS_EMPTY_COVER = "/assets/cms/cover-empty.svg";
 const CMS_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+const HOME_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 
 const CMS_TOUR_KEY = "lango_cms_tour_v1";
 
@@ -77,6 +78,8 @@ const state = {
   aiMaterialText: "",
   aiMaterialAssets: [],
   aiSelectedFiles: [],
+  homeUploadFiles: [],
+  homeUploadVideoUrl: "",
   aiDraftExercises: [],
   aiWizardStep: 1,
   aiWizardMaxStep: 1,
@@ -909,6 +912,267 @@ function clearAiSelectedFiles() {
   state.aiSelectedFiles = [];
 }
 
+function getHomeUploadFiles() {
+  return state.homeUploadFiles || [];
+}
+
+function getHomeUploadVideoUrl() {
+  return String(state.homeUploadVideoUrl || "").trim();
+}
+
+function getHomeUploadTotalBytes() {
+  return getHomeUploadFiles().reduce((sum, file) => sum + (Number(file.size) || 0), 0);
+}
+
+function hasHomeUploadMaterial() {
+  return getHomeUploadFiles().length > 0 || !!getHomeUploadVideoUrl();
+}
+
+function clearHomeUploadMaterial() {
+  state.homeUploadFiles = [];
+  state.homeUploadVideoUrl = "";
+  const urlInput = $("#home-upload-url");
+  if (urlInput) urlInput.value = "";
+  const fileInput = $("#home-upload-input");
+  if (fileInput) fileInput.value = "";
+  renderHomeUploadUi();
+}
+
+function addHomeUploadFiles(fileList) {
+  const incoming = Array.from(fileList || []).filter((file) => file instanceof File);
+  if (!incoming.length) return 0;
+  const seen = new Set(getHomeUploadFiles().map(aiFileKey));
+  const added = [];
+  let totalBytes = getHomeUploadTotalBytes();
+  for (const file of incoming) {
+    const key = aiFileKey(file);
+    if (seen.has(key)) continue;
+    if (totalBytes + file.size > HOME_UPLOAD_MAX_BYTES) {
+      setHomeUploadStatus(`Total upload size cannot exceed 100 MB.`, true);
+      break;
+    }
+    seen.add(key);
+    added.push(file);
+    totalBytes += file.size;
+  }
+  if (added.length) {
+    state.homeUploadFiles = [...getHomeUploadFiles(), ...added];
+    renderHomeUploadUi();
+    setHomeUploadStatus("");
+  }
+  return added.length;
+}
+
+function removeHomeUploadFile(index) {
+  const files = getHomeUploadFiles();
+  if (index < 0 || index >= files.length) return;
+  state.homeUploadFiles = files.filter((_, i) => i !== index);
+  renderHomeUploadUi();
+}
+
+function setHomeUploadStatus(message, isError = false) {
+  const el = $("#home-upload-status");
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = "";
+    el.classList.remove("is-error");
+    return;
+  }
+  el.hidden = false;
+  el.textContent = message;
+  el.classList.toggle("is-error", isError);
+}
+
+function renderHomeUploadCourseSelect() {
+  const select = $("#home-upload-course");
+  if (!select) return;
+  const courses = state.courses || [];
+  if (!courses.length) {
+    select.innerHTML = `<option value="">No courses yet — create one first</option>`;
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  select.innerHTML = [
+    `<option value="">Select a course…</option>`,
+    ...courses.map(
+      (course) =>
+        `<option value="${escapeHtml(String(course.id))}">${escapeHtml(course.name || `Course ${course.id}`)}</option>`
+    ),
+  ].join("");
+}
+
+function renderHomeUploadUi() {
+  const list = $("#home-upload-list");
+  const sizeEl = $("#home-upload-size");
+  const assign = $("#home-upload-assign");
+  const files = getHomeUploadFiles();
+  const videoUrl = getHomeUploadVideoUrl();
+  const totalBytes = getHomeUploadTotalBytes();
+
+  if (list) {
+    const items = [];
+    for (const [index, file] of files.entries()) {
+      const name = file.name.length > 36 ? `${file.name.slice(0, 33)}…` : file.name;
+      items.push(`
+        <li class="home-upload-item">
+          <span>${escapeHtml(name)} <span class="hint">${formatAiFileSize(file.size)}</span></span>
+          <button type="button" class="btn ghost home-upload-remove" data-home-file-index="${index}" aria-label="Remove ${escapeHtml(file.name)}">Remove</button>
+        </li>`);
+    }
+    if (videoUrl) {
+      items.push(`
+        <li class="home-upload-item">
+          <span>Video link <span class="hint">${escapeHtml(videoUrl.length > 48 ? `${videoUrl.slice(0, 45)}…` : videoUrl)}</span></span>
+          <button type="button" class="btn ghost" id="home-upload-url-remove">Remove</button>
+        </li>`);
+    }
+    if (items.length) {
+      list.hidden = false;
+      list.innerHTML = items.join("");
+    } else {
+      list.hidden = true;
+      list.innerHTML = "";
+    }
+  }
+
+  if (sizeEl) {
+    if (files.length) {
+      sizeEl.textContent = `${files.length} file(s) · ${formatAiFileSize(totalBytes)} / 100 MB`;
+    } else if (videoUrl) {
+      sizeEl.textContent = "Video link added";
+    } else {
+      sizeEl.textContent = "";
+    }
+  }
+
+  if (assign) {
+    assign.hidden = !hasHomeUploadMaterial();
+  }
+  if (hasHomeUploadMaterial()) {
+    renderHomeUploadCourseSelect();
+  }
+}
+
+async function startHomeUploadGenerate() {
+  if (!hasHomeUploadMaterial()) {
+    setHomeUploadStatus("Add files or a video link first.", true);
+    return;
+  }
+  const courseId = Number($("#home-upload-course")?.value);
+  if (!courseId) {
+    setHomeUploadStatus("Choose a course for this new section.", true);
+    return;
+  }
+
+  const seedFiles = [...getHomeUploadFiles()];
+  const seedVideoUrl = getHomeUploadVideoUrl();
+  setHomeUploadStatus("Opening course…");
+
+  try {
+    await openCourseEditor(courseId);
+    switchTab("sections");
+    const index = ensureBlankSectionIndex();
+    renderSectionEditors();
+    openSectionExercises(index, {
+      ai: true,
+      skipMetaSync: true,
+      seedFiles,
+      seedVideoUrl,
+    });
+    clearHomeUploadMaterial();
+  } catch (err) {
+    setHomeUploadStatus(err.message || "Could not open course.", true);
+  }
+}
+
+function wireHomeUploadWorkflow() {
+  const dropzone = $("#home-dropzone");
+  const fileInput = $("#home-upload-input");
+  const urlInput = $("#home-upload-url");
+  const urlAdd = $("#home-upload-url-add");
+  const urlRemove = () => {
+    state.homeUploadVideoUrl = "";
+    if (urlInput) urlInput.value = "";
+    renderHomeUploadUi();
+    setHomeUploadStatus("");
+  };
+
+  dropzone?.addEventListener("click", () => fileInput?.click());
+  dropzone?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      fileInput?.click();
+    }
+  });
+  dropzone?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    dropzone.classList.add("dragover");
+  });
+  dropzone?.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone?.addEventListener("drop", (event) => {
+    event.preventDefault();
+    dropzone.classList.remove("dragover");
+    const added = addHomeUploadFiles(event.dataTransfer?.files);
+    if (added) setHomeUploadStatus(`${added} file(s) added. Choose a course to continue.`);
+  });
+
+  fileInput?.addEventListener("change", (event) => {
+    const added = addHomeUploadFiles(event.target.files);
+    event.target.value = "";
+    if (added) setHomeUploadStatus(`${added} file(s) added. Choose a course to continue.`);
+  });
+
+  urlAdd?.addEventListener("click", () => {
+    const url = $("#home-upload-url")?.value.trim() || "";
+    if (!url) {
+      setHomeUploadStatus("Paste a YouTube or video URL first.", true);
+      urlInput?.focus();
+      return;
+    }
+    try {
+      new URL(url);
+    } catch {
+      setHomeUploadStatus("Enter a valid URL.", true);
+      return;
+    }
+    state.homeUploadVideoUrl = url;
+    renderHomeUploadUi();
+    setHomeUploadStatus("Link added. Choose a course to continue.");
+  });
+
+  urlInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      urlAdd?.click();
+    }
+  });
+
+  $("#home-upload-list")?.addEventListener("click", (event) => {
+    if (event.target.closest("#home-upload-url-remove")) {
+      urlRemove();
+      return;
+    }
+    const btn = event.target.closest("[data-home-file-index]");
+    if (!btn) return;
+    removeHomeUploadFile(Number(btn.dataset.homeFileIndex));
+    setHomeUploadStatus("");
+  });
+
+  $("#home-upload-clear")?.addEventListener("click", () => {
+    clearHomeUploadMaterial();
+    setHomeUploadStatus("");
+  });
+
+  $("#home-upload-continue")?.addEventListener("click", () => {
+    void startHomeUploadGenerate();
+  });
+
+  renderHomeUploadUi();
+}
+
 function formatAiFileSize(bytes) {
   const size = Number(bytes) || 0;
   if (size < 1024) return `${size} B`;
@@ -1211,8 +1475,19 @@ async function exportAllCourses() {
   }
 }
 
-function triggerImportAllCourses() {
-  $("#import-all-file").click();
+function triggerImportOneCourse() {
+  const input = $("#import-one-file");
+  if (!input) return;
+  input.value = "";
+  if (typeof input.showPicker === "function") {
+    try {
+      input.showPicker();
+      return;
+    } catch {
+      /* fall through to click() */
+    }
+  }
+  input.click();
 }
 
 const IMPORT_CHUNK_BYTES = 512 * 1024;
@@ -1251,12 +1526,12 @@ async function readImportResponse(res) {
   return data;
 }
 
-async function importAllCoursesChunked(file, status) {
+async function importOneCourseChunked(file, status) {
   const totalBytes = file.size;
   const totalChunks = Math.ceil(totalBytes / IMPORT_CHUNK_BYTES);
 
   const initData = await readImportResponse(
-    await fetch("/api/cms/courses/import-all/init", {
+    await fetch("/api/cms/courses/import-one/init", {
       method: "POST",
       headers: { ...cmsImportHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ totalBytes, totalChunks, fileName: file.name }),
@@ -1273,10 +1548,10 @@ async function importAllCoursesChunked(file, status) {
     formData.append("chunkIndex", String(i));
     formData.append("chunk", file.slice(start, end), `chunk-${i}`);
 
-    status.textContent = `Uploading backup… ${i + 1}/${totalChunks}`;
+    status.textContent = `Uploading course backup… ${i + 1}/${totalChunks}`;
 
     await readImportResponse(
-      await fetch("/api/cms/courses/import-all/chunk", {
+      await fetch("/api/cms/courses/import-one/chunk", {
         method: "POST",
         headers: cmsImportHeaders(),
         body: formData,
@@ -1284,10 +1559,10 @@ async function importAllCoursesChunked(file, status) {
     );
   }
 
-  status.textContent = "Importing courses…";
+  status.textContent = "Importing course…";
 
   return readImportResponse(
-    await fetch("/api/cms/courses/import-all/complete", {
+    await fetch("/api/cms/courses/import-one/complete", {
       method: "POST",
       headers: { ...cmsImportHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ uploadId }),
@@ -1295,16 +1570,17 @@ async function importAllCoursesChunked(file, status) {
   );
 }
 
-async function importAllCourses(file) {
-  const btn = $("#btn-import-all-courses");
+async function importOneCourse(file) {
+  const btn = $("#btn-import-one-course");
   const status = $("#cms-list-status");
   const error = $("#cms-list-error");
   error.textContent = "";
-  $("#import-all-file").value = "";
+  const input = $("#import-one-file");
+  if (input) input.value = "";
 
   if (
     !confirm(
-      "Import will replace ALL of your courses, exercises, uploaded media, scores, and student progress for those courses.\n\nContinue?"
+      "Import one course from this ZIP file?\n\nYour existing courses will stay unchanged. If the ZIP contains multiple courses, only the first one is imported."
     )
   ) {
     return;
@@ -1314,21 +1590,24 @@ async function importAllCourses(file) {
   status.textContent = "Preparing import…";
 
   try {
-    const data = await importAllCoursesChunked(file, status);
-    const count = data?.imported || 0;
-    const replaced = data?.replaced || 0;
-    if (replaced > 0) {
-      status.textContent = `Replaced ${replaced} course${replaced === 1 ? "" : "s"} with ${count} imported course${count === 1 ? "" : "s"}.`;
+    const data = await importOneCourseChunked(file, status);
+    const importedCourse = data?.courses?.[0];
+    if (importedCourse?.name) {
+      status.textContent = `Imported "${importedCourse.name}".`;
     } else {
-      status.textContent = `Imported ${count} course${count === 1 ? "" : "s"}.`;
+      status.textContent = "Course imported.";
     }
-    await enterCourseList();
+    if (importedCourse?.id) {
+      await openCourseEditor(importedCourse.id);
+    } else {
+      await enterCourseList();
+    }
   } catch (err) {
     status.textContent = "";
     error.textContent = err.message;
   } finally {
     btn.disabled = false;
-    $("#import-all-file").value = "";
+    if (input) input.value = "";
   }
 }
 
@@ -2831,6 +3110,8 @@ async function enterHome() {
     if (typeof window.renderCmsHomeWidgets === "function") {
       await window.renderCmsHomeWidgets();
     }
+    renderHomeUploadCourseSelect();
+    renderHomeUploadUi();
   } catch {
     /* home widgets are optional */
   }
@@ -7234,6 +7515,14 @@ function openSectionExercises(sectionIndex, options = {}) {
   if (options.ai) {
     state.aiManualEntry = false;
     openAiGeneratePath("section");
+    if (options.seedFiles?.length) {
+      addAiSelectedFiles(options.seedFiles);
+      syncAiFileNameLabel();
+    }
+    if (options.seedVideoUrl && $("#cms-ai-video-url")) {
+      $("#cms-ai-video-url").value = options.seedVideoUrl;
+      syncAiMaterialState();
+    }
     renderExerciseEditors({ skipReveal: true });
   } else if (options.manual) {
     syncAiIdleUi();
@@ -9988,10 +10277,10 @@ $("#cms-login-password").addEventListener("keydown", (e) => {
 });
 $("#btn-cms-logout").addEventListener("click", handleLogout);
 $("#btn-new-course").addEventListener("click", createNewCourse);
-$("#btn-import-all-courses").addEventListener("click", triggerImportAllCourses);
-$("#import-all-file").addEventListener("change", async (event) => {
+$("#btn-import-one-course")?.addEventListener("click", triggerImportOneCourse);
+$("#import-one-file")?.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
-  if (file) await importAllCourses(file);
+  if (file) await importOneCourse(file);
 });
 $("#btn-export-all-courses").addEventListener("click", exportAllCourses);
 $("#btn-back-list").addEventListener("click", () => enterCourseList());
@@ -10005,6 +10294,7 @@ $("#course-banner-file").addEventListener("change", handleBannerFileChange);
 $("#btn-remove-banner").addEventListener("click", handleRemoveBanner);
 $("#btn-add-section").addEventListener("click", addSection);
 $("#btn-save-sections").addEventListener("click", saveSections);
+wireHomeUploadWorkflow();
 $("#btn-save-exercises").addEventListener("click", () => {
   if (state.aiWizardActive && state.aiWizardStep === 4 && !state.aiCourseMode) {
     publishAiExercises();
