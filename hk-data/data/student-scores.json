@@ -1,3 +1,45 @@
 {
-  "students": {}
+  "students": {
+    "835:62:web_1788948704492_0jp520mp": {
+      "teacherId": 835,
+      "classId": 62,
+      "studentUserId": "web_1788948704492_0jp520mp",
+      "displayName": "Behdbhdfjj",
+      "totalScore": 1600,
+      "exerciseCount": 2,
+      "firstScoreAt": "2026-09-09T10:12:23.642Z",
+      "lastScoreAt": "2026-09-09T10:12:42.432Z",
+      "updatedAt": "2026-09-09T10:12:42.432Z"
+    }
+  },
+  "records": [
+    {
+      "recordKey": "835:62:527630:1:web_1788948704492_0jp520mp",
+      "teacherId": 835,
+      "classId": 62,
+      "courseId": -203,
+      "exerciseId": 1,
+      "exerciseTitle": "香港 trivia 問答",
+      "exerciseType": "mcquiz",
+      "roomId": "527630",
+      "studentUserId": "web_1788948704492_0jp520mp",
+      "displayName": "Behdbhdfjj",
+      "score": 600,
+      "savedAt": "2026-09-09T10:12:23.642Z"
+    },
+    {
+      "recordKey": "835:62:527630:2:web_1788948704492_0jp520mp",
+      "teacherId": 835,
+      "classId": 62,
+      "courseId": -203,
+      "exerciseId": 2,
+      "exerciseTitle": "快問快答",
+      "exerciseType": "fastmcquiz",
+      "roomId": "527630",
+      "studentUserId": "web_1788948704492_0jp520mp",
+      "displayName": "Behdbhdfjj",
+      "score": 1000,
+      "savedAt": "2026-09-09T10:12:42.432Z"
+    }
+  ]
 }

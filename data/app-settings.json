@@ -1,0 +1,19 @@
+{
+  "publicBaseUrl": "",
+  "inworldApiKey": "",
+  "inworldLlmModel": "",
+  "inworldSttModel": "",
+  "inworldSttLanguage": "",
+  "qwenApiKey": "",
+  "qwenModel": "",
+  "azureApiKey": "",
+  "azureEndpoint": "",
+  "azureDeployment": "",
+  "azureApiVersion": "",
+  "openrouterApiKey": "",
+  "openrouterBuzzinModel": "",
+  "openrouterGenerateModel": "",
+  "openrouterVisionModel": "x-ai/grok-4.20",
+  "openrouterTtsModel": "",
+  "videoGeneratorApiUrl": ""
+}

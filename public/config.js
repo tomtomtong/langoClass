@@ -262,6 +262,15 @@ function renderConfig(data) {
   $("#config-openrouter-vision-model-env-default").textContent =
     data.openrouterVisionModelEnvDefault || "—";
 
+  const visionModelSaved = !!(data.openrouterVisionModelSaved || "").trim();
+  const visionNeedsKeyHint = $("#config-openrouter-vision-needs-key");
+  if (visionNeedsKeyHint) {
+    visionNeedsKeyHint.hidden = !(visionModelSaved && !openrouterConfigured);
+    if (!visionNeedsKeyHint.hidden) {
+      visionNeedsKeyHint.textContent = `Vision model ${data.effectiveOpenRouterVisionModel || data.openrouterVisionModelSaved} is saved, but no OpenRouter API key is stored yet. Scanned PDFs and images need both — click Save key above.`;
+    }
+  }
+
   $("#config-openrouter-tts-model").value = data.openrouterTtsModelSaved || "";
   $("#config-openrouter-tts-model-effective").textContent =
     data.effectiveOpenRouterTtsModel || "—";

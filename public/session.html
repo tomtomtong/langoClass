@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Session · Lango Class</title>
+  <link rel="icon" href="/assets/login/langoclass_logo.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/cms.css" />
+</head>
+<body class="session-page">
+  <main class="session-shell paper" id="session-root">
+    <header class="session-head">
+      <img class="session-logo" src="/assets/login/langoclass_logo.svg" alt="Lango" />
+      <div>
+        <p class="kicker">Lango Class</p>
+        <h1 id="sess-title">Session</h1>
+        <p class="hint" id="sess-sub"></p>
+      </div>
+      <span class="badge" id="sess-phase">Lobby</span>
+    </header>
+
+    <div class="session-schedule" id="sess-schedule"></div>
+
+    <section class="session-trailer" id="sess-trailer" hidden>
+      <div class="trailer-frame" id="trailer-frame"></div>
+      <div class="trailer-copy">
+        <h2 id="trailer-title">Trailer</h2>
+        <p id="trailer-text"></p>
+        <button class="btn primary" type="button" id="trailer-play">▶ Watch trailer</button>
+        <p class="hint" id="trailer-watched" hidden>Trailer watched ✓</p>
+      </div>
+    </section>
+
+    <section class="session-prep" id="sess-prep" hidden>
+      <h2>Before we start</h2>
+      <ul class="prep-list" id="prep-list"></ul>
+    </section>
+
+    <section class="session-countdown" id="sess-countdown" hidden>
+      <p class="kicker">Starts in</p>
+      <div class="countdown-digits" id="countdown-digits">--:--:--</div>
+      <p class="hint" id="countdown-note"></p>
+    </section>
+
+    <section class="session-live" id="sess-live" hidden>
+      <h2>Session is live</h2>
+      <p id="live-body">Join on your iPad when your teacher Hosts.</p>
+      <div class="row">
+        <a class="btn primary" id="join-live" href="join.html?preview=1">Join on iPad</a>
+        <a class="btn ghost" id="host-live" href="host.html">Host</a>
+      </div>
+    </section>
+
+    <section class="session-ended" id="sess-ended" hidden>
+      <h2>Session ended</h2>
+      <p class="hint">This scheduled section has finished. Ask your teacher for the next link.</p>
+      <a class="btn ghost" href="cms.html">Back to Course CMS</a>
+    </section>
+
+    <section class="session-wait" id="sess-wait" hidden>
+      <h2>Not open yet</h2>
+      <p class="hint" id="wait-body">The lobby opens 15 minutes before the scheduled start.</p>
+    </section>
+
+    <footer class="session-foot">
+      <label class="field-label" for="display-name">Display name</label>
+      <input id="display-name" type="text" placeholder="Your name" maxlength="40" />
+      <div class="session-link-box">
+        <span class="hint">Session link</span>
+        <code id="sess-link"></code>
+        <button class="btn small ghost" type="button" id="copy-link">Copy link</button>
+      </div>
+    </footer>
+  </main>
+  <div class="toasts" id="toasts"></div>
+  <script src="/session-data.js"></script>
+  <script src="/session.js"></script>
+</body>
+</html>

@@ -3645,7 +3645,48 @@ function flattenCourseExercises(course) {
   return { sections, exercises };
 }
 
-function buildDashboardCourseProgress(course, progress) {
+function buildCourseEngagementInsights(teacherId, classId, courseId, studentCount) {
+  const scores = scoreStore.listScoresForClass(teacherId, classId, { courseId });
+  if (!scores.length) {
+    return { engagementScore: null, topStruggle: null };
+  }
+
+  const byExercise = new Map();
+  for (const record of scores) {
+    const key = Number(record.exerciseId);
+    if (!byExercise.has(key)) {
+      byExercise.set(key, { title: record.exerciseTitle, scores: [] });
+    }
+    byExercise.get(key).scores.push(Math.max(0, Number(record.score) || 0));
+  }
+
+  let topStruggle = null;
+  let lowestAvg = Infinity;
+  for (const entry of byExercise.values()) {
+    const avg = entry.scores.reduce((sum, value) => sum + value, 0) / entry.scores.length;
+    if (avg < lowestAvg) {
+      lowestAvg = avg;
+      topStruggle = entry.title || null;
+    }
+  }
+
+  const uniqueStudents = new Set(scores.map((record) => record.studentUserId)).size;
+  const classSize = Number(studentCount);
+  const engagementScore =
+    classSize > 0
+      ? Math.min(100, Math.round((uniqueStudents / classSize) * 100))
+      : Math.min(
+          100,
+          Math.round(
+            scores.reduce((sum, record) => sum + Math.max(0, Number(record.score) || 0), 0) /
+              scores.length
+          )
+        );
+
+  return { engagementScore, topStruggle };
+}
+
+function buildDashboardCourseProgress(course, progress, insightsContext = {}) {
   const { sections, exercises } = flattenCourseExercises(course);
   const completedSet = new Set((progress?.completedExerciseIds || []).map(Number));
   const completedCount = exercises.filter((entry) => completedSet.has(Number(entry.id))).length;
@@ -3659,6 +3700,19 @@ function buildDashboardCourseProgress(course, progress) {
     progress?.lastExerciseId != null ||
     (progress?.visitedSectionIds || []).length > 0;
 
+  const { engagementScore, topStruggle } =
+    insightsContext.teacherId && insightsContext.classId
+      ? buildCourseEngagementInsights(
+          insightsContext.teacherId,
+          insightsContext.classId,
+          course.id,
+          insightsContext.studentCount
+        )
+      : { engagementScore: null, topStruggle: null };
+
+  const complete = totalExercises > 0 && completedCount >= totalExercises;
+  const status = complete ? "completed" : hasActivity ? "in_progress" : "not_started";
+
   return {
     courseId: course.id,
     name: course.name,
@@ -3667,10 +3721,14 @@ function buildDashboardCourseProgress(course, progress) {
     totalExercises,
     completedCount,
     percent,
+    lastSectionId: progress?.lastSectionId ?? null,
     lastSectionTitle: lastSection?.title || null,
     lastExerciseTitle: lastExercise?.title || null,
     updatedAt: progress?.updatedAt || null,
     started: hasActivity,
+    status,
+    engagementScore: engagementScore ?? (hasActivity ? percent : null),
+    topStruggle: topStruggle || lastExercise?.title || null,
   };
 }
 
@@ -3856,7 +3914,11 @@ app.get("/api/cms/dashboard/progress", async (req, res) => {
       const progress =
         progressByCourseId.get(Number(course.id)) ||
         hostProgressStore.emptyProgress(auth.teacherId, classId, course.id);
-      return buildDashboardCourseProgress(course, progress);
+      return buildDashboardCourseProgress(course, progress, {
+        teacherId: auth.teacherId,
+        classId,
+        studentCount: null,
+      });
     })
     .filter(Boolean)
     .sort((a, b) => {
@@ -4040,6 +4102,12 @@ app.put("/api/cms/courses/:courseId", async (req, res) => {
       banner: course.banner,
       langCode: course.langCode,
       classIds: course.classIds || [],
+      level: course.level || "",
+      estimatedMinutes: course.estimatedMinutes || null,
+      objectives: course.objectives || [],
+      authorNotes: course.authorNotes || "",
+      plannedStart: course.plannedStart || "",
+      plannedEnd: course.plannedEnd || "",
       updatedAt: course.updatedAt,
     },
   });
@@ -4477,6 +4545,18 @@ app.put("/api/cms/video-captions", async (req, res) => {
   }
 });
 
+function materialExtractHttpStatus(err) {
+  const message = String(err?.message || "");
+  if (
+    /no readable text|configure openrouter|openrouter api key|vision model alone|transcription is not configured|caption file has no|upload failed|provide a file|image conversion requires|could not read .* with vision ocr|image file is empty|image file is too large|heic image/i.test(
+      message
+    )
+  ) {
+    return 400;
+  }
+  return 500;
+}
+
 async function extractUploadedMaterialFile(uploadedFile, { language, materialHint, enableVisionCrop = true }) {
   const format = materialExtract.detectFormat(uploadedFile.originalname, uploadedFile.mimetype);
 
@@ -4804,7 +4884,12 @@ app.post("/api/cms/extract-material", async (req, res) => {
         );
       } catch {}
       // #endregion
-      return res.status(500).json({ message: err.message || "Material extraction failed." });
+      const status = materialExtractHttpStatus(err);
+      return res.status(status).json({
+        message: err.message || "Material extraction failed.",
+        needsOpenRouterKey: status === 400 && !getOpenRouterApiKey(),
+        visionModel: getOpenRouterVisionModel(),
+      });
     }
   });
 });

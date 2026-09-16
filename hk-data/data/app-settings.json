@@ -2,12 +2,14 @@
   "publicBaseUrl": "",
   "inworldApiKey": "",
   "inworldLlmModel": "",
-  "inworldSttModel": "",
+  "inworldSttModel": "inworld/inworld-stt-1",
   "inworldSttLanguage": "yue",
   "qwenApiKey": "",
   "qwenModel": "",
   "openrouterApiKey": "",
-  "openrouterBuzzinModel": "",
-  "openrouterGenerateModel": "",
-  "videoGeneratorApiUrl": ""
+  "openrouterBuzzinModel": "mistralai/voxtral-small-24b-2507",
+  "openrouterGenerateModel": "x-ai/grok-4.3",
+  "openrouterVisionModel": "x-ai/grok-4.3",
+  "openrouterTtsModel": "x-ai/grok-voice-tts-1.0",
+  "videoGeneratorApiUrl": "https://newcms.lango.ai"
 }

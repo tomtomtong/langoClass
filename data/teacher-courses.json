@@ -44,424 +44,6 @@
       "updatedAt": "2026-09-03T05:14:29.703Z"
     },
     {
-      "id": -6,
-      "teacherId": 835,
-      "name": "New course",
-      "description": "",
-      "banner": "",
-      "langCode": "en",
-      "classIds": [],
-      "sourceCommunityId": null,
-      "communityListingId": null,
-      "communityPublishedAt": null,
-      "communityFeatured": false,
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "",
-          "order": 1,
-          "exercises": []
-        }
-      ],
-      "createdAt": "2026-09-03T05:14:29.703Z",
-      "updatedAt": "2026-09-03T05:14:29.704Z"
-    },
-    {
-      "id": -7,
-      "teacherId": 835,
-      "name": "New course",
-      "description": "",
-      "banner": "",
-      "langCode": "en",
-      "classIds": [],
-      "sourceCommunityId": null,
-      "communityListingId": null,
-      "communityPublishedAt": null,
-      "communityFeatured": false,
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "",
-          "order": 1,
-          "exercises": []
-        }
-      ],
-      "createdAt": "2026-09-03T05:14:29.704Z",
-      "updatedAt": "2026-09-03T05:14:29.704Z"
-    },
-    {
-      "id": -8,
-      "teacherId": 835,
-      "name": "New course",
-      "description": "testing course 3/9",
-      "banner": "/uploads/courses/import-835-1788412469707-9h09z0.jpeg",
-      "langCode": "en",
-      "classIds": [],
-      "sourceCommunityId": null,
-      "communityListingId": null,
-      "communityPublishedAt": null,
-      "communityFeatured": false,
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "/uploads/sections/import-835-1788412469707-hninjl.jpeg",
-          "order": 1,
-          "exercises": [
-            {
-              "id": 1,
-              "title": "Fantasy Adventure Quiz",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Who trapped the Demon King long ago?",
-                  "options": [
-                    {
-                      "text": "A powerful wizard",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "The children at school",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "The mango moms",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "An army of soldiers",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                },
-                {
-                  "title": "What is the Demon King trying to reach inside the school?",
-                  "options": [
-                    {
-                      "text": "A hidden powerful gem",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "A magical shield",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Lost spell books",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Ancient wizard robes",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                },
-                {
-                  "title": "Why do the mango moms need help from students?",
-                  "options": [
-                    {
-                      "text": "They cannot speak magic spells themselves",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "They have no magic power at all",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "They are trapped in the dark",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "They forgot where the school is",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 18,
-                  "image": null
-                },
-                {
-                  "title": "What has happened to human magic in this story?",
-                  "options": [
-                    {
-                      "text": "Humans have lost their magic",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Humans gained new spells",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Humans taught magic to wizards",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Humans destroyed all magic",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "title": "Story Discussion",
-              "subTitle": "Buzz In",
-              "order": 2,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "Explain why the children are needed to help save the world in this tale.",
-                  "correctAnswer": "Students should mention that humans lost magic and only children can help mango moms cast spells to stop the Demon King."
-                },
-                {
-                  "topic": "Describe what the wizard is doing to protect the school and why it is important.",
-                  "correctAnswer": "Students should note the wizard used magic to create a shield around Lango School to keep the Demon King's army away from the gem."
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 2,
-          "title": "Section 2",
-          "banner": "",
-          "order": 2,
-          "exercises": []
-        }
-      ],
-      "createdAt": "2026-09-03T05:14:29.707Z",
-      "updatedAt": "2026-09-03T05:14:29.708Z"
-    },
-    {
-      "id": -9,
-      "teacherId": 835,
-      "name": "New course",
-      "description": "",
-      "banner": "/uploads/courses/import-835-1788412469708-rwoggb.jpeg",
-      "langCode": "en",
-      "classIds": [],
-      "sourceCommunityId": null,
-      "communityListingId": null,
-      "communityPublishedAt": null,
-      "communityFeatured": false,
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "/uploads/sections/import-835-1788412469708-sel7na.png",
-          "order": 1,
-          "exercises": [
-            {
-              "id": 1,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Where do the sea animals live?",
-                  "options": [
-                    {
-                      "text": "In the sea",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "In the sky",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "In the tree",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "In the house",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "title": "Demo: Fast Quiz",
-              "subTitle": "Fast MC Quiz",
-              "order": 2,
-              "type": "fastmcquiz",
-              "items": [
-                {
-                  "title": "Which animal swims in the sea?",
-                  "options": [
-                    {
-                      "text": "Fish",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Cat",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Cow",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 10,
-                  "image": null
-                },
-                {
-                  "title": "Which animal is big?",
-                  "options": [
-                    {
-                      "text": "Mercury",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Ant",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Bird",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 10,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 3,
-              "title": "Video lesson",
-              "subTitle": "Video",
-              "order": 3,
-              "type": "video",
-              "items": [
-                {
-                  "videoUrl": "/uploads/videos/import-835-1788412469708-l9bttc.mp4"
-                }
-              ]
-            },
-            {
-              "id": 4,
-              "title": "Buzz In",
-              "subTitle": "Buzz In",
-              "order": 4,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "What is your favorite animal?"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 2,
-          "title": "Section 2",
-          "banner": "/uploads/sections/import-835-1788412469711-2dt0zo.png",
-          "order": 2,
-          "exercises": [
-            {
-              "id": 5,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 3,
-          "title": "Section 3",
-          "banner": "/uploads/sections/import-835-1788412469711-2p91on.png",
-          "order": 3,
-          "exercises": [
-            {
-              "id": 6,
-              "title": "Quiz",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Sample question?",
-                  "options": [
-                    {
-                      "text": "Option A",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Option B",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": 4,
-          "title": "Section 4",
-          "banner": "/uploads/sections/import-835-1788412469712-s6lepo.png",
-          "order": 4,
-          "exercises": []
-        },
-        {
-          "id": 5,
-          "title": "Section 5",
-          "banner": "",
-          "order": 5,
-          "exercises": []
-        },
-        {
-          "id": 6,
-          "title": "Section 6",
-          "banner": "",
-          "order": 6,
-          "exercises": []
-        },
-        {
-          "id": 7,
-          "title": "Section 7",
-          "banner": "",
-          "order": 7,
-          "exercises": []
-        }
-      ],
-      "createdAt": "2026-09-03T05:14:29.712Z",
-      "updatedAt": "2026-09-03T05:14:29.712Z"
-    },
-    {
       "id": -10,
       "teacherId": 835,
       "name": "Aviation Course",
@@ -772,17 +354,9 @@
       "communityListingId": null,
       "communityPublishedAt": null,
       "communityFeatured": false,
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "",
-          "order": 1,
-          "exercises": []
-        }
-      ],
+      "sections": [],
       "createdAt": "2026-09-03T05:14:29.727Z",
-      "updatedAt": "2026-09-03T05:14:29.728Z"
+      "updatedAt": "2026-09-16T03:25:14.460Z"
     },
     {
       "id": -12,
@@ -988,152 +562,89 @@
     {
       "id": -13,
       "teacherId": 835,
-      "name": "香港文化",
+      "name": "New course",
       "description": "",
-      "banner": "/uploads/courses/course--13-1788414847857.png",
+      "banner": "",
       "langCode": "en",
       "classIds": [],
       "sourceCommunityId": null,
       "communityListingId": null,
       "communityPublishedAt": null,
       "communityFeatured": false,
-      "sections": [
-        {
-          "id": 1,
-          "title": "Section 1",
-          "banner": "",
-          "order": 1,
-          "exercises": [
-            {
-              "id": 1,
-              "title": "Hong Kong Urban Heritage",
-              "subTitle": "MC Quiz",
-              "order": 1,
-              "type": "mcquiz",
-              "items": [
-                {
-                  "title": "Which two creators documented the daily life of Kowloon Walled City in a well-known book?",
-                  "options": [
-                    {
-                      "text": "Ian Lambot and Greg Girard",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Peter Cookson Smith and Keith Macgregor",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "John Thomson and Ed Van der Elsken",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Rex Koo and Poki Chan",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                },
-                {
-                  "title": "What did architect He Yi learn from her research in Kowloon Walled City?",
-                  "options": [
-                    {
-                      "text": "The value of low-density suburban planning",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "How residents adapted to high-density living",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "The best techniques for neon sign design",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Methods for preserving traditional calligraphy",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 12,
-                  "image": null
-                },
-                {
-                  "title": "Which type of creative work has been inspired by Kowloon Walled City after its demolition?",
-                  "options": [
-                    {
-                      "text": "Only academic research papers",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Novels, comics, films, and games",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Government urban planning reports",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Classical music compositions",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": null
-                },
-                {
-                  "title": "What is the main goal of young Hong Kong designers working with traditional street fonts?",
-                  "options": [
-                    {
-                      "text": "To replace all signs with digital displays",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "To digitize and preserve disappearing local typefaces",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "To remove calligraphy from public spaces",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "To focus only on English lettering",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 18,
-                  "image": null
-                }
-              ]
-            },
-            {
-              "id": 2,
-              "title": "Hong Kong Cultural Topics",
-              "subTitle": "Buzz In",
-              "order": 2,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "Explain how Kowloon Walled City continues to influence creative works today.",
-                  "correctAnswer": "Accept answers that mention novels, comics, films, games, or cultural memory of the site."
-                },
-                {
-                  "topic": "Describe efforts to preserve traditional Hong Kong street typography and signage.",
-                  "correctAnswer": "Accept answers that mention neon signs, local typefaces, calligraphy, or documentation projects."
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      "createdAt": "2026-09-03T05:14:29.740Z",
-      "updatedAt": "2026-09-03T05:55:01.218Z"
+      "sections": [],
+      "createdAt": "2026-09-16T03:25:32.217Z",
+      "updatedAt": "2026-09-16T03:25:32.217Z"
+    },
+    {
+      "id": -14,
+      "teacherId": 835,
+      "name": "New course",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [],
+      "createdAt": "2026-09-16T04:07:18.243Z",
+      "updatedAt": "2026-09-16T04:07:18.243Z"
+    },
+    {
+      "id": -15,
+      "teacherId": 835,
+      "name": "New course",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [],
+      "createdAt": "2026-09-16T04:07:23.624Z",
+      "updatedAt": "2026-09-16T04:07:23.624Z"
     },
     {
       "id": -16,
       "teacherId": 835,
       "name": "New course",
       "description": "",
-      "banner": "/uploads/courses/course--16-1788418666380.png",
+      "banner": "",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [],
+      "createdAt": "2026-09-16T04:46:54.829Z",
+      "updatedAt": "2026-09-16T04:46:54.829Z"
+    },
+    {
+      "id": -17,
+      "teacherId": 835,
+      "name": "New course",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [],
+      "createdAt": "2026-09-16T04:49:57.121Z",
+      "updatedAt": "2026-09-16T04:49:57.121Z"
+    },
+    {
+      "id": -24,
+      "teacherId": 835,
+      "name": "Demo",
+      "description": "this is only a demo",
+      "banner": "/uploads/courses/course--24-1789535179085.png",
       "langCode": "en",
       "classIds": [],
       "sourceCommunityId": null,
@@ -1142,35 +653,66 @@
       "communityFeatured": false,
       "sections": [
         {
-          "id": 1,
-          "title": "Untitled",
-          "banner": "/uploads/sections/section-ai-course--16-section-1-835-1788418987412.png",
+          "id": 3,
+          "title": "Character Talk · Tell what the old officer looks like from the story.",
+          "banner": "/uploads/sections/section-ai-course--24-section-3-835-1789544229543.png",
           "order": 1,
           "exercises": [
             {
-              "id": 1,
-              "title": "Hong Kong Cultural Heritage Quiz",
+              "id": 6,
+              "title": "Character Talk",
+              "subTitle": "Buzz In",
+              "order": 1,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "Tell what the old officer looks like from the story.",
+                  "correctAnswer": "Accept any simple description of height, age, clothes, or beard.",
+                  "image": "/uploads/questions/question-ai-835-1789544187317.png"
+                },
+                {
+                  "topic": "Say one thing you think about Dracula from the text.",
+                  "correctAnswer": "Accept any simple comment on looks, actions, or feelings like scary or polite."
+                },
+                {
+                  "topic": "Talk about how one person in the story moves or acts.",
+                  "correctAnswer": "Accept any basic mention of walking, speaking, or carrying items.",
+                  "image": "/uploads/questions/question-ai-835-1789544202432.png"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "title": "What does explicit information tell us about a character",
+          "banner": "/uploads/sections/section-ai-course--24-section-1-835-1789543848835.png",
+          "order": 2,
+          "exercises": [
+            {
+              "id": 4,
+              "title": "MC Quiz",
               "subTitle": "MC Quiz",
               "order": 1,
               "type": "mcquiz",
               "items": [
                 {
-                  "title": "Which authors created the classic book documenting Kowloon Walled City day and night?",
+                  "title": "What does explicit information tell us about a character?",
                   "options": [
                     {
-                      "text": "Ian Lambot and Greg Girard",
+                      "text": "It gives direct facts from the text.",
                       "isCorrect": true
                     },
                     {
-                      "text": "John Thomson and Ed Van der Elsken",
+                      "text": "It gives hidden clues only.",
                       "isCorrect": false
                     },
                     {
-                      "text": "Peter Cookson Smith and Keith Macgregor",
+                      "text": "It shows the writer's opinion only.",
                       "isCorrect": false
                     },
                     {
-                      "text": "Ho Yi and Rex Koo",
+                      "text": "It tells us nothing about looks.",
                       "isCorrect": false
                     }
                   ],
@@ -1178,92 +720,139 @@
                   "image": null
                 },
                 {
-                  "title": "What did architect Ho Yi study for ten months in Kowloon Walled City?",
+                  "title": "What does the old officer do in the text?",
                   "options": [
                     {
-                      "text": "How residents adapted to high-density living",
+                      "text": "He speaks many words to people.",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "He wastes no words on anyone.",
                       "isCorrect": true
                     },
                     {
-                      "text": "Neon sign typography techniques",
+                      "text": "He carries a red bag.",
                       "isCorrect": false
                     },
                     {
-                      "text": "Traditional Chinese restaurant architecture",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Street photography methods",
+                      "text": "He wears black clothes.",
                       "isCorrect": false
                     }
                   ],
                   "timeLimit": 15,
-                  "image": null
+                  "image": "/uploads/questions/question-ai-835-1789543736706.png"
                 },
                 {
-                  "title": "Which nickname belonged to the calligrapher whose street writings were once common across Hong Kong?",
+                  "title": "What is one explicit detail about Benedict?",
                   "options": [
                     {
-                      "text": "The Kowloon Emperor",
+                      "text": "He has a beard.",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "He is between seventy and eighty.",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "He carries a bag.",
                       "isCorrect": true
                     },
                     {
-                      "text": "The Neon King",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "The Street Scribe",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "The Wall Artist",
+                      "text": "He wears green clothes.",
                       "isCorrect": false
                     }
                   ],
                   "timeLimit": 12,
-                  "image": "/uploads/material/mat-1788418765367-c54fa552.jpg"
+                  "image": null
                 },
                 {
-                  "title": "Which area is highlighted for its mix of new and old shops and community interactions in recent typography studies?",
+                  "title": "What does implicit meaning do in a text?",
                   "options": [
                     {
-                      "text": "Tai Nan Street in Sham Shui Po",
+                      "text": "It gives only direct facts.",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "It shows clues about a character.",
                       "isCorrect": true
                     },
                     {
-                      "text": "Central tram tracks",
+                      "text": "It lists all the words spoken.",
                       "isCorrect": false
                     },
                     {
-                      "text": "Kowloon Walled City rooftop",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "North Point restaurant district",
+                      "text": "It tells the age of the writer.",
                       "isCorrect": false
                     }
                   ],
                   "timeLimit": 18,
-                  "image": "/uploads/material/mat-1788418782684-9c974896.jpg"
+                  "image": null
                 }
               ]
             },
             {
-              "id": 2,
-              "title": "Hong Kong Heritage Discussion",
-              "subTitle": "Buzz In",
+              "id": 5,
+              "title": "Lightning round",
+              "subTitle": "Lightning round",
               "order": 2,
-              "type": "buzzin",
+              "type": "fastmcquiz",
               "items": [
                 {
-                  "topic": "Describe how Kowloon Walled City has inspired creative works in books, comics, games, or films after its demolition.",
-                  "correctAnswer": "Accept answers mentioning novels, anime-style illustrations, local comics, virtual games, or emotional connections to the site's history and density.",
-                  "image": "/uploads/material/mat-1788418746864-0ef2540a.jpg"
+                  "title": "Which word shows Dracula seems creepy?",
+                  "options": [
+                    {
+                      "text": "courtly",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "cold as ice",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "tall",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/questions/question-ai-835-1789543744210.png"
                 },
                 {
-                  "topic": "Explain the efforts by designers and photographers to preserve Hong Kong's disappearing neon signs and traditional street typography.",
-                  "correctAnswer": "Accept answers referencing recording old signs, digital revival of fonts like Bei Wei or prison styles, or documenting street life along areas like Tai Nan Street.",
-                  "image": "/uploads/material/mat-1788418765368-1a5759c3.jpg"
+                  "title": "What does the text say about Dracula's eyes?",
+                  "options": [
+                    {
+                      "text": "They are red and blazing.",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "They are blue and kind.",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "They are small and weak.",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 8,
+                  "image": "/uploads/questions/question-ai-835-1789543757451.png"
+                },
+                {
+                  "title": "What does a courtly gesture suggest?",
+                  "options": [
+                    {
+                      "text": "The man is rude.",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "The man is friendly.",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "The man is angry.",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
                 }
               ]
             }
@@ -1271,231 +860,89 @@
         },
         {
           "id": 2,
-          "title": "Untitled",
-          "banner": "/uploads/sections/section-ai-course--16-section-2-835-1788419490199.png",
-          "order": 2,
+          "title": "How old is the old officer in the text · Lightning round",
+          "banner": "/uploads/sections/section-ai-course--24-section-2-835-1789542389109.png",
+          "order": 3,
           "exercises": [
             {
-              "id": 3,
-              "title": "Hong Kong Trails Buzz",
-              "subTitle": "Buzz In",
-              "order": 1,
-              "type": "buzzin",
-              "items": [
-                {
-                  "topic": "Who drew the map of backyard trails?",
-                  "correctAnswer": "The artist Mao Shan",
-                  "image": "/uploads/material/mat-1788419184160-c68ac3c9.jpg"
-                }
-              ]
-            },
-            {
-              "id": 4,
-              "title": "Hong Kong Trails and Nature",
+              "id": 1,
+              "title": "MC Quiz",
               "subTitle": "MC Quiz",
-              "order": 2,
+              "order": 1,
               "type": "mcquiz",
               "items": [
                 {
-                  "title": "What are backyard trails in Hong Kong?",
+                  "title": "How old is the old officer in the text?",
                   "options": [
                     {
-                      "text": "Green areas near homes for rest",
+                      "text": "He is young.",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "He is between 70 and 80 years old.",
                       "isCorrect": true
                     },
                     {
-                      "text": "Big city roads with cars",
+                      "text": "He is a child.",
                       "isCorrect": false
                     },
                     {
-                      "text": "Tall buildings only",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Places far from people",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": "/uploads/material/mat-1788419184160-c68ac3c9.jpg"
-                },
-                {
-                  "title": "Who created the illustrated map?",
-                  "options": [
-                    {
-                      "text": "A famous singer",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "An artist named Mao Shan",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "A school teacher",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "A bus driver",
+                      "text": "He is 20 years old.",
                       "isCorrect": false
                     }
                   ],
                   "timeLimit": 15,
                   "image": null
-                },
-                {
-                  "title": "Why do people use backyard trails?",
-                  "options": [
-                    {
-                      "text": "To feel better and relax",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "To buy food only",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "To work in offices",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "To watch movies",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": "/uploads/questions/question-ai-835-1788419338388.png"
-                },
-                {
-                  "title": "What material was used for old buildings in Hong Kong?",
-                  "options": [
-                    {
-                      "text": "Plastic and glass",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Local granite stone",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Soft paper",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Thin wood only",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 20,
-                  "image": "/uploads/material/mat-1788419184161-efd3ba42.jpg"
-                },
-                {
-                  "title": "What do stone wall trees show?",
-                  "options": [
-                    {
-                      "text": "Strong life in the city",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "Fast cars on roads",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Empty parks at night",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "New shopping malls",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 15,
-                  "image": "/uploads/questions/question-ai-835-1788419349295.png"
                 }
               ]
             },
             {
-              "id": 5,
-              "title": "Hong Kong Rocky Words",
+              "id": 2,
+              "title": "Lightning round",
               "subTitle": "Lightning round",
-              "order": 3,
+              "order": 2,
               "type": "fastmcquiz",
               "items": [
                 {
-                  "title": "What does remove mean here?",
+                  "title": "What color are the officer's clothes?",
                   "options": [
                     {
-                      "text": "Moving small hills for homes",
+                      "text": "Green",
                       "isCorrect": true
                     },
                     {
-                      "text": "Planting new flowers",
+                      "text": "Red",
                       "isCorrect": false
                     },
                     {
-                      "text": "Building tall towers",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Painting old walls",
+                      "text": "Blue",
                       "isCorrect": false
                     }
                   ],
                   "timeLimit": 10,
-                  "image": null
-                },
+                  "image": "/uploads/questions/question-ai-835-1789542332249.png"
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "title": "Buzz In",
+              "subTitle": "Buzz In",
+              "order": 3,
+              "type": "buzzin",
+              "items": [
                 {
-                  "title": "What was Hong Kong like long ago?",
-                  "options": [
-                    {
-                      "text": "A place with many trees only",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "A barren rock with stones",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "A big green park",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "A busy shopping center",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 8,
-                  "image": "/uploads/questions/question-ai-835-1788419365548.png"
-                },
-                {
-                  "title": "What do boundary stones show?",
-                  "options": [
-                    {
-                      "text": "Changes in the city history",
-                      "isCorrect": true
-                    },
-                    {
-                      "text": "New games for kids",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Food in markets",
-                      "isCorrect": false
-                    },
-                    {
-                      "text": "Colors of flags",
-                      "isCorrect": false
-                    }
-                  ],
-                  "timeLimit": 10,
-                  "image": "/uploads/questions/question-ai-835-1788419374923.png"
+                  "topic": "Tell one thing about how the old officer looks or acts.",
+                  "correctAnswer": "Any simple fact like tall, old, wears green clothes, carries a bag, has a beard, or does not speak much.",
+                  "image": "/uploads/questions/question-ai-835-1789542340697.png"
                 }
               ]
             }
           ]
         }
       ],
-      "createdAt": "2026-09-03T06:57:32.429Z",
-      "updatedAt": "2026-09-03T07:11:58.967Z"
+      "createdAt": "2026-09-16T05:04:33.931Z",
+      "updatedAt": "2026-09-16T07:54:16.337Z"
     }
   ]
 }

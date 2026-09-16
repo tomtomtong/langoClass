@@ -23,8 +23,8 @@ function cmsCount(n, oneKey, manyKey) {
 
 function aiSectionStepLabels() {
   return [
-    cmsT("cms.ai.step.format"),
     cmsT("cms.ai.step.material"),
+    cmsT("cms.ai.step.format"),
     cmsT("cms.ai.step.review"),
     cmsT("cms.ai.step.publish"),
   ];
@@ -38,7 +38,7 @@ function aiCourseStepLabels() {
     cmsT("cms.ai.step.publish"),
   ];
 }
-const AI_SECTION_STEP_KINDS = ["format", "material", "review", "publish"];
+const AI_SECTION_STEP_KINDS = ["material", "format", "review", "publish"];
 const AI_COURSE_STEP_KINDS = ["material", "plan", "review", "publish"];
 
 const CMS_FALLBACK_SPEAK_LANGUAGES = [
@@ -89,6 +89,7 @@ const state = {
   aiCoursePlan: null,
   aiCourseResults: [],
   aiGenSummary: null,
+  aiPublishStagedCount: 0,
   exercisesSaveUnlocked: false,
   globalAgentOpen: false,
   globalAgentBusy: false,
@@ -104,6 +105,8 @@ const state = {
   batchPreparedMaterials: {},
   dashboardClassId: null,
   dashboardCourses: [],
+  coursesTab: "all",
+  homeCourseProgress: null,
   cmsDirty: false,
   cmsAutosaving: false,
   cmsTourStep: 0,
@@ -156,30 +159,29 @@ function clearCmsDirty() {
 }
 
 function updateCmsAutosaveStatus() {
-  const el = $("#cms-autosave-status");
-  if (!el) return;
-  if (!state.editingCourse || !$("#screen-cms-edit")?.classList.contains("active")) {
-    el.hidden = true;
-    return;
-  }
-  el.hidden = false;
-  el.classList.remove("is-dirty", "is-saving", "is-saved");
-  if (state.cmsAutosaving) {
-    el.textContent = cmsT("cms.edit.saving");
-    el.classList.add("is-saving");
-  } else if (state.cmsDirty) {
-    el.textContent = cmsT("cms.edit.unsaved");
-    el.classList.add("is-dirty");
-  } else {
-    el.textContent = cmsT("cms.edit.saved");
-    el.classList.add("is-saved");
-  }
+  const text = (() => {
+    if (!state.editingCourse || !$("#screen-cms-edit")?.classList.contains("active")) return "";
+    if (state.cmsAutosaving) return cmsT("cms.edit.saving");
+    if (state.cmsDirty) return cmsT("cms.edit.unsaved");
+    return cmsT("cms.edit.saved");
+  })();
+  const className = state.cmsAutosaving ? "is-saving" : state.cmsDirty ? "is-dirty" : "is-saved";
+
+  ["cms-autosave-status", "cms-exercises-autosave"].forEach((id) => {
+    const el = $(`#${id}`);
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove("is-dirty", "is-saving", "is-saved");
+    if (text && className) el.classList.add(className);
+  });
 }
 
 function syncExercisesSaveButton() {
   const btn = $("#btn-save-exercises");
   if (!btn) return;
-  btn.hidden = !state.exercisesSaveUnlocked;
+  const section = state.editingSectionIndex != null ? state.sections[state.editingSectionIndex] : null;
+  const hasExercises = (section?.exercises?.length || 0) > 0;
+  btn.hidden = !hasExercises && !state.exercisesSaveUnlocked;
 }
 
 function aiTypeBadge(type) {
@@ -199,7 +201,7 @@ function showAiEntryChooser() {
   placeAiFormatExtras();
   const wizard = $("#cms-ai-wizard");
   if (wizard) wizard.hidden = true;
-  $("#cms-exercises-view")?.classList.remove("is-course-generate");
+  $("#cms-exercises-view")?.classList.remove("is-ai-wizard-active", "is-course-generate", "is-ai-publish-playlist");
   document.body.classList.remove("cms-ai-course-flow");
   const banner = $("#cms-ai-course-banner");
   if (banner) banner.hidden = true;
@@ -212,58 +214,74 @@ function syncSectionsStartUi() {
   const chooser = $("#cms-ai-entry-chooser");
   if (chooser) chooser.hidden = false;
   const title = $("#cms-sections-start-title");
-  const intro = $("#cms-sections-start-intro");
   const toolbar = $("#cms-sections-toolbar");
   const empty = !(state.sections || []).length;
   if (title) {
-    title.textContent = empty ? cmsT("cms.sections.startTitle") : cmsT("cms.sections.addTitle");
-  }
-  if (intro) {
-    intro.textContent = empty ? cmsT("cms.sections.startIntro") : cmsT("cms.sections.startIntroMore");
+    title.hidden = empty;
+    title.textContent = cmsT("cms.sections.addTitle");
   }
   if (toolbar) toolbar.hidden = empty;
   const tab = document.getElementById("cms-tab-sections");
   tab?.classList.toggle("is-sections-empty", empty);
   tab?.classList.toggle("has-sections", !empty);
-
-  // #region agent log
-  const courseBtn = $("#btn-cms-ai-path-course");
-  if (courseBtn) {
-    const cs = getComputedStyle(courseBtn);
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-      body: JSON.stringify({
-        sessionId: "d0607f",
-        runId: "hide-course-btn",
-        hypothesisId: "H1-H3",
-        location: "cms.js:syncSectionsStartUi",
-        message: "Course entry button visibility",
-        data: {
-          hasHiddenAttr: courseBtn.hasAttribute("hidden"),
-          hiddenProp: courseBtn.hidden,
-          computedDisplay: cs.display,
-          offsetHeight: courseBtn.offsetHeight,
-          sectionCount: (state.sections || []).length,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
 }
 
 function syncAiIdleUi() {
   const idle = $("#cms-ai-idle");
+  const panel = $("#cms-ai-panel");
+  const wizard = $("#cms-ai-wizard");
   const view = $("#cms-exercises-view");
   if (view) view.classList.toggle("is-manual-entry", Boolean(state.aiManualEntry));
   if (!idle) return;
+  const section = state.editingSectionIndex != null ? state.sections[state.editingSectionIndex] : null;
+  const hasExercises = (section?.exercises?.length || 0) > 0;
   const show =
     !state.aiWizardActive &&
     !state.aiCourseWorkspace &&
     hasHostSectionForAi() &&
-    !state.aiManualEntry;
+    !state.aiManualEntry &&
+    !hasExercises;
   idle.hidden = !show;
+  if (panel) {
+    const wizardVisible = Boolean(wizard && !wizard.hidden && state.aiWizardActive);
+    panel.hidden = !wizardVisible && !show;
+  }
+}
+
+function syncAiPublishPlaylistUi(step = state.aiWizardStep) {
+  const view = $("#cms-exercises-view");
+  const saveBtn = $("#btn-save-exercises");
+  const isPublish = step === 4 && state.aiWizardActive && !state.aiCourseMode;
+  view?.classList.toggle("is-ai-publish-playlist", isPublish);
+  if (!saveBtn) return;
+  if (isPublish) {
+    saveBtn.textContent = cmsT("cms.ai.publishSection");
+    saveBtn.hidden = false;
+    return;
+  }
+  saveBtn.textContent = cmsT("cms.ex.save");
+  syncExercisesSaveButton();
+}
+
+function undoAiPublishStaging() {
+  if (!state.aiPublishStagedCount || state.editingSectionIndex == null) {
+    state.aiPublishStagedCount = 0;
+    return;
+  }
+  const section = state.sections[state.editingSectionIndex];
+  if (section?.exercises?.length) {
+    section.exercises.splice(-state.aiPublishStagedCount, state.aiPublishStagedCount);
+  }
+  state.aiPublishStagedCount = 0;
+  renderExerciseEditors({ skipReveal: true });
+  syncExercisesSaveButton();
+}
+
+function stageAiExercisesForPublish() {
+  if (state.aiPublishStagedCount > 0) return state.aiPublishStagedCount;
+  const added = addAiExercisesToSection();
+  state.aiPublishStagedCount = added;
+  return added;
 }
 
 function stashOpenSectionWork() {
@@ -271,26 +289,32 @@ function stashOpenSectionWork() {
   if (state.editingSectionIndex != null) syncExercisesFromDom();
 }
 
-function addBlankSection() {
+function ensureBlankSectionIndex() {
   stashOpenSectionWork();
   if (getActiveTabId() === "sections" && !isExercisesSubpageOpen()) syncSectionsMetadataFromDom();
+  const reusableIndex = state.sections.findIndex(isSeededEmptySection);
+  if (reusableIndex >= 0) return reusableIndex;
   state.sections.push(defaultSection(""));
   markCmsDirty();
-  renderSectionEditors();
   return state.sections.length - 1;
 }
 
+function addBlankSection() {
+  const index = ensureBlankSectionIndex();
+  renderSectionEditors();
+  return index;
+}
+
 function startAiOneSection() {
-  const index = addBlankSection();
+  const index = ensureBlankSectionIndex();
+  renderSectionEditors();
   openSectionExercises(index, { ai: true, skipMetaSync: true });
 }
 
 function startManualSection() {
-  stashOpenSectionWork();
-  if (getActiveTabId() === "sections" && !isExercisesSubpageOpen()) syncSectionsMetadataFromDom();
-  state.sections.push(defaultSection(""));
-  markCmsDirty();
-  openSectionExercises(state.sections.length - 1, { manual: true, skipMetaSync: true });
+  const index = ensureBlankSectionIndex();
+  renderSectionEditors();
+  openSectionExercises(index, { manual: true, skipMetaSync: true });
 }
 
 function openAiGeneratePath(mode) {
@@ -304,6 +328,7 @@ function openAiGeneratePath(mode) {
   if (idle) idle.hidden = true;
   const changePath = $("#btn-cms-ai-change-path");
   if (changePath) changePath.hidden = false;
+  $("#cms-exercises-view")?.classList.add("is-ai-wizard-active");
   syncAiCourseModeUi();
   setAiWizardStep(1);
   syncAiWizardCopy();
@@ -337,7 +362,7 @@ function syncAiCourseModeUi() {
   document.body.classList.toggle("cms-ai-course-flow", state.aiCourseMode && state.aiWizardActive);
   const title = $("#cms-ai-wizard-title");
   if (title) {
-    title.textContent = state.aiCourseMode ? cmsT("cms.ai.wizardCourseTitle") : cmsT("cms.ai.fromMaterial");
+    title.textContent = state.aiCourseMode ? cmsT("cms.ai.wizardCourseTitle") : cmsT("cms.ai.startSection");
   }
   const banner = $("#cms-ai-course-banner");
   if (banner) banner.hidden = true;
@@ -1347,7 +1372,7 @@ function showCmsToast(message, { variant = "success", durationMs = 4200 } = {}) 
   }
 
   messageEl.textContent = message;
-  toast.classList.remove("cms-toast--success", "cms-toast--error");
+  toast.classList.remove("cms-toast--success", "cms-toast--error", "cms-toast--info");
   toast.classList.add(`cms-toast--${variant}`);
   toast.classList.remove("is-visible");
   toast.hidden = false;
@@ -2101,14 +2126,17 @@ async function applyGlobalAgentMessage(rawRequest) {
 
   const message = String(rawRequest || "").trim();
   if (!message) {
+    const screen = getActiveCmsScreenId();
     const err =
-      getActiveCmsScreenId() === "dashboard"
-        ? $("#cms-dashboard-error")
-        : getActiveCmsScreenId() === "list"
-          ? $("#cms-list-error")
-          : getActiveTabId() === "sections"
-            ? $("#cms-sections-error")
-            : $("#cms-details-error");
+      screen === "home"
+        ? null
+        : screen === "dashboard"
+          ? $("#cms-dashboard-error")
+          : screen === "list"
+            ? $("#cms-list-error")
+            : getActiveTabId() === "sections"
+              ? $("#cms-sections-error")
+              : $("#cms-details-error");
     if (err) err.textContent = "Enter a message for the assistant.";
     return false;
   }
@@ -2135,6 +2163,13 @@ async function applyGlobalAgentMessage(rawRequest) {
     renderGlobalAgent();
     return true;
   } catch (err) {
+    const errText = String(err?.message || "Assistant request failed.");
+    state.globalAgentHistory = [
+      ...(state.globalAgentHistory || []),
+      { role: "user", content: message },
+      { role: "assistant", content: errText },
+    ].slice(-8);
+    renderGlobalAgent();
     const errEl =
       getActiveCmsScreenId() === "dashboard"
         ? $("#cms-dashboard-error")
@@ -2142,12 +2177,16 @@ async function applyGlobalAgentMessage(rawRequest) {
           ? $("#cms-list-error")
           : getActiveTabId() === "sections"
             ? $("#cms-sections-error")
-            : $("#cms-details-error");
-    if (errEl) errEl.textContent = err.message;
+            : getActiveCmsScreenId() === "home"
+              ? null
+              : $("#cms-details-error");
+    if (errEl) errEl.textContent = errText;
     return false;
   } finally {
     state.globalAgentBusy = false;
+    state.globalAgentStatus = "";
     syncGlobalAgentBusy();
+    renderGlobalAgent();
   }
 }
 
@@ -2293,13 +2332,25 @@ function initGlobalAgentSelection() {
 }
 
 function showCmsScreen(id) {
-  document.querySelectorAll(".cms-app .screen").forEach((s) => s.classList.remove("active"));
+  const isLogin = id === "login";
+  const loginScreen = document.querySelector("#screen-cms-login");
+  const appShell = document.querySelector("#app-shell");
+  if (loginScreen) {
+    loginScreen.classList.toggle("active", isLogin);
+    loginScreen.hidden = !isLogin;
+  }
+  if (appShell) appShell.hidden = isLogin;
+
+  document.querySelectorAll(".cms-app .screen, .app-main > section.screen").forEach((s) => {
+    s.classList.remove("active");
+  });
   const screen = document.querySelector(`#screen-cms-${id}`);
   if (!screen) return;
   screen.classList.add("active");
   cmsMotion()?.playCmsScreenEnter?.(screen);
   syncGlobalAgentDockVisibility();
   if (state.globalAgentOpen) syncGlobalAgentUi();
+  if (typeof window.syncSidebarNav === "function") window.syncSidebarNav(id);
 }
 
 function updateAuthUi() {
@@ -2313,6 +2364,7 @@ function updateAuthUi() {
     label.title = cmsT("cms.loggedInAs", { name });
   }
   syncGlobalAgentDockVisibility();
+  window.state = state;
 }
 
 async function handleLogin() {
@@ -2395,26 +2447,33 @@ function renderCmsMediaEmptyThumb(
 }
 
 function updateBannerPreview(url) {
-  const preview = $("#course-banner-preview");
+  const preview = $("#cover-preview");
+  const removeBtn = $("#btn-remove-banner");
+  const bannerUrl = (url || "").trim();
+  if (preview) {
+    preview.innerHTML = bannerUrl ? `<img alt="" src="${escapeHtml(bannerUrl)}" />` : "";
+    if (removeBtn) removeBtn.hidden = !bannerUrl;
+    return;
+  }
+
+  const legacyPreview = $("#course-banner-preview");
   const imagePreview = $("#course-banner-image-preview");
   const img = $("#course-banner-img");
   const empty = $("#course-banner-empty");
-  const removeBtn = $("#btn-remove-banner");
-  const bannerUrl = (url || "").trim();
-  if (!preview || !img) return;
+  if (!legacyPreview || !img) return;
 
   if (!bannerUrl) {
     img.removeAttribute("src");
     if (imagePreview) imagePreview.hidden = true;
     if (empty) empty.hidden = false;
-    preview.hidden = false;
+    legacyPreview.hidden = false;
     if (removeBtn) removeBtn.hidden = true;
     return;
   }
 
   if (empty) empty.hidden = true;
   if (imagePreview) imagePreview.hidden = true;
-  preview.hidden = false;
+  legacyPreview.hidden = false;
   img.onload = () => {
     if (imagePreview) imagePreview.hidden = false;
     if (empty) empty.hidden = true;
@@ -2495,31 +2554,29 @@ function renderAssignedClasses() {
 
   if (!state.classes.length) {
     container.innerHTML = "";
-    statusEl.textContent = cmsT("cms.details.noClasses");
+    if (statusEl) statusEl.textContent = cmsT("cms.details.noClasses");
     return;
   }
 
-  statusEl.textContent = assigned.size
-    ? cmsCount(assigned.size, "cms.details.selectedOne", "cms.details.selectedMany")
-    : cmsT("cms.details.allClassesAvail");
+  if (statusEl) {
+    if (assigned.size) {
+      statusEl.hidden = false;
+      statusEl.textContent = cmsCount(
+        assigned.size,
+        "cms.details.selectedOne",
+        "cms.details.selectedMany"
+      );
+    } else {
+      statusEl.textContent = "";
+      statusEl.hidden = true;
+    }
+  }
 
-  const sections = groupClassesByLevel(state.classes);
-  container.innerHTML = sections
-    .map((section) => {
-      const heading = section.label
-        ? `<h3 class="cms-class-section-title">${escapeHtml(section.label)}</h3>`
-        : "";
-      const rows = section.items
-        .map((classItem) => {
-          const checked = assigned.has(classItem.id) ? " checked" : "";
-          const title = classItem.name || `Class ${classItem.id}`;
-          return `<label class="cms-class-option">
-            <input type="checkbox" value="${classItem.id}"${checked} />
-            <span>${escapeHtml(title)}</span>
-          </label>`;
-        })
-        .join("");
-      return `<section class="cms-class-section">${heading}<div class="cms-class-grid">${rows}</div></section>`;
+  container.innerHTML = state.classes
+    .map((classItem) => {
+      const checked = assigned.has(classItem.id) ? " checked" : "";
+      const title = classItem.name || `Class ${classItem.id}`;
+      return `<label><input type="checkbox" value="${classItem.id}"${checked} /> ${escapeHtml(title)}</label>`;
     })
     .join("");
 }
@@ -2568,43 +2625,59 @@ function renderDashboardClassPicker() {
   if (state.dashboardClassId) select.value = String(state.dashboardClassId);
 }
 
-function renderDashboardSummary(courses) {
-  const summary = $("#cms-dashboard-summary");
-  if (!summary) return;
-
-  const started = courses.filter((course) => course.started);
-  const completed = courses.filter(
-    (course) => course.totalExercises > 0 && course.completedCount >= course.totalExercises
-  );
-  const inProgress = started.filter(
-    (course) => !(course.totalExercises > 0 && course.completedCount >= course.totalExercises)
-  );
-
-  if (!state.dashboardClassId || !courses.length) {
-    summary.hidden = true;
-    summary.innerHTML = "";
-    return;
-  }
-
-  summary.hidden = false;
-  summary.innerHTML = `
-    <article class="cms-dashboard-stat">
-      <span class="cms-dashboard-stat-value">${courses.length}</span>
-      <span class="cms-dashboard-stat-label">${escapeHtml(cmsT("cms.dash.statCourses"))}</span>
-    </article>
-    <article class="cms-dashboard-stat">
-      <span class="cms-dashboard-stat-value">${inProgress.length}</span>
-      <span class="cms-dashboard-stat-label">${escapeHtml(cmsT("cms.dash.inProgress"))}</span>
-    </article>
-    <article class="cms-dashboard-stat">
-      <span class="cms-dashboard-stat-value">${completed.length}</span>
-      <span class="cms-dashboard-stat-label">${escapeHtml(cmsT("cms.dash.completed"))}</span>
-    </article>`;
+function dashboardSelectedClass() {
+  return (state.classes || []).find((item) => Number(item.id) === Number(state.dashboardClassId)) || null;
 }
 
-function renderDashboardCourseList(courses) {
-  const container = $("#cms-dashboard-list");
+function dashboardStudentCount() {
+  const classItem = dashboardSelectedClass();
+  if (!classItem) return null;
+  if (classItem.studentCount != null) return Number(classItem.studentCount);
+  if (Array.isArray(classItem.studentList) && classItem.studentList.length) {
+    return classItem.studentList.length;
+  }
+  return null;
+}
+
+function formatInsightsSessionDate(iso) {
+  if (!iso) return cmsT("cms.dash.noActivity");
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return cmsT("cms.dash.noActivity");
+  return date.toLocaleString("en-HK", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function insightsHostLink(course) {
+  const params = new URLSearchParams({ course: String(course.courseId) });
+  if (course.lastSectionId) params.set("section", String(course.lastSectionId));
+  return `/host.html?${params.toString()}`;
+}
+
+function insightsAssignedThumb(course) {
+  const banner = (course.banner || "").trim();
+  if (banner) return `<img class="insights-assigned-thumb" src="${escapeHtml(banner)}" alt="" />`;
+  return `<div class="insights-assigned-thumb cover alt" aria-hidden="true"></div>`;
+}
+
+function insightsStatusBadge(course) {
+  const status = course.status || (course.started ? "in_progress" : "not_started");
+  if (status === "completed") {
+    return `<span class="badge status-completed">${escapeHtml(cmsT("cms.dash.completed"))}</span>`;
+  }
+  if (status === "in_progress") {
+    return `<span class="badge status-in_progress">${escapeHtml(cmsT("cms.dash.inProgress"))}</span>`;
+  }
+  return `<span class="badge status-not_started">${escapeHtml(cmsT("cms.dash.notStarted"))}</span>`;
+}
+
+function renderInsightsSessions(courses) {
+  const container = $("#class-sessions");
   const statusEl = $("#cms-dashboard-status");
+  const assignedBlock = $("#cms-dashboard-assigned-block");
   if (!container) return;
 
   if (!state.dashboardClassId) {
@@ -2613,71 +2686,65 @@ function renderDashboardCourseList(courses) {
         <p class="cms-empty-title">${escapeHtml(cmsT("cms.dash.chooseClass"))}</p>
         <p class="cms-empty-copy">${escapeHtml(cmsT("cms.dash.chooseClassCopy"))}</p>
       </div>`;
+    if (assignedBlock) assignedBlock.hidden = true;
+    if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
     if (statusEl) statusEl.textContent = "";
     return;
   }
 
-  if (!courses.length) {
+  const recentSessions = courses
+    .filter((course) => course.started)
+    .sort((a, b) => Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0))
+    .slice(0, 2);
+  const studentCount = dashboardStudentCount();
+
+  if (!recentSessions.length) {
     container.innerHTML = `
       <div class="cms-empty cms-dashboard-empty">
-        <p class="cms-empty-title">${escapeHtml(cmsT("cms.dash.noCourses"))}</p>
-        <p class="cms-empty-copy">${escapeHtml(cmsT("cms.dash.noCoursesCopy"))}</p>
-        <button type="button" class="btn secondary" id="btn-dashboard-go-courses">${escapeHtml(cmsT("cms.dash.goCourses"))}</button>
+        <p class="cms-empty-title">${escapeHtml(cmsT("cms.dash.noSessions"))}</p>
+        <p class="cms-empty-copy">${escapeHtml(cmsT("cms.dash.noSessionsCopy"))}</p>
+        <a class="btn primary" href="/host.html">${escapeHtml(cmsT("cms.dash.hostNow"))}</a>
       </div>`;
-    $("#btn-dashboard-go-courses")?.addEventListener("click", () => enterCourseList());
-    if (statusEl) statusEl.textContent = "";
-    return;
+  } else {
+    container.innerHTML = recentSessions
+      .map((course) => {
+        const engagement = course.engagementScore != null ? `${course.engagementScore}%` : "—";
+        const subtitle = course.description || course.lastSectionTitle || "";
+        const metaParts = [formatInsightsSessionDate(course.updatedAt)];
+        if (studentCount != null) {
+          metaParts.push(cmsT("cms.dash.students", { n: studentCount }));
+        }
+        const struggle = course.topStruggle
+          ? cmsT("cms.dash.topStruggle", { label: course.topStruggle })
+          : "";
+
+        return `<article class="paper session-card insights-session-card" data-id="${course.courseId}">
+          <div class="insights-session-head">
+            <div>
+              <h2>${escapeHtml(course.name)}</h2>
+              ${subtitle ? `<p class="hint">${escapeHtml(subtitle)}</p>` : ""}
+            </div>
+            <span class="score">${escapeHtml(engagement)}</span>
+          </div>
+          <p class="hint insights-session-meta">${escapeHtml(metaParts.join(" · "))}</p>
+          <div class="eng-row">
+            <span class="badge">${escapeHtml(cmsT("cms.dash.engagementScore"))}</span>
+            ${struggle ? `<span class="hint">${escapeHtml(struggle)}</span>` : ""}
+          </div>
+          <div class="row insights-session-actions">
+            <button type="button" class="btn ghost small insights-view-dashboard" data-id="${course.courseId}">${escapeHtml(cmsT("cms.dash.viewDashboard"))}</button>
+            <a class="btn primary small" href="${escapeHtml(insightsHostLink(course))}">${escapeHtml(cmsT("cms.dash.host"))}</a>
+          </div>
+        </article>`;
+      })
+      .join("");
   }
 
-  container.innerHTML = courses
-    .map((course) => {
-      const banner = (course.banner || "").trim();
-      const thumb = banner
-        ? `<img class="cms-dashboard-card-thumb" src="${escapeHtml(banner)}" alt="" />`
-        : renderCmsMediaEmptyThumb("cms-dashboard-card-thumb", { variant: "compact" });
-      const complete =
-        course.totalExercises > 0 && course.completedCount >= course.totalExercises;
-      const statusClass = complete
-        ? " cms-dashboard-card--complete"
-        : course.started
-          ? " cms-dashboard-card--started"
-          : "";
-      const current =
-        course.lastSectionTitle || course.lastExerciseTitle
-            ? `${course.lastSectionTitle || cmsT("cms.community.sectionFallback")} · ${course.lastExerciseTitle || cmsT("cms.ex.title")}`
-          : course.started
-            ? cmsT("cms.dash.started")
-            : cmsT("cms.dash.notStarted");
-      const updated = course.updatedAt ? formatDashboardRelativeTime(course.updatedAt) : cmsT("cms.dash.noActivity");
-      const progressLabel =
-        course.totalExercises > 0
-          ? cmsT("cms.dash.progressExercises", {
-              done: course.completedCount,
-              total: course.totalExercises,
-            })
-          : cmsT("cms.dash.noExercises");
-
-      return `<article class="cms-dashboard-card${statusClass}" data-id="${course.courseId}">
-        <div class="cms-dashboard-card-media">${thumb}</div>
-        <div class="cms-dashboard-card-body">
-          <div class="cms-dashboard-card-head">
-            <h2 class="cms-dashboard-card-title">${escapeHtml(course.name)}</h2>
-            <span class="cms-dashboard-card-updated">${escapeHtml(updated)}</span>
-          </div>
-          <div class="cms-dashboard-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${course.percent}" aria-label="${escapeHtml(course.name)} progress">
-            <span class="cms-dashboard-progress-bar" style="--progress: ${course.percent}%"></span>
-          </div>
-          <p class="cms-dashboard-card-meta">${escapeHtml(progressLabel)} · ${course.percent}%</p>
-          <p class="cms-dashboard-card-current">${escapeHtml(cmsT("cms.dash.current", { label: current }))}</p>
-          <button type="button" class="btn secondary small cms-dashboard-edit" data-id="${course.courseId}">${escapeHtml(cmsT("cms.dash.editCourse"))}</button>
-        </div>
-      </article>`;
-    })
-    .join("");
-
-  container.querySelectorAll(".cms-dashboard-edit").forEach((btn) => {
+  container.querySelectorAll(".insights-view-dashboard").forEach((btn) => {
     btn.addEventListener("click", () => openCourseEditor(Number(btn.dataset.id)));
   });
+
+  renderInsightsAssignedCourses(courses);
 
   const activeCount = courses.filter((course) => course.started).length;
   if (statusEl) {
@@ -2687,28 +2754,85 @@ function renderDashboardCourseList(courses) {
   }
 }
 
+function renderInsightsAssignedCourses(courses) {
+  const container = $("#progress-assigned");
+  const assignedBlock = $("#cms-dashboard-assigned-block");
+  if (!container || !assignedBlock) return;
+
+  if (!state.dashboardClassId) {
+    assignedBlock.hidden = true;
+    container.innerHTML = "";
+    return;
+  }
+
+  assignedBlock.hidden = false;
+  if (!courses.length) {
+    container.innerHTML = `
+      <div class="cms-empty cms-dashboard-empty">
+        <p class="cms-empty-title">${escapeHtml(cmsT("cms.dash.noCourses"))}</p>
+        <p class="cms-empty-copy">${escapeHtml(cmsT("cms.dash.noCoursesCopy"))}</p>
+        <button type="button" class="btn secondary" id="btn-dashboard-go-courses">${escapeHtml(cmsT("cms.dash.goCourses"))}</button>
+      </div>`;
+    $("#btn-dashboard-go-courses")?.addEventListener("click", () => enterCourseList());
+    return;
+  }
+
+  container.innerHTML = courses
+    .map((course) => {
+      const pctLabel = `${course.percent ?? 0}%`;
+      return `<article class="paper insights-assigned-card" data-id="${course.courseId}">
+        ${insightsAssignedThumb(course)}
+        <div class="insights-assigned-body">
+          <div class="insights-assigned-card-head">
+            <h3>${escapeHtml(course.name)}</h3>
+            <span class="insights-assigned-pct">${escapeHtml(pctLabel)}</span>
+          </div>
+          <div class="insights-assigned-meta">
+            ${insightsStatusBadge(course)}
+          </div>
+          <button type="button" class="btn ghost small insights-view-dashboard" data-id="${course.courseId}">${escapeHtml(cmsT("cms.dash.viewDashboard"))}</button>
+        </div>
+      </article>`;
+    })
+    .join("");
+
+  container.querySelectorAll(".insights-view-dashboard").forEach((btn) => {
+    btn.addEventListener("click", () => openCourseEditor(Number(btn.dataset.id)));
+  });
+}
+
 async function loadDashboardProgress() {
   $("#cms-dashboard-error").textContent = "";
   if (!state.dashboardClassId) {
     state.dashboardCourses = [];
-    renderDashboardSummary([]);
-    renderDashboardCourseList([]);
+    renderInsightsSessions([]);
     return;
   }
 
   const data = await api(`/api/cms/dashboard/progress?classId=${state.dashboardClassId}`);
   state.dashboardCourses = data.courses || [];
-  renderDashboardSummary(state.dashboardCourses);
-  renderDashboardCourseList(state.dashboardCourses);
+  renderInsightsSessions(state.dashboardCourses);
 }
 
 async function enterHome() {
   showCmsScreen("home");
   syncCmsNavScreen("home");
-  const greeting = $("#cms-home-greeting");
-  if (greeting) {
-    const name = teacherDisplayName();
-    greeting.textContent = name ? cmsT("cms.home.greetingNamed", { name }) : cmsT("cms.home.greeting");
+  const hello = $("#home-hello");
+  const school = $("#home-school");
+  const name = teacherDisplayName();
+  if (hello) hello.textContent = name ? `Hi, ${name}` : "Hi";
+  if (school) school.textContent = "... · ... · ...";
+  try {
+    await loadClasses();
+    const data = await api("/api/cms/courses");
+    state.courses = data.courses || [];
+    await loadCommunityCourses();
+    window.state = state;
+    if (typeof window.renderCmsHomeWidgets === "function") {
+      await window.renderCmsHomeWidgets();
+    }
+  } catch {
+    /* home widgets are optional */
   }
 }
 
@@ -2737,20 +2861,21 @@ async function enterDashboard() {
   syncCmsNavScreen("dashboard");
   $("#cms-dashboard-error").textContent = "";
   $("#cms-dashboard-status").textContent = "";
-  $("#cms-dashboard-list").innerHTML = `
+  $("#class-sessions").innerHTML = `
     <div class="cms-list-loading" aria-hidden="true">
       <div class="cms-skeleton-card"></div>
       <div class="cms-skeleton-card"></div>
-      <div class="cms-skeleton-card"></div>
     </div>`;
-  $("#cms-dashboard-summary").hidden = true;
+  if ($("#cms-dashboard-assigned-block")) $("#cms-dashboard-assigned-block").hidden = true;
+  if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
 
   try {
     await loadClasses();
     renderDashboardClassPicker();
     await loadDashboardProgress();
   } catch (err) {
-    $("#cms-dashboard-list").innerHTML = "";
+    $("#class-sessions").innerHTML = "";
+    if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
     $("#cms-dashboard-error").textContent = err.message;
   }
 }
@@ -2759,9 +2884,11 @@ function syncCmsNavScreen(screenId) {
   document.querySelectorAll(".cms-link-nav").forEach((link) => {
     const active = link.dataset.screen === screenId;
     link.classList.toggle("is-active", active);
+    link.classList.toggle("active", active);
     if (active) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
   });
+  if (typeof window.syncSidebarNav === "function") window.syncSidebarNav(screenId);
 }
 
 
@@ -3006,9 +3133,9 @@ function renderAiQuestionTtsControls(flatIndex, speakLangCode) {
   const selectedLang = entry?.speakLangCode || speakLangCode || getAiSpeakLangCode();
   return `
     <div class="cms-ai-tts-controls">
-      <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-tts-preview${entry?.cacheKey ? " is-ready" : ""}" data-tts-key="${escapeHtml(key)}" ${entry?.cacheKey ? "" : "disabled"} aria-label="Play speech preview">${entry?.cacheKey ? "▶ Speech" : "…"}</button>
+      <button type="button" class="btn ghost small cms-row-btn cms-ai-tts-preview${entry?.cacheKey ? " is-ready" : ""}" data-tts-key="${escapeHtml(key)}" ${entry?.cacheKey ? "" : "disabled"} aria-label="Play speech preview">${entry?.cacheKey ? "▶ Speech" : "…"}</button>
       <select class="cms-ai-tts-lang" data-tts-key="${escapeHtml(key)}" aria-label="Speech language">${cmsSpeakLangOptionsHtml(selectedLang)}</select>
-      <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-tts-regen" data-tts-key="${escapeHtml(key)}" aria-label="Regenerate speech">↻ Regen</button>
+      <button type="button" class="btn ghost small cms-row-btn cms-ai-tts-regen" data-tts-key="${escapeHtml(key)}" aria-label="Regenerate speech">↻ Regen</button>
     </div>`;
 }
 
@@ -3308,47 +3435,50 @@ function renderCommunityLangOptions() {
 }
 
 function renderCommunityList() {
-  const container = $("#cms-community-list");
+  const container = $("#community-catalog") || $("#cms-community-list");
   if (!container) return;
+  const emptyEl = $("#community-empty");
   if (!state.communityCourses.length) {
-    container.innerHTML = `
-      <div class="cms-empty">
-        <p class="cms-empty-title">${escapeHtml(cmsT("cms.community.emptyTitle"))}</p>
-        <p class="cms-empty-copy">${escapeHtml(cmsT("cms.community.emptyCopy"))}</p>
-      </div>`;
+    if (emptyEl) emptyEl.hidden = false;
+    container.innerHTML = "";
     cmsMotion()?.playCmsListReveal?.(container);
     return;
   }
+  if (emptyEl) emptyEl.hidden = true;
 
-  container.innerHTML = state.communityCourses
+  container.innerHTML = `<div class="community-grid">${state.communityCourses
     .map((course) => {
       const banner = courseBannerUrl(course);
-      const thumb = banner
-        ? `<img class="cms-course-card-thumb" src="${escapeHtml(banner)}" alt="" />`
-        : renderCmsMediaEmptyThumb("cms-course-card-thumb", { variant: "tile" });
+      const cover = banner
+        ? `<div class="cover"><img alt="" src="${escapeHtml(banner)}" /></div>`
+        : `<div class="cover alt"></div>`;
       const copied = course.alreadyCopied || communityCopiedInLibrary(course.id);
-      const featured = course.featured ? `<span class="cms-community-badge">${escapeHtml(cmsT("cms.community.featured"))}</span>` : "";
-      const owner = course.isOwner ? `<span class="cms-community-badge cms-community-badge--owner">${escapeHtml(cmsT("cms.community.yours"))}</span>` : "";
-      return `<article class="cms-community-card${course.featured ? " is-featured" : ""}" data-id="${course.id}">
-        <div class="cms-community-card-media">${thumb}</div>
-        <div class="cms-community-card-body">
-          <h3 class="cms-community-card-title">${escapeHtml(course.name)}</h3>
-          <p class="cms-community-card-meta">${escapeHtml(course.authorName || cmsT("cms.community.teacher"))} · ${escapeHtml(communityLangLabel(course.langCode))} · ${escapeHtml(cmsCount(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))} · ${escapeHtml(cmsT("cms.community.addedTimes", { n: course.copyCount || 0 }))}</p>
-          ${course.description ? `<p class="cms-community-card-desc">${escapeHtml(course.description)}</p>` : ""}
-          <div class="cms-community-card-flags">${featured}${owner}</div>
-          <div class="cms-community-card-actions">
-            <button type="button" class="btn secondary small cms-community-preview-btn">${escapeHtml(cmsT("cms.community.preview"))}</button>
-            <button type="button" class="btn primary small cms-community-add-btn"${copied ? " disabled" : ""}>${escapeHtml(copied ? cmsT("cms.community.inLibrary") : cmsT("cms.community.add"))}</button>
+      const featured = course.featured ? `<span class="badge">${escapeHtml(cmsT("cms.community.featured"))}</span>` : "";
+      const owner = course.isOwner ? `<span class="badge">${escapeHtml(cmsT("cms.community.yours"))}</span>` : "";
+      return `<article class="paper community-card" data-id="${course.id}">
+        ${cover}
+        <div class="card-body">
+          <h2>${escapeHtml(course.name)}</h2>
+          <p class="hint">${escapeHtml(course.description || "")}</p>
+          <div class="badges">
+            <span class="badge">${escapeHtml(communityLangLabel(course.langCode))}</span>
+            ${featured}${owner}
+            <span class="badge">${escapeHtml(cmsT("cms.community.addedTimes", { n: course.copyCount || 0 }))}</span>
+          </div>
+          <p class="hint">${escapeHtml(course.authorName || cmsT("cms.community.teacher"))} · ${escapeHtml(cmsCount(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}</p>
+          <div class="card-actions">
+            <button type="button" class="btn small cms-community-preview-btn">${escapeHtml(cmsT("cms.community.preview"))}</button>
+            <button type="button" class="btn small primary cms-community-add-btn"${copied ? " disabled" : ""}>${escapeHtml(copied ? cmsT("cms.community.inLibrary") : cmsT("cms.community.add"))}</button>
             ${
               course.isOwner
-                ? `<button type="button" class="btn secondary small cms-community-unshare-btn">${escapeHtml(cmsT("cms.community.unshare"))}</button>`
-                : `<button type="button" class="btn secondary small cms-community-report-btn">${escapeHtml(cmsT("cms.community.report"))}</button>`
+                ? `<button type="button" class="btn small ghost cms-community-unshare-btn">${escapeHtml(cmsT("cms.community.unshare"))}</button>`
+                : `<button type="button" class="btn small ghost cms-community-report-btn">${escapeHtml(cmsT("cms.community.report"))}</button>`
             }
           </div>
         </div>
       </article>`;
     })
-    .join("");
+    .join("")}</div>`;
   cmsMotion()?.playCmsListReveal?.(container);
 }
 
@@ -3507,72 +3637,162 @@ async function enterCourseList() {
   syncCmsNavScreen("list");
   $("#cms-list-error").textContent = "";
   $("#cms-list-status").textContent = "";
-  $("#cms-course-list").innerHTML = `
-    <div class="cms-list-loading" aria-hidden="true">
-      <div class="cms-skeleton-card"></div>
-      <div class="cms-skeleton-card"></div>
-      <div class="cms-skeleton-card"></div>
-    </div>`;
+  const grid = $("#courses-grid");
+  if (grid) {
+    grid.hidden = false;
+    grid.innerHTML = `<p class="hint">Loading courses…</p>`;
+  }
 
   try {
     await loadClasses();
     const data = await api("/api/cms/courses");
     state.courses = data.courses || [];
+    if (typeof window.loadHomeCourseProgressMap === "function") {
+      state.homeCourseProgress = await window.loadHomeCourseProgressMap();
+    }
     renderCourseList();
-    $("#cms-list-status").textContent = state.courses.length
-      ? `${state.courses.length} course${state.courses.length === 1 ? "" : "s"}`
-      : "";
+    $("#cms-list-status").textContent = "";
   } catch (err) {
-    $("#cms-course-list").innerHTML = "";
+    if (grid) grid.innerHTML = "";
     $("#cms-list-status").textContent = "";
     $("#cms-list-error").textContent = err.message;
   }
 }
 
+function courseListProgress(courseId) {
+  const map = state.homeCourseProgress;
+  if (map instanceof Map) return map.get(Number(courseId)) || null;
+  return null;
+}
+
+function isCourseListComplete(course) {
+  const p = courseListProgress(course.id);
+  if (!p) return false;
+  return p.totalExercises > 0 && p.completedCount >= p.totalExercises;
+}
+
+function courseMatchesListTab(course, tab) {
+  if (tab === "completed") return isCourseListComplete(course);
+  if (tab === "in_progress") return !isCourseListComplete(course);
+  return true;
+}
+
+function courseClassUsageForList(course) {
+  const ids = course.classIds || [];
+  const classNames = ids
+    .map((id) => state.classes.find((c) => Number(c.id) === Number(id))?.name)
+    .filter(Boolean);
+  return { classNames, studentCount: null };
+}
+
+function courseSectionProgressStatsForList(course) {
+  const total = Number(course.sectionCount) || 0;
+  const p = courseListProgress(course.id);
+  const percent = p?.percent ?? 0;
+  let completed = 0;
+  if (total > 0) {
+    if (isCourseListComplete(course)) completed = total;
+    else completed = Math.min(total, Math.floor((percent / 100) * total));
+  }
+  return { total, completed, percent };
+}
+
+function courseProgressMarkupForList(course) {
+  const { total, completed, percent } = courseSectionProgressStatsForList(course);
+  const complete = isCourseListComplete(course);
+  const label =
+    total > 0 ? `${completed} of ${total} sections completed` : "No sections yet";
+  return `
+    <div class="course-progress ${complete ? "is-complete" : ""}">
+      <div class="row course-progress-head">
+        <span class="hint">${escapeHtml(label)}</span>
+        <div class="course-progress-meta row">
+          ${complete ? `<span class="badge status-completed">Completed</span>` : ""}
+          <span class="course-progress-pct ${complete ? "is-complete" : ""}">${total > 0 ? `${percent}%` : "..."}</span>
+        </div>
+      </div>
+      <div class="bar ${complete ? "is-complete" : ""}" aria-hidden="true"><span style="width:${total > 0 ? percent : 0}%"></span></div>
+    </div>`;
+}
+
+function courseUsageMarkupForList(course) {
+  const usage = courseClassUsageForList(course);
+  if (!usage.classNames.length) {
+    return `<p class="course-usage-meta hint">Not assigned to a class yet</p>`;
+  }
+  const students = usage.studentCount == null ? "..." : usage.studentCount;
+  return `
+    <div class="course-usage-meta">
+      <p class="course-usage-classes hint">
+        <strong>Classes:</strong>
+        ${escapeHtml(usage.classNames.join(", "))}
+      </p>
+      <p class="course-usage-students hint">${students} students using this course</p>
+    </div>`;
+}
+
+function renderCourseListCover(course) {
+  const banner = courseBannerUrl(course);
+  if (banner) return `<div class="cover"><img alt="" src="${escapeHtml(banner)}" /></div>`;
+  return `<div class="cover alt"></div>`;
+}
+
 function renderCourseList() {
-  const container = $("#cms-course-list");
-  if (!state.courses.length) {
-    container.innerHTML = `
-      <div class="cms-empty">
-        <p class="cms-empty-title">${escapeHtml(cmsT("cms.list.emptyTitle"))}</p>
-        <p class="cms-empty-copy">${escapeHtml(cmsT("cms.list.emptyCopy"))}</p>
-        <button type="button" class="btn primary cms-cta" id="btn-empty-new-course">
-          <span>${escapeHtml(cmsT("cms.list.newCourse"))}</span>
-          <span class="cms-btn-glyph" aria-hidden="true">+</span>
-        </button>
-      </div>`;
-    $("#btn-empty-new-course")?.addEventListener("click", createNewCourse);
-    cmsMotion()?.playCmsListReveal?.(container);
+  const grid = $("#courses-grid");
+  const tab = state.coursesTab === "completed" || state.coursesTab === "in_progress" ? state.coursesTab : "all";
+  state.coursesTab = tab;
+  document.querySelectorAll("#courses-tabs .courses-tab").forEach((btn) => {
+    const active = btn.getAttribute("data-courses-tab") === tab;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  const allCourses = state.courses || [];
+  const filtered = allCourses.filter((c) => courseMatchesListTab(c, tab));
+  const empty = !allCourses.length;
+  const filteredEmpty = !empty && !filtered.length;
+
+  if ($("#courses-empty")) $("#courses-empty").hidden = !empty;
+  if ($("#courses-filter-empty")) $("#courses-filter-empty").hidden = !filteredEmpty;
+  if (!grid) return;
+  grid.hidden = empty || filteredEmpty;
+  if (empty || filteredEmpty) {
+    grid.innerHTML = "";
     return;
   }
 
-  container.innerHTML = state.courses
-    .map((course, index) => {
-      const banner = courseBannerUrl(course);
-      const featured = index === 0 ? " cms-course-card--featured" : "";
-      const thumb = banner
-        ? `<img class="cms-course-card-thumb" src="${escapeHtml(banner)}" alt="" />`
-        : renderCmsMediaEmptyThumb("cms-course-card-thumb", {
-            variant: featured ? "tile" : "compact",
-            hint: featured ? "Add in course details" : "",
-          });
-      return `<button type="button" class="cms-course-card${featured}" data-id="${course.id}">
-        <span class="cms-course-card-inner">
-          <span class="cms-course-card-media">${thumb}</span>
-          <span class="cms-course-card-body">
-            <span class="cms-course-card-title">${escapeHtml(course.name)}</span>
-            <span class="cms-course-card-meta">${escapeHtml(cmsCount(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))} · ${escapeHtml(assignedClassesLabel(course))}${course.communityListingId ? ` · ${escapeHtml(cmsT("cms.list.shared"))}` : ""}${course.sourceCommunityId ? ` · ${escapeHtml(cmsT("cms.list.fromCommunity"))}` : ""}</span>
-            ${course.description ? `<span class="cms-course-card-desc">${escapeHtml(course.description)}</span>` : ""}
-          </span>
-        </span>
-      </button>`;
+  grid.innerHTML = filtered
+    .map((course) => {
+      const complete = isCourseListComplete(course);
+      return `<article class="paper course-card${complete ? " is-completed" : ""}" data-id="${course.id}" role="button" tabindex="0">
+        ${renderCourseListCover(course)}
+        <div class="card-body">
+          <div class="course-card-title-row row">
+            <h2>${escapeHtml(course.name)}</h2>
+            ${complete ? `<span class="course-complete-mark">Completed</span>` : ""}
+          </div>
+          <p class="hint">${escapeHtml(course.description || "")}</p>
+          <div class="badges">
+            ${course.communityListingId ? `<span class="badge">Shared</span>` : ""}
+            ${course.sourceCommunityId ? `<span class="badge">From Community</span>` : ""}
+          </div>
+          ${courseProgressMarkupForList(course)}
+          ${courseUsageMarkupForList(course)}
+        </div>
+      </article>`;
     })
     .join("");
 
-  container.querySelectorAll(".cms-course-card").forEach((btn) => {
-    btn.addEventListener("click", () => openCourseEditor(Number(btn.dataset.id)));
+  grid.querySelectorAll(".course-card").forEach((card) => {
+    const open = () => openCourseEditor(Number(card.dataset.id));
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
   });
-  cmsMotion()?.playCmsListReveal?.(container);
+  cmsMotion()?.playCmsListReveal?.(grid);
 }
 
 function isSeededEmptySection(section) {
@@ -3588,6 +3808,24 @@ function stripSeededEmptySections(sections) {
   if (!list.length) return [];
   if (list.every(isSeededEmptySection)) return [];
   return list;
+}
+
+function cleanupSectionsAfterAiPublish(publishedSectionIndex) {
+  const published = state.sections[publishedSectionIndex];
+  if (!published) return;
+  const publishedId = published.id;
+  state.sections = state.sections.filter((section) => {
+    if (publishedId != null && section.id === publishedId) return true;
+    if (publishedId == null && section === published) return true;
+    return !isSeededEmptySection(section);
+  });
+  state.sections = sortSectionsByOrder(state.sections);
+  if (publishedId != null) {
+    const nextIndex = state.sections.findIndex((section) => section.id === publishedId);
+    if (nextIndex >= 0) state.editingSectionIndex = nextIndex;
+  } else if (publishedSectionIndex < state.sections.length) {
+    state.editingSectionIndex = publishedSectionIndex;
+  }
 }
 
 async function openCourseEditor(courseId, options = {}) {
@@ -3660,6 +3898,13 @@ function populateDetailsForm() {
   nameInput.placeholder = cmsT("cms.details.nameExample");
   $("#course-description").value = c.description || "";
   $("#course-banner").value = c.banner || "";
+  $("#course-level") && ($("#course-level").value = c.level || "");
+  $("#course-minutes") && ($("#course-minutes").value = c.estimatedMinutes || "");
+  $("#course-objectives") &&
+    ($("#course-objectives").value = (c.objectives || []).join("\n"));
+  $("#course-author-notes") && ($("#course-author-notes").value = c.authorNotes || "");
+  $("#course-start") && ($("#course-start").value = c.plannedStart || "");
+  $("#course-end") && ($("#course-end").value = c.plannedEnd || "");
   $("#cms-banner-status").textContent = "";
   updateBannerPreview(c.banner || "");
   if ($("#course-banner-file")) $("#course-banner-file").value = "";
@@ -3668,7 +3913,7 @@ function populateDetailsForm() {
 }
 
 function getActiveTabId() {
-  return document.querySelector(".cms-tab.active")?.dataset.tab || "details";
+  return document.querySelector("#screen-cms-edit .tab.active, .cms-tab.active")?.dataset.tab || "details";
 }
 
 function sortSectionsByOrder(sections) {
@@ -3799,13 +4044,26 @@ function isExercisesSubpageOpen() {
   return state.editingSectionIndex != null || state.aiCourseWorkspace;
 }
 
+function syncPlaylistScreenChrome() {
+  const view = $("#cms-exercises-view");
+  const open = Boolean(view && !view.hidden);
+  document.getElementById("screen-cms-edit")?.classList.toggle("is-playlist-open", open);
+  document.getElementById("cms-tab-sections")?.classList.toggle("is-exercises-open", open);
+  if (open) {
+    document.getElementById("cms-tab-sections")?.classList.add("active");
+    document.getElementById("cms-tab-details")?.classList.remove("active");
+  }
+}
+
 const AI_TEMPLATES = {
-  vocab: { types: { mcquiz: 5, fastmcquiz: 3 }, difficulty: "easy" },
-  reading: { types: { mcquiz: 4, buzzin: 2 }, difficulty: "medium" },
-  speaking: { types: { buzzin: 4 }, difficulty: "medium" },
-  mixed: { types: { mcquiz: 3, fastmcquiz: 2, buzzin: 2 }, difficulty: "medium" },
-  video: { types: { video: 1 }, difficulty: "medium" },
+  vocab: { types: { mcquiz: 4 }, difficulty: "easy" },
+  reading: { types: { mcquiz: 3, buzzin: 1 }, difficulty: "medium" },
+  speaking: { types: { fastmcquiz: 1, buzzin: 3 }, difficulty: "medium" },
+  mixed: { types: { mcquiz: 2, fastmcquiz: 1, buzzin: 1 }, difficulty: "medium" },
+  video: { types: { mcquiz: 2, video: 1 }, difficulty: "medium" },
 };
+
+const AI_CUSTOM_TEMPLATE_COUNTS = { mcquiz: 2, fastmcquiz: 1, buzzin: 1, video: 0 };
 
 const AI_CUSTOM_TYPE_KEYS = ["mcquiz", "fastmcquiz", "buzzin", "video"];
 
@@ -3817,6 +4075,67 @@ function syncCustomTypeCountInputs(prefix = "cms-ai") {
     if (countEl) countEl.disabled = !checked;
     if (row) row.classList.toggle("is-disabled", !checked);
   }
+  syncAiTemplateCards();
+}
+
+function aiTemplateTypeCounts(templateId) {
+  if (templateId === "custom") {
+    if (state.aiTemplate === "custom") return getAiTypeCounts("cms-ai");
+    return { ...AI_CUSTOM_TEMPLATE_COUNTS };
+  }
+  const preset = AI_TEMPLATES[templateId];
+  if (!preset) return {};
+  return AI_CUSTOM_TYPE_KEYS.reduce((counts, key) => {
+    counts[key] = preset.types[key] || 0;
+    return counts;
+  }, {});
+}
+
+function estimateAiTemplateMinutes(counts) {
+  return (
+    (counts.mcquiz || 0) * 5 +
+    (counts.fastmcquiz || 0) * 3 +
+    (counts.buzzin || 0) * 4 +
+    (counts.video || 0) * 8 +
+    4
+  );
+}
+
+function aiTemplateChipLabels(counts) {
+  const names = {
+    mcquiz: "MC Quiz",
+    fastmcquiz: "Lightning round",
+    buzzin: "Buzz in Question",
+    video: "Video",
+  };
+  return AI_CUSTOM_TYPE_KEYS.filter((key) => (counts[key] || 0) > 0).map(
+    (key) => `${names[key]} ${counts[key]}`
+  );
+}
+
+function syncAiTemplateCards() {
+  document.querySelectorAll(".cms-ai-template").forEach((btn) => {
+    const templateId = btn.dataset.template;
+    if (!templateId) return;
+    const counts = aiTemplateTypeCounts(templateId);
+    const chips = btn.querySelector(".cms-ai-template-chips");
+    const meta = btn.querySelector(".cms-ai-template-meta");
+    if (chips) {
+      chips.innerHTML = aiTemplateChipLabels(counts)
+        .map((label) => `<span class="chip">${escapeHtml(label)}</span>`)
+        .join("");
+      chips.removeAttribute("aria-hidden");
+    }
+    if (meta) {
+      const total = Object.values(counts).reduce((sum, count) => sum + (count || 0), 0);
+      const minutes = estimateAiTemplateMinutes(counts);
+      meta.textContent = `${cmsT("cms.ai.templateExerciseCount", { n: total })} · ${cmsT(
+        "cms.ai.templateEstTime",
+        { n: minutes }
+      )}`;
+      meta.removeAttribute("aria-hidden");
+    }
+  });
 }
 
 function aiWantsVideo(prefix = "cms-ai") {
@@ -3892,6 +4211,7 @@ function resetAiGeneratePanel({ openChooser = true } = {}) {
   state.aiCoursePlan = null;
   state.aiCourseResults = [];
   state.aiGenSummary = null;
+  state.aiPublishStagedCount = 0;
   resetAiReviewAgent();
   const preview = $("#cms-ai-material-preview");
   if (preview) {
@@ -3927,6 +4247,7 @@ function resetAiGeneratePanel({ openChooser = true } = {}) {
   placeAiFormatExtras();
   const wizard = $("#cms-ai-wizard");
   if (wizard) wizard.hidden = true;
+  $("#cms-exercises-view")?.classList.remove("is-ai-wizard-active");
   if (openChooser) showAiEntryChooser();
   else syncAiIdleUi();
   syncAiMaterialState();
@@ -4285,6 +4606,7 @@ function applyAiTemplate(templateId) {
     syncAiPlanCardFormatLabels();
     disarmAiPlanGenerate();
     syncAiPlanGenerateUi();
+    syncAiTemplateCards();
     return;
   }
   for (const key of AI_CUSTOM_TYPE_KEYS) {
@@ -4300,6 +4622,7 @@ function applyAiTemplate(templateId) {
   syncAiPlanCardFormatLabels();
   disarmAiPlanGenerate();
   syncAiPlanGenerateUi();
+  syncAiTemplateCards();
 }
 
 function hasAiPreviewReady() {
@@ -4604,6 +4927,7 @@ function setAiWizardStep(step) {
   if (state.aiWizardBusy && step !== state.aiWizardStep) return;
   const next = Math.max(1, Math.min(4, Number(step) || 1));
   const prev = state.aiWizardStep;
+  if (prev === 4 && next !== 4 && !state.aiCourseMode) undoAiPublishStaging();
   if (prev === 3 && next !== 3) collectAiDraftFromDom();
   if (next !== 2) disarmAiPlanGenerate();
   state.aiWizardStep = next;
@@ -4618,6 +4942,8 @@ function setAiWizardStep(step) {
     btn.classList.toggle("is-upcoming", isUpcoming);
     btn.disabled = n > state.aiWizardMaxStep;
     btn.setAttribute("aria-current", isCurrent ? "step" : "false");
+    const numEl = btn.querySelector(".cms-ai-step-num");
+    if (numEl) numEl.textContent = isDone ? "✓" : String(n);
   });
   const kinds = aiActivePanelKinds(next);
   document.querySelectorAll("[data-step-kind]").forEach((panel) => {
@@ -4642,6 +4968,8 @@ function setAiWizardStep(step) {
         nextBtn.textContent = cmsT("cms.ai.nextReview");
       } else if (next === 3) nextBtn.textContent = cmsT("cms.ai.nextPublish");
       else nextBtn.textContent = cmsT("cms.ai.continue");
+    } else if (next === 1) {
+      nextBtn.textContent = cmsT("cms.ai.continue");
     } else if (next === 2) {
       nextBtn.textContent = previewReady ? cmsT("cms.ai.continue") : cmsT("cms.ai.nextGenerate");
     } else if (next === 3) {
@@ -4650,17 +4978,37 @@ function setAiWizardStep(step) {
       nextBtn.textContent = cmsT("cms.ai.continue");
     }
   }
+  const summary = $("#cms-ai-wizard-summary");
+  if (summary) summary.hidden = !state.aiCourseMode && (next === 1 || next === 2);
   if (next === 1 || next === 2) syncAiWizardCopy();
-  if (!state.aiCourseMode && next === 2) syncAiMaterialState();
+  if (!state.aiCourseMode && next === 1) syncAiMaterialState();
   if (state.aiCourseMode && next === 1) syncAiMaterialState();
-  if (next === 1 || (next === 2 && prev !== 2 && !state.aiCourseMode)) resetAiGenProgress();
+  if ((next === 2 && prev !== 2 && !state.aiCourseMode) || (next === 1 && prev !== 1 && state.aiCourseMode)) resetAiGenProgress();
   if (next === 2 && state.aiCourseMode && prev !== 2) renderAiCoursePlan();
   if (next === 3) renderAiPreviewStep();
-  if (next === 4) renderAiPublishSummary();
+  if (next === 4) {
+    if (!state.aiCourseMode) {
+      stageAiExercisesForPublish();
+      $("#cms-exercises-view")?.classList.add("is-ai-publish-playlist");
+      $("#cms-exercises-view")?.classList.remove("is-ai-wizard-active");
+      if ($("#cms-ai-wizard")) $("#cms-ai-wizard").hidden = true;
+      syncAiIdleUi();
+    } else {
+      renderAiPublishSummary();
+    }
+  } else {
+    $("#cms-exercises-view")?.classList.remove("is-ai-publish-playlist");
+    if (state.aiWizardActive && !state.aiCourseMode) {
+      $("#cms-exercises-view")?.classList.add("is-ai-wizard-active");
+      if ($("#cms-ai-wizard")) $("#cms-ai-wizard").hidden = false;
+    }
+  }
+  syncAiPublishPlaylistUi(next);
   placeAiFormatExtras();
   syncAiPlanFormatSelect();
   syncAiPlanGenerateUi();
   updateAiWizardSummary();
+  syncAiTemplateCards();
   syncGlobalAgentUi();
   syncAiReviewAgentLayout();
   if (next === 3 && prev !== 3) {
@@ -5196,6 +5544,7 @@ async function publishAiCourse() {
     state.aiCourseWorkspace = false;
     $("#cms-sections-view").hidden = false;
     $("#cms-exercises-view").hidden = true;
+    syncPlaylistScreenChrome();
     renderSectionEditors();
     resetAiGeneratePanel();
   }
@@ -5225,21 +5574,6 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
     const headers = { Accept: "application/json" };
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
     headers["X-Teacher-Id"] = String(state.user?.id || "");
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        runId: "multi-upload",
-        hypothesisId: "H1",
-        location: "cms.js:extractMaterialRequest",
-        message: "uploading material files",
-        data: { fileCount: uploadFiles.length, names: uploadFiles.map((f) => f.name) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     const res = await fetch("/api/cms/extract-material", { method: "POST", headers, body: form });
     const text = await res.text();
     let parsed = null;
@@ -5265,7 +5599,13 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
       }).catch(() => {});
     }
     // #endregion
-    if (!res.ok) throw new Error(parsed?.message || `Request failed (${res.status})`);
+    if (!res.ok) {
+      const detail = parsed?.message || `Request failed (${res.status})`;
+      if (parsed?.needsOpenRouterKey && parsed?.visionModel) {
+        throw new Error(`${detail} Current vision model: ${parsed.visionModel}.`);
+      }
+      throw new Error(detail);
+    }
     return parsed;
   }
 
@@ -5440,65 +5780,24 @@ function resetBatchAiPanel() {
   state.batchPreparedMaterials = {};
   $("#cms-batch-generate-status") && ($("#cms-batch-generate-status").textContent = "");
   $("#cms-batch-error") && ($("#cms-batch-error").textContent = "");
-  $("#cms-batch-preview-section")?.setAttribute("hidden", "");
+  $("#cms-batch-drafts") && ($("#cms-batch-drafts").innerHTML = "");
   $("#cms-batch-preview") && ($("#cms-batch-preview").innerHTML = "");
-  renderBatchAiRows();
 }
 
 function renderBatchAiRows() {
-  const container = $("#cms-batch-ai-rows");
-  if (!container) return;
-  syncSectionsMetadataFromDom();
-
-  if (!state.sections.length) {
-    container.innerHTML = `<p class="hint">Add at least one section first.</p>`;
-    return;
-  }
-
-  container.innerHTML = state.sections
-    .map((section, sectionIndex) => {
-      const title = section.title?.trim() || `Section ${sectionIndex + 1}`;
-      const prepared = state.batchPreparedMaterials[sectionIndex];
-      const preparedHint = prepared
-        ? `<span class="status-msg">Prepared (${prepared.length} chars)</span>`
-        : "";
-      return `
-        <article class="cms-batch-row" data-section-index="${sectionIndex}">
-          <div class="cms-batch-row-head">
-            <p class="cms-batch-row-title">${escapeHtml(title)}</p>
-            <label class="cms-batch-row-include">
-              <input type="checkbox" class="cms-batch-include" data-section-index="${sectionIndex}" checked />
-              Include
-            </label>
-          </div>
-          <textarea class="cms-batch-paste" data-section-index="${sectionIndex}" placeholder="Paste material for this section…">${escapeHtml(prepared || "")}</textarea>
-          <div class="cms-batch-row-actions">
-            <label class="btn secondary small cms-ai-file-label">
-              <input type="file" class="cms-batch-file" data-section-index="${sectionIndex}" hidden accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,video/*,audio/*,image/*" />
-              Upload
-            </label>
-            <button type="button" class="btn secondary small cms-batch-prepare" data-section-index="${sectionIndex}">Prepare</button>
-            ${preparedHint}
-            <span class="status-msg cms-batch-row-status" data-section-index="${sectionIndex}"></span>
-          </div>
-        </article>`;
-    })
-    .join("");
+  /* Legacy hook — batch UI now uses a shared material textarea. */
 }
 
 function renderBatchPreview(results) {
-  const sectionEl = $("#cms-batch-preview-section");
-  const container = $("#cms-batch-preview");
-  if (!sectionEl || !container) return;
+  const container = $("#cms-batch-drafts") || $("#cms-batch-preview");
+  if (!container) return;
 
   const okResults = (results || []).filter((entry) => entry.ok && entry.exercises?.length);
   if (!okResults.length) {
-    sectionEl.hidden = true;
     container.innerHTML = "";
     return;
   }
 
-  sectionEl.hidden = false;
   container.innerHTML = okResults
     .map((result, resultIndex) => {
       const cards = (result.exercises || [])
@@ -5570,31 +5869,18 @@ async function batchGenerateAllSections() {
     return;
   }
 
+  if (!state.sections.length) {
+    errorEl.textContent = "Add at least one section first.";
+    return;
+  }
+
+  const sharedMaterial = $("#cms-batch-material")?.value.trim() || "";
   const jobs = [];
-  for (const row of document.querySelectorAll(".cms-batch-row")) {
-    const sectionIndex = Number(row.dataset.sectionIndex);
-    const include = row.querySelector(".cms-batch-include")?.checked;
-    if (!include) continue;
-
-    const section = state.sections[sectionIndex];
-    if (!section) continue;
-
-    let material =
-      row.querySelector(".cms-batch-paste")?.value.trim() ||
-      state.batchPreparedMaterials[sectionIndex] ||
-      "";
-    const file = row.querySelector(".cms-batch-file")?.files?.[0];
-
-    try {
-      if (!material && file) {
-        material = await prepareBatchRowMaterial(sectionIndex);
-      }
-    } catch (err) {
-      errorEl.textContent = err.message;
-      return;
-    }
-
-    if (!material) continue;
+  state.sections.forEach((section, sectionIndex) => {
+    const material =
+      sharedMaterial ||
+      section.title?.trim() ||
+      `Section ${sectionIndex + 1}`;
 
     jobs.push({
       key: String(sectionIndex),
@@ -5603,10 +5889,10 @@ async function batchGenerateAllSections() {
       sectionTitle: section.title || `Section ${sectionIndex + 1}`,
       material,
     });
-  }
+  });
 
   if (!jobs.length) {
-    errorEl.textContent = "Add material to at least one included section.";
+    errorEl.textContent = "Add at least one section first.";
     return;
   }
 
@@ -5884,9 +6170,9 @@ function collectAiReviewGroupFromDom(groupEl, previous) {
 function renderAiAddQuestionRow() {
   return `
     <div class="cms-ai-add-question-row" role="group" aria-label="Add question">
-      <button type="button" class="btn secondary small cms-ai-add-question" data-add-type="mcquiz">Add MC</button>
-      <button type="button" class="btn secondary small cms-ai-add-question" data-add-type="fastmcquiz">Add Lightning round</button>
-      <button type="button" class="btn secondary small cms-ai-add-question" data-add-type="buzzin">Add Buzz In</button>
+      <button type="button" class="btn small cms-ai-add-question" data-add-type="mcquiz">Add MC</button>
+      <button type="button" class="btn small cms-ai-add-question" data-add-type="fastmcquiz">Add Lightning round</button>
+      <button type="button" class="btn small cms-ai-add-question" data-add-type="buzzin">Add Buzz In</button>
     </div>`;
 }
 
@@ -5906,7 +6192,7 @@ function renderAiQuestionBlock(type, item, questionNumber, flatIndex, included =
       </div>
       <div class="cms-ai-item-block-actions">
         ${ttsControls}
-        <button type="button" class="cms-row-btn cms-row-btn-quiet cms-ai-remove-item">Remove</button>
+        <button type="button" class="btn ghost small cms-ai-remove-item">Remove</button>
       </div>
     </div>`;
 
@@ -5948,7 +6234,7 @@ function renderAiQuestionBlock(type, item, questionNumber, flatIndex, included =
         ${options}
       </div>
       <div class="cms-ai-item-toolbar">
-        <button type="button" class="btn secondary small cms-ai-add-option">Add option</button>
+        <button type="button" class="btn ghost small cms-ai-add-option">Add option</button>
       </div>
     </div>`;
 }
@@ -6661,7 +6947,12 @@ async function publishAiExercises() {
   if (!errorEl || !statusEl || !btn) return;
 
   errorEl.textContent = "";
-  const added = addAiExercisesToSection();
+  let added = state.aiPublishStagedCount;
+  if (added > 0) {
+    state.aiPublishStagedCount = 0;
+  } else {
+    added = addAiExercisesToSection();
+  }
   if (!added) return;
 
   await saveCourseStructure({
@@ -6675,10 +6966,15 @@ async function publishAiExercises() {
       `Published successfully — ${added} exercise${added === 1 ? "" : "s"} added to this section.`
     );
     $("#cms-exercises-status").textContent = `Published ${added} exercise(s). Ready to host.`;
+    cleanupSectionsAfterAiPublish(state.editingSectionIndex);
     state.expandedExerciseIndex = null;
     state.exercisesSaveUnlocked = true;
     syncExercisesSaveButton();
-    resetAiGeneratePanel();
+    $("#cms-exercises-view")?.classList.remove("is-ai-publish-playlist");
+    resetAiGeneratePanel({ openChooser: false });
+    renderExerciseEditors({ skipReveal: true });
+    syncAiIdleUi();
+    syncAiPublishPlaylistUi();
   }
 }
 
@@ -6710,9 +7006,8 @@ async function handleAiWizardNext() {
       }
       return;
     }
-    const types = getAiTypeCounts();
-    if (!Object.keys(types).length) {
-      setCmsError(errorEl, "Pick a template or at least one custom exercise type.");
+    if (!hasAiMaterialSource()) {
+      setCmsError(errorEl, "Add a document, paste text, or a video link first.");
       return;
     }
     setAiWizardStep(2);
@@ -6727,6 +7022,11 @@ async function handleAiWizardNext() {
         return;
       }
       setCmsError(errorEl, "Review the outline, then use Generate and Confirm generate.");
+      return;
+    }
+    const types = getAiTypeCounts();
+    if (!Object.keys(types).length) {
+      setCmsError(errorEl, "Pick a template or at least one custom exercise type.");
       return;
     }
     if (hasAiPreviewReady()) {
@@ -6881,11 +7181,6 @@ function handleAiPreviewClick(event) {
     return;
   }
 
-  if (event.target.closest(".cms-q-image-preview-btn")) {
-    openQuestionImagePreview(block, "cms-ai-q");
-    return;
-  }
-
   if (event.target.closest(".cms-ai-q-image-remove")) {
     const valueInput = block.querySelector(".cms-ai-q-image-value");
     if (valueInput) valueInput.value = "";
@@ -6931,8 +7226,10 @@ function openSectionExercises(sectionIndex, options = {}) {
   state.exercisesSaveUnlocked = (activeSection?.exercises?.length || 0) > 0;
   $("#cms-sections-view").hidden = true;
   $("#cms-exercises-view").hidden = false;
+  syncPlaylistScreenChrome();
   $("#cms-exercises-error").textContent = "";
   $("#cms-exercises-status").textContent = "";
+  updateCmsAutosaveStatus();
   resetAiGeneratePanel({ openChooser: !options.ai });
   if (options.ai) {
     state.aiManualEntry = false;
@@ -6963,6 +7260,7 @@ function openCourseGenerateWorkspace() {
   if (duration) duration.hidden = true;
   $("#cms-sections-view").hidden = true;
   $("#cms-exercises-view").hidden = false;
+  syncPlaylistScreenChrome();
   $("#cms-exercises-error").textContent = "";
   $("#cms-exercises-status").textContent = "";
   resetAiGeneratePanel({ openChooser: false });
@@ -6975,14 +7273,17 @@ function openCourseGenerateWorkspace() {
 
 function closeSectionExercises({ reRender = true } = {}) {
   if (state.editingSectionIndex != null) syncExercisesFromDom();
+  if (state.aiPublishStagedCount) undoAiPublishStaging();
   state.editingSectionIndex = null;
   state.aiCourseWorkspace = false;
   state.aiManualEntry = false;
   state.expandedExerciseIndex = null;
-  $("#cms-exercises-view")?.classList.remove("is-manual-entry");
+  $("#cms-exercises-view")?.classList.remove("is-manual-entry", "is-ai-wizard-active", "is-ai-publish-playlist");
   $("#cms-sections-view").hidden = false;
   $("#cms-exercises-view").hidden = true;
+  syncPlaylistScreenChrome();
   if (reRender) renderSectionEditors();
+  else syncSectionsStartUi();
   syncExerciseAgentPanel(false);
 }
 
@@ -6994,37 +7295,17 @@ function syncCourseEditorChrome() {
   const creating = isCreatingCourse();
   const title = $("#cms-edit-title");
   if (title) title.textContent = creating ? cmsT("cms.edit.newTitle") : cmsT("cms.edit.title");
-  const more = $("#cms-studio-dock-more");
-  if (more) more.hidden = creating;
+  const extra = $("#cms-editor-extra-actions");
+  const deleteBtn = $("#btn-delete-course");
+  if (extra) extra.hidden = creating;
+  if (deleteBtn) deleteBtn.hidden = creating;
   const shareStatus = $("#cms-community-share-status");
   if (shareStatus) shareStatus.hidden = creating;
   document.getElementById("screen-cms-edit")?.classList.toggle("is-creating-course", creating);
-  syncCmsTabCaption();
 }
 
 function syncCmsTabCaption() {
-  const caption = $("#cms-tab-caption");
-  const lead = $("#cms-edit-lead");
-  const onSections = getActiveTabId() === "sections";
-  const creating = isCreatingCourse();
-  if (caption) {
-    caption.textContent = onSections
-      ? creating
-        ? cmsT("cms.tab.cap2Create")
-        : cmsT("cms.tab.cap2")
-      : creating
-        ? cmsT("cms.tab.cap1Create")
-        : cmsT("cms.tab.cap1");
-  }
-  if (lead) {
-    lead.textContent = onSections
-      ? creating
-        ? cmsT("cms.edit.leadSectionsCreate")
-        : cmsT("cms.edit.leadSections")
-      : creating
-        ? cmsT("cms.edit.leadCreate")
-        : cmsT("cms.edit.lead");
-  }
+  /* Reference editor has no step caption under tabs. */
 }
 
 function switchTab(tabId) {
@@ -7038,7 +7319,7 @@ function switchTab(tabId) {
     }
   }
 
-  document.querySelectorAll(".cms-tab").forEach((tab) => {
+  document.querySelectorAll("#screen-cms-edit .tab, .cms-tab").forEach((tab) => {
     const active = tab.dataset.tab === tabId;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", active ? "true" : "false");
@@ -7110,6 +7391,16 @@ async function saveDetails() {
           description: $("#course-description").value.trim(),
           banner: $("#course-banner").value.trim(),
           classIds: getSelectedClassIds(),
+          level: $("#course-level")?.value.trim() || "",
+          estimatedMinutes: Number($("#course-minutes")?.value) || null,
+          objectives: ($("#course-objectives")?.value || "")
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 8),
+          authorNotes: $("#course-author-notes")?.value.trim() || "",
+          plannedStart: $("#course-start")?.value || "",
+          plannedEnd: $("#course-end")?.value || "",
         },
       });
       state.editingCourse = { ...state.editingCourse, ...data.course };
@@ -7840,6 +8131,15 @@ function initQuestionImageFields(root = document) {
     const block =
       field.closest(".cms-question-block, .cms-buzzin-topic-block, .cms-ai-item-block") || field;
     syncQuestionImageDisplay(block, prefix);
+    const previewBtn = field.querySelector(".cms-q-image-preview-btn");
+    if (previewBtn && !previewBtn.dataset.previewWired) {
+      previewBtn.dataset.previewWired = "1";
+      previewBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openQuestionImagePreview(block, prefix);
+      });
+    }
   });
 }
 
@@ -7866,11 +8166,11 @@ function renderQuestionImageFieldMarkup(image, { prefix = "cms-q", uploadLabel =
         </div>
       </div>
       <div class="cms-q-image-actions">
-        <label class="cms-thumbnail-upload btn secondary small">
+        <label class="cms-thumbnail-upload btn ghost small">
           <input type="file" class="${prefix}-image-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
           ${escapeHtml(uploadLabel)}
         </label>
-        <button type="button" class="btn secondary small ${prefix}-image-generate cms-q-image-generate">
+        <button type="button" class="btn small ${prefix}-image-generate cms-q-image-generate">
           Generate with AI
         </button>
       </div>
@@ -8083,12 +8383,6 @@ function renderMcQuizBody(container, exercise) {
         if (valueInput) valueInput.value = "";
         updateQuestionImagePreview(block, "");
         if (items[qIdx]) items[qIdx].image = "";
-      });
-    });
-
-    list.querySelectorAll(".cms-q-image-preview-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        openQuestionImagePreview(btn.closest(".cms-question-block"), "cms-q");
       });
     });
 
@@ -8814,12 +9108,6 @@ function renderBuzzinBody(container, exercise) {
       });
     });
 
-    list.querySelectorAll(".cms-q-image-preview-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        openQuestionImagePreview(btn.closest(".cms-buzzin-topic-block"), "cms-q");
-      });
-    });
-
     list.querySelectorAll(".cms-q-image-file").forEach((input) => {
       input.addEventListener("change", async () => {
         const file = input.files?.[0];
@@ -8930,11 +9218,19 @@ function applyExerciseTypeChange(card, newType) {
   const chip = card.querySelector(".cms-type-chip");
   if (chip) chip.textContent = exerciseTypeShortLabel(newType);
   renderExerciseBody(card, exercise);
+  syncExerciseTitleDisplay(card, exercise);
 
   const previewLink = card.querySelector(".cms-exercise-preview");
   if (previewLink) {
     previewLink.href = joinPreviewUrl(joinPreviewLayoutForExercise(exercise));
   }
+}
+
+function syncExerciseTitleDisplay(card, exercise) {
+  const display = card?.querySelector(".cms-exercise-title-display");
+  if (!display) return;
+  const title = exercise?.title?.trim() || cmsT("cms.ex.newExercise");
+  display.textContent = title;
 }
 
 function setExerciseExpanded(card, open) {
@@ -8951,7 +9247,7 @@ function setExerciseExpanded(card, open) {
   if (editor) editor.hidden = !open;
   if (toggle) {
     toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    toggle.textContent = open ? "Done" : "Edit";
+    toggle.textContent = open ? cmsT("cms.ex.done") : cmsT("cms.ex.edit");
   }
 
   if (open) {
@@ -9051,6 +9347,12 @@ function renderExerciseCard(exercise, sectionIndex, exerciseIndex, exercisesCont
   if (chip) chip.textContent = exerciseTypeShortLabel(exercise.type);
 
   card.querySelector('[data-field="title"]').value = exercise.title || "";
+  card.querySelector('[data-field="title"]').addEventListener("input", (event) => {
+    const nextTitle = event.target.value.trim() || cmsT("cms.ex.newExercise");
+    const display = card.querySelector(".cms-exercise-title-display");
+    if (display) display.textContent = nextTitle;
+  });
+  syncExerciseTitleDisplay(card, exercise);
   card.querySelector(".cms-exercise-order").value = String(exercise.order ?? exerciseIndex + 1);
   card.querySelector('[data-field="subTitle"]').value = exercise.subTitle || exerciseSubTitleForType(exercise.type);
   const typeSelect = card.querySelector(".cms-exercise-type-select");
@@ -9219,6 +9521,8 @@ function renderExerciseEditors({ skipReveal = false, insertedIndex = null } = {}
 
   const exercises = section.exercises || [];
   if (!exercises.length) {
+    syncAiIdleUi();
+    syncExercisesSaveButton();
     return;
   }
 
@@ -9239,6 +9543,8 @@ function renderExerciseEditors({ skipReveal = false, insertedIndex = null } = {}
 
   if (!skipReveal) cmsMotion()?.playCmsListReveal?.(container);
   updateExercisesViewDurationEstimate();
+  syncExercisesSaveButton();
+  syncAiIdleUi();
   if (state.expandedExerciseIndex == null) syncExerciseAgentPanel(false);
 }
 
@@ -9421,12 +9727,14 @@ async function saveCourseStructure({ errorEl, statusEl, btn, successMessage }) {
       }
       $("#cms-sections-view").hidden = true;
       $("#cms-exercises-view").hidden = false;
+      syncPlaylistScreenChrome();
       renderExerciseEditors({ skipReveal: true });
     } else {
       state.editingSectionIndex = null;
       state.expandedExerciseIndex = null;
       $("#cms-sections-view").hidden = false;
       $("#cms-exercises-view").hidden = true;
+      syncPlaylistScreenChrome();
       renderSectionEditors();
     }
     statusEl.textContent = successMessage;
@@ -9451,16 +9759,29 @@ async function saveSections() {
 }
 
 async function saveExercises() {
+  const sectionIndex = state.editingSectionIndex;
   await saveCourseStructure({
     errorEl: $("#cms-exercises-error"),
     statusEl: $("#cms-exercises-status"),
     btn: $("#btn-save-exercises"),
     successMessage: "Exercises saved.",
   });
+  if ($("#cms-exercises-error").textContent.trim()) return;
+  if (sectionIndex != null) cleanupSectionsAfterAiPublish(sectionIndex);
+  closeSectionExercises();
+  $("#cms-sections-status").textContent = "Exercises saved.";
 }
 
 function addSection() {
   if (getActiveTabId() === "sections" && !isExercisesSubpageOpen()) syncSectionsMetadataFromDom();
+  const reusableIndex = state.sections.findIndex(isSeededEmptySection);
+  if (reusableIndex >= 0) {
+    renderSectionEditors();
+    document
+      .querySelector(`[data-section-index="${reusableIndex}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
   const nextOrder = state.sections.reduce((max, section) => Math.max(max, section.order || 0), 0) + 1;
   state.sections.push(defaultSection(""));
   state.sections[state.sections.length - 1].order = nextOrder;
@@ -9484,9 +9805,9 @@ function addExercise(type = "mcquiz") {
   const exercise = defaultExercise(type);
   exercise.order = section.exercises.length + 1;
   section.exercises.push(exercise);
-  state.expandedExerciseIndex = section.exercises.length - 1;
+  state.expandedExerciseIndex = null;
   markCmsDirty();
-  renderExerciseEditors({ insertedIndex: state.expandedExerciseIndex });
+  renderExerciseEditors({ insertedIndex: section.exercises.length - 1 });
 }
 
 const CMS_TOUR_STEPS = [
@@ -9593,8 +9914,8 @@ $("#cms-community-sort")?.addEventListener("change", () => {
   state.communitySort = $("#cms-community-sort").value || "featured";
   loadCommunityCourses();
 });
-$("#cms-community-list")?.addEventListener("click", (event) => {
-  const card = event.target.closest(".cms-community-card");
+function handleCommunityCatalogClick(event) {
+  const card = event.target.closest(".cms-community-card, .community-card");
   if (!card) return;
   const listingId = Number(card.dataset.id);
   if (!Number.isFinite(listingId)) return;
@@ -9613,7 +9934,9 @@ $("#cms-community-list")?.addEventListener("click", (event) => {
   if (event.target.closest(".cms-community-unshare-btn")) {
     unshareCommunityListing(listingId);
   }
-});
+}
+$("#cms-community-list")?.addEventListener("click", handleCommunityCatalogClick);
+$("#community-catalog")?.addEventListener("click", handleCommunityCatalogClick);
 $("#btn-community-preview-close")?.addEventListener("click", closeCommunityPreview);
 $("#cms-community-preview-backdrop")?.addEventListener("click", closeCommunityPreview);
 $("#btn-community-preview-add")?.addEventListener("click", () => {
@@ -9633,15 +9956,17 @@ $("#cms-dashboard-class")?.addEventListener("change", async (event) => {
   const nextId = Number(event.target.value);
   state.dashboardClassId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
   savePrefs();
-  $("#cms-dashboard-list").innerHTML = `
+  $("#class-sessions").innerHTML = `
     <div class="cms-list-loading" aria-hidden="true">
       <div class="cms-skeleton-card"></div>
       <div class="cms-skeleton-card"></div>
     </div>`;
+  if ($("#cms-dashboard-assigned-block")) $("#cms-dashboard-assigned-block").hidden = true;
   try {
     await loadDashboardProgress();
   } catch (err) {
-    $("#cms-dashboard-list").innerHTML = "";
+    $("#class-sessions").innerHTML = "";
+    if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
     $("#cms-dashboard-error").textContent = err.message;
   }
 });
@@ -9680,7 +10005,13 @@ $("#course-banner-file").addEventListener("change", handleBannerFileChange);
 $("#btn-remove-banner").addEventListener("click", handleRemoveBanner);
 $("#btn-add-section").addEventListener("click", addSection);
 $("#btn-save-sections").addEventListener("click", saveSections);
-$("#btn-save-exercises").addEventListener("click", saveExercises);
+$("#btn-save-exercises").addEventListener("click", () => {
+  if (state.aiWizardActive && state.aiWizardStep === 4 && !state.aiCourseMode) {
+    publishAiExercises();
+    return;
+  }
+  saveExercises();
+});
 $("#cms-ai-file")?.addEventListener("change", (event) => {
   const added = addAiSelectedFiles(event.target.files);
   event.target.value = "";
@@ -9751,7 +10082,7 @@ if (cmsAiFileDrop) {
     }
   });
 }
-$("#cms-playlist-add")?.addEventListener("click", (event) => {
+$("#cms-playlist-toolbar")?.addEventListener("click", (event) => {
   const btn = event.target.closest("[data-add-exercise]");
   if (!btn) return;
   addExercise(btn.dataset.addExercise);
@@ -9768,10 +10099,19 @@ $("#btn-cms-ai-cancel-generate")?.addEventListener("click", cancelAiCourseGenera
 $("#cms-ai-plan-format-select")?.addEventListener("change", (event) => {
   applyAiTemplate(event.target.value);
 });
-$("#btn-cms-ai-change-path")?.addEventListener("click", () => {
+function resetAiWizardOnly() {
   if (state.aiWizardBusy) return;
-  closeSectionExercises();
+  resetAiGeneratePanel({ openChooser: false });
+  syncAiIdleUi();
+}
+
+$("#btn-exercises-back")?.addEventListener("click", () => closeSectionExercises());
+$("#btn-cms-ai-idle-start")?.addEventListener("click", () => {
+  if (state.editingSectionIndex == null) return;
+  openAiGeneratePath("section");
 });
+$("#btn-cms-ai-change-path-playlist")?.addEventListener("click", resetAiWizardOnly);
+$("#btn-cms-ai-change-path")?.addEventListener("click", resetAiWizardOnly);
 $("#btn-cms-onboarding-next")?.addEventListener("click", advanceCmsTour);
 $("#btn-cms-onboarding-skip")?.addEventListener("click", finishCmsTour);
 $("#cms-onboarding-backdrop")?.addEventListener("click", finishCmsTour);
@@ -9815,7 +10155,7 @@ $("#cms-ai-wizard")?.addEventListener("change", (event) => {
     syncAiPlanGenerateUi();
     if (state.aiWizardStep === 2 && !state.aiCourseMode) {
       const nextBtn = $("#btn-cms-ai-next");
-      if (nextBtn && !hasAiPreviewReady()) nextBtn.textContent = "Generate exercises";
+      if (nextBtn && !hasAiPreviewReady()) nextBtn.textContent = cmsT("cms.ai.nextGenerate");
     }
   }
 });
@@ -9959,6 +10299,7 @@ $("#cms-ai-import-json")?.addEventListener("change", async (event) => {
 });
 $("#btn-cms-batch-generate")?.addEventListener("click", batchGenerateAllSections);
 $("#btn-cms-batch-apply")?.addEventListener("click", applyBatchResultsToSections);
+$("#btn-cms-batch-import")?.addEventListener("click", () => $("#cms-batch-import-json")?.click());
 $("#btn-cms-batch-export-json")?.addEventListener("click", async () => {
   try {
     await exportExercisesJson({ mode: "batch", batchResults: state.batchDraftResults });
@@ -9976,23 +10317,11 @@ $("#cms-batch-import-json")?.addEventListener("change", async (event) => {
     $("#cms-batch-error").textContent = err.message;
   }
 });
-$("#cms-batch-ai-panel")?.addEventListener("click", async (event) => {
-  const prepareBtn = event.target.closest(".cms-batch-prepare");
-  if (!prepareBtn) return;
-  const sectionIndex = Number(prepareBtn.dataset.sectionIndex);
-  if (!Number.isFinite(sectionIndex)) return;
-  const errorEl = $("#cms-batch-error");
-  if (errorEl) errorEl.textContent = "";
-  try {
-    await prepareBatchRowMaterial(sectionIndex);
-  } catch (err) {
-    if (errorEl) errorEl.textContent = err.message;
-  }
-});
 
-document.querySelectorAll(".cms-tab").forEach((tab) => {
+document.querySelectorAll("#screen-cms-edit .tab, .cms-tab").forEach((tab) => {
   tab.addEventListener("click", () => switchTab(tab.dataset.tab));
 });
+$("#btn-cover-upload")?.addEventListener("click", () => $("#course-banner-file")?.click());
 
 function cmsLanguageLabel(code) {
   const locales = window.LangoI18n?.getLocales?.() || [];
@@ -10060,11 +10389,11 @@ function applyCmsUiLanguage() {
   syncCourseEditorChrome();
   syncCommunityShareUi();
   if ($("#screen-cms-home")?.classList.contains("active")) {
-    const greeting = $("#cms-home-greeting");
-    if (greeting) {
-      const name = teacherDisplayName();
-      greeting.textContent = name ? cmsT("cms.home.greetingNamed", { name }) : cmsT("cms.home.greeting");
-    }
+    const hello = $("#home-hello");
+    const school = $("#home-school");
+    const name = teacherDisplayName();
+    if (hello) hello.textContent = name ? `Hi, ${name}` : "Hi";
+    if (school) school.textContent = "... · ... · ...";
   }
   if ($("#screen-cms-list")?.classList.contains("active")) renderCourseList();
   if ($("#screen-cms-community")?.classList.contains("active")) {
@@ -10081,8 +10410,7 @@ function applyCmsUiLanguage() {
   }
   if ($("#screen-cms-dashboard")?.classList.contains("active")) {
     renderDashboardClassPicker();
-    renderDashboardSummary(state.dashboardCourses || []);
-    renderDashboardCourseList(state.dashboardCourses || []);
+    renderInsightsSessions(state.dashboardCourses || []);
   }
   if (state.aiWizardActive) syncAiWizardCopy();
   else {

@@ -24,10 +24,22 @@
                 {
                   "title": "朝早見到鄰居，應該點樣打招呼？",
                   "options": [
-                    { "text": "早晨", "isCorrect": true },
-                    { "text": "晚安", "isCorrect": false },
-                    { "text": "拜拜", "isCorrect": false },
-                    { "text": "多謝惠顧", "isCorrect": false }
+                    {
+                      "text": "早晨",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "晚安",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "拜拜",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "多謝惠顧",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -35,10 +47,22 @@
                 {
                   "title": "去街市買菜，想問價錢應該點講？",
                   "options": [
-                    { "text": "呢樣幾錢？", "isCorrect": true },
-                    { "text": "你幾歲？", "isCorrect": false },
-                    { "text": "而家幾點？", "isCorrect": false },
-                    { "text": "廁所喺邊？", "isCorrect": false }
+                    {
+                      "text": "呢樣幾錢？",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "你幾歲？",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "而家幾點？",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "廁所喺邊？",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -46,10 +70,22 @@
                 {
                   "title": "搭巴士想落車，應該撳邊個掣？",
                   "options": [
-                    { "text": "鐘掣（落車鐘）", "isCorrect": true },
-                    { "text": "冷氣掣", "isCorrect": false },
-                    { "text": "車門扶手", "isCorrect": false },
-                    { "text": "車窗", "isCorrect": false }
+                    {
+                      "text": "鐘掣（落車鐘）",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "冷氣掣",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "車門扶手",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "車窗",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -106,10 +142,22 @@
                 {
                   "title": "天氣熱嘅時候，最好點樣補充水分？",
                   "options": [
-                    { "text": "飲清水", "isCorrect": true },
-                    { "text": "淨係飲凍汽水", "isCorrect": false },
-                    { "text": "完全唔飲水", "isCorrect": false },
-                    { "text": "淨係飲咖啡", "isCorrect": false }
+                    {
+                      "text": "飲清水",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "淨係飲凍汽水",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "完全唔飲水",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "淨係飲咖啡",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -117,10 +165,22 @@
                 {
                   "title": "覺得胸口唔舒服，應該點做？",
                   "options": [
-                    { "text": "快啲求醫或者叫人幫手", "isCorrect": true },
-                    { "text": "繼續做運動", "isCorrect": false },
-                    { "text": "自己忍住唔出聲", "isCorrect": false },
-                    { "text": "即刻食辣嘢", "isCorrect": false }
+                    {
+                      "text": "快啲求醫或者叫人幫手",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "繼續做運動",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "自己忍住唔出聲",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "即刻食辣嘢",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -157,10 +217,22 @@
                 {
                   "title": "朝早見到鄰居，應該點樣打招呼？",
                   "options": [
-                    { "text": "早晨", "isCorrect": true },
-                    { "text": "晚安", "isCorrect": false },
-                    { "text": "拜拜", "isCorrect": false },
-                    { "text": "多謝惠顧", "isCorrect": false }
+                    {
+                      "text": "早晨",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "晚安",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "拜拜",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "多謝惠顧",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -168,10 +240,22 @@
                 {
                   "title": "去街市買菜，想問價錢應該點講？",
                   "options": [
-                    { "text": "呢樣幾錢？", "isCorrect": true },
-                    { "text": "你幾歲？", "isCorrect": false },
-                    { "text": "而家幾點？", "isCorrect": false },
-                    { "text": "廁所喺邊？", "isCorrect": false }
+                    {
+                      "text": "呢樣幾錢？",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "你幾歲？",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "而家幾點？",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "廁所喺邊？",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -179,10 +263,22 @@
                 {
                   "title": "搭巴士想落車，應該撳邊個掣？",
                   "options": [
-                    { "text": "鐘掣（落車鐘）", "isCorrect": true },
-                    { "text": "冷氣掣", "isCorrect": false },
-                    { "text": "車門扶手", "isCorrect": false },
-                    { "text": "車窗", "isCorrect": false }
+                    {
+                      "text": "鐘掣（落車鐘）",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "冷氣掣",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "車門扶手",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "車窗",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -239,10 +335,22 @@
                 {
                   "title": "天氣熱嘅時候，最好點樣補充水分？",
                   "options": [
-                    { "text": "飲清水", "isCorrect": true },
-                    { "text": "淨係飲凍汽水", "isCorrect": false },
-                    { "text": "完全唔飲水", "isCorrect": false },
-                    { "text": "淨係飲咖啡", "isCorrect": false }
+                    {
+                      "text": "飲清水",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "淨係飲凍汽水",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "完全唔飲水",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "淨係飲咖啡",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -250,10 +358,22 @@
                 {
                   "title": "覺得胸口唔舒服，應該點做？",
                   "options": [
-                    { "text": "快啲求醫或者叫人幫手", "isCorrect": true },
-                    { "text": "繼續做運動", "isCorrect": false },
-                    { "text": "自己忍住唔出聲", "isCorrect": false },
-                    { "text": "即刻食辣嘢", "isCorrect": false }
+                    {
+                      "text": "快啲求醫或者叫人幫手",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "繼續做運動",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "自己忍住唔出聲",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "即刻食辣嘢",
+                      "isCorrect": false
+                    }
                   ],
                   "timeLimit": 30,
                   "image": null
@@ -265,6 +385,166 @@
       ],
       "createdAt": "2026-08-28T00:00:00.000Z",
       "updatedAt": "2026-08-28T00:00:00.000Z"
+    },
+    {
+      "id": -203,
+      "teacherId": 835,
+      "name": "老人家course",
+      "description": "",
+      "banner": "/uploads/courses/course--203-1788946783396.png",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [
+        {
+          "id": 2,
+          "title": "香港趣味問答",
+          "banner": "/uploads/sections/section-ai-course--203-section-2-835-1788946579176.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "香港 trivia 問答",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "邊個MTR站名聽落似動物？",
+                  "options": [
+                    {
+                      "text": "牛頭角",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "旺角",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "尖沙咀",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "中環",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                },
+                {
+                  "title": "歇後語：一朝被蛇咬，十年怕？",
+                  "options": [
+                    {
+                      "text": "草繩",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "樹枝",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "石頭",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "水塘",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": "/uploads/questions/question-ai-835-1788946115269.png"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "快問快答",
+              "subTitle": "Lightning round",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "邊樣係香港地標？",
+                  "options": [
+                    {
+                      "text": "維港",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "北京",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "東京",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/questions/question-ai-835-1788946126983.png"
+                },
+                {
+                  "title": "周星馳電影常講邊句？",
+                  "options": [
+                    {
+                      "text": "食屎啦你",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "你好嗎",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "再見",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 9,
+                  "image": "/uploads/questions/question-835-1788946336187.jpg"
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "title": "搶答環節",
+              "subTitle": "Buzz In",
+              "order": 3,
+              "type": "buzzin",
+              "items": [
+                {
+                  "topic": "講吓你細個最鍾意玩嘅街頭遊戲。",
+                  "correctAnswer": "任何舊香港街頭遊戲如踢毽子、彈珠、捉迷藏等答案均可"
+                },
+                {
+                  "topic": "講吓香港一隻著名地鐵站名同動物有關。",
+                  "correctAnswer": "牛頭角或馬鞍山等答案均可"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "createdAt": "2026-09-09T07:02:27.839Z",
+      "updatedAt": "2026-09-09T09:50:02.616Z"
+    },
+    {
+      "id": -204,
+      "teacherId": 821,
+      "name": "New course",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "classIds": [],
+      "sourceCommunityId": null,
+      "communityListingId": null,
+      "communityPublishedAt": null,
+      "communityFeatured": false,
+      "sections": [],
+      "createdAt": "2026-09-09T07:07:47.577Z",
+      "updatedAt": "2026-09-09T07:07:47.577Z"
     }
   ]
 }

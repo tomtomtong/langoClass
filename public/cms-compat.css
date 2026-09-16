@@ -1,0 +1,1852 @@
+/**
+ * Compatibility layer: legacy cms-* editor components inside the new CMS shell.
+ */
+#screen-cms-login.signin-wrap {
+  min-height: 100vh;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+#screen-cms-login.signin-wrap.active {
+  display: flex;
+}
+
+.sidebar-nav .nav-link.active {
+  background: var(--wash);
+  color: var(--purple);
+  font-weight: 800;
+}
+
+.cms-toast--info {
+  background: var(--ink);
+  color: #fff;
+}
+
+.cms-app .screen,
+.app-main > section.screen {
+  display: none;
+}
+.cms-app .screen.active,
+.app-main > section.screen.active {
+  display: block;
+}
+
+/* Editor uses reference cms.css field layout inside app shell */
+.screen-cms-edit,
+#screen-cms-edit {
+  max-width: none;
+}
+
+.cms-edit-chrome,
+.cms-header,
+.cms-home-shell,
+.cms-dashboard-header {
+  margin-bottom: 1.25rem;
+}
+
+.cms-tabs-wrap { margin-bottom: 1rem; }
+.cms-tabs {
+  display: flex;
+  gap: 0.35rem;
+  position: relative;
+  background: var(--wash);
+  border-radius: 999px;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+}
+.cms-tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.cms-tab.active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.cms-tab-glider { display: none; }
+
+.cms-tab-panel { display: none; }
+.cms-tab-panel.active { display: block; }
+
+.cms-topbar { display: none !important; }
+
+/*
+ * Reference CMS shell (#app-shell) uses cms.css — isolate it from legacy
+ * style.css rules (e.g. .btn.primary { width: 100% }) that break home layout.
+ */
+#app-shell .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: auto;
+  max-width: none;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transform: none;
+}
+#app-shell .btn:hover:not(:disabled) {
+  transform: none;
+  filter: brightness(0.97);
+}
+#app-shell .btn.primary {
+  background: var(--purple);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+#app-shell .btn.ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--ink);
+}
+#app-shell .btn.small {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+}
+#app-shell .home-hero h1,
+#app-shell .home-block h2,
+#app-shell .dash-num {
+  font-family: var(--font-display);
+  color: inherit;
+}
+#app-shell .dash-num {
+  color: var(--purple);
+}
+#app-shell .hint {
+  color: var(--ink-soft);
+  text-align: left;
+  margin: 0;
+}
+#app-shell .course-card-rich .meta,
+#app-shell .course-card-rich .meta .hint,
+#app-shell .course-card-rich .meta strong,
+#app-shell .course-card-rich .eng-row {
+  text-align: left;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+#app-shell .course-card-rich .meta > .row:first-child {
+  width: 100%;
+}
+
+#community-catalog .community-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+#app-shell .course-card .card-body,
+#app-shell .course-card .hint,
+#app-shell .course-usage-meta,
+#app-shell .course-progress-head .hint {
+  text-align: left;
+}
+
+.cms-course-list,
+.cms-community-list,
+.cms-dashboard-list,
+.cms-section-list,
+.cms-exercise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cms-course-card,
+.cms-community-card,
+.cms-dashboard-card,
+.cms-section-card,
+.cms-exercise-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.cms-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+.cms-home-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  text-align: left;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.cms-home-card:hover { border-color: var(--purple); }
+
+/* Ask Lango — reference-style FAB + chat panel (OpenRouter via /api/cms/assistant) */
+.cms-global-agent-dock {
+  position: static;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.cms-global-agent-dock:not([hidden]) {
+  pointer-events: none;
+}
+.cms-global-agent-dock .fab {
+  position: fixed;
+  right: 1.2rem;
+  bottom: 1.2rem;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.8rem 1.1rem;
+  background: var(--purple);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transform: none;
+  pointer-events: auto;
+}
+.cms-global-agent-dock .fab:hover {
+  filter: brightness(0.97);
+  transform: none;
+}
+.cms-global-agent-dock.is-open .fab {
+  opacity: 0.92;
+}
+.cms-global-agent-panel {
+  position: fixed;
+  right: 1.2rem;
+  bottom: 4.4rem;
+  width: min(360px, calc(100vw - 2rem));
+  height: min(480px, 70vh);
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.cms-global-agent-panel[hidden] {
+  display: none !important;
+}
+.cms-ai-agent-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  flex-shrink: 0;
+}
+.cms-global-agent-kicker {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+.cms-ai-agent-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+.cms-ai-agent-lead {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+.cms-global-agent-head-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+.cms-global-agent-close {
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+}
+.cms-ai-agent-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.cms-ai-agent-log {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-right: 0.15rem;
+}
+.cms-ai-agent-turn {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.cms-ai-agent-turn--user {
+  flex-direction: row-reverse;
+}
+.cms-ai-agent-avatar {
+  flex-shrink: 0;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: var(--wash);
+  color: var(--purple);
+}
+.cms-ai-agent-turn--user .cms-ai-agent-avatar {
+  background: #f4ecb8;
+  color: var(--ink);
+}
+.cms-ai-agent-bubble {
+  max-width: calc(100% - 2.2rem);
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--wash);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+.cms-ai-agent-turn--user .cms-ai-agent-bubble {
+  background: #f4ecb8;
+}
+.cms-ai-agent-bubble p {
+  margin: 0;
+}
+.cms-ai-agent-footer {
+  flex-shrink: 0;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+.cms-ai-agent-selection {
+  margin-bottom: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.8rem;
+}
+.cms-ai-agent-selection-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+.cms-ai-agent-selection-label {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cms-ai-agent-selection-clear {
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+.cms-ai-agent-selection-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+.cms-ai-agent-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cms-ai-agent-input-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-end;
+}
+.cms-ai-agent-input {
+  flex: 1;
+  min-height: 52px;
+  max-height: 120px;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  background: #fff;
+}
+.cms-ai-agent-send {
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--purple);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.cms-ai-agent-send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.cms-ai-agent-compose-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  text-align: left;
+}
+.cms-global-selection-add {
+  position: fixed;
+  z-index: 42;
+}
+
+.cms-onboarding,
+.cms-confirm,
+.cms-community-preview,
+.cms-asset-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.cms-onboarding[hidden],
+.cms-confirm[hidden],
+.cms-community-preview[hidden],
+.cms-asset-preview[hidden] {
+  display: none !important;
+}
+
+.cms-onboarding-backdrop,
+.cms-confirm-backdrop,
+.cms-community-preview-backdrop,
+.cms-asset-preview-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(45, 31, 56, 0.55);
+}
+
+.cms-onboarding-card,
+.cms-confirm-card,
+.cms-community-preview-card,
+.cms-asset-preview-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(560px, 100%);
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  padding: 1.1rem;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(45, 31, 56, 0.28);
+}
+
+.cms-asset-preview-dialog {
+  width: min(920px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cms-asset-preview-title {
+  margin: 0;
+  padding-right: 2rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.cms-asset-preview-img {
+  width: 100%;
+  max-height: min(72vh, 720px);
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--wash);
+}
+
+.cms-asset-preview-close,
+.cms-community-preview-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+}
+
+.cms-asset-preview-actions,
+.cms-onboarding-actions,
+.cms-confirm-actions,
+.cms-community-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cms-q-image-preview-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 10px;
+  line-height: 0;
+}
+
+.cms-q-image-preview-btn:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+body.cms-asset-preview-open {
+  overflow: hidden;
+}
+
+.coming-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--gold);
+  color: var(--ink);
+  margin-left: 0.45rem;
+  vertical-align: middle;
+}
+
+.coming-soon-overlay {
+  position: relative;
+}
+.coming-soon-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+[data-coming-soon="true"] {
+  opacity: 0.72;
+}
+
+.courses-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+}
+.templates-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+}
+#app-shell .courses-tab,
+#app-shell .templates-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: #efe6f5;
+  color: var(--purple);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+#app-shell .courses-tab.active,
+#app-shell .templates-tab.active {
+  background: var(--purple);
+  color: #fff;
+}
+
+#app-shell .app-main {
+  text-align: left;
+}
+
+#app-shell #screen-cms-edit {
+  max-width: none;
+  width: 100%;
+}
+
+#app-shell #screen-cms-edit .field,
+#app-shell #screen-cms-edit .field .hint,
+#app-shell #screen-cms-edit .field-label,
+#app-shell #screen-cms-edit label {
+  text-align: left;
+}
+
+#app-shell #screen-cms-edit .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+#app-shell #screen-cms-edit .field.row.date-row {
+  flex-direction: row;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+
+#app-shell #screen-cms-edit .field .row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+#app-shell #screen-cms-edit .editor-head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+  text-align: left;
+}
+
+#app-shell #screen-cms-edit .editor-head h1 {
+  margin: 0;
+  flex: 0 1 auto;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--ink);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+#app-shell #screen-cms-edit .autosave {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+#app-shell #screen-cms-edit .tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.8rem 0 1rem;
+  justify-content: flex-start;
+}
+
+#app-shell #screen-cms-edit .tab {
+  border: 0;
+  background: var(--wash);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: var(--ink);
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  cursor: pointer;
+}
+
+#app-shell #screen-cms-edit .tab.active {
+  background: var(--purple);
+  color: #fff;
+}
+
+#app-shell #screen-cms-edit .cms-tab-panel {
+  display: none;
+  max-width: 720px;
+}
+
+#app-shell #screen-cms-edit .cms-tab-panel.active {
+  display: block;
+}
+
+#app-shell #cms-tab-sections {
+  max-width: 720px;
+  text-align: left;
+}
+
+#app-shell #cms-tab-sections .kicker {
+  margin-top: 0;
+}
+
+#app-shell #cms-tab-sections .chooser-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+#app-shell #cms-tab-sections .chooser-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+#app-shell #cms-tab-sections .chooser-card:hover {
+  border-color: var(--purple);
+}
+
+#app-shell #cms-tab-sections .chooser-card h2 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+#app-shell #cms-tab-sections .chooser-card .hint {
+  margin: 0;
+}
+
+#app-shell #cms-tab-sections .collapsible {
+  margin: 0.8rem 0;
+}
+
+#app-shell #cms-tab-sections .collapsible summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.75rem 0.9rem;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  color: var(--ink);
+}
+
+#app-shell #cms-tab-sections .collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+#app-shell #cms-tab-sections .collapsible summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 0.45rem;
+  font-size: 0.72rem;
+  color: var(--purple);
+  transition: transform 0.15s ease;
+}
+
+#app-shell #cms-tab-sections .collapsible[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+#app-shell #cms-tab-sections .cms-batch-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+#app-shell #cms-tab-sections .cms-batch-type-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+#app-shell #cms-tab-sections .cms-batch-type-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+#app-shell #cms-tab-sections .cms-batch-count-input {
+  width: 4rem;
+  min-width: 4rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+}
+
+#app-shell #cms-tab-sections .cms-batch-type-row select {
+  width: auto;
+  min-width: 6.5rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+}
+
+#app-shell #cms-tab-sections .cms-batch-material-field {
+  margin-bottom: 0.75rem;
+}
+
+#app-shell #cms-tab-sections .cms-batch-material-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 5.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-family: var(--font-body);
+  resize: vertical;
+}
+
+#app-shell #cms-tab-sections .cms-batch-actions-row {
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+#app-shell #cms-tab-sections .cms-batch-actions-row .btn {
+  width: auto;
+  max-width: none;
+  margin-top: 0;
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+  border-radius: 999px;
+}
+
+#app-shell #cms-tab-sections .cms-batch-actions-row .btn.primary {
+  background: var(--purple);
+  color: #fff;
+}
+
+#app-shell #cms-tab-sections .cms-batch-actions-row .btn.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+#app-shell #cms-tab-sections .cms-batch-actions-row .btn:not(.primary):not(.ghost) {
+  background: var(--wash);
+  color: var(--ink);
+}
+
+#app-shell #cms-tab-sections .cms-batch-drafts {
+  margin-top: 0.75rem;
+}
+
+#app-shell #cms-tab-sections .cms-batch-drafts .cms-batch-preview-group + .cms-batch-preview-group {
+  margin-top: 0.85rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-actions {
+  margin-top: 1rem;
+  justify-content: flex-start;
+}
+
+#app-shell #cms-tab-sections .cms-section-actions .btn {
+  width: auto;
+  max-width: none;
+  margin-top: 0;
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+  border-radius: 999px;
+  background: var(--wash);
+  color: var(--ink);
+}
+
+#app-shell #cms-tab-sections .cms-section-actions .btn.primary {
+  background: var(--purple);
+  color: #fff;
+}
+
+#app-shell #cms-tab-sections .cms-exercise-toolbar {
+  margin-bottom: 0.75rem;
+}
+
+#app-shell #cms-tab-sections .cms-batch-drafts label input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+#app-shell #screen-cms-edit .checks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+  width: 100%;
+}
+
+#app-shell #screen-cms-edit .field-host {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+#app-shell #screen-cms-edit .field-host .field-label {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.15rem;
+}
+
+#app-shell #screen-cms-edit .field-host .cms-class-hint {
+  margin-top: 0.35rem;
+}
+
+#app-shell #screen-cms-edit .checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  width: auto;
+  max-width: 100%;
+  justify-content: flex-start;
+}
+
+#app-shell #screen-cms-edit .checks label input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-sizing: content-box;
+}
+
+#app-shell #screen-cms-edit .cover-actions.row {
+  margin-top: 0.15rem;
+}
+
+#app-shell #screen-cms-edit .cms-editor-primary-actions {
+  margin-top: 0.75rem;
+}
+
+#app-shell #screen-cms-edit .cms-editor-primary-actions .btn.primary {
+  background: var(--purple);
+  color: #fff;
+}
+
+#app-shell #screen-cms-edit .cms-editor-primary-actions .btn#btn-goto-sections,
+#app-shell #screen-cms-edit .cms-editor-primary-actions .btn:not(.primary):not(.ghost):not(.danger-quiet) {
+  background: var(--wash);
+  color: var(--ink);
+  border: 0;
+}
+
+#app-shell #screen-cms-edit .cms-editor-primary-actions,
+#app-shell #screen-cms-edit .cms-editor-extra-actions {
+  justify-content: flex-start;
+}
+
+#app-shell #screen-cms-edit .cms-editor-delete-wrap {
+  margin-top: 1.2rem;
+}
+
+#app-shell #screen-cms-edit .cms-editor-extra-actions {
+  margin-top: 0.65rem;
+}
+
+#app-shell #screen-cms-edit .btn {
+  width: auto;
+  max-width: none;
+}
+
+#app-shell #screen-cms-edit .btn.danger-quiet {
+  background: transparent;
+  color: var(--danger);
+  border: 0;
+  padding: 0.35rem 0;
+  font-weight: 800;
+}
+
+#app-shell #screen-cms-edit .field input:not([type="checkbox"]):not([type="radio"]),
+#app-shell #screen-cms-edit .field textarea,
+#app-shell #screen-cms-edit .field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  font-family: var(--font-body);
+}
+
+#app-shell #screen-cms-edit .input-unit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+#app-shell #screen-cms-edit .input-unit-wrap input {
+  flex: 1;
+  min-width: 0;
+  max-width: 6.5rem;
+  width: auto;
+}
+
+#app-shell #screen-cms-edit .input-unit {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+#app-shell #screen-cms-edit .date-row > div,
+#app-shell #screen-cms-edit .field-col {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+#app-shell #screen-cms-edit .cover-preview {
+  width: 180px;
+  height: 100px;
+  border-radius: 10px;
+  background: var(--wash);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+#app-shell #screen-cms-edit .cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#app-shell #screen-cms-edit .hint,
+#app-shell #screen-cms-edit .error,
+#app-shell #screen-cms-edit .status-msg {
+  text-align: left;
+  margin-top: 0;
+}
+
+.screen-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.screen-head .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Home layout uses reference cms.css — avoid overriding .home-hero, .home-block, .dash-grid here. */
+
+.progress-list { display: flex; flex-direction: column; gap: 0.65rem; }
+
+.btn.secondary,
+.btn.ghost-compat {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-weight: 700;
+}
+
+.cms-link { color: var(--purple); text-decoration: none; font-weight: 700; }
+.cms-link:hover { text-decoration: underline; }
+
+.hint { color: var(--ink-soft); font-size: 0.88rem; }
+.error { color: var(--danger); font-size: 0.88rem; }
+.status-msg { color: var(--ink-soft); font-size: 0.88rem; }
+
+.field input:not([type="checkbox"]):not([type="radio"]),
+.field textarea,
+.field select,
+.cms-field-inline input:not([type="checkbox"]):not([type="radio"]),
+.cms-field-inline select,
+.cms-field-inline textarea {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  background: var(--paper);
+}
+
+.back-btn {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+/* Section AI wizard — reference one-ai layout */
+#app-shell #cms-exercises-view.is-ai-wizard-active .cms-playlist-head-bar,
+#app-shell #cms-exercises-view.is-ai-wizard-active .kicker,
+#app-shell #cms-exercises-view.is-ai-wizard-active .cms-section-duration-estimate,
+#app-shell #cms-exercises-view.is-ai-wizard-active .cms-playlist-toolbar,
+#app-shell #cms-exercises-view.is-ai-wizard-active .cms-playlist-ai-row,
+#app-shell #cms-exercises-view.is-ai-wizard-active .cms-exercise-list,
+#app-shell #cms-exercises-view.is-ai-wizard-active .cms-playlist-save-row,
+#app-shell #cms-exercises-view.is-ai-wizard-active .cms-ai-idle {
+  display: none !important;
+}
+
+#app-shell #cms-ai-wizard {
+  max-width: 760px;
+  text-align: left;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-draft-note {
+  margin: 0 0 0.85rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-steps {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0.15rem 0;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step-wrap {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step-wrap:last-child {
+  flex: 0 0 auto;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 4.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step-wrap:not(:last-child)::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: var(--line);
+  margin: 0.925rem 0.35rem 0;
+  min-width: 0.75rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step-wrap:has(.cms-ai-step.is-done)::after {
+  background: #34d399;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  background: var(--wash);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step.is-current .cms-ai-step-num {
+  background: var(--purple);
+  color: #fff;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step.is-done .cms-ai-step-num {
+  background: #ecfdf3;
+  color: #047857;
+  border: 2px solid #34d399;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step-name {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+  line-height: 1.2;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step.is-current .cms-ai-step-name {
+  color: var(--purple);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-step.is-done .cms-ai-step-name {
+  color: #047857;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-summary {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-material-layout-simple .field textarea,
+#app-shell #cms-ai-wizard .cms-ai-material-layout-simple .field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-prompt-card-optional {
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-template {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-template.is-selected {
+  outline: 2px solid var(--purple);
+  outline-offset: 0;
+  border-color: var(--purple);
+  background: #faf8fc;
+  box-shadow: none;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-template-name {
+  font-weight: 800;
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-template-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-template-meta {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-format-prompt textarea {
+  min-height: 6.5rem;
+  line-height: 1.5;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-nav {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 1.25rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn {
+  width: auto;
+  max-width: none;
+  margin-top: 0;
+  min-height: 2.75rem;
+  padding: 0.72rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease,
+    color 0.16s ease;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.primary {
+  padding: 0.72rem 1.55rem;
+  background: linear-gradient(180deg, #734598 0%, var(--purple) 100%);
+  color: #fff;
+  border: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 8px 20px rgba(103, 57, 135, 0.24);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.primary:hover:not(:disabled) {
+  filter: none;
+  background: linear-gradient(180deg, #643f86 0%, var(--purple-hover) 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 10px 24px rgba(103, 57, 135, 0.3);
+  transform: translateY(-1px);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 4px 12px rgba(103, 57, 135, 0.22);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-nav #btn-cms-ai-back {
+  background: var(--wash);
+  color: var(--purple);
+  border: 1px solid rgba(103, 57, 135, 0.14);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-wizard-nav #btn-cms-ai-back:hover:not(:disabled) {
+  filter: none;
+  background: #ebe0f4;
+  border-color: rgba(103, 57, 135, 0.24);
+  color: var(--purple-hover);
+}
+
+body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.cms-cta {
+  width: auto;
+  padding: 0.72rem 1.55rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-link-row .field {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+#app-shell #cms-ai-wizard label.cms-ai-file-drop {
+  display: block;
+  cursor: pointer;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.42rem 0.7rem 0.42rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-row:has(input[type="checkbox"]:checked) {
+  border-color: rgba(103, 57, 135, 0.45);
+  background: #faf8fc;
+  box-shadow: 0 0 0 1px rgba(103, 57, 135, 0.08);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-row.is-disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-name {
+  font-weight: 800;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-row input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--purple);
+  cursor: pointer;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-count {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0.28rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 0.82rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-count:disabled {
+  opacity: 0.45;
+  background: #f8f5fb;
+}
+
+/* Section exercises playlist — reference screen-playlist (full-screen takeover) */
+#app-shell #screen-cms-edit.is-playlist-open > .editor-head,
+#app-shell #screen-cms-edit.is-playlist-open > .tabs,
+#app-shell #screen-cms-edit.is-playlist-open > #cms-tab-details {
+  display: none !important;
+}
+
+#app-shell #screen-cms-edit.is-playlist-open > #cms-tab-sections {
+  display: block !important;
+  max-width: 760px;
+}
+
+#app-shell #screen-cms-edit.is-playlist-open > #cms-tab-sections > :not(#cms-exercises-view) {
+  display: none !important;
+}
+
+#app-shell #screen-cms-edit.is-playlist-open #cms-exercises-view {
+  display: block !important;
+}
+
+#app-shell #cms-exercises-view.cms-playlist-view {
+  max-width: 760px;
+  text-align: left;
+}
+
+#app-shell #cms-exercises-view .cms-section-duration-estimate {
+  display: none !important;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-head-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-head-bar .autosave {
+  margin-left: auto;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-exercises-view .cms-playlist-head-bar h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+#app-shell #cms-exercises-view .kicker {
+  margin-top: 0;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-toolbar-preview,
+#app-shell #cms-exercises-view .cms-playlist-add-row,
+#app-shell #cms-exercises-view .cms-playlist-ai-row,
+#app-shell #cms-exercises-view .cms-playlist-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-ai-row,
+#app-shell #cms-exercises-view .cms-playlist-save-row {
+  margin-bottom: 0.8rem;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-add-label {
+  font-size: 0.88rem;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-toolbar-preview .btn,
+#app-shell #cms-exercises-view .cms-playlist-add-row .btn,
+#app-shell #cms-exercises-view .cms-playlist-ai-row .btn,
+#app-shell #cms-exercises-view .cms-playlist-save-row .btn {
+  width: auto;
+  max-width: none;
+  margin-top: 0;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-add-row .btn.small {
+  padding: 0.32rem 0.7rem;
+  font-size: 0.78rem;
+  background: var(--wash);
+  border: 0;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-actions .btn.small:not(.ghost) {
+  background: var(--wash);
+  border: 0;
+  color: var(--ink);
+}
+
+#app-shell #cms-exercises-view .cms-playlist-actions .btn.small.ghost {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+#app-shell #cms-exercises-view .cms-playlist-ai-row .btn:not(.ghost) {
+  background: var(--wash);
+  color: var(--ink);
+}
+
+#app-shell #cms-exercises-view .cms-playlist-save-row .btn.primary {
+  background: var(--purple);
+  color: #fff;
+}
+
+#app-shell #cms-exercises-view .cms-exercise-list.playlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+#app-shell #cms-exercises-view .cms-exercise-card.ex-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 0.7rem;
+  box-shadow: var(--shadow);
+}
+
+#app-shell #cms-exercises-view .cms-exercise-card .ex-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+#app-shell #cms-exercises-view .cms-ex-drag-label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+#app-shell #cms-exercises-view .cms-drag-handle {
+  display: none;
+}
+
+#app-shell #cms-exercises-view .cms-type-chip.chip {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: var(--gold);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+}
+
+#app-shell #cms-exercises-view .cms-exercise-title-display {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+#app-shell #cms-exercises-view .cms-playlist-actions-spacer {
+  margin-left: auto;
+}
+
+#app-shell #cms-exercises-view .cms-playlist-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+#app-shell #cms-exercises-view .cms-exercise-editor.ex-body {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+}
+
+#app-shell #cms-exercises-view .cms-exercise-fields .field input,
+#app-shell #cms-exercises-view .cms-exercise-fields .field select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* AI wizard review step — question cards and pill actions */
+#app-shell #cms-ai-wizard .cms-ai-item-block,
+#app-shell #cms-ai-wizard .cms-ai-edit-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow);
+  margin-bottom: 0.75rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-item-block-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-item-block-head-start,
+#app-shell #cms-ai-wizard .cms-ai-item-block-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-item-block-actions {
+  flex-shrink: 0;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-item-number {
+  font-weight: 800;
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-badge {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: var(--gold);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  white-space: nowrap;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-item-input,
+#app-shell #cms-ai-wizard .cms-ai-opt-text,
+#app-shell #cms-ai-wizard .cms-ai-item-time {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-time-field {
+  max-width: 8rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-opt-text {
+  flex: 1;
+  width: auto;
+  margin: 0;
+}
+
+#app-shell #cms-ai-wizard .cms-q-image-label {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-ai-wizard .cms-q-image-actions,
+#app-shell #cms-ai-wizard .cms-ai-item-toolbar,
+#app-shell #cms-ai-wizard .cms-ai-add-question-row,
+#app-shell #cms-ai-wizard .cms-ai-item-block-actions {
+  gap: 0.45rem;
+}
+
+#app-shell #cms-ai-wizard .cms-q-image-actions,
+#app-shell #cms-ai-wizard .cms-ai-item-toolbar,
+#app-shell #cms-ai-wizard .cms-ai-add-question-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+#app-shell #cms-ai-wizard .cms-q-image-actions .btn,
+#app-shell #cms-ai-wizard .cms-ai-item-toolbar .btn,
+#app-shell #cms-ai-wizard .cms-ai-add-question-row .btn,
+#app-shell #cms-ai-wizard .cms-ai-item-block-actions .btn,
+#app-shell #cms-ai-wizard label.cms-thumbnail-upload.btn {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0.42rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+#app-shell #cms-ai-wizard .cms-q-image-actions .btn.small:not(.ghost),
+#app-shell #cms-ai-wizard .cms-ai-add-question-row .btn.small:not(.ghost) {
+  background: var(--wash);
+  border: 0;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard label.cms-thumbnail-upload.btn,
+#app-shell #cms-ai-wizard .cms-ai-item-toolbar .btn.ghost,
+#app-shell #cms-ai-wizard .cms-ai-item-block-actions .btn.ghost,
+#app-shell #cms-ai-wizard .cms-q-image-actions .btn.ghost {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard label.cms-thumbnail-upload.btn:hover,
+#app-shell #cms-ai-wizard .cms-q-image-actions .btn:hover:not(:disabled),
+#app-shell #cms-ai-wizard .cms-ai-item-toolbar .btn:hover:not(:disabled),
+#app-shell #cms-ai-wizard .cms-ai-add-question-row .btn:hover:not(:disabled),
+#app-shell #cms-ai-wizard .cms-ai-item-block-actions .btn:hover:not(:disabled) {
+  filter: none;
+  background: #faf8fc;
+  border-color: rgba(103, 57, 135, 0.22);
+}
+
+#app-shell #cms-ai-wizard .cms-q-image-actions .btn.small:not(.ghost):hover:not(:disabled),
+#app-shell #cms-ai-wizard .cms-ai-add-question-row .btn.small:not(.ghost):hover:not(:disabled) {
+  background: #ebe0f4;
+  color: var(--purple);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-add-question-row {
+  margin-top: 0.85rem;
+  padding-top: 0.15rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-tts-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-tts-lang {
+  width: auto;
+  min-width: 6.5rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--paper);
+  color: var(--ink);
+}

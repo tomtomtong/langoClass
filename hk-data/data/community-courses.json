@@ -1,0 +1,1098 @@
+{
+  "listings": [
+    {
+      "id": 1,
+      "sourceCourseId": -4,
+      "publishedByTeacherId": 835,
+      "status": "public",
+      "reports": [],
+      "copyCount": 1,
+      "createdAt": "2026-09-01T07:26:36.501Z",
+      "name": "lango02",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "authorName": "ALEX Kyaw",
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "Hong Kong Childhood",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "Hong Kong made many toys in which years?",
+                  "options": [
+                    {
+                      "text": "1950s and 1960s",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "1920s",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "2000s",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "1800s",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/1/1788247596505-2a7007dc.jpg"
+                },
+                {
+                  "title": "What color is the cartoon poster?",
+                  "options": [
+                    {
+                      "text": "Yellow",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Blue",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Red",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Green",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 12,
+                  "image": "/uploads/community/1/1788247596506-9c1b6deb.jpg"
+                },
+                {
+                  "title": "Where did children play games in old photos?",
+                  "options": [
+                    {
+                      "text": "In the street",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "In a big school",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "In a car",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "On a boat only",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/1/1788247596507-edfc9a9b.jpg"
+                },
+                {
+                  "title": "Who took many photos of children?",
+                  "options": [
+                    {
+                      "text": "A photographer named Chiu Leung",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "A factory worker",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "A teacher",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "A bus driver",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": "/uploads/community/1/1788247596508-8ce7e565.jpg"
+                },
+                {
+                  "title": "What game is played with eyes covered?",
+                  "options": [
+                    {
+                      "text": "Blindfold game",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Swimming",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Drawing",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Reading",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/1/1788247596509-015e389d.jpg"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "Hong Kong Childhood",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "Hong Kong made many what?",
+                  "options": [
+                    {
+                      "text": "Toys",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Bikes",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Books",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/1/1788247596510-89bf5b35.jpg"
+                },
+                {
+                  "title": "Children played in the street in the what?",
+                  "options": [
+                    {
+                      "text": "1960s",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "1990s",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "2020s",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 8,
+                  "image": "/uploads/community/1/1788247596511-9fad5743.jpg"
+                },
+                {
+                  "title": "The yellow poster has what?",
+                  "options": [
+                    {
+                      "text": "Cartoons",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "Cars",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Dogs",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "Flowers",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/1/1788247596513-d50d681f.jpg"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "exerciseCount": 2,
+      "featured": false,
+      "publishedAt": "2026-09-01T07:26:36.501Z",
+      "updatedAt": "2026-09-01T07:26:50.929Z"
+    },
+    {
+      "id": 2,
+      "sourceCourseId": -16,
+      "publishedByTeacherId": 835,
+      "status": "public",
+      "reports": [],
+      "copyCount": 1,
+      "createdAt": "2026-09-01T08:41:53.547Z",
+      "name": "lango03",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "authorName": "ALEX Kyaw",
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "邱良的香港照片",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "照片中兩個小孩在哪裡玩？",
+                  "options": [
+                    {
+                      "text": "人行道上",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "學校裡",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "海邊",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "公園裡",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/2/1788252166225-657c7504.jpg"
+                },
+                {
+                  "title": "邱良是哪個年代的攝影家？",
+                  "options": [
+                    {
+                      "text": "一九六零年代",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "一九八零年代",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "二零零零年代",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "一九四零年代",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": null
+                },
+                {
+                  "title": "小孩在鞦韆上玩的照片是哪一年？",
+                  "options": [
+                    {
+                      "text": "一九六四年",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "一九六二年",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "一九六七年",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "一九七零年",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/2/1788252166226-5817a64c.jpg"
+                },
+                {
+                  "title": "水淹地區的孩子在玩什麼？",
+                  "options": [
+                    {
+                      "text": "用棍子玩",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "踢球",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "畫畫",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "吃東西",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 12,
+                  "image": "/uploads/community/2/1788252166227-a57e9057.jpg"
+                },
+                {
+                  "title": "打波子的照片是在哪裡拍的？",
+                  "options": [
+                    {
+                      "text": "銅鑼灣",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "跑馬地",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "牛池灣",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "中環",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 20,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "快速問答",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "邱良拍的是什麼？",
+                  "options": [
+                    {
+                      "text": "孩子玩耍",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "明星",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "汽車",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
+                },
+                {
+                  "title": "小泰山是哪年的照片？",
+                  "options": [
+                    {
+                      "text": "一九六四年",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "一九六二年",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "一九六七年",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 8,
+                  "image": null
+                },
+                {
+                  "title": "灘頭陣地是哪裡？",
+                  "options": [
+                    {
+                      "text": "牛池灣",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "銅鑼灣",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "跑馬地",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "exerciseCount": 2,
+      "featured": false,
+      "publishedAt": "2026-09-01T08:41:53.547Z",
+      "updatedAt": "2026-09-01T08:42:53.934Z"
+    },
+    {
+      "id": 3,
+      "sourceCourseId": -19,
+      "publishedByTeacherId": 835,
+      "status": "public",
+      "reports": [],
+      "copyCount": 1,
+      "createdAt": "2026-09-01T09:02:04.967Z",
+      "name": "Jp",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "authorName": "ALEX Kyaw",
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "子供の遊びのクイズ",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "子供たちは道で何をしていますか？",
+                  "options": [
+                    {
+                      "text": "ボールで遊んでいます",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "小さいもので遊んでいます",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "自転車に乗っています",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "泳いでいます",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/3/1788253324968-6097e43e.jpg"
+                },
+                {
+                  "title": "公園で子供は何をしていますか？",
+                  "options": [
+                    {
+                      "text": "ブランコに乗っています",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "道で遊んでいます",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "水の中で遊んでいます",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "写真を撮っています",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/3/1788253324968-f47884ff.jpg"
+                },
+                {
+                  "title": "水のある場所で子供たちは何をしていますか？",
+                  "options": [
+                    {
+                      "text": "棒で遊んでいます",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "ブランコに乗っています",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "道でゲームをしています",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "車に乗っています",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/3/1788253324969-7fa6ae24.jpg"
+                },
+                {
+                  "title": "邱良はどんな写真を撮りましたか？",
+                  "options": [
+                    {
+                      "text": "子供の遊びの写真",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "映画のスターの写真",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "山の風景の写真",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "料理の写真",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": null
+                },
+                {
+                  "title": "邱良の写真集の名前は何ですか？",
+                  "options": [
+                    {
+                      "text": "飛越童真",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "香港の町",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "子供の夢",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "街の写真",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 18,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "速い写真クイズ",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "子供はどこで遊んでいますか？",
+                  "options": [
+                    {
+                      "text": "道",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "家",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "学校",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/3/1788253324968-6097e43e.jpg"
+                },
+                {
+                  "title": "ブランコはどこにありますか？",
+                  "options": [
+                    {
+                      "text": "公園",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "道",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "水の中",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/3/1788253324968-f47884ff.jpg"
+                },
+                {
+                  "title": "水の中で子供は何をしていますか？",
+                  "options": [
+                    {
+                      "text": "棒で遊ぶ",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "走る",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "寝る",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/3/1788253324969-7fa6ae24.jpg"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "exerciseCount": 2,
+      "featured": false,
+      "publishedAt": "2026-09-01T09:02:04.967Z",
+      "updatedAt": "2026-09-01T09:02:32.209Z"
+    },
+    {
+      "id": 4,
+      "sourceCourseId": -25,
+      "publishedByTeacherId": 835,
+      "status": "public",
+      "reports": [],
+      "copyCount": 1,
+      "createdAt": "2026-09-01T09:25:24.420Z",
+      "name": "jp02",
+      "description": "",
+      "banner": "",
+      "langCode": "en",
+      "authorName": "ALEX Kyaw",
+      "sections": [
+        {
+          "id": 1,
+          "title": "Section 1",
+          "banner": "",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "1960年代の子供の遊び",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "写真では子供たちはどこにいますか。",
+                  "options": [
+                    {
+                      "text": "屋外",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "学校",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "家の中",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "店",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/4/1788254724421-6c9e86f6.jpg"
+                },
+                {
+                  "title": "子供たちはどんな遊びをしていますか。",
+                  "options": [
+                    {
+                      "text": "目隠し遊び",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "サッカー",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "水泳",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "本を読む",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/4/1788254724422-1777ed6f.jpg"
+                },
+                {
+                  "title": "男の子たちは何をしていますか。",
+                  "options": [
+                    {
+                      "text": "階段を走っています",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "座っています",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "寝ています",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "食べています",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/4/1788254724423-0ae77901.jpg"
+                },
+                {
+                  "title": "昔の遊びは今どうなりましたか。",
+                  "options": [
+                    {
+                      "text": "減りました",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "増えました",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "同じです",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "ありません",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 20,
+                  "image": null
+                },
+                {
+                  "title": "遊びが減った理由は何ですか。",
+                  "options": [
+                    {
+                      "text": "町が混んでいます",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "おもちゃが多い",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "学校が多い",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "天気が悪い",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 20,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "1960年代の子供の遊び",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "目隠し遊びの名前は何ですか。",
+                  "options": [
+                    {
+                      "text": "盲雞",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "跳び",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "走り",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/4/1788254724422-1777ed6f.jpg"
+                },
+                {
+                  "title": "階段の写真はいつですか。",
+                  "options": [
+                    {
+                      "text": "1961年",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "1970年",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "1950年",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/4/1788254724423-0ae77901.jpg"
+                },
+                {
+                  "title": "遊びはなぜ消えましたか。",
+                  "options": [
+                    {
+                      "text": "町が狭い",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "子供が多い",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "ゲームが多い",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "exerciseCount": 2,
+      "featured": true,
+      "publishedAt": "2026-09-01T09:25:24.420Z",
+      "updatedAt": "2026-09-01T09:25:41.143Z"
+    },
+    {
+      "id": 5,
+      "sourceCourseId": -30,
+      "publishedByTeacherId": 835,
+      "status": "public",
+      "reports": [],
+      "copyCount": 0,
+      "createdAt": "2026-09-01T15:34:59.156Z",
+      "name": "老人家course",
+      "description": "",
+      "banner": "/uploads/community/5/1788324488705-4cd8223b.png",
+      "langCode": "en",
+      "authorName": "ALEX Kyaw",
+      "sections": [
+        {
+          "id": 1,
+          "title": "demo",
+          "banner": "/uploads/community/5/1788324488706-e61338b2.png",
+          "order": 1,
+          "exercises": [
+            {
+              "id": 1,
+              "title": "70-80年代香港文化",
+              "subTitle": "MC Quiz",
+              "order": 1,
+              "type": "mcquiz",
+              "items": [
+                {
+                  "title": "70至80年代香港街頭最常見嘅小食係乜？",
+                  "options": [
+                    {
+                      "text": "雞蛋仔",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "魚蛋粉",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "腸粉",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "燒賣",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/5/1788324488708-3b51b68c.png"
+                },
+                {
+                  "title": "80年代香港最出名嘅電視劇係邊套？",
+                  "options": [
+                    {
+                      "text": "上海灘",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "天龍八部",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "射雕英雄傳",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "笑傲江湖",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/5/1788324488709-76128bab.png"
+                },
+                {
+                  "title": "70年代香港人鍾意聽邊位歌手嘅歌？",
+                  "options": [
+                    {
+                      "text": "許冠傑",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "張學友",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "劉德華",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "郭富城",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/5/1788324488710-de9a9727.png"
+                },
+                {
+                  "title": "80年代香港最流行嘅交通工具係乜？",
+                  "options": [
+                    {
+                      "text": "電車",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "的士",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "巴士",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "地鐵",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": "/uploads/community/5/1788324488711-366273c6.png"
+                },
+                {
+                  "title": "70至80年代香港人過年最愛做乜？",
+                  "options": [
+                    {
+                      "text": "睇賀歲片",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "食火鍋",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "去旅行",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "買新衣",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 15,
+                  "image": null
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "title": "70-80年代香港文化",
+              "subTitle": "Fast MC Quiz",
+              "order": 2,
+              "type": "fastmcquiz",
+              "items": [
+                {
+                  "title": "80年代香港最紅嘅武俠片係邊套？",
+                  "options": [
+                    {
+                      "text": "上海灘",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "英雄本色",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "警察故事",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
+                },
+                {
+                  "title": "70年代香港街頭最流行嘅遊戲係乜？",
+                  "options": [
+                    {
+                      "text": "踢毽子",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "打乒乓",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "打籃球",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": "/uploads/community/5/1788324488711-914614a9.png"
+                },
+                {
+                  "title": "80年代香港最常見嘅商場叫乜？",
+                  "options": [
+                    {
+                      "text": "置地廣場",
+                      "isCorrect": true
+                    },
+                    {
+                      "text": "太古城",
+                      "isCorrect": false
+                    },
+                    {
+                      "text": "又一城",
+                      "isCorrect": false
+                    }
+                  ],
+                  "timeLimit": 10,
+                  "image": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "exerciseCount": 2,
+      "featured": false,
+      "publishedAt": "2026-09-01T15:34:59.156Z",
+      "updatedAt": "2026-09-02T04:48:08.704Z"
+    }
+  ]
+}

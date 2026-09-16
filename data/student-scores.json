@@ -21,7 +21,33 @@
       "firstScoreAt": null,
       "lastScoreAt": null,
       "updatedAt": "2026-09-03T05:14:29.334Z"
+    },
+    "835:62:web_1789544412725_g0ajphx9": {
+      "teacherId": 835,
+      "classId": 62,
+      "studentUserId": "web_1789544412725_g0ajphx9",
+      "displayName": "Rffg",
+      "totalScore": 300,
+      "exerciseCount": 1,
+      "firstScoreAt": "2026-09-16T07:41:09.486Z",
+      "lastScoreAt": "2026-09-16T07:41:09.486Z",
+      "updatedAt": "2026-09-16T07:41:09.486Z"
     }
   },
-  "records": []
+  "records": [
+    {
+      "recordKey": "835:62:251634:6:web_1789544412725_g0ajphx9",
+      "teacherId": 835,
+      "classId": 62,
+      "courseId": -24,
+      "exerciseId": 6,
+      "exerciseTitle": "Character Talk",
+      "exerciseType": "buzzin",
+      "roomId": "251634",
+      "studentUserId": "web_1789544412725_g0ajphx9",
+      "displayName": "Rffg",
+      "score": 300,
+      "savedAt": "2026-09-16T07:41:09.485Z"
+    }
+  ]
 }
