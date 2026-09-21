@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LangoClass · System Logs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/log.css" />
+</head>
+<body>
+  <section id="screen-login" class="screen active" aria-label="Admin sign in">
+    <form class="login-card" id="login-form" onsubmit="return false">
+      <img class="login-logo" src="/assets/login/langoclass_logo.svg" alt="Lango Classroom" />
+      <p class="kicker">System Logs</p>
+      <h1>Admin access</h1>
+      <p class="hint">Separate from Course CMS. Sign in to browse all activity logs.</p>
+      <label class="field">
+        <span>Username</span>
+        <input id="login-username" type="text" autocomplete="username" />
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input id="login-password" type="password" autocomplete="current-password" />
+      </label>
+      <p class="error" id="login-error" role="alert"></p>
+      <button class="btn primary" type="button" id="btn-login">Login</button>
+    </form>
+  </section>
+
+  <div id="app-shell" class="app-shell" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/assets/login/langoclass_logo.svg" alt="" width="36" height="36" />
+        <div>
+          <strong>System Logs</strong>
+          <span id="admin-label">Admin</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <label class="auto-refresh">
+          <input type="checkbox" id="auto-refresh" checked />
+          Auto-refresh
+        </label>
+        <button class="btn ghost" type="button" id="btn-refresh">Refresh</button>
+        <button class="btn ghost" type="button" id="btn-logout">Log out</button>
+      </div>
+    </header>
+
+    <section class="stats" id="stats-row" aria-live="polite"></section>
+
+    <section class="filters">
+      <div class="category-tabs" id="category-tabs" role="tablist" aria-label="Log categories"></div>
+      <div class="filter-row">
+        <input id="search-input" type="search" placeholder="Search action, message, meta…" />
+        <select id="level-filter" aria-label="Level">
+          <option value="">All levels</option>
+          <option value="info">info</option>
+          <option value="warn">warn</option>
+          <option value="error">error</option>
+          <option value="debug">debug</option>
+        </select>
+        <button class="btn ghost" type="button" id="btn-clear-filters">Clear filters</button>
+      </div>
+    </section>
+
+    <main class="log-main">
+      <div class="log-meta">
+        <span id="result-count">0 entries</span>
+        <span id="last-updated"></span>
+      </div>
+      <div class="log-table-wrap">
+        <table class="log-table" aria-label="Activity logs">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Category</th>
+              <th>Level</th>
+              <th>Action</th>
+              <th>Message</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody">
+            <tr><td colspan="6" class="empty">Sign in to load logs.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button class="btn ghost" type="button" id="btn-prev" disabled>Newer</button>
+        <span id="page-label">Page 1</span>
+        <button class="btn ghost" type="button" id="btn-next" disabled>Older</button>
+      </div>
+    </main>
+
+    <section class="debug-panel">
+      <div class="debug-head">
+        <h2>Server debug files</h2>
+        <button class="btn ghost" type="button" id="btn-debug-refresh">Reload debug files</button>
+      </div>
+      <p class="hint">Raw lines from `.cursor/debug-*.log` on this server.</p>
+      <pre id="debug-files" class="debug-files" aria-live="polite">No debug file data yet.</pre>
+    </section>
+  </div>
+
+  <script src="/log.js"></script>
+</body>
+</html>

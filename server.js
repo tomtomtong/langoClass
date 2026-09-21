@@ -6,9 +6,10 @@ const fs = require("fs");
 const multer = require("multer");
 const { Server } = require("socket.io");
 const path = require("path");
-const { randomUUID } = require("crypto");
+const { randomUUID, randomBytes, timingSafeEqual } = require("crypto");
 const { normalizeClassListResponse, findStudentById } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
+const logStore = require("./lib/log-store");
 const {
   isLiveMcQuizExercise,
   isVideoExercise,
@@ -101,6 +102,11 @@ const TRANSCRIBE_DEFAULT_MODEL = "mistralai/voxtral-small-24b-2507";
 const TRANSCRIBE_MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 const QUESTION_PREVIEW_SECONDS = 5;
 const QUESTION_TTS_MAX_WAIT_MS = 45000;
+const LOG_ADMIN_USERNAME = "langoclass-admin";
+const LOG_ADMIN_PASSWORD = "langoclasspassword123";
+const LOG_ADMIN_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+/** @type {Map<string, { username: string, createdAt: number, expiresAt: number }>} */
+const logAdminSessions = new Map();
 const TRANSCRIBE_PROMPT =
   "Listen to this audio and respond with exactly two sections:\n\n" +
   "Transcript:\n" +
@@ -514,6 +520,128 @@ const games = new Map();
 
 /** @type {Map<string, { pin: string, role: 'host' | 'player' | 'session_player', playerId?: string }>} */
 const socketMeta = new Map();
+
+function writeAppLog(category, action, message, meta = {}, level = "info") {
+  try {
+    return logStore.append({
+      category,
+      action,
+      message,
+      meta,
+      level,
+      source: "server",
+    });
+  } catch {
+    return null;
+  }
+}
+
+function safeEqualText(a, b) {
+  const left = Buffer.from(String(a || ""), "utf8");
+  const right = Buffer.from(String(b || ""), "utf8");
+  if (left.length !== right.length) return false;
+  try {
+    return timingSafeEqual(left, right);
+  } catch {
+    return false;
+  }
+}
+
+function createLogAdminToken() {
+  return randomBytes(32).toString("hex");
+}
+
+function purgeExpiredLogAdminSessions() {
+  const now = Date.now();
+  for (const [token, session] of logAdminSessions.entries()) {
+    if (!session || session.expiresAt <= now) logAdminSessions.delete(token);
+  }
+}
+
+function requireLogAdmin(req, res) {
+  purgeExpiredLogAdminSessions();
+  const token = pickToken(req);
+  if (!token) {
+    res.status(401).json({ message: "Missing admin token." });
+    return null;
+  }
+  const session = logAdminSessions.get(token);
+  if (!session || session.expiresAt <= Date.now()) {
+    logAdminSessions.delete(token);
+    res.status(401).json({ message: "Invalid or expired admin session." });
+    return null;
+  }
+  session.expiresAt = Date.now() + LOG_ADMIN_TOKEN_TTL_MS;
+  return { token, username: session.username };
+}
+
+function describeDisconnectReason(reason) {
+  const code = String(reason || "unknown").trim() || "unknown";
+  const map = {
+    "client namespace disconnect": "Client left intentionally (page close / navigate away / logout).",
+    "server namespace disconnect": "Server closed the socket (session ended or kicked).",
+    "ping timeout": "Heartbeat timeout — network stall or backgrounded tab.",
+    "transport close": "Transport closed — network drop or connection reset.",
+    "transport error": "Transport error — socket transport failed.",
+    "parse error": "Protocol parse error.",
+    "forced close": "Forced close by the server stack.",
+  };
+  return {
+    reasonCode: code,
+    reasonText: map[code] || `Disconnected (${code}).`,
+  };
+}
+
+function summarizeUserForLog(user) {
+  if (!user || typeof user !== "object") return null;
+  return {
+    id: user.id ?? null,
+    username: user.username || user.email || null,
+    firstName: user.firstName || user.first_name || null,
+    lastName: user.lastName || user.last_name || null,
+    schoolId: user.schoolId || user.school_id || user.organizationId || user.organization_id || null,
+    schoolName:
+      user.schoolName ||
+      user.school_name ||
+      user.organizationName ||
+      user.organization_name ||
+      user.school ||
+      null,
+  };
+}
+
+function hookConsoleToAppLogs() {
+  const levels = [
+    ["warn", "warn"],
+    ["error", "error"],
+  ];
+  for (const [method, level] of levels) {
+    const original = console[method].bind(console);
+    console[method] = (...args) => {
+      original(...args);
+      try {
+        const message = args
+          .map((arg) => {
+            if (typeof arg === "string") return arg;
+            try {
+              return JSON.stringify(arg);
+            } catch {
+              return String(arg);
+            }
+          })
+          .join(" ")
+          .slice(0, 1800);
+        if (!message) return;
+        if (message.includes("[app-log-skip]")) return;
+        writeAppLog("server", `console.${method}`, message, {}, level);
+      } catch {
+        // never throw from console hooks
+      }
+    };
+  }
+}
+
+hookConsoleToAppLogs();
 
 const BUZZIN_WINNER_COUNT = 1;
 const BUZZIN_JOIN_SECONDS = 20;
@@ -1789,7 +1917,7 @@ function persistExerciseScores(game) {
     };
   });
 
-  return scoreStore.saveExerciseScores({
+  const result = scoreStore.saveExerciseScores({
     teacherId: ctx.teacherId,
     classId: ctx.classId,
     courseId: ctx.courseId,
@@ -1799,6 +1927,25 @@ function persistExerciseScores(game) {
     roomId: game.pin,
     scores,
   });
+  return logStudentScoresSaved(result, {
+    teacherId: ctx.teacherId,
+    classId: ctx.classId,
+    courseId: ctx.courseId,
+    exerciseId: ctx.exerciseId,
+    exerciseType: ctx.exerciseType,
+    roomId: game.pin,
+    scores,
+  });
+}
+
+function logStudentScoresSaved(result, context = {}) {
+  if (!result) return result;
+  writeAppLog("student", "scores_saved", "Student exercise scores saved", {
+    ...context,
+    savedCount: Array.isArray(result?.records) ? result.records.length : result?.saved || null,
+    studentCount: Array.isArray(context.scores) ? context.scores.length : null,
+  });
+  return result;
 }
 
 function resolveFinishedExercise(session, { exerciseId, exerciseType } = {}) {
@@ -1839,12 +1986,21 @@ function persistVideoExerciseScores(session, exercise = session?.exercise) {
     score: VIDEO_EXERCISE_POINTS,
   }));
 
-  return scoreStore.saveExerciseScores({
+  const result = scoreStore.saveExerciseScores({
     teacherId: session.teacherId,
     classId: session.classId,
     courseId: session.courseId,
     exerciseId: exercise.id,
     exerciseTitle: exercise.title || exercise.subTitle || "",
+    exerciseType: exercise.type || "video",
+    roomId: session.roomId,
+    scores,
+  });
+  return logStudentScoresSaved(result, {
+    teacherId: session.teacherId,
+    classId: session.classId,
+    courseId: session.courseId,
+    exerciseId: exercise.id,
     exerciseType: exercise.type || "video",
     roomId: session.roomId,
     scores,
@@ -1896,7 +2052,8 @@ function persistBuzzinExerciseScores(session, exercise = session?.exercise) {
     return null;
   }
 
-  return scoreStore.saveExerciseScores({
+  const scores = getBuzzinExerciseScores(session);
+  const result = scoreStore.saveExerciseScores({
     teacherId: session.teacherId,
     classId: session.classId,
     courseId: session.courseId,
@@ -1904,7 +2061,16 @@ function persistBuzzinExerciseScores(session, exercise = session?.exercise) {
     exerciseTitle: exercise.title || exercise.subTitle || "",
     exerciseType: exercise.type || "buzzin",
     roomId: session.roomId,
-    scores: getBuzzinExerciseScores(session),
+    scores,
+  });
+  return logStudentScoresSaved(result, {
+    teacherId: session.teacherId,
+    classId: session.classId,
+    courseId: session.courseId,
+    exerciseId: exercise.id,
+    exerciseType: exercise.type || "buzzin",
+    roomId: session.roomId,
+    scores,
   });
 }
 
@@ -2473,11 +2639,12 @@ function startQuestion(game) {
   void speakQuestionThenOpen(game, nextIndex);
 }
 
-function removePlayerFromGame(socketId) {
+function removePlayerFromGame(socketId, disconnectReason) {
   const meta = socketMeta.get(socketId);
   if (!meta) return;
 
   const game = games.get(meta.pin);
+  const why = describeDisconnectReason(disconnectReason);
   if (!game) {
     if (meta.role === "host") {
       endSession(meta.pin, "Host left the session");
@@ -2493,6 +2660,22 @@ function removePlayerFromGame(socketId) {
     endSession(meta.pin, "Host left the session");
   } else if (meta.playerId) {
     const player = game.players.get(meta.playerId);
+    if (player) {
+      writeAppLog(
+        "presence",
+        "student_offline",
+        `${player.nickname || meta.playerId} went offline (quiz socket)`,
+        {
+          roomId: meta.pin,
+          playerId: meta.playerId,
+          displayName: player.nickname || null,
+          reasonCode: why.reasonCode,
+          reasonText: why.reasonText,
+          sourceRole: meta.role || "player",
+          keepInRoomRoster: Boolean(game.isRoomGame),
+        }
+      );
+    }
     if (game.isRoomGame) {
       // Keep class members in the question roster when only their quiz socket
       // disconnects. They may reconnect while their waiting-room socket stays
@@ -2592,14 +2775,34 @@ function broadcastSessionLocale(session) {
   });
 }
 
-function removeFromSession(socketId) {
+function removeFromSession(socketId, disconnectReason) {
   const meta = socketMeta.get(socketId);
   if (!meta || meta.role !== "session_player") return;
 
   const session = sessionStore.getSession(meta.pin);
   if (!session) return;
 
+  const participant =
+    (meta.playerId && session.participants?.get?.(meta.playerId)) ||
+    [...(session.participants?.values?.() || [])].find((p) => p.socketId === socketId);
+  const why = describeDisconnectReason(disconnectReason);
   sessionStore.removeParticipantBySocket(session, socketId);
+  writeAppLog(
+    "presence",
+    "student_offline",
+    `${participant?.displayName || meta.playerId || "Student"} went offline`,
+    {
+      roomId: meta.pin,
+      playerId: meta.playerId || participant?.userId || null,
+      displayName: participant?.displayName || null,
+      classId: session.classId,
+      className: session.className,
+      teacherId: session.teacherId,
+      reasonCode: why.reasonCode,
+      reasonText: why.reasonText,
+      sourceRole: "session_player",
+    }
+  );
   broadcastSessionLobby(session);
 }
 
@@ -2610,6 +2813,20 @@ function endSession(roomId, reason) {
   session.status = "ended";
   clearBuzzInRound(roomId);
   io.to(roomId).emit("session_ended", { reason: reason || "Session ended" });
+  writeAppLog(
+    "class",
+    "session_ended",
+    reason || "Session ended",
+    {
+      roomId,
+      classId: session.classId,
+      className: session.className,
+      teacherId: session.teacherId,
+      courseId: session.courseId,
+      courseName: session.courseName,
+      participantCount: session.participants?.size || 0,
+    }
+  );
   sessionStore.deleteSession(roomId);
 }
 
@@ -2766,6 +2983,13 @@ function debugSessionLog(location, message, data, hypothesisId, runId = "speak-l
   } catch {
     // ignore debug log failures
   }
+  writeAppLog(
+    "server",
+    "debug_session",
+    String(message || ""),
+    { location, hypothesisId, runId, data },
+    "debug"
+  );
 }
 
 function normalizeSpeakLangCode(value) {
@@ -3546,6 +3770,7 @@ app.post("/api/lango/login", async (req, res) => {
   const username = String(req.body?.username || "").trim().toLowerCase();
   const password = req.body?.password;
   if (!username || !password) {
+    writeAppLog("login", "teacher_login_rejected", "Missing username or password", { username }, "warn");
     return res.status(400).json({ message: "Username and password are required." });
   }
 
@@ -3554,7 +3779,28 @@ app.post("/api/lango/login", async (req, res) => {
   });
 
   if (!ok) {
+    writeAppLog(
+      "login",
+      "teacher_login_failed",
+      "Teacher login failed",
+      { username, status, message: data?.message || null },
+      "warn"
+    );
     return res.status(status).json(data || { message: "Login failed" });
+  }
+
+  const userSummary = summarizeUserForLog(data?.user);
+  writeAppLog("login", "teacher_login_ok", `Teacher signed in: ${username}`, {
+    username,
+    user: userSummary,
+  });
+  if (userSummary?.schoolName || userSummary?.schoolId) {
+    writeAppLog("school", "teacher_school_context", "School context from login", {
+      username,
+      schoolId: userSummary.schoolId,
+      schoolName: userSummary.schoolName,
+      teacherId: userSummary.id,
+    });
   }
   return res.json(data);
 });
@@ -3565,8 +3811,19 @@ app.get("/api/lango/classList", async (req, res) => {
 
   const { ok, status, data } = await langoRequest("GET", "/whiteboard/classList", { token });
   if (!ok) return res.status(status).json(data || { message: "Failed to load classes" });
+  const normalized = normalizeClassListResponse(data);
+  const classes = Array.isArray(normalized?.classList) ? normalized.classList : [];
+  writeAppLog("school", "class_list_loaded", `Loaded ${classes.length} class(es)`, {
+    classCount: classes.length,
+    classes: classes.slice(0, 40).map((item) => ({
+      id: item.id,
+      name: item.name,
+      studentCount: item.studentCount,
+      level: item.level || item.englishLevel || null,
+    })),
+  });
   return res.json({
-    ...normalizeClassListResponse(data),
+    ...normalized,
     _rawClassList: data,
   });
 });
@@ -4398,6 +4655,12 @@ app.post("/api/cms/generate-video", async (req, res) => {
 
   try {
     const started = await videoGenerator.startVideoJob(baseUrl, text);
+    writeAppLog("ai", "video_job_started", `Video job ${started.jobId} started`, {
+      teacherId: auth.teacherId,
+      jobId: started.jobId,
+      status: started.status,
+      scriptLength: text.length,
+    });
     return res.status(202).json({
       ok: true,
       jobId: started.jobId,
@@ -4405,6 +4668,13 @@ app.post("/api/cms/generate-video", async (req, res) => {
     });
   } catch (err) {
     console.error("generate-video start failed:", err);
+    writeAppLog(
+      "ai",
+      "video_job_failed",
+      err.message || "Could not start video generation.",
+      { teacherId: auth.teacherId },
+      "error"
+    );
     return res.status(502).json({
       message: err.message || "Could not start video generation.",
     });
@@ -4874,6 +5144,14 @@ app.post("/api/cms/extract-material", async (req, res) => {
         } catch {}
         // #endregion
 
+        writeAppLog("ai", "extract_material_ok", "Material extracted", {
+          teacherId: auth.teacherId,
+          fileCount: extracted.length,
+          filenames,
+          charCount: truncateResult.text.length,
+          source,
+        });
+
         return res.json({
           ok: true,
           source,
@@ -4963,6 +5241,13 @@ app.post("/api/cms/extract-material", async (req, res) => {
       });
     } catch (err) {
       console.error("extract-material failed:", err);
+      writeAppLog(
+        "ai",
+        "extract_material_failed",
+        err.message || "Material extraction failed.",
+        { teacherId: auth.teacherId },
+        "error"
+      );
       // #region agent log
       try {
         fs.appendFileSync(
@@ -5144,6 +5429,14 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
       model,
       autoGenerateImages: req.body?.autoGenerateImages,
     });
+    writeAppLog("ai", "generate_exercises_ok", `Generated ${exercises?.length || 0} exercise(s)`, {
+      teacherId: auth.teacherId,
+      langCode,
+      model,
+      exerciseCount: exercises?.length || 0,
+      materialLength: material.length,
+      autoImageStats: autoImageStats || null,
+    });
     try {
       const sampleItems = exercises
         .flatMap((exercise) => exercise.items || [])
@@ -5209,6 +5502,13 @@ app.post("/api/cms/generate-exercises", async (req, res) => {
     });
   } catch (err) {
     console.error("generate-exercises failed:", err);
+    writeAppLog(
+      "ai",
+      "generate_exercises_failed",
+      err.message || "Exercise generation failed.",
+      { teacherId: auth.teacherId },
+      "error"
+    );
     return res.status(500).json({ message: err.message || "Exercise generation failed." });
   }
 });
@@ -5337,6 +5637,12 @@ app.post("/api/cms/assistant", async (req, res) => {
       },
       openRouterGenerateComplete
     );
+    writeAppLog("ai", "assistant_ok", "Ask Lango replied", {
+      teacherId: auth.teacherId,
+      model: result.model,
+      messageLength: message.length,
+      replyLength: String(result.reply || "").length,
+    });
     return res.json({
       ok: true,
       reply: result.reply,
@@ -5344,6 +5650,13 @@ app.post("/api/cms/assistant", async (req, res) => {
     });
   } catch (err) {
     console.error("cms-assistant failed:", err);
+    writeAppLog(
+      "ai",
+      "assistant_failed",
+      err.message || "Assistant request failed.",
+      { teacherId: auth.teacherId },
+      "error"
+    );
     return res.status(500).json({ message: err.message || "Assistant request failed." });
   }
 });
@@ -5714,6 +6027,27 @@ app.post("/api/session/start", async (req, res) => {
     uiLocale,
   });
 
+  writeAppLog("class", "session_created", `Waiting room created for ${classItem.name || classItem.id}`, {
+    roomId: sessionId,
+    teacherId: user.id,
+    teacherName: teacherDisplayName(user),
+    classId: classItem.id,
+    className: classItem.name || null,
+    courseId: course?.id || null,
+    courseName: courseDisplayName(course),
+    studentCount: Array.isArray(classItem.studentList) ? classItem.studentList.length : classItem.studentCount || null,
+  });
+  if (Array.isArray(classItem.studentList) && classItem.studentList.length) {
+    writeAppLog("student", "class_roster_snapshot", `Roster snapshot for class ${classItem.name || classItem.id}`, {
+      roomId: sessionId,
+      classId: classItem.id,
+      students: classItem.studentList.slice(0, 200).map((s) => ({
+        id: s.id,
+        fullName: s.fullName || s.name || null,
+      })),
+    });
+  }
+
   const notifyBody = {
     class_id: classItem.id,
     title: course?.id ? courseDisplayName(course) : classItem.name || "Class session",
@@ -5794,6 +6128,13 @@ app.post("/api/session/end", async (req, res) => {
     games.delete(pin);
   }
   clearBuzzInRound(pin);
+  writeAppLog("class", "session_end_requested", "Host requested session end", {
+    roomId: pin,
+    classId,
+    className,
+    teacherId: user?.id || session.teacherId,
+    notificationSent: ok,
+  });
   endSession(pin, "Class session ended");
 
   return res.json({
@@ -5880,6 +6221,124 @@ function redirectWithQuery(res, pathname, req) {
   const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : "";
   res.redirect(`${pathname}${query}`);
 }
+
+app.post("/api/logs/login", (req, res) => {
+  const username = String(req.body?.username || "").trim();
+  const password = String(req.body?.password || "");
+  if (!username || !password) {
+    writeAppLog("login", "admin_login_rejected", "Missing admin credentials", {}, "warn");
+    return res.status(400).json({ message: "Username and password are required." });
+  }
+
+  const userOk = safeEqualText(username, LOG_ADMIN_USERNAME);
+  const passOk = safeEqualText(password, LOG_ADMIN_PASSWORD);
+  if (!userOk || !passOk) {
+    writeAppLog(
+      "login",
+      "admin_login_failed",
+      "Admin log login failed",
+      { username },
+      "warn"
+    );
+    return res.status(401).json({ message: "Invalid username or password." });
+  }
+
+  purgeExpiredLogAdminSessions();
+  const token = createLogAdminToken();
+  logAdminSessions.set(token, {
+    username: LOG_ADMIN_USERNAME,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + LOG_ADMIN_TOKEN_TTL_MS,
+  });
+  writeAppLog("login", "admin_login_ok", "Admin signed into System Logs", {
+    username: LOG_ADMIN_USERNAME,
+  });
+  return res.json({
+    ok: true,
+    token,
+    username: LOG_ADMIN_USERNAME,
+    expiresInMs: LOG_ADMIN_TOKEN_TTL_MS,
+  });
+});
+
+app.post("/api/logs/logout", (req, res) => {
+  const token = pickToken(req);
+  if (token && logAdminSessions.has(token)) {
+    logAdminSessions.delete(token);
+    writeAppLog("login", "admin_logout", "Admin signed out of System Logs", {
+      username: LOG_ADMIN_USERNAME,
+    });
+  }
+  return res.json({ ok: true });
+});
+
+app.get("/api/logs/categories", (req, res) => {
+  if (!requireLogAdmin(req, res)) return;
+  return res.json({ categories: logStore.listCategories() });
+});
+
+app.get("/api/logs/stats", (req, res) => {
+  if (!requireLogAdmin(req, res)) return;
+  return res.json(logStore.stats());
+});
+
+app.get("/api/logs", (req, res) => {
+  if (!requireLogAdmin(req, res)) return;
+  return res.json(
+    logStore.query({
+      category: req.query.category,
+      q: req.query.q,
+      level: req.query.level,
+      limit: req.query.limit,
+      offset: req.query.offset,
+      since: req.query.since,
+      until: req.query.until,
+    })
+  );
+});
+
+app.get("/api/logs/debug-files", (req, res) => {
+  if (!requireLogAdmin(req, res)) return;
+  const debugDir = path.join(__dirname, ".cursor");
+  const files = [];
+  try {
+    if (fs.existsSync(debugDir)) {
+      const names = fs
+        .readdirSync(debugDir)
+        .filter((name) => /^debug-.*\.log$/i.test(name))
+        .sort();
+      for (const name of names) {
+        try {
+          const full = path.join(debugDir, name);
+          const raw = fs.readFileSync(full, "utf8");
+          const lines = raw.split("\n").filter(Boolean);
+          files.push({
+            name,
+            lineCount: lines.length,
+            tail: lines.slice(-80).join("\n"),
+          });
+        } catch (err) {
+          files.push({ name, lineCount: 0, tail: `Failed to read: ${err.message}` });
+        }
+      }
+    }
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Failed to read debug files." });
+  }
+  writeAppLog("server", "debug_files_viewed", `Admin viewed ${files.length} debug file(s)`, {
+    fileCount: files.length,
+  });
+  return res.json({ files });
+});
+
+app.delete("/api/logs", (req, res) => {
+  if (!requireLogAdmin(req, res)) return;
+  logStore.clear();
+  writeAppLog("server", "logs_cleared", "Admin cleared structured app logs", {
+    username: LOG_ADMIN_USERNAME,
+  });
+  return res.json({ ok: true });
+});
 
 app.get("/", (req, res) => {
   redirectWithQuery(res, getHostPagePath(), req);
@@ -6053,6 +6512,23 @@ io.on("connection", (socket) => {
     socket.join(pin);
     socketMeta.set(socket.id, { pin, role: "session_player", playerId });
 
+    writeAppLog("presence", "student_online", `${name} joined waiting room`, {
+      roomId: pin,
+      playerId,
+      displayName: name,
+      classId: session.classId,
+      className: session.className,
+      teacherId: session.teacherId,
+      sessionStatus: session.status,
+    });
+    writeAppLog("student", "student_joined_session", `${name} joined session ${pin}`, {
+      roomId: pin,
+      playerId,
+      displayName: name,
+      classId: session.classId,
+      className: session.className,
+    });
+
     callback?.({
       ok: true,
       roomId: pin,
@@ -6091,6 +6567,16 @@ io.on("connection", (socket) => {
     const alreadyStarted = session.status === "start";
     if (!alreadyStarted) {
       sessionStore.startSession(session);
+      writeAppLog("class", "session_started", `Class started in room ${pin}`, {
+        roomId: pin,
+        classId: session.classId,
+        className: session.className,
+        teacherId: session.teacherId,
+        courseId: session.courseId,
+        exerciseId: session.exercise?.id || null,
+        exerciseType: session.exercise?.type || null,
+        participantCount: session.participants?.size || 0,
+      });
     }
 
     io.to(pin).emit("session_started", { exercise: session.exercise });
@@ -6906,9 +7392,9 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("disconnect", () => {
-    removeFromSession(socket.id);
-    removePlayerFromGame(socket.id);
+  socket.on("disconnect", (reason) => {
+    removeFromSession(socket.id, reason);
+    removePlayerFromGame(socket.id, reason);
   });
 });
 
@@ -6941,6 +7427,7 @@ server.listen(PORT, "0.0.0.0", () => {
   }
   console.log(`  Host: ${base}${getHostPagePath()}`);
   console.log(`  CMS:  ${base}/cms.html`);
+  console.log(`  Logs: ${base}/log.html`);
   console.log(`  Join: ${base}${getJoinPagePath()}`);
   console.log(`  Phone/tablet: ${networkBase}${getJoinPagePath()}`);
 });
