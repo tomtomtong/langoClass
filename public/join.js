@@ -694,6 +694,50 @@ function doJoinRoom(roomId, displayNameOverride) {
       failJoin(joinT("join.connectFail"));
     });
   }
+
+  // Auto-rejoin after temporary disconnects (screen lock, wifi switch, etc).
+  // Identity survives via url token + localStorage, so re-sending join_session
+  // with the same userId restores the seat without a manual refresh.
+  socket.on("reconnect", () => {
+    if (!roomParticipant && !resolveStudentUserId(activeRoom, stored)) return;
+    const rejoinName = resolveDisplayName(activeRoom, stored) || displayName;
+    if (!rejoinName) return;
+    try {
+      socket.emit(
+        "join_session",
+        {
+          roomId: activeRoom,
+          displayName: rejoinName,
+          userId: resolveStudentUserId(activeRoom, stored),
+        },
+        (data) => {
+          if (data?.ok) {
+            const participant = {
+              roomId: data.roomId,
+              userId: data.userId,
+              displayName: data.displayName,
+            };
+            saveStoredParticipant(participant);
+            roomParticipant = participant;
+            rememberJoinDisplayName(participant.displayName);
+            if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
+            setJoinWaitingStatus(
+              data.sessionStatus === "start" ? "join.classStarting" : "join.inClassWaiting"
+            );
+            if ($("#screen-room-waiting") && !$("#screen-room-waiting").classList.contains("active")) {
+              showScreen("room-waiting");
+            }
+          } else if (data?.errorCode === "session_ended") {
+            showClassEnded({ statusKey: "join.endedStatus" });
+          }
+          // other failures: keep waiting; the 2.5s quiz retry loop and lobby
+          // broadcast will surface real problems
+        }
+      );
+    } catch {
+      // never throw from a reconnect handler
+    }
+  });
 }
 
 function initQuizJoin() {

@@ -987,6 +987,14 @@ function tryJoinRoomQuiz(roomId, displayName, userId) {
   if (roomQuizSocket.connected) attempt();
   else roomQuizSocket.once("connect", attempt);
 
+  // After a socket-level reconnect (screen lock, wifi switch), re-run the join
+  // attempt loop so the student keeps their quiz seat without a refresh.
+  roomQuizSocket.on("reconnect", () => {
+    if (!userId) return;
+    stopRoomQuizJoinRetry();
+    roomQuizJoinTimer = setInterval(attempt, 2500);
+  });
+
   stopRoomQuizJoinRetry();
   roomQuizJoinTimer = setInterval(attempt, 2500);
 }

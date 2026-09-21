@@ -46,6 +46,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   maxHttpBufferSize: 5 * 1024 * 1024,
+  // Tolerate brief backgrounding / wifi switches before declaring a student
+  // dead: 45s ping interval, 30s grace (previously 25s + 20s defaults).
+  pingInterval: 45000,
+  pingTimeout: 30000,
+  // Slow school WiFi often can't finish the websocket handshake; polling
+  // fallback keeps them connected instead of dying silently.
+  transports: ["websocket", "polling"],
+  allowUpgrades: true,
 });
 
 // Avoid 6000: Chromium blocks it as ERR_UNSAFE_PORT (X11).
@@ -107,6 +115,8 @@ const LOG_ADMIN_PASSWORD = "langoclasspassword123";
 const LOG_ADMIN_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 /** @type {Map<string, { username: string, createdAt: number, expiresAt: number }>} */
 const logAdminSessions = new Map();
+// How long a disconnected student keeps their seat before removal.
+const OFFLINE_GRACE_MS = 90 * 1000;
 const TRANSCRIBE_PROMPT =
   "Listen to this audio and respond with exactly two sections:\n\n" +
   "Transcript:\n" +
@@ -2639,6 +2649,10 @@ function startQuestion(game) {
   void speakQuestionThenOpen(game, nextIndex);
 }
 
+/** @type {Map<string, ReturnType<typeof setTimeout>>} */
+const hostDisconnectTimers = new Map();
+const HOST_GRACE_MS = 60 * 1000;
+
 function removePlayerFromGame(socketId, disconnectReason) {
   const meta = socketMeta.get(socketId);
   if (!meta) return;
@@ -2654,10 +2668,55 @@ function removePlayerFromGame(socketId, disconnectReason) {
   }
 
   if (meta.role === "host") {
+    // For class games the host has two sockets (waiting room + quiz). Only
+    // treat the drop as fatal when no other host socket remains.
+    const otherHostSocket = [...socketMeta.entries()].some(
+      ([id, m]) => id !== socketId && m.pin === meta.pin && m.role === "host"
+    );
+    if (game.isRoomGame && otherHostSocket) {
+      writeAppLog(
+        "presence",
+        "host_socket_offline",
+        "One host socket dropped; game kept alive via the other socket",
+        {
+          roomId: meta.pin,
+          reasonCode: why.reasonCode,
+          reasonText: why.reasonText,
+        }
+      );
+      socketMeta.delete(socketId);
+      return;
+    }
+
+    // Grace window: a brief full host drop (wifi blink, screen lock) previously
+    // killed the whole game instantly. Pause the question timer and wait;
+    // host rejoin cancels this and resumes.
     clearQuestionTimer(game);
-    io.to(game.pin).emit("game_ended", { reason: "Host left the game" });
-    games.delete(meta.pin);
-    endSession(meta.pin, "Host left the session");
+    game.hostDisconnectedAt = Date.now();
+    io.to(game.pin).emit("host_connection_lost", { graceMs: HOST_GRACE_MS });
+    const existing = hostDisconnectTimers.get(meta.pin);
+    if (existing) clearTimeout(existing);
+    hostDisconnectTimers.set(
+      meta.pin,
+      setTimeout(() => {
+        hostDisconnectTimers.delete(meta.pin);
+        const still = games.get(meta.pin);
+        if (!still || still.hostSocketId) return;
+        const anyHostLeft = [...socketMeta.values()].some(
+          (m) => m.pin === meta.pin && m.role === "host"
+        );
+        if (anyHostLeft) return;
+        io.to(meta.pin).emit("game_ended", { reason: "Host connection lost" });
+        games.delete(meta.pin);
+        endSession(meta.pin, "Host connection lost");
+      }, HOST_GRACE_MS)
+    );
+    writeAppLog("presence", "host_offline_grace", "Host disconnected; grace window started", {
+      roomId: meta.pin,
+      graceMs: HOST_GRACE_MS,
+      reasonCode: why.reasonCode,
+      reasonText: why.reasonText,
+    });
   } else if (meta.playerId) {
     const player = game.players.get(meta.playerId);
     if (player) {
@@ -2786,21 +2845,53 @@ function removeFromSession(socketId, disconnectReason) {
     (meta.playerId && session.participants?.get?.(meta.playerId)) ||
     [...(session.participants?.values?.() || [])].find((p) => p.socketId === socketId);
   const why = describeDisconnectReason(disconnectReason);
-  sessionStore.removeParticipantBySocket(session, socketId);
+
+  if (!participant) {
+    sessionStore.removeParticipantBySocket(session, socketId);
+    return;
+  }
+
+  // Grace window: keep the seat, mark offline, remove only if the student
+  // does not come back within OFFLINE_GRACE_MS. Rejoin cancels the timer.
+  participant.online = false;
+  participant.offlineSince = Date.now();
+  if (!participant.removalTimer) {
+    participant.removalTimer = setTimeout(() => {
+      const still = sessionStore.getSession(meta.pin);
+      if (!still) return;
+      const target = still.participants?.get?.(participant.userId);
+      if (!target || target.online !== false) return;
+      sessionStore.removeParticipant(still, participant.userId);
+      writeAppLog(
+        "presence",
+        "student_removed_after_grace",
+        `${target.displayName || participant.userId} removed after offline grace window`,
+        {
+          roomId: meta.pin,
+          playerId: participant.userId,
+          displayName: target.displayName || null,
+          offlineMs: Date.now() - (target.offlineSince || Date.now()),
+        }
+      );
+      broadcastSessionLobby(still);
+    }, OFFLINE_GRACE_MS);
+  }
+
   writeAppLog(
     "presence",
     "student_offline",
-    `${participant?.displayName || meta.playerId || "Student"} went offline`,
+    `${participant.displayName || meta.playerId || "Student"} went offline`,
     {
       roomId: meta.pin,
-      playerId: meta.playerId || participant?.userId || null,
-      displayName: participant?.displayName || null,
+      playerId: meta.playerId || participant.userId || null,
+      displayName: participant.displayName || null,
       classId: session.classId,
       className: session.className,
       teacherId: session.teacherId,
       reasonCode: why.reasonCode,
       reasonText: why.reasonText,
       sourceRole: "session_player",
+      graceMs: OFFLINE_GRACE_MS,
     }
   );
   broadcastSessionLobby(session);
@@ -6419,6 +6510,31 @@ io.on("connection", (socket) => {
     }
     socket.join(pin);
     socketMeta.set(socket.id, { pin, role: "host" });
+    // Host came back within the grace window: cancel pending teardown and
+    // resume a paused question timer if one was interrupted.
+    const pendingGameEnd = hostDisconnectTimers.get(pin);
+    if (pendingGameEnd) {
+      clearTimeout(pendingGameEnd);
+      hostDisconnectTimers.delete(pin);
+      const game = games.get(pin);
+      if (game) {
+        game.hostDisconnectedAt = null;
+        writeAppLog("presence", "host_reconnected", "Host rejoined within grace window", {
+          roomId: pin,
+        });
+        if (game.status === "question" && !game.questionTimer) {
+          const question = game.quiz.questions[game.currentQuestionIndex];
+          const totalMs = (question?.timeLimit || 15) * 1000;
+          const elapsed = Date.now() - (game.questionStartedAt || Date.now());
+          const remaining = Math.max(1500, totalMs - elapsed);
+          game.questionTimer = setTimeout(() => endQuestion(game), remaining);
+          writeAppLog("server", "question_timer_resumed", "Question timer resumed after host rejoin", {
+            roomId: pin,
+            remainingMs: remaining,
+          });
+        }
+      }
+    }
 
     callback?.({
       ok: true,
@@ -6503,6 +6619,17 @@ io.on("connection", (socket) => {
       displayName: name,
       socketId: socket.id,
     });
+    // Returning student (grace-window rejoin): clear offline state + timer.
+    sessionStore.markParticipantOnline(session, playerId, socket.id);
+    const returning = sessionStore.getSession(pin)?.participants?.get?.(playerId);
+    if (returning?.joinedAt && Date.now() - returning.joinedAt > 30 * 1000) {
+      writeAppLog("presence", "student_rejoined", `${name} reconnected and kept their seat`, {
+        roomId: pin,
+        playerId,
+        displayName: name,
+        classId: session.classId,
+      });
+    }
 
     const activeRoomGame = games.get(pin);
     if (activeRoomGame?.isRoomGame) {
@@ -7226,6 +7353,12 @@ io.on("connection", (socket) => {
 
     socket.join(game.pin);
     socketMeta.set(socket.id, { pin: game.pin, role: "host" });
+    const pendingGameEnd = hostDisconnectTimers.get(game.pin);
+    if (pendingGameEnd) {
+      clearTimeout(pendingGameEnd);
+      hostDisconnectTimers.delete(game.pin);
+      game.hostDisconnectedAt = null;
+    }
 
     callback?.({
       ok: true,

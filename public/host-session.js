@@ -47,6 +47,15 @@ function getHostSessionSocket() {
       if (!hostSessionRoomId) return;
       emitHostSessionJoin(hostSessionSocket, hostSessionRoomId);
     });
+    // While the host socket is down, the server holds the game for up to a
+    // minute. Tell the teacher instead of sitting on a frozen screen.
+    hostSessionSocket.on("host_connection_lost", ({ graceMs } = {}) => {
+      const seconds = Math.round((graceMs || 60000) / 1000);
+      const el = $("#waiting-error");
+      if (el) {
+        el.textContent = `Connection lost — you have about ${seconds}s to get back online before the class ends.`;
+      }
+    });
   }
   return hostSessionSocket;
 }

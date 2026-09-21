@@ -2009,6 +2009,7 @@ function startHostRoomQuiz(roomId, exercise) {
 
   roomQuizFastMode = !!quiz.fastMode;
   const socket = getRoomQuizSocket();
+  window.__hostRoomQuizCtx = { roomId };
 
   return new Promise((resolve, reject) => {
     const onReady = () => {
@@ -2022,6 +2023,7 @@ function startHostRoomQuiz(roomId, exercise) {
           }
 
           socket.emit("start_room_game");
+          setupHostRoomQuizReconnect();
           const firstQuestion = quiz.questions[0];
           roomQuizCurrentQuestion = {
             questionIndex: 0,
@@ -2054,6 +2056,24 @@ function startHostRoomQuiz(roomId, exercise) {
       );
     }
   });
+}
+
+// Host quiz socket: on reconnect mid-game, the server has already dropped the
+// old host socket; re-join the room so the host keeps receiving updates.
+// game state lives server-side per room, so only the socket membership needs
+// restoring.
+function setupHostRoomQuizReconnect() {
+  const socket = getRoomQuizSocket();
+  socket.on("reconnect", () => {
+    const meta = window.__hostRoomQuizCtx;
+    if (meta?.roomId && socket.connected) {
+      socket.emit("host_session", { roomId: meta.roomId, uiLocale: currentHostUiLocale?.() }, () => {});
+    }
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.setupHostRoomQuizReconnect = setupHostRoomQuizReconnect;
 }
 
 function initHostRoomQuizUi() {
