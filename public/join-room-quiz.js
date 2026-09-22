@@ -457,6 +457,73 @@ function hideRoomBuzzinJoinTimer() {
   if (wrap) wrap.hidden = true;
 }
 
+function getStudentLatestBuzzinResponse(payload, playerId) {
+  const matches = (payload?.responses || []).filter((entry) => entry.playerId === playerId);
+  return matches.length ? matches[matches.length - 1] : null;
+}
+
+function hideStudentBuzzinRetryChoice() {
+  const wrap = $("#room-buzzin-retry-choice");
+  if (wrap) wrap.hidden = true;
+}
+
+function showStudentBuzzinRetryChoice(response) {
+  const wrap = $("#room-buzzin-retry-choice");
+  const message = $("#room-buzzin-retry-message");
+  const recordBtn = $("#btn-room-buzzin-record");
+  const recordControls = document.querySelector("#room-buzzin-turn .buzzin-record-controls");
+  const submitted = $("#room-buzzin-submitted");
+  const retryBtn = $("#btn-room-buzzin-retry");
+  const skipBtn = $("#btn-room-buzzin-skip-retry");
+
+  hideStudentBuzzinAnswerPrompt();
+  if (recordControls) recordControls.hidden = true;
+  if (recordBtn) recordBtn.hidden = true;
+  if (submitted) submitted.hidden = true;
+  if (wrap) wrap.hidden = false;
+  if (retryBtn) {
+    retryBtn.disabled = false;
+    retryBtn.textContent = uiT("buzzin.tryAgain");
+  }
+  if (skipBtn) {
+    skipBtn.disabled = false;
+    skipBtn.textContent = uiT("buzzin.keepAnswer");
+  }
+  if (message) {
+    message.textContent =
+      response?.answerVerdict === "partial"
+        ? uiT("buzzin.retryOfferPartial")
+        : uiT("buzzin.retryOfferIncorrect");
+  }
+}
+
+function emitBuzzinRetryChoice(accept) {
+  const socket = getRoomSessionSocket();
+  const retryBtn = $("#btn-room-buzzin-retry");
+  const skipBtn = $("#btn-room-buzzin-skip-retry");
+  if (retryBtn) retryBtn.disabled = true;
+  if (skipBtn) skipBtn.disabled = true;
+
+  const finish = (res) => {
+    if (!res?.ok) {
+      if (retryBtn) retryBtn.disabled = false;
+      if (skipBtn) skipBtn.disabled = false;
+      const turnStatus = $("#room-buzzin-turn-status");
+      if (turnStatus) turnStatus.textContent = res?.error || uiT("buzzin.submitError");
+      return;
+    }
+    hideStudentBuzzinRetryChoice();
+    updateStudentBuzzinUi(res);
+  };
+
+  if (!socket?.connected) {
+    finish({ ok: false, error: uiT("buzzin.submitError") });
+    return;
+  }
+
+  socket.emit("buzzin_retry_choice", { accept }, finish);
+}
+
 function resetRoomBuzzinTurnUi() {
   const turnArea = $("#room-buzzin-turn");
   const submitted = $("#room-buzzin-submitted");
@@ -466,6 +533,7 @@ function resetRoomBuzzinTurnUi() {
   resetRoomBuzzinRecordingUi();
   hideStudentBuzzinAnswerPrompt();
   hideStudentBuzzinWatchingPrompt();
+  hideStudentBuzzinRetryChoice();
   if (title) title.textContent = uiT("buzzin.recordTitle");
   const recordBtn = $("#btn-room-buzzin-record");
   if (turnArea) turnArea.hidden = true;
@@ -487,12 +555,13 @@ function updateStudentBuzzinTurnUi(payload) {
   const submitted = $("#room-buzzin-submitted");
   const playerId = roomParticipant?.userId;
   const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
-  const myResponse = (payload.responses || []).find((r) => r.playerId === playerId);
+  const myResponse = getStudentLatestBuzzinResponse(payload, playerId);
   const currentTurn = payload.currentTurn || null;
   const firstBuzz = (payload.buzzes || [])[0] || null;
   const isMyAnswerTurn =
     currentTurn?.playerId === playerId ||
     (!currentTurn && firstBuzz?.playerId === playerId);
+  const recordControls = document.querySelector("#room-buzzin-turn .buzzin-record-controls");
 
   if (phase === "ready" || phase === "join") {
     resetRoomBuzzinTurnUi();
@@ -508,7 +577,45 @@ function updateStudentBuzzinTurnUi(payload) {
     return;
   }
 
-  if (myResponse) {
+  if (payload.pendingRetryPlayerId === playerId) {
+    hideStudentBuzzinWatchingPrompt();
+    turnStatus.textContent =
+      myResponse?.answerVerdict === "partial"
+        ? uiT("buzzin.retryOfferPartial")
+        : uiT("buzzin.retryOfferIncorrect");
+    showStudentBuzzinRetryChoice(myResponse);
+    return;
+  }
+
+  hideStudentBuzzinRetryChoice();
+  if (recordControls) recordControls.hidden = false;
+
+  if (payload.retryActivePlayerId === playerId) {
+    hideStudentBuzzinWatchingPrompt();
+    turnStatus.textContent = uiT("buzzin.tryAgainRecord");
+    const recordBtn = $("#btn-room-buzzin-record");
+    if (recordBtn) {
+      recordBtn.hidden = false;
+      recordBtn.disabled = false;
+    }
+    if (submitted) submitted.hidden = true;
+    syncStudentBuzzinAnswerPrompt(payload);
+    return;
+  }
+
+  if (myResponse?.analysisStatus === "pending") {
+    hideStudentBuzzinWatchingPrompt();
+    turnStatus.textContent = uiT("buzzin.analyzingAnswer");
+    const recordBtn = $("#btn-room-buzzin-record");
+    if (recordBtn) recordBtn.hidden = true;
+    if (submitted) {
+      submitted.hidden = false;
+      submitted.textContent = uiT("buzzin.analyzingAnswer");
+    }
+    return;
+  }
+
+  if (myResponse && payload.typingComplete) {
     hideStudentBuzzinWatchingPrompt();
     turnStatus.textContent = uiT("buzzin.submitted");
     const recordBtn = $("#btn-room-buzzin-record");
@@ -516,6 +623,18 @@ function updateStudentBuzzinTurnUi(payload) {
     if (submitted) {
       submitted.hidden = false;
       submitted.textContent = uiT("buzzin.submitted");
+    }
+    return;
+  }
+
+  if (myResponse) {
+    hideStudentBuzzinWatchingPrompt();
+    turnStatus.textContent = uiT("buzzin.analyzingAnswer");
+    const recordBtn = $("#btn-room-buzzin-record");
+    if (recordBtn) recordBtn.hidden = true;
+    if (submitted) {
+      submitted.hidden = false;
+      submitted.textContent = uiT("buzzin.analyzingAnswer");
     }
     return;
   }
@@ -689,6 +808,13 @@ function ensureRoomBuzzinSocket() {
     updateStudentBuzzinUi(payload);
   });
 
+  socket.on("buzzin_response_analyzed", (payload) => {
+    if (payload.roundId != null && roomBuzzinRoundId == null) {
+      roomBuzzinRoundId = payload.roundId;
+    }
+    updateStudentBuzzinUi(payload);
+  });
+
   $("#btn-room-buzz-in")?.addEventListener("click", () => {
     const btn = $("#btn-room-buzz-in");
     if (!btn || btn.disabled) return;
@@ -734,6 +860,14 @@ function ensureRoomBuzzinSocket() {
       setRoomBuzzinRecordStatus(err.message || uiT("buzzin.micError"));
       if (turnStatus) turnStatus.textContent = err.message || uiT("buzzin.micError");
     }
+  });
+
+  $("#btn-room-buzzin-retry")?.addEventListener("click", () => {
+    emitBuzzinRetryChoice(true);
+  });
+
+  $("#btn-room-buzzin-skip-retry")?.addEventListener("click", () => {
+    emitBuzzinRetryChoice(false);
   });
 
   return socket;

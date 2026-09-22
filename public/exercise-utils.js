@@ -244,19 +244,25 @@ function buzzinSelectedStudent(payload) {
 function buzzinResponsesForDisplay(payload) {
   const student = buzzinSelectedStudent(payload);
   if (!student) return [];
-  return (payload?.responses || [])
-    .filter((response) => response.playerId === student.playerId)
-    .slice(0, 1);
+  const matches = (payload?.responses || []).filter(
+    (response) => response.playerId === student.playerId
+  );
+  return matches.length ? [matches[matches.length - 1]] : [];
 }
 
 function buzzinCurrentTurnForDisplay(payload) {
   if (payload?.typingComplete) return null;
   const student = buzzinSelectedStudent(payload);
   if (!student) return null;
-  const hasResponse = (payload?.responses || []).some(
+  if (payload?.retryActivePlayerId === student.playerId) return student;
+  if (payload?.pendingRetryPlayerId === student.playerId) return null;
+  const matches = (payload?.responses || []).filter(
     (response) => response.playerId === student.playerId
   );
-  return hasResponse ? null : student;
+  const latest = matches.length ? matches[matches.length - 1] : null;
+  if (latest?.analysisStatus === "pending") return null;
+  if (latest) return null;
+  return student;
 }
 
 function buzzinAvatarInitials(name) {

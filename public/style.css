@@ -5657,6 +5657,49 @@ body:has(#screen-host-quiz-question.active) {
   line-height: 1.5;
 }
 
+.buzzin-retry-choice {
+  margin-top: 0.85rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  text-align: center;
+}
+
+.buzzin-retry-choice__message {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.buzzin-retry-choice__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.buzzin-retry-skip-btn {
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.buzzin-retry-skip-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.buzzin-retry-skip-btn:disabled,
+.buzzin-retry-choice .buzzin-record-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .join-page #screen-room-buzzin.buzzin-interaction-screen {
   position: relative;
   width: 100%;

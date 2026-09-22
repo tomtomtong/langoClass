@@ -1,0 +1,444 @@
+/**
+ * Lango 3.0 design system — host UI overrides
+ * Scoped to standard host (not HK elderly variant).
+ * See DESIGN.md for token definitions.
+ */
+
+body:not(.hk-elderly) #app.lango-host {
+  --lango-page: #eaf1ff;
+  --lango-page-deep: #dde9ff;
+  --lango-surface: #fffdf8;
+  --lango-white: #ffffff;
+  --lango-primary: #a1268e;
+  --lango-primary-deep: #743c9b;
+  --lango-primary-soft: #fbe1eb;
+  --lango-teal: #007f78;
+  --lango-teal-soft: #d8f7f2;
+  --lango-selection: #2d73b5;
+  --lango-selection-soft: #dcefff;
+  --lango-gold: #f9b545;
+  --lango-sky: #54adf4;
+  --lango-ink: #344356;
+  --lango-muted: #526579;
+  --lango-text-strong: #243041;
+  --lango-text-on-photo: #1e2a38;
+  --lango-line: #c8d5e6;
+  --lango-error: #b92d4f;
+  --lango-radius-card: 32px;
+  --lango-radius-pill: 999px;
+  --lango-font: "Nunito", ui-rounded, system-ui, sans-serif;
+  --lango-shadow-card: 0 10px 20px rgba(52, 67, 86, 0.14);
+  --lango-shadow-btn: 0 5px 10px rgba(52, 67, 86, 0.16);
+  --lango-bg-adventure: linear-gradient(
+    180deg,
+    var(--lango-page-deep) 0%,
+    var(--lango-selection-soft) 42%,
+    var(--lango-teal-soft) 78%,
+    rgba(194, 148, 255, 0.35) 100%
+  );
+  --lango-btn-primary: linear-gradient(90deg, var(--lango-primary) 0%, var(--lango-primary-deep) 100%);
+  --lango-btn-primary-shadow:
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.35),
+    0 8px 0 rgba(116, 60, 155, 0.45),
+    0 12px 22px rgba(116, 60, 155, 0.22);
+  --lango-btn-ghost-shadow:
+    inset 0 0 0 2px var(--lango-primary),
+    var(--lango-shadow-btn);
+  font-family: var(--lango-font);
+}
+
+/* Canvas backgrounds — mist blue instead of yellow / bright blue */
+body:not(.hk-elderly):has(#app.lango-host #screen-login.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-class.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-course.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-section.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-waiting.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-video.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-buzzin.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-buzzin-feedback.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-buzzin-empty.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-quiz-preview.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-quiz-question.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-quiz-results.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-fast-results.active),
+body:not(.hk-elderly):has(#app.lango-host #screen-host-quiz-finished.active) {
+  background: var(--lango-page);
+  background-image: var(--lango-bg-adventure);
+}
+
+body:not(.hk-elderly) #app.lango-host .host-mcq-preview-screen,
+body:not(.hk-elderly) #app.lango-host .host-buzzin-screen,
+body:not(.hk-elderly) #app.lango-host .course-scene {
+  background: var(--lango-page);
+  background-image: var(--lango-bg-adventure);
+}
+
+body:not(.hk-elderly) #app.lango-host .course-scene::before {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Login — cream card, no glass purple */
+body:not(.hk-elderly) #app.lango-host .login-home-link {
+  color: var(--lango-ink);
+  text-shadow: none;
+}
+
+body:not(.hk-elderly) #app.lango-host .login-home-link:hover {
+  color: var(--lango-primary);
+}
+
+body:not(.hk-elderly) #app.lango-host .login-panel {
+  padding: 10rem 2.5rem 2rem;
+  border: 3px solid transparent;
+  border-radius: var(--lango-radius-card);
+  background:
+    linear-gradient(var(--lango-surface), var(--lango-surface)) padding-box,
+    var(--lango-btn-primary) border-box;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--lango-shadow-card);
+}
+
+body:not(.hk-elderly) #app.lango-host .login-title {
+  color: var(--lango-ink);
+  text-shadow: none;
+  letter-spacing: -0.02em;
+}
+
+body:not(.hk-elderly) #app.lango-host .login-field input {
+  border: 2px solid var(--lango-line);
+  border-radius: 20px;
+  color: var(--lango-ink);
+  box-shadow: none;
+}
+
+body:not(.hk-elderly) #app.lango-host .login-field input:focus {
+  outline: 3px solid var(--lango-selection-soft);
+  outline-offset: 1px;
+  border-color: var(--lango-selection);
+}
+
+body:not(.hk-elderly) #app.lango-host .login-btn {
+  background: var(--lango-btn-primary);
+  box-shadow: var(--lango-btn-primary-shadow);
+}
+
+body:not(.hk-elderly) #app.lango-host .login-btn:hover {
+  filter: brightness(1.04);
+}
+
+body:not(.hk-elderly) #app.lango-host .login-btn:active {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+    0 4px 0 rgba(116, 60, 155, 0.4),
+    0 8px 16px rgba(116, 60, 155, 0.18);
+}
+
+/* Page titles on mist canvas */
+body:not(.hk-elderly) #app.lango-host .class-screen .class-page-title,
+body:not(.hk-elderly) #app.lango-host .course-page-title {
+  color: var(--lango-text-on-photo);
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  background: none;
+  -webkit-text-fill-color: var(--lango-text-on-photo);
+  text-shadow:
+    0 2px 0 rgba(255, 255, 255, 0.92),
+    0 0 18px rgba(255, 255, 255, 0.75);
+  filter: none;
+  letter-spacing: -0.02em;
+}
+
+body:not(.hk-elderly) #app.lango-host .course-step {
+  color: var(--lango-text-on-photo);
+  font-weight: 800;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 0 16px rgba(255, 255, 255, 0.8),
+    0 2px 8px rgba(36, 48, 65, 0.18);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-teacher-label {
+  color: var(--lango-text-strong);
+  font-weight: 800;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85),
+    0 0 12px rgba(255, 255, 255, 0.65);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-title-mark {
+  text-decoration-color: var(--lango-primary);
+}
+
+body:not(.hk-elderly) #app.lango-host .course-class-label__eyebrow {
+  color: var(--lango-primary);
+}
+
+body:not(.hk-elderly) #app.lango-host .course-class-label__name {
+  color: var(--lango-ink);
+}
+
+body:not(.hk-elderly) #app.lango-host .course-panel-header::before {
+  color: var(--lango-text-on-photo);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 0 14px rgba(255, 255, 255, 0.75);
+}
+
+/* Class picker cards — cream tiles with teal accent */
+body:not(.hk-elderly) #app.lango-host .class-screen .class-section-title {
+  color: var(--lango-ink);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-teacher-chip {
+  background: var(--lango-white);
+  color: var(--lango-ink);
+  border: 1px solid var(--lango-line);
+  box-shadow: var(--lango-shadow-btn);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-teacher-chip strong {
+  color: var(--lango-primary);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card,
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card.active {
+  padding: 8px;
+  border: 2px solid var(--lango-teal);
+  border-radius: 28px;
+  background: var(--lango-teal-soft);
+  color: var(--lango-ink);
+  box-shadow: var(--lango-shadow-card);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card.active {
+  border-color: var(--lango-primary);
+  background: var(--lango-primary-soft);
+  box-shadow:
+    0 0 0 3px rgba(161, 38, 142, 0.12),
+    var(--lango-shadow-card);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card-inner {
+  border-radius: 20px;
+  background: var(--lango-surface);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card-name,
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card.active .class-card-name {
+  color: var(--lango-ink);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card-meta,
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card.active .class-card-meta {
+  color: var(--lango-text-strong);
+  font-weight: 800;
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card-go {
+  background: var(--lango-btn-primary);
+  box-shadow: var(--lango-btn-primary-shadow);
+  text-shadow: none;
+}
+
+/* Course picker cards — white tiles, subtle border */
+body:not(.hk-elderly) #app.lango-host .course-pick-card,
+body:not(.hk-elderly) #app.lango-host .course-pick-card.active {
+  padding: 8px;
+  border-radius: var(--lango-radius-card);
+  background: var(--lango-white);
+  border: 2px solid var(--lango-line);
+  box-shadow: var(--lango-shadow-card);
+}
+
+body:not(.hk-elderly) #app.lango-host .course-pick-card.active {
+  border-color: var(--lango-primary);
+  box-shadow:
+    0 0 0 3px rgba(161, 38, 142, 0.1),
+    var(--lango-shadow-card);
+}
+
+body:not(.hk-elderly) #app.lango-host .course-pick-card-inner {
+  border-radius: 22px;
+  background: var(--lango-surface);
+  box-shadow: none;
+}
+
+body:not(.hk-elderly) #app.lango-host .course-pick-title {
+  color: var(--lango-text-strong);
+  font-weight: 900;
+  text-shadow: none;
+}
+
+body:not(.hk-elderly) #app.lango-host .course-pick-desc,
+body:not(.hk-elderly) #app.lango-host .course-pick-level {
+  color: var(--lango-text-strong);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+body:not(.hk-elderly) #app.lango-host .section-road-meta,
+body:not(.hk-elderly) #app.lango-host .section-road-label {
+  color: var(--lango-text-strong);
+  font-weight: 800;
+}
+
+/* Section journey header — cream bar, less glass */
+body:not(.hk-elderly) #app.lango-host .section-header {
+  border-radius: var(--lango-radius-card);
+  background: var(--lango-surface);
+  border: 1px solid var(--lango-line);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--lango-shadow-card);
+}
+
+body:not(.hk-elderly) #app.lango-host .section-journey-title {
+  color: var(--lango-ink);
+}
+
+body:not(.hk-elderly) #app.lango-host .waiting-page-title,
+body:not(.hk-elderly) #app.lango-host .section-road-title {
+  color: var(--lango-ink);
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  text-shadow: none;
+  letter-spacing: -0.02em;
+}
+
+body:not(.hk-elderly) #app.lango-host .waiting-room-code-card {
+  border: 2px solid var(--lango-primary);
+  border-radius: var(--lango-radius-card);
+  background: var(--lango-surface);
+  box-shadow: var(--lango-shadow-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body:not(.hk-elderly) #app.lango-host .waiting-room-code-label {
+  color: var(--lango-primary);
+}
+
+body:not(.hk-elderly) #app.lango-host .section-road-subtitle {
+  color: var(--lango-text-strong);
+  font-weight: 800;
+}
+
+/* Utility dock — solid cream, no heavy blur */
+body:not(.hk-elderly) #app.lango-host .host-utility-dock {
+  border: 1px solid var(--lango-line);
+  background: rgba(255, 253, 248, 0.94);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--lango-shadow-card);
+}
+
+body:not(.hk-elderly) #app.lango-host .course-class-label:not([hidden]):not(.is-empty) {
+  border: 1px solid var(--lango-line);
+  background: var(--lango-white);
+  box-shadow: var(--lango-shadow-btn);
+}
+
+body:not(.hk-elderly) #app.lango-host .host-persistent-room-code.is-visible {
+  border: 1px solid var(--lango-line);
+  background: var(--lango-white);
+  box-shadow: var(--lango-shadow-btn);
+}
+
+body:not(.hk-elderly) #app.lango-host .host-online-count.is-visible {
+  border: 1px solid var(--lango-teal);
+  background: var(--lango-teal-soft);
+}
+
+/* Primary CTAs — purple gradient */
+body:not(.hk-elderly) #app.lango-host .waiting-start-session-btn,
+body:not(.hk-elderly) #app.lango-host .exercise-start-btn,
+body:not(.hk-elderly) #app.lango-host .host-mcq-preview-next-btn,
+body:not(.hk-elderly) #app.lango-host .host-mcq-next-btn,
+body:not(.hk-elderly) #app.lango-host #btn-host-video-next-exercise,
+body:not(.hk-elderly) #app.lango-host #btn-host-buzzin-done,
+body:not(.hk-elderly) #app.lango-host #btn-host-buzzin-feedback-done,
+body:not(.hk-elderly) #app.lango-host #btn-host-buzzin-empty-done {
+  color: #fff;
+  background: var(--lango-btn-primary);
+  box-shadow: var(--lango-btn-primary-shadow);
+}
+
+/* Secondary / back — ghost pill */
+body:not(.hk-elderly) #app.lango-host .waiting-dashboard-btn,
+body:not(.hk-elderly) #app.lango-host .class-back-btn,
+body:not(.hk-elderly) #app.lango-host .exercise-cancel-btn,
+body:not(.hk-elderly) #app.lango-host .host-mcq-preview-footer-btn,
+body:not(.hk-elderly) #app.lango-host .host-mcq-footer-btn:not(.host-mcq-next-btn),
+body:not(.hk-elderly) #app.lango-host .host-video-footer-btn,
+body:not(.hk-elderly) #app.lango-host .host-buzzin-footer-btn,
+body:not(.hk-elderly) #app.lango-host #screen-host-fast-results .host-fast-result-button--back,
+body:not(.hk-elderly) #app.lango-host #btn-host-quiz-done,
+body:not(.hk-elderly) #app.lango-host .host-mcq-result-footer .host-mcq-footer-btn:not(.host-mcq-next-btn),
+body:not(.hk-elderly) #app.lango-host .host-fast-result-button--back,
+body:not(.hk-elderly) #app.lango-host .host-leaderboard__back {
+  color: var(--lango-primary);
+  background: var(--lango-white);
+  box-shadow: var(--lango-btn-ghost-shadow);
+}
+
+body:not(.hk-elderly) #app.lango-host .waiting-dashboard-face {
+  background: var(--lango-btn-primary);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+/* Leaderboard next + fast-result next — gold on dark celebration surface */
+body:not(.hk-elderly) #app.lango-host #screen-host-fast-results .host-fast-result-button--next,
+body:not(.hk-elderly) #app.lango-host .host-mcq-result-footer .host-mcq-next-btn,
+body:not(.hk-elderly) #app.lango-host .host-fast-result-button--next,
+body:not(.hk-elderly) #app.lango-host .host-leaderboard__next {
+  color: var(--lango-ink);
+  background: linear-gradient(180deg, #fdd889 0%, var(--lango-gold) 100%);
+  box-shadow:
+    inset 0 -2px 0 rgba(0, 0, 0, 0.08),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.55),
+    0 8px 0 rgba(180, 120, 20, 0.55),
+    0 12px 20px rgba(249, 181, 69, 0.28);
+}
+
+/* Leaderboard shell — primary-deep plum instead of hot magenta */
+body:not(.hk-elderly) #app.lango-host .host-leaderboard {
+  --lb-magenta: var(--lango-primary);
+  --lb-amber: var(--lango-primary-deep);
+  --lb-ink: var(--lango-ink);
+  --lb-cream: var(--lango-surface);
+  --lb-sheet: var(--lango-white);
+  --lb-plinth: var(--lango-primary-soft);
+  --lb-plinth-deep: var(--lango-primary-deep);
+  --lb-pink: #e8a0cf;
+  --lb-glow: rgba(251, 225, 235, 0.8);
+  background: linear-gradient(180deg, var(--lango-primary-deep) 0%, #5a2d78 100%);
+}
+
+body:not(.hk-elderly) #app.lango-host .host-leaderboard__overlay {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(251, 225, 235, 0.28), transparent 42%),
+    linear-gradient(180deg, rgba(116, 60, 155, 0.15), rgba(52, 67, 86, 0.35));
+}
+
+/* Exercise footers — cream dock */
+body:not(.hk-elderly) #app.lango-host .host-mcq-result-footer,
+body:not(.hk-elderly) #app.lango-host .host-fast-result-footer {
+  border: 1px solid var(--lango-line);
+  background: rgba(255, 253, 248, 0.92);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--lango-shadow-card);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:not(.hk-elderly) #app.lango-host .login-btn,
+  body:not(.hk-elderly) #app.lango-host .waiting-start-session-btn,
+  body:not(.hk-elderly) #app.lango-host .class-screen .class-card {
+    transition: none;
+  }
+}

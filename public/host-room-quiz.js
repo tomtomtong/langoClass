@@ -339,6 +339,18 @@ function updateHostBuzzinTurnUi(payload) {
 
   if (payload.typingComplete) {
     if (turnStatus) turnStatus.textContent = uiT("buzzin.hasAnswered", { name: chatStudent?.displayName || selectedStudent?.displayName || "Student" });
+  } else if (payload.pendingRetryPlayerId && payload.pendingRetryPlayerId === (chatStudent || selectedStudent)?.playerId) {
+    if (turnStatus) {
+      turnStatus.textContent = uiT("buzzin.waitingRetryChoice", {
+        name: (chatStudent || selectedStudent)?.displayName || "Student",
+      });
+    }
+  } else if (payload.retryActivePlayerId) {
+    if (turnStatus) {
+      turnStatus.textContent = uiT("buzzin.retryRecording", {
+        name: (chatStudent || selectedStudent)?.displayName || "Student",
+      });
+    }
   } else if (chatCurrentTurn) {
     if (turnStatus) turnStatus.textContent = uiT("buzzin.waitingRecord", { name: chatCurrentTurn.displayName });
   } else {

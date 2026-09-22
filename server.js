@@ -887,8 +887,8 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
   const round = buzzInRounds.get(pin);
   if (!round) return;
 
-  const entry = round.responses.find((r) => r.playerId === playerId);
-  if (!entry) return;
+  const entry = getLatestBuzzinResponseForPlayer(round, playerId);
+  if (!entry || entry.analysisStatus !== "pending") return;
 
   if (result.ok) {
     entry.analysis = result.analysis;
@@ -922,6 +922,13 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
     } catch (err) {
       console.warn(`[tts] Buzz-in spoken feedback failed: ${err.message || err}`);
     }
+
+    if (entry.isCorrect) {
+      finalizeBuzzinAnswerRound(pin);
+    } else {
+      round.pendingRetryPlayerId = playerId;
+      round.retryActivePlayerId = null;
+    }
   } else {
     entry.analysis = result.error;
     entry.spokenFeedback = null;
@@ -930,6 +937,8 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
     entry.analysisStatus = "error";
     entry.analysisAudio = null;
     entry.analysisAudioFormat = null;
+    round.pendingRetryPlayerId = playerId;
+    round.retryActivePlayerId = null;
   }
 
   broadcastBuzzInUpdate(pin, "buzzin_response_analyzed");
@@ -1546,6 +1555,30 @@ function buzzInCurrentTurn(round) {
   return round.buzzes[round.turnIndex] || null;
 }
 
+function getLatestBuzzinResponseForPlayer(round, playerId) {
+  if (!round || !playerId) return null;
+  const matches = (round.responses || []).filter((entry) => entry.playerId === playerId);
+  return matches.length ? matches[matches.length - 1] : null;
+}
+
+function canPlayerSubmitBuzzinResponse(round, playerId) {
+  if (!round || round.phase !== "typing" || !playerId) return false;
+  if (round.retryActivePlayerId === playerId) return true;
+  const latest = getLatestBuzzinResponseForPlayer(round, playerId);
+  if (!latest) return true;
+  if (latest.analysisStatus === "pending") return false;
+  if (round.pendingRetryPlayerId === playerId) return false;
+  return false;
+}
+
+function finalizeBuzzinAnswerRound(pin) {
+  const round = buzzInRounds.get(pin);
+  if (!round) return;
+  round.pendingRetryPlayerId = null;
+  round.retryActivePlayerId = null;
+  advanceBuzzInTurn(pin);
+}
+
 function buzzInPublicPayload(round) {
   const joinRemainingMs = round.phase === "join" ? Math.max(0, round.joinEndsAt - Date.now()) : 0;
   const announcement = round.answerAnnouncement;
@@ -1579,6 +1612,8 @@ function buzzInPublicPayload(round) {
     typingComplete: round.phase === "done",
     ineligiblePlayerIds: answeredPlayerIds,
     answeredPlayerIds,
+    pendingRetryPlayerId: round.pendingRetryPlayerId || null,
+    retryActivePlayerId: round.retryActivePlayerId || null,
     answerAnnouncement: announcement
       ? {
           playerId: announcement.playerId,
@@ -1794,6 +1829,8 @@ function createBuzzInRound(
     joinEndsAt: 0,
     joinTimer: null,
     answerAnnouncement: null,
+    pendingRetryPlayerId: null,
+    retryActivePlayerId: null,
   };
   buzzInRounds.set(pin, round);
   return round;
@@ -7068,8 +7105,15 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (round.responses.some((r) => r.playerId === meta.playerId)) {
-      callback?.({ ok: false, error: "You already submitted an answer." });
+    if (!canPlayerSubmitBuzzinResponse(round, meta.playerId)) {
+      const latest = getLatestBuzzinResponseForPlayer(round, meta.playerId);
+      if (latest?.analysisStatus === "pending") {
+        callback?.({ ok: false, error: "Your answer is still being checked." });
+      } else if (round.pendingRetryPlayerId === meta.playerId) {
+        callback?.({ ok: false, error: "Choose whether to try again first." });
+      } else {
+        callback?.({ ok: false, error: "You already submitted an answer." });
+      }
       return;
     }
 
@@ -7108,7 +7152,10 @@ io.on("connection", (socket) => {
       analysisAudioFormat: null,
     });
 
-    advanceBuzzInTurn(meta.pin);
+    if (round.retryActivePlayerId === meta.playerId) {
+      round.retryActivePlayerId = null;
+    }
+
     callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
 
     void analyzeAndAttachBuzzinResponse(meta.pin, meta.playerId, {
@@ -7120,6 +7167,37 @@ io.on("connection", (socket) => {
       audioFormat: format,
       sttLanguage: round.sttLanguage || "",
     });
+  });
+
+  socket.on("buzzin_retry_choice", ({ accept }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    if (!meta || meta.role !== "session_player" || !meta.playerId || !meta.pin) {
+      callback?.({ ok: false, error: "Join the class waiting room first." });
+      return;
+    }
+
+    const round = buzzInRounds.get(meta.pin);
+    if (!round || round.phase !== "typing") {
+      callback?.({ ok: false, error: "Buzz-in is not accepting answers right now." });
+      return;
+    }
+
+    if (round.pendingRetryPlayerId !== meta.playerId) {
+      callback?.({ ok: false, error: "No retry is available right now." });
+      return;
+    }
+
+    round.pendingRetryPlayerId = null;
+    if (accept) {
+      round.retryActivePlayerId = meta.playerId;
+      callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
+      broadcastBuzzInUpdate(meta.pin);
+      return;
+    }
+
+    round.retryActivePlayerId = null;
+    finalizeBuzzinAnswerRound(meta.pin);
+    callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
   });
 
   socket.on("get_buzzin_state", ({ roomId }, callback) => {
