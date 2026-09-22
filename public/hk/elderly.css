@@ -237,6 +237,39 @@ body.join-page.hk-elderly .buzzin-record-btn {
   font-size: 1.5rem;
 }
 
+body.join-page.hk-elderly .buzzin-retry-choice {
+  margin-top: 1rem;
+  padding: 1.1rem 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(255, 255, 255, 0.32);
+}
+
+body.join-page.hk-elderly .buzzin-retry-choice__message {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+body.join-page.hk-elderly .buzzin-retry-choice__actions {
+  gap: 0.75rem;
+}
+
+body.join-page.hk-elderly .buzzin-retry-skip-btn {
+  min-height: var(--hk-touch);
+  padding: 0.85rem 1.25rem;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+body.join-page.hk-elderly .buzzin-retry-skip-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.24);
+}
+
 body.join-page.hk-elderly #btn-leave-room,
 body.join-page.hk-elderly #btn-join-ended,
 body.join-page.hk-elderly #btn-join-room-name,
@@ -2944,6 +2977,72 @@ body.hk-elderly:has(#screen-host-quiz-results.active) .host-sound-mute-btn .host
 
 body.hk-elderly #screen-host-quiz-finished.host-leaderboard .host-leaderboard__backdrop {
   background: linear-gradient(165deg, var(--kahoot-purple-deep), var(--kahoot-purple));
+}
+
+/* Buzz In feedback chat — same behaviour as main host; keep Kahoot/elderly visuals */
+body.hk-elderly #app.lango-host .host-buzzin-feedback-realtime-header span {
+  font-family: var(--hk-font);
+  font-size: clamp(1.15rem, 1.6vw, 1.45rem);
+  font-weight: 800;
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-feedback-chat {
+  scrollbar-color: rgba(70, 23, 129, 0.45) rgba(226, 225, 238, 0.8);
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-feedback-chat::-webkit-scrollbar-thumb {
+  background: rgba(70, 23, 129, 0.45);
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-chat-bubble,
+body.hk-elderly #app.lango-host .host-buzzin-chat-bubble p,
+body.hk-elderly #app.lango-host .host-buzzin-chat-bubble__label,
+body.hk-elderly #app.lango-host .buzzin-analysis-play {
+  font-family: var(--hk-font);
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-show-answer-btn {
+  min-height: var(--hk-touch);
+  padding: 0.85rem 1.1rem;
+  border-radius: 100px;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  color: #fff;
+  font-family: var(--hk-font);
+  font-size: clamp(1.05rem, 1.4vw, 1.25rem);
+  letter-spacing: 0.02em;
+  font-weight: 900;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  box-shadow:
+    inset 0 -3px 3px rgba(0, 0, 0, 0.1),
+    inset 0 0 0 4px rgba(255, 255, 255, 0.45),
+    0 6px 0 rgba(0, 0, 0, 0.18);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-show-answer-btn__label {
+  font-size: clamp(1.15rem, 1.5vw, 1.35rem);
+  font-weight: 900;
+  white-space: normal;
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-show-answer-btn__hint {
+  font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+  font-weight: 700;
+  opacity: 0.95;
+  text-align: center;
+  line-height: 1.35;
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-show-answer-btn:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+
+body.hk-elderly #app.lango-host .host-buzzin-show-answer-btn:disabled {
+  opacity: 0.6;
+  filter: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

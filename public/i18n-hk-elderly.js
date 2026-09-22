@@ -69,6 +69,13 @@
     "buzzin.stepSubmit": "再撳一次「錄音」交答案",
     "buzzin.record": "錄音",
     "buzzin.buzzInBtn": "搶答",
+    "buzzin.realtime": "即時",
+    "buzzin.showAnswer": "顯示答案",
+    "buzzin.showAnswerHint": "喺聊天室向全班顯示參考答案",
+    "buzzin.tryAgain": "再試",
+    "buzzin.keepAnswer": "留低我嘅答案",
+    "buzzin.modelAnswer": "參考答案",
+    "buzzin.noModelAnswer": "呢題未設定參考答案。",
     "leaderboard.encourage": "做得好！繼續加油。",
     "leaderboard.playAgain": "再玩一次",
   });
