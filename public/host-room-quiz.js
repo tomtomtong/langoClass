@@ -23,6 +23,7 @@ let hostBuzzinLastResponses = [];
 const hostBuzzinPlayedSpokenFeedbackAudio = new Set();
 const hostBuzzinReviewSequencePlayed = new Set();
 const hostBuzzinFeedbackVisible = new Set();
+let hostBuzzinActiveExercise = null;
 let hostBuzzinLastPayload = null;
 let hostBuzzinCorrectAnswerRevealed = false;
 let hostBuzzinAnswerKeyJustRevealed = false;
@@ -290,10 +291,17 @@ function hideHostBuzzinJoinTimer() {
 function syncHostBuzzinShowAnswerButton(payload) {
   const btn = $("#btn-host-buzzin-show-answer");
   if (!btn) return;
-  const correctAnswer = String(payload?.correctAnswer || "").trim();
-  const canReveal = Boolean(correctAnswer) && !hostBuzzinCorrectAnswerRevealed;
-  btn.hidden = !correctAnswer;
-  btn.disabled = !canReveal;
+  const phase = payload?.phase || "";
+  const hasStudent = Boolean(buzzinSelectedStudent(payload));
+  const showPanel = hostBuzzinShowFeedbackPhase(payload) && !hostBuzzinShowEmptyPhase(payload);
+  const visible = showPanel && hasStudent && (phase === "typing" || phase === "done");
+  btn.hidden = !visible;
+  btn.disabled = hostBuzzinCorrectAnswerRevealed;
+  btn.setAttribute("aria-pressed", hostBuzzinCorrectAnswerRevealed ? "true" : "false");
+}
+
+function getHostBuzzinCorrectAnswerForReveal(payload = hostBuzzinLastPayload) {
+  return resolveHostBuzzinCorrectAnswer(payload, hostBuzzinActiveExercise);
 }
 
 function revealHostBuzzinCorrectAnswer() {
@@ -408,7 +416,7 @@ function updateHostBuzzinTurnUi(payload) {
       currentTurn: chatCurrentTurn,
       emptyText: uiT("buzzin.waitingAnswer"),
       feedbackVisible,
-      correctAnswer: payload.correctAnswer,
+      correctAnswer: getHostBuzzinCorrectAnswerForReveal(payload),
       correctAnswerRevealed: hostBuzzinCorrectAnswerRevealed,
       animate: {
         topic: animate.topic,
@@ -2020,6 +2028,7 @@ function showHostBuzzinExercise(exercise, roomId) {
   const buzzin = buzzinFromExercise(exercise);
   if (!buzzin) throw new Error("No Buzz In content in this exercise.");
 
+  hostBuzzinActiveExercise = exercise;
   syncHostBuzzinTopic(buzzin.topic, {
     questionIndex: buzzin.questionIndex || 0,
     totalQuestions: buzzin.totalQuestions || buzzin.topics?.length || 1,

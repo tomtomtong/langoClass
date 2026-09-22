@@ -303,6 +303,23 @@ function getHostBuzzinTopicText() {
   return String(feedbackTopic?.textContent || questionTopic?.textContent || "").trim();
 }
 
+function buzzinCorrectAnswerFromExercise(exercise, questionIndex = 0) {
+  if (!exercise || !isBuzzinExercise(exercise)) return "";
+  const items = Array.isArray(exercise.items) ? exercise.items : [];
+  if (!items.length) return "";
+  const item = items[questionIndex] || items[0] || {};
+  return String(item.correctAnswer || item.answer || item.expectedAnswer || "").trim();
+}
+
+function resolveHostBuzzinCorrectAnswer(payload, exercise = null) {
+  const fromPayload = String(payload?.correctAnswer || "").trim();
+  if (fromPayload) return fromPayload;
+  const activeExercise =
+    exercise || (typeof hostBuzzinActiveExercise !== "undefined" ? hostBuzzinActiveExercise : null);
+  const index = Math.max(0, Number(payload?.questionIndex) || 0);
+  return buzzinCorrectAnswerFromExercise(activeExercise, index);
+}
+
 function renderHostBuzzinLuckyStarCard(container, student, { animate = false } = {}) {
   if (!container) return;
   if (!student) {
@@ -478,16 +495,15 @@ function renderHostBuzzinFeedbackChat(container, {
   const topicEnter = animate.topic ? " host-buzzin-chat-row--enter" : "";
   const answerEnter = animate.answer ? " host-buzzin-chat-row--enter" : "";
   const answerKeyText = String(correctAnswer || "").trim();
-  const answerRevealHtml =
-    correctAnswerRevealed && answerKeyText
-      ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher host-buzzin-chat-row--answer-key${animate.answerKey ? " host-buzzin-chat-row--enter" : ""}">
+  const answerRevealHtml = correctAnswerRevealed
+    ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher host-buzzin-chat-row--answer-key${animate.answerKey ? " host-buzzin-chat-row--enter" : ""}">
       ${buzzinTeacherAvatarHtml()}
       <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--answer-key">
         <p class="host-buzzin-chat-bubble__label">${uiT("buzzin.modelAnswer")}</p>
-        <p>${escapeHtml(answerKeyText)}</p>
+        <p>${answerKeyText ? escapeHtml(answerKeyText) : escapeHtml(uiT("buzzin.noModelAnswer"))}</p>
       </div>
     </div>`
-      : "";
+    : "";
 
   if (!topicText && !student && !currentTurn) {
     container.innerHTML = `<p class="host-buzzin-winner-empty">${escapeHtml(emptyText)}</p>`;
