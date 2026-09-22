@@ -11854,10 +11854,30 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
   color: #fff;
   font-family: "Nunito", sans-serif;
   font-size: 1rem;
-  font-weight: 900;
   letter-spacing: 0.02em;
   cursor: pointer;
   box-shadow: 0 6px 14px rgba(116, 60, 155, 0.24);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+#app.lango-host .host-buzzin-show-answer-btn__label {
+  flex: 0 0 auto;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+#app.lango-host .host-buzzin-show-answer-btn__hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.25;
+  opacity: 0.9;
+  text-align: right;
 }
 
 #app.lango-host .host-buzzin-chat-row {
