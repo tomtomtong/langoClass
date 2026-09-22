@@ -59,16 +59,18 @@ function resetHostBuzzinFeedbackAnim() {
   syncHostBuzzinShowAnswerButton(null);
 }
 
-function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, response) {
+function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, responses) {
   const topic = String(payload?.topic || "").trim();
-  const answerKey = response?.text
-    ? `text:${response.text}`
-    : currentTurn
-      ? "pending"
-      : "";
-  const feedbackKey = response
-    ? `${response.analysisStatus || "none"}:${response.answerVerdict || ""}:${response.analysis || ""}:${response.spokenFeedback || ""}`
-    : "";
+  const items = Array.isArray(responses) ? responses : responses ? [responses] : [];
+  const answerKey =
+    items.map((entry) => `${entry.at || 0}:${entry.text || ""}`).join("|") +
+    (currentTurn ? "|pending" : "");
+  const feedbackKey = items
+    .map(
+      (entry) =>
+        `${entry.at || 0}:${entry.analysisStatus || "none"}:${entry.answerVerdict || ""}:${entry.analysis || ""}:${entry.spokenFeedback || ""}`
+    )
+    .join("|");
 
   const flags = {
     topic: Boolean(topic && topic !== hostBuzzinFeedbackAnim.topic),
@@ -337,9 +339,15 @@ function updateHostBuzzinTurnUi(payload) {
   const selectedStudent = buzzinSelectedStudent(payload);
   const currentTurn = buzzinCurrentTurnForDisplay(payload);
   const responses = buzzinResponsesForDisplay(payload);
-  let response = responses[0] || null;
+  const latestResponse = responses.length ? responses[responses.length - 1] : null;
+  let response = latestResponse;
   let chatStudent = selectedStudent;
   let chatCurrentTurn = currentTurn;
+  let chatPendingTurn =
+    chatCurrentTurn &&
+    (!responses.length || payload?.retryActivePlayerId === chatCurrentTurn.playerId)
+      ? chatCurrentTurn
+      : null;
 
   if (
     hostBuzzinLuckyStar &&
@@ -347,24 +355,24 @@ function updateHostBuzzinTurnUi(payload) {
   ) {
     chatStudent = hostBuzzinLuckyStar;
     chatCurrentTurn = currentTurn;
+    chatPendingTurn = null;
     response =
-      (payload?.responses || []).find(
-        (entry) => entry.playerId === hostBuzzinLuckyStar.playerId
-      ) || null;
+      responses.find((entry) => entry.playerId === hostBuzzinLuckyStar.playerId) ||
+      latestResponse;
   }
 
-  const isLive = Boolean(chatCurrentTurn && !payload.typingComplete);
+  const isLive = Boolean((chatPendingTurn || chatCurrentTurn) && !payload.typingComplete);
   const animate = hostBuzzinFeedbackAnimateFlags(
     payload,
     chatStudent,
-    chatCurrentTurn,
-    response
+    chatPendingTurn || chatCurrentTurn,
+    responses
   );
-  const responseKey = response ? buzzinSpokenFeedbackAudioKey(response) : "";
+  const responseKey = latestResponse ? buzzinSpokenFeedbackAudioKey(latestResponse) : "";
   const feedbackVisible =
-    !response ||
-    response.analysisStatus === "pending" ||
-    response.analysisStatus === "error" ||
+    !latestResponse ||
+    latestResponse.analysisStatus === "pending" ||
+    latestResponse.analysisStatus === "error" ||
     hostBuzzinFeedbackVisible.has(responseKey);
 
   if (!selectedStudent) {
@@ -412,8 +420,9 @@ function updateHostBuzzinTurnUi(payload) {
     renderHostBuzzinFeedbackChat(chatEl, {
       topic: payload.topic,
       student: chatStudent,
-      response,
-      currentTurn: chatCurrentTurn,
+      responses,
+      currentTurn: chatPendingTurn ? null : chatCurrentTurn,
+      pendingTurn: chatPendingTurn,
       emptyText: uiT("buzzin.waitingAnswer"),
       feedbackVisible,
       correctAnswer: getHostBuzzinCorrectAnswerForReveal(payload),
@@ -431,13 +440,13 @@ function updateHostBuzzinTurnUi(payload) {
   renderBuzzinChat();
 
   if (
-    response?.analysisStatus === "done" &&
-    response.text &&
+    latestResponse?.analysisStatus === "done" &&
+    latestResponse.text &&
     !hostBuzzinReviewSequencePlayed.has(responseKey)
   ) {
     hostBuzzinReviewSequencePlayed.add(responseKey);
     enqueueHostUncleTommySpeech(() =>
-      playBuzzinHostAnswerReviewSequence(response, {
+      playBuzzinHostAnswerReviewSequence(latestResponse, {
         onFeedbackReady: () => {
           hostBuzzinFeedbackVisible.add(responseKey);
           renderBuzzinChat({ feedbackVisible: true, animate: { feedback: true } });

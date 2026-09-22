@@ -244,10 +244,9 @@ function buzzinSelectedStudent(payload) {
 function buzzinResponsesForDisplay(payload) {
   const student = buzzinSelectedStudent(payload);
   if (!student) return [];
-  const matches = (payload?.responses || []).filter(
-    (response) => response.playerId === student.playerId
-  );
-  return matches.length ? [matches[matches.length - 1]] : [];
+  return (payload?.responses || [])
+    .filter((response) => response.playerId === student.playerId)
+    .sort((a, b) => (a.at || 0) - (b.at || 0));
 }
 
 function buzzinCurrentTurnForDisplay(payload) {
@@ -438,11 +437,84 @@ function buzzinQuestionBubbleHtml(topicText, askedName) {
   return `<div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--question">${body}</div>`;
 }
 
+function shouldShowHostBuzzinResponseFeedback(response, { isLatest, feedbackVisible }) {
+  if (!response || response.pending || !response.text) return false;
+  if (response.analysisStatus === "pending" || response.analysisStatus === "error") return true;
+  if (!response.analysis && !response.spokenFeedback && !response.analysisAudio) return false;
+  if (!isLatest) return true;
+  return feedbackVisible;
+}
+
+function renderHostBuzzinStudentAnswerRow({
+  initials,
+  response = null,
+  currentTurn = null,
+  emptyText,
+  animateAnswer = false,
+} = {}) {
+  const isRecording = Boolean(response?.pending);
+  const isWaitingToAnswer = Boolean(currentTurn && !response?.text && !isRecording);
+  const pendingClass = isRecording || isWaitingToAnswer ? " host-buzzin-chat-bubble--pending" : "";
+  const answerEnter = animateAnswer ? " host-buzzin-chat-row--enter" : "";
+
+  return `<div class="host-buzzin-chat-row host-buzzin-chat-row--student${answerEnter}">
+    <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--answer${pendingClass}">
+      ${renderHostBuzzinAnswerBubbleContent({ response, currentTurn, emptyText })}
+    </div>
+    <div class="host-buzzin-chat-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
+  </div>`;
+}
+
+function renderHostBuzzinResponseFeedbackRow(
+  response,
+  { animateFeedback = false, feedbackVisible = true, isLatest = true } = {}
+) {
+  if (!shouldShowHostBuzzinResponseFeedback(response, {
+    isLatest,
+    feedbackVisible,
+  })) {
+    return "";
+  }
+
+  const feedbackEnter = animateFeedback ? " host-buzzin-chat-row--enter" : "";
+
+  if (response.analysisStatus === "pending") {
+    return `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${feedbackEnter}">
+      ${buzzinTeacherAvatarHtml()}
+      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--analyzing"><p>${uiT("buzzin.analyzingAnswer")}</p></div>
+    </div>`;
+  }
+
+  if (response.analysisStatus === "error") {
+    return `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${feedbackEnter}">
+      ${buzzinTeacherAvatarHtml()}
+      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || uiT("buzzin.analysisUnavailable"))}</p></div>
+    </div>`;
+  }
+
+  return `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${feedbackEnter}">
+    ${buzzinTeacherAvatarHtml()}
+    <div class="host-buzzin-chat-feedback-group">
+      ${buzzinAnswerVerdictBadgeHtml(response)}
+      ${
+        response.analysis
+          ? `<div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--scores">
+        ${renderBuzzinAnalysisScorePiesHtml(response.analysis)}
+      </div>`
+          : ""
+      }
+      ${buzzinSpokenFeedbackBubbleHtml(response)}
+    </div>
+  </div>`;
+}
+
 function renderHostBuzzinFeedbackChat(container, {
   topic = "",
   student = null,
+  responses = null,
   response = null,
   currentTurn = null,
+  pendingTurn = null,
   emptyText = uiT("buzzin.waitingAnswer"),
   animate = {},
   feedbackVisible = true,
@@ -452,48 +524,17 @@ function renderHostBuzzinFeedbackChat(container, {
   if (!container) return;
 
   const topicText = String(topic || "").trim();
-  const studentName = student?.displayName || currentTurn?.displayName || "Student";
-  const askedName = String(student?.displayName || currentTurn?.displayName || "").trim();
+  const studentName = student?.displayName || currentTurn?.displayName || pendingTurn?.displayName || "Student";
+  const askedName = String(student?.displayName || currentTurn?.displayName || pendingTurn?.displayName || "").trim();
   const initials = buzzinAvatarInitials(studentName);
-  const isRecording = Boolean(response?.pending);
-  const isWaitingToAnswer = Boolean(currentTurn && !response?.text && !isRecording);
-  const pendingClass = isRecording || isWaitingToAnswer ? " host-buzzin-chat-bubble--pending" : "";
-
-  let feedbackHtml = "";
-  if (response && !response.pending && response.text) {
-    if (response.analysisStatus === "pending") {
-      feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
-        ${buzzinTeacherAvatarHtml()}
-        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--analyzing"><p>${uiT("buzzin.analyzingAnswer")}</p></div>
-      </div>`;
-    } else if (response.analysisStatus === "error") {
-      feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
-        ${buzzinTeacherAvatarHtml()}
-        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || uiT("buzzin.analysisUnavailable"))}</p></div>
-      </div>`;
-    } else if (
-      feedbackVisible &&
-      (response.analysis || response.spokenFeedback || response.analysisAudio)
-    ) {
-      feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
-        ${buzzinTeacherAvatarHtml()}
-        <div class="host-buzzin-chat-feedback-group">
-          ${buzzinAnswerVerdictBadgeHtml(response)}
-          ${
-            response.analysis
-              ? `<div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--scores">
-            ${renderBuzzinAnalysisScorePiesHtml(response.analysis)}
-          </div>`
-              : ""
-          }
-          ${buzzinSpokenFeedbackBubbleHtml(response)}
-        </div>
-      </div>`;
-    }
-  }
+  const pastResponses = Array.isArray(responses)
+    ? responses
+    : response
+      ? [response]
+      : [];
+  const activePendingTurn = pendingTurn || currentTurn;
 
   const topicEnter = animate.topic ? " host-buzzin-chat-row--enter" : "";
-  const answerEnter = animate.answer ? " host-buzzin-chat-row--enter" : "";
   const answerKeyText = String(correctAnswer || "").trim();
   const answerRevealHtml = correctAnswerRevealed
     ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher host-buzzin-chat-row--answer-key${animate.answerKey ? " host-buzzin-chat-row--enter" : ""}">
@@ -505,9 +546,35 @@ function renderHostBuzzinFeedbackChat(container, {
     </div>`
     : "";
 
-  if (!topicText && !student && !currentTurn) {
+  if (!topicText && !student && !activePendingTurn && !pastResponses.length) {
     container.innerHTML = `<p class="host-buzzin-winner-empty">${escapeHtml(emptyText)}</p>`;
     return;
+  }
+
+  let conversationHtml = "";
+  pastResponses.forEach((entry, index) => {
+    const isLatest = index === pastResponses.length - 1;
+
+    conversationHtml += renderHostBuzzinStudentAnswerRow({
+      initials,
+      response: entry,
+      emptyText,
+      animateAnswer: Boolean(animate.answer && isLatest),
+    });
+    conversationHtml += renderHostBuzzinResponseFeedbackRow(entry, {
+      animateFeedback: Boolean(animate.feedback && isLatest),
+      feedbackVisible: isLatest ? feedbackVisible : true,
+      isLatest,
+    });
+  });
+
+  if (activePendingTurn && (!pastResponses.length || pendingTurn)) {
+    conversationHtml += renderHostBuzzinStudentAnswerRow({
+      initials,
+      currentTurn: activePendingTurn,
+      emptyText,
+      animateAnswer: Boolean(animate.answer),
+    });
   }
 
   container.innerHTML = `
@@ -515,14 +582,8 @@ function renderHostBuzzinFeedbackChat(container, {
       ${buzzinTeacherAvatarHtml()}
       ${buzzinQuestionBubbleHtml(topicText, askedName)}
     </div>` : ""}
-    ${student || currentTurn ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--student${answerEnter}">
-      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--answer${pendingClass}">
-        ${renderHostBuzzinAnswerBubbleContent({ response, currentTurn, emptyText })}
-      </div>
-      <div class="host-buzzin-chat-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
-    </div>` : ""}
-    ${answerRevealHtml}
-    ${feedbackHtml}`;
+    ${conversationHtml}
+    ${answerRevealHtml}`;
 
   scrollHostBuzzinChatToBottom(container);
 }
