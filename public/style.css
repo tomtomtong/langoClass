@@ -11801,7 +11801,8 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
   border-bottom: 0.5px solid #e2e1ee;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 #app.lango-host .host-buzzin-feedback-realtime-header span {
@@ -12216,8 +12217,50 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
   text-align: center;
 }
 
+#app.lango-host .host-buzzin-show-answer-btn {
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+#app.lango-host .host-buzzin-show-answer-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+#app.lango-host .host-buzzin-show-answer-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#app.lango-host .host-buzzin-chat-bubble--answer-key {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(220, 239, 255, 0.96) 100%);
+  color: #243041;
+  border: 2px solid rgba(45, 115, 181, 0.35);
+}
+
+#app.lango-host .host-buzzin-chat-bubble--answer-key .host-buzzin-chat-bubble__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2d73b5;
+}
+
 #app.lango-host .host-buzzin-feedback-status {
   margin: 0;
+  color: #243041;
+  font-weight: 800;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.92),
+    0 0 12px rgba(255, 255, 255, 0.75);
 }
 
 @keyframes hostBuzzinPanelInLeft {

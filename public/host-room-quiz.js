@@ -21,6 +21,11 @@ let hostBuzzinRoundId = null;
 let hostBuzzinJoinTimer = null;
 let hostBuzzinLastResponses = [];
 const hostBuzzinPlayedSpokenFeedbackAudio = new Set();
+const hostBuzzinReviewSequencePlayed = new Set();
+const hostBuzzinFeedbackVisible = new Set();
+let hostBuzzinLastPayload = null;
+let hostBuzzinCorrectAnswerRevealed = false;
+let hostBuzzinAnswerKeyJustRevealed = false;
 let hostBuzzinActiveScreenPhase = null;
 let hostBuzzinExercisePoints = 300;
 let hostBuzzinTopicSpeaking = false;
@@ -45,8 +50,12 @@ function resetHostBuzzinFeedbackAnim() {
   hostBuzzinFeedbackAnim.winnerKey = "";
   hostBuzzinLuckyStar = null;
   hostBuzzinPlayedAnnouncements.clear();
+  hostBuzzinReviewSequencePlayed.clear();
+  hostBuzzinFeedbackVisible.clear();
+  hostBuzzinCorrectAnswerRevealed = false;
   setHostBuzzinLeaderboardMode("winner");
   resetHostBuzzinLuckyDrawUi();
+  syncHostBuzzinShowAnswerButton(null);
 }
 
 function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, response) {
@@ -278,7 +287,27 @@ function hideHostBuzzinJoinTimer() {
   if (wrap) wrap.hidden = true;
 }
 
+function syncHostBuzzinShowAnswerButton(payload) {
+  const btn = $("#btn-host-buzzin-show-answer");
+  if (!btn) return;
+  const correctAnswer = String(payload?.correctAnswer || "").trim();
+  const canReveal = Boolean(correctAnswer) && !hostBuzzinCorrectAnswerRevealed;
+  btn.hidden = !correctAnswer;
+  btn.disabled = !canReveal;
+}
+
+function revealHostBuzzinCorrectAnswer() {
+  if (hostBuzzinCorrectAnswerRevealed || !hostBuzzinLastPayload) return;
+  hostBuzzinCorrectAnswerRevealed = true;
+  hostBuzzinAnswerKeyJustRevealed = true;
+  syncHostBuzzinShowAnswerButton(hostBuzzinLastPayload);
+  updateHostBuzzinTurnUi(hostBuzzinLastPayload);
+  hostBuzzinAnswerKeyJustRevealed = false;
+}
+
 function updateHostBuzzinTurnUi(payload) {
+  hostBuzzinLastPayload = payload;
+  syncHostBuzzinShowAnswerButton(payload);
   const turnStatus = $("#host-buzzin-turn-status");
   const chatEl = $("#host-buzzin-feedback-chat");
   const winnerEl = $("#host-buzzin-winner-card");
@@ -323,6 +352,12 @@ function updateHostBuzzinTurnUi(payload) {
     chatCurrentTurn,
     response
   );
+  const responseKey = response ? buzzinSpokenFeedbackAudioKey(response) : "";
+  const feedbackVisible =
+    !response ||
+    response.analysisStatus === "pending" ||
+    response.analysisStatus === "error" ||
+    hostBuzzinFeedbackVisible.has(responseKey);
 
   if (!selectedStudent) {
     if (turnStatus) turnStatus.textContent = uiT("buzzin.noOneBuzzed");
@@ -364,24 +399,44 @@ function updateHostBuzzinTurnUi(payload) {
       animate: animate.winner,
     });
   }
-  renderHostBuzzinFeedbackChat(chatEl, {
-    topic: payload.topic,
-    student: chatStudent,
-    response,
-    currentTurn: chatCurrentTurn,
-    emptyText: uiT("buzzin.waitingAnswer"),
-    animate: {
-      topic: animate.topic,
-      answer: animate.answer,
-      feedback: animate.feedback,
-    },
-  });
-  enqueueHostUncleTommySpeech(() =>
-    playNewBuzzinSpokenFeedbackAudio(
-      response ? [response] : [],
-      hostBuzzinPlayedSpokenFeedbackAudio
-    )
-  );
+
+  const renderBuzzinChat = (overrides = {}) => {
+    renderHostBuzzinFeedbackChat(chatEl, {
+      topic: payload.topic,
+      student: chatStudent,
+      response,
+      currentTurn: chatCurrentTurn,
+      emptyText: uiT("buzzin.waitingAnswer"),
+      feedbackVisible,
+      correctAnswer: payload.correctAnswer,
+      correctAnswerRevealed: hostBuzzinCorrectAnswerRevealed,
+      animate: {
+        topic: animate.topic,
+        answer: animate.answer,
+        feedback: animate.feedback,
+        answerKey: overrides.answerKey ?? hostBuzzinAnswerKeyJustRevealed,
+      },
+      ...overrides,
+    });
+  };
+
+  renderBuzzinChat();
+
+  if (
+    response?.analysisStatus === "done" &&
+    response.text &&
+    !hostBuzzinReviewSequencePlayed.has(responseKey)
+  ) {
+    hostBuzzinReviewSequencePlayed.add(responseKey);
+    enqueueHostUncleTommySpeech(() =>
+      playBuzzinHostAnswerReviewSequence(response, {
+        onFeedbackReady: () => {
+          hostBuzzinFeedbackVisible.add(responseKey);
+          renderBuzzinChat({ feedbackVisible: true, animate: { feedback: true } });
+        },
+      })
+    );
+  }
 }
 
 function setHostBuzzinPrompt(text) {
@@ -777,6 +832,10 @@ function ensureHostBuzzinSocket() {
 
   if (hostBuzzinUiReady) return;
   hostBuzzinUiReady = true;
+
+  $("#btn-host-buzzin-show-answer")?.addEventListener("click", () => {
+    revealHostBuzzinCorrectAnswer();
+  });
 }
 
 function startHostBuzzinRound(roomId) {

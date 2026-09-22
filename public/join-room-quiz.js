@@ -467,7 +467,7 @@ function hideStudentBuzzinRetryChoice() {
   if (wrap) wrap.hidden = true;
 }
 
-function showStudentBuzzinRetryChoice(response) {
+function showStudentBuzzinRetryChoice(response, payload) {
   const wrap = $("#room-buzzin-retry-choice");
   const message = $("#room-buzzin-retry-message");
   const recordBtn = $("#btn-room-buzzin-record");
@@ -475,6 +475,7 @@ function showStudentBuzzinRetryChoice(response) {
   const submitted = $("#room-buzzin-submitted");
   const retryBtn = $("#btn-room-buzzin-retry");
   const skipBtn = $("#btn-room-buzzin-skip-retry");
+  const canRetry = payload?.canOfferRetry !== false;
 
   hideStudentBuzzinAnswerPrompt();
   if (recordControls) recordControls.hidden = true;
@@ -482,6 +483,7 @@ function showStudentBuzzinRetryChoice(response) {
   if (submitted) submitted.hidden = true;
   if (wrap) wrap.hidden = false;
   if (retryBtn) {
+    retryBtn.hidden = !canRetry;
     retryBtn.disabled = false;
     retryBtn.textContent = uiT("buzzin.tryAgain");
   }
@@ -490,10 +492,11 @@ function showStudentBuzzinRetryChoice(response) {
     skipBtn.textContent = uiT("buzzin.keepAnswer");
   }
   if (message) {
-    message.textContent =
-      response?.answerVerdict === "partial"
+    message.textContent = canRetry
+      ? response?.answerVerdict === "partial"
         ? uiT("buzzin.retryOfferPartial")
-        : uiT("buzzin.retryOfferIncorrect");
+        : uiT("buzzin.retryOfferIncorrect")
+      : uiT("buzzin.retryLimitReached");
   }
 }
 
@@ -583,7 +586,7 @@ function updateStudentBuzzinTurnUi(payload) {
       myResponse?.answerVerdict === "partial"
         ? uiT("buzzin.retryOfferPartial")
         : uiT("buzzin.retryOfferIncorrect");
-    showStudentBuzzinRetryChoice(myResponse);
+    showStudentBuzzinRetryChoice(myResponse, payload);
     return;
   }
 

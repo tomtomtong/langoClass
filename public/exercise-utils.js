@@ -428,6 +428,9 @@ function renderHostBuzzinFeedbackChat(container, {
   currentTurn = null,
   emptyText = uiT("buzzin.waitingAnswer"),
   animate = {},
+  feedbackVisible = true,
+  correctAnswer = "",
+  correctAnswerRevealed = false,
 } = {}) {
   if (!container) return;
 
@@ -444,14 +447,17 @@ function renderHostBuzzinFeedbackChat(container, {
     if (response.analysisStatus === "pending") {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
         ${buzzinTeacherAvatarHtml()}
-        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--analyzing"><p>Analyzing response…</p></div>
+        <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback host-buzzin-chat-bubble--analyzing"><p>${uiT("buzzin.analyzingAnswer")}</p></div>
       </div>`;
     } else if (response.analysisStatus === "error") {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
         ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--feedback"><p>${escapeHtml(response.analysis || uiT("buzzin.analysisUnavailable"))}</p></div>
       </div>`;
-    } else if (response.analysis || response.spokenFeedback || response.analysisAudio) {
+    } else if (
+      feedbackVisible &&
+      (response.analysis || response.spokenFeedback || response.analysisAudio)
+    ) {
       feedbackHtml = `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher${animate.feedback ? " host-buzzin-chat-row--enter" : ""}">
         ${buzzinTeacherAvatarHtml()}
         <div class="host-buzzin-chat-feedback-group">
@@ -471,6 +477,17 @@ function renderHostBuzzinFeedbackChat(container, {
 
   const topicEnter = animate.topic ? " host-buzzin-chat-row--enter" : "";
   const answerEnter = animate.answer ? " host-buzzin-chat-row--enter" : "";
+  const answerKeyText = String(correctAnswer || "").trim();
+  const answerRevealHtml =
+    correctAnswerRevealed && answerKeyText
+      ? `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher host-buzzin-chat-row--answer-key${animate.answerKey ? " host-buzzin-chat-row--enter" : ""}">
+      ${buzzinTeacherAvatarHtml()}
+      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--answer-key">
+        <p class="host-buzzin-chat-bubble__label">${uiT("buzzin.modelAnswer")}</p>
+        <p>${escapeHtml(answerKeyText)}</p>
+      </div>
+    </div>`
+      : "";
 
   if (!topicText && !student && !currentTurn) {
     container.innerHTML = `<p class="host-buzzin-winner-empty">${escapeHtml(emptyText)}</p>`;
@@ -488,6 +505,7 @@ function renderHostBuzzinFeedbackChat(container, {
       </div>
       <div class="host-buzzin-chat-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
     </div>` : ""}
+    ${answerRevealHtml}
     ${feedbackHtml}`;
 
   scrollHostBuzzinChatToBottom(container);
@@ -871,7 +889,34 @@ function playBuzzinSpokenFeedbackAudio(item) {
 }
 
 function playBuzzinResponseRecordingAudio(item) {
-  playBuzzinBase64Audio(item?.responseAudio, item?.responseAudioFormat || "wav");
+  return playBuzzinBase64Audio(item?.responseAudio, item?.responseAudioFormat || "wav", {
+    duckBgm: true,
+  });
+}
+
+function playBuzzinHostAnswerReviewSequence(response, { onFeedbackReady } = {}) {
+  if (!response) return Promise.resolve();
+
+  const revealFeedback = () => {
+    if (typeof onFeedbackReady === "function") onFeedbackReady();
+  };
+
+  if (response.responseAudio) {
+    return playBuzzinResponseRecordingAudio(response)
+      .then(revealFeedback)
+      .then(() => {
+        if (response.analysisAudio) {
+          return playBuzzinSpokenFeedbackAudio(response);
+        }
+        return undefined;
+      });
+  }
+
+  revealFeedback();
+  if (response.analysisAudio) {
+    return playBuzzinSpokenFeedbackAudio(response);
+  }
+  return Promise.resolve();
 }
 
 function playNewBuzzinSpokenFeedbackAudio(responses, playedKeys) {

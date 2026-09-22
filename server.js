@@ -654,6 +654,7 @@ function hookConsoleToAppLogs() {
 hookConsoleToAppLogs();
 
 const BUZZIN_WINNER_COUNT = 1;
+const BUZZIN_MAX_ANSWER_ATTEMPTS = 2;
 const BUZZIN_JOIN_SECONDS = 20;
 const BUZZIN_RESPONSE_MAX_LEN = 500;
 const BUZZIN_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
@@ -923,7 +924,7 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
       console.warn(`[tts] Buzz-in spoken feedback failed: ${err.message || err}`);
     }
 
-    if (entry.isCorrect) {
+    if (entry.isCorrect || !canOfferBuzzinRetry(round, playerId)) {
       finalizeBuzzinAnswerRound(pin);
     } else {
       round.pendingRetryPlayerId = playerId;
@@ -937,8 +938,12 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
     entry.analysisStatus = "error";
     entry.analysisAudio = null;
     entry.analysisAudioFormat = null;
-    round.pendingRetryPlayerId = playerId;
-    round.retryActivePlayerId = null;
+    if (canOfferBuzzinRetry(round, playerId)) {
+      round.pendingRetryPlayerId = playerId;
+      round.retryActivePlayerId = null;
+    } else {
+      finalizeBuzzinAnswerRound(pin);
+    }
   }
 
   broadcastBuzzInUpdate(pin, "buzzin_response_analyzed");
@@ -1561,6 +1566,15 @@ function getLatestBuzzinResponseForPlayer(round, playerId) {
   return matches.length ? matches[matches.length - 1] : null;
 }
 
+function buzzinAnswerAttemptCount(round, playerId) {
+  if (!round || !playerId) return 0;
+  return (round.responses || []).filter((entry) => entry.playerId === playerId).length;
+}
+
+function canOfferBuzzinRetry(round, playerId) {
+  return buzzinAnswerAttemptCount(round, playerId) < BUZZIN_MAX_ANSWER_ATTEMPTS;
+}
+
 function canPlayerSubmitBuzzinResponse(round, playerId) {
   if (!round || round.phase !== "typing" || !playerId) return false;
   if (round.retryActivePlayerId === playerId) return true;
@@ -1614,6 +1628,9 @@ function buzzInPublicPayload(round) {
     answeredPlayerIds,
     pendingRetryPlayerId: round.pendingRetryPlayerId || null,
     retryActivePlayerId: round.retryActivePlayerId || null,
+    canOfferRetry: round.pendingRetryPlayerId
+      ? canOfferBuzzinRetry(round, round.pendingRetryPlayerId)
+      : false,
     answerAnnouncement: announcement
       ? {
           playerId: announcement.playerId,
@@ -1650,7 +1667,13 @@ function stripBuzzinAudioFromPayload(payload) {
 function buzzInPayloadForSocket(round, socketId) {
   const payload = buzzInPublicPayload(round);
   const meta = socketMeta.get(socketId);
-  return meta?.role === "host" ? payload : stripBuzzinAudioFromPayload(payload);
+  if (meta?.role === "host") {
+    return {
+      ...payload,
+      correctAnswer: round.correctAnswer || "",
+    };
+  }
+  return stripBuzzinAudioFromPayload(payload);
 }
 
 function broadcastBuzzInUpdate(pin, eventName = "buzzin_update") {
@@ -7189,6 +7212,11 @@ io.on("connection", (socket) => {
 
     round.pendingRetryPlayerId = null;
     if (accept) {
+      if (!canOfferBuzzinRetry(round, meta.playerId)) {
+        finalizeBuzzinAnswerRound(meta.pin);
+        callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
+        return;
+      }
       round.retryActivePlayerId = meta.playerId;
       callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
       broadcastBuzzInUpdate(meta.pin);
