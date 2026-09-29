@@ -851,6 +851,24 @@
   max-width: 100%;
 }
 
+#app.lango-host #screen-host-quiz-results .host-mcq-result-title {
+  color: #fff;
+  -webkit-text-fill-color: #fff;
+  -webkit-text-stroke: 0.06em #c9469a;
+  paint-order: stroke fill;
+  text-shadow:
+    2px 3px 0 #743c9b,
+    0 0 10px rgba(177, 25, 128, 0.35);
+}
+
+#app.lango-host #screen-host-quiz-results .host-mcq-correct-board-header h3 {
+  color: #c9469a;
+  -webkit-text-fill-color: #c9469a;
+  -webkit-text-stroke: 0.03em #fff;
+  paint-order: stroke fill;
+  text-shadow: 1px 2px 0 #743c9b;
+}
+
 #app.lango-host .host-mcq-footer:not(.host-mcq-result-footer),
 #app.lango-host .host-mcq-result-footer,
 #app.lango-host .host-mcq-preview-footer,

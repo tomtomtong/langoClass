@@ -1996,6 +1996,11 @@ function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) 
   });
 }
 
+/** Host journey map: island art size and horizontal spacing (keep in sync with style.css). */
+const SECTION_ROAD_ISLAND_PX = 280;
+const SECTION_ROAD_STEP_PX = 440;
+const SECTION_ROAD_BRIDGE_LEAD_PX = Math.round(SECTION_ROAD_STEP_PX * 0.306);
+
 const SECTION_ROAD_POINTS = [
   { x: 9, y: 21 },
   { x: 39, y: 66 },
@@ -2018,7 +2023,10 @@ function sectionRoadPoint(index, total) {
 }
 
 function renderSectionRoad(sections, { selectedId, playableSections = getPlayableSections(sections) }) {
-  const trackWidth = Math.max(220, (sections.length - 1) * 360 + 220);
+  const trackWidth = Math.max(
+    SECTION_ROAD_ISLAND_PX,
+    (sections.length - 1) * SECTION_ROAD_STEP_PX + SECTION_ROAD_ISLAND_PX
+  );
   const bridgeCount = Math.max(0, sections.length - 1);
   const bridges = Array.from({ length: bridgeCount }, (_, index) => renderSectionRoadBridge(index))
     .join("");
@@ -2047,7 +2055,7 @@ function renderSectionRoad(sections, { selectedId, playableSections = getPlayabl
 function renderSectionRoadBridge(index) {
   const roadClass = index % 2 === 0 ? "section-road-svg--one" : "section-road-svg--two";
   const roadSrc = index % 2 === 0 ? "/road/Vector road 1.svg" : "/road/Vector road 2.svg";
-  return `<div class="section-road-bridge" style="--bridge-x: ${index * 360 + 110}px;">
+  return `<div class="section-road-bridge" style="--bridge-x: ${index * SECTION_ROAD_STEP_PX + SECTION_ROAD_BRIDGE_LEAD_PX}px;">
     <img class="section-road-svg ${roadClass}" src="${roadSrc}" alt="" />
   </div>`;
 }
@@ -2138,7 +2146,7 @@ function renderSectionRoadCard(section, { selectedId, index, locked = false }) {
     ${lockIcon}
   </button>`;
 
-  return `<article class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}${locked ? " section-road-card--locked" : ""}" style="--section-x: ${index * 360}px;">
+  return `<article class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}${locked ? " section-road-card--locked" : ""}" style="--section-x: ${index * SECTION_ROAD_STEP_PX}px;">
     <div class="section-road-content">
       ${thumbnail}
     </div>

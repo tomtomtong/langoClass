@@ -797,10 +797,56 @@ function renderOptions(
   }
 }
 
+const PLAYER_RESULT_LOTTIE = Object.freeze({
+  tick: "/assets/lottie/tick-optimized.json",
+  cross: "/assets/lottie/cross.json",
+});
+
+let playerResultLottieInstance = null;
+
+function destroyPlayerResultLottie() {
+  if (!playerResultLottieInstance) return;
+  try {
+    playerResultLottieInstance.destroy();
+  } catch (_) {
+    /* already torn down */
+  }
+  playerResultLottieInstance = null;
+}
+
+function setPlayerResultIcon(kind) {
+  const icon = $("#player-result-icon");
+  if (!icon) return;
+
+  destroyPlayerResultLottie();
+  icon.textContent = "";
+  icon.classList.remove("player-mcq-result-icon--lottie", "player-mcq-result-icon--emoji");
+
+  if (kind === "tick" || kind === "cross") {
+    const path = PLAYER_RESULT_LOTTIE[kind];
+    icon.classList.add("player-mcq-result-icon--lottie");
+    if (typeof lottie === "undefined" || !path) {
+      icon.textContent = kind === "tick" ? "✅" : "❌";
+      icon.classList.add("player-mcq-result-icon--emoji");
+      return;
+    }
+    playerResultLottieInstance = lottie.loadAnimation({
+      container: icon,
+      renderer: "svg",
+      loop: false,
+      autoplay: true,
+      path,
+    });
+    return;
+  }
+
+  icon.classList.add("player-mcq-result-icon--emoji");
+  icon.textContent = "⏰";
+}
+
 function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
   const screen = $("#screen-player-results");
   const msg = $("#player-result-msg");
-  const icon = $("#player-result-icon");
   const points = $("#player-result-points");
   const encouragement = $("#player-result-encouragement");
   const score = $("#player-result-score");
@@ -818,7 +864,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
     msg.textContent = uiT("mcq.resultCorrect");
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg correct";
-    icon.textContent = "✅";
+    setPlayerResultIcon("tick");
     points.textContent = uiT("leaderboard.pts", { n: mine?.points || 0 });
     points.dataset.text = points.textContent;
     encouragement.textContent = uiT("mcq.encourageKeepGoing");
@@ -827,7 +873,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
     msg.textContent = uiT("mcq.resultClose");
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
-    icon.textContent = "💪";
+    setPlayerResultIcon("cross");
     points.textContent = uiT("leaderboard.pts", { n: 0 });
     points.dataset.text = points.textContent;
     encouragement.textContent = uiT("mcq.encourageNextTime");
@@ -836,7 +882,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
     msg.textContent = uiT("mcq.timesUpShort");
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
-    icon.textContent = "⏰";
+    setPlayerResultIcon("timesup");
     points.textContent = uiT("leaderboard.pts", { n: 0 });
     points.dataset.text = points.textContent;
     encouragement.textContent = uiT("mcq.encourageTryNext");
