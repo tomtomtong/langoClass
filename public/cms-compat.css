@@ -510,6 +510,15 @@
   background: var(--wash);
 }
 
+.cms-asset-preview-img.cms-asset-preview-img--island {
+  max-height: min(78vh, 820px);
+  padding: 1.25rem;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.7) 0 12%, transparent 13%),
+    radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.55) 0 10%, transparent 11%),
+    linear-gradient(180deg, #8fe3ff 0%, #c8f4ff 42%, #fff1b8 100%);
+}
+
 .cms-asset-preview-close,
 .cms-community-preview-close {
   position: absolute;
@@ -1069,6 +1078,21 @@ body.cms-asset-preview-open {
   object-fit: cover;
 }
 
+#app-shell #screen-cms-edit .cms-intro-video-preview-wrap {
+  margin: 0.5rem 0;
+  max-width: 420px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--wash);
+}
+
+#app-shell #screen-cms-edit .cms-intro-video-preview {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  background: #0f172a;
+}
+
 #app-shell #screen-cms-edit .hint,
 #app-shell #screen-cms-edit .error,
 #app-shell #screen-cms-edit .status-msg {
@@ -1105,6 +1129,55 @@ body.cms-asset-preview-open {
 .hint { color: var(--ink-soft); font-size: 0.88rem; }
 .error { color: var(--danger); font-size: 0.88rem; }
 .status-msg { color: var(--ink-soft); font-size: 0.88rem; }
+.status-msg.is-error { color: var(--danger); font-weight: 700; }
+.home-dropzone.is-busy { opacity: 0.72; pointer-events: none; }
+
+.cms-ai-upload-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(45, 31, 56, 0.48);
+}
+
+.cms-ai-upload-overlay[hidden] {
+  display: none !important;
+}
+
+.cms-ai-upload-overlay__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: min(320px, 100%);
+  padding: 1.35rem 1.5rem;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(45, 31, 56, 0.28);
+  text-align: center;
+}
+
+.cms-ai-upload-overlay__spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid rgba(107, 59, 160, 0.18);
+  border-top-color: var(--purple, #6b3ba0);
+  border-radius: 50%;
+  animation: cms-ai-upload-spin 0.8s linear infinite;
+}
+
+.cms-ai-upload-overlay__label {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink, #2d1f38);
+}
+
+@keyframes cms-ai-upload-spin {
+  to { transform: rotate(360deg); }
+}
 
 .field input:not([type="checkbox"]):not([type="radio"]),
 .field textarea,
@@ -1928,4 +2001,245 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
   font-weight: 700;
   background: var(--paper);
   color: var(--ink);
+}
+
+/* Light CMS shell: pill buttons must read as clickable (not plain text). */
+#app-shell .btn.secondary:not(.danger-quiet),
+#app-shell .btn.ghost:not(.danger-quiet) {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.92), 0 2px 10px rgba(45, 31, 56, 0.08);
+  cursor: pointer;
+}
+
+#app-shell .btn.secondary:not(.danger-quiet):hover:not(:disabled),
+#app-shell .btn.ghost:not(.danger-quiet):hover:not(:disabled) {
+  filter: none;
+  background: #f7f2fb;
+  border-color: rgba(103, 57, 135, 0.34);
+  transform: translateY(-1px);
+}
+
+#app-shell label.cms-thumbnail-upload.btn {
+  cursor: pointer;
+}
+
+#app-shell #cms-tab-sections .cms-section-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem 1.15rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-card-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+#app-shell #cms-tab-sections .cms-section-card-toolbar .cms-drag-handle {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  cursor: grab;
+}
+
+#app-shell #cms-tab-sections .cms-section-order-field {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-order-field .cms-section-order {
+  width: 3.25rem;
+  padding: 0.45rem 0.4rem;
+  text-align: center;
+}
+
+#app-shell #cms-tab-sections .cms-section-card-toolbar .cms-section-title {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+}
+
+#app-shell #cms-tab-sections .cms-section-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+
+#app-shell #cms-tab-sections .cms-section-aside .btn {
+  width: auto;
+  min-width: 7.5rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-card-content {
+  display: grid;
+  grid-template-columns: minmax(168px, 200px) minmax(0, 1fr);
+  gap: 1.15rem 1.35rem;
+  align-items: start;
+}
+
+#app-shell #cms-tab-sections .cms-section-media {
+  position: sticky;
+  top: 0.5rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+#app-shell #cms-tab-sections .cms-section-panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--wash);
+  padding: 0.85rem 0.95rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-panel-head {
+  margin-bottom: 0.65rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-panel-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+#app-shell #cms-tab-sections .cms-section-panel-lead {
+  margin: 0.25rem 0 0;
+}
+
+#app-shell #cms-tab-sections .cms-section-intro-url-field {
+  margin-bottom: 0.65rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-intro-url-field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#app-shell #cms-tab-sections .cms-section-intro-preview-wrap {
+  max-width: 100%;
+  margin-bottom: 0.55rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-intro-file-hint {
+  display: block;
+  margin-top: 0.45rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-cover-label {
+  display: block;
+  font-weight: 800;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.35rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-cover-hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+#app-shell #cms-tab-sections .cms-section-cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-cover-actions .btn,
+#app-shell #cms-tab-sections .cms-section-cover-actions label.btn {
+  width: 100%;
+  justify-content: center;
+  font-weight: 800;
+}
+
+#app-shell #cms-tab-sections .cms-section-intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-intro-actions .btn {
+  min-width: 8.75rem;
+  font-weight: 800;
+}
+
+#app-shell #cms-tab-sections .cms-section-footer.cms-section-panel {
+  margin-top: 0;
+  padding-top: 0.85rem;
+  border-top: 0;
+}
+
+#app-shell #cms-tab-sections .cms-section-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-tab-sections .cms-section-outline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+#app-shell #cms-tab-sections .cms-section-outline .cms-type-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid rgba(103, 57, 135, 0.14);
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--purple);
+  line-height: 1.2;
+}
+
+@media (max-width: 900px) {
+  #app-shell #cms-tab-sections .cms-section-card-content {
+    grid-template-columns: 1fr;
+  }
+
+  #app-shell #cms-tab-sections .cms-section-media {
+    position: static;
+  }
+
+  #app-shell #cms-tab-sections .cms-section-aside {
+    width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
+  }
+
+  #app-shell #cms-tab-sections .cms-section-aside .btn {
+    flex: 1 1 8rem;
+  }
 }

@@ -174,16 +174,16 @@
       case "join-quiz":
         $("#join-panel-quiz").hidden = false;
         $("#join-panel-room").hidden = true;
+        $("#join-panel-room-name").hidden = true;
         $("#join-panel-link-required").hidden = true;
         showPreviewScreen("join");
         break;
 
       case "join-room":
         $("#join-panel-quiz").hidden = true;
-        $("#join-panel-room").hidden = false;
+        $("#join-panel-room").hidden = true;
         $("#join-panel-link-required").hidden = true;
-        $("#join-room-status").textContent = previewT("join.joiningRoom");
-        $("#join-room-error").textContent = "";
+        $("#join-panel-room-name").hidden = false;
         showPreviewScreen("join");
         break;
 

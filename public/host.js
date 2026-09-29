@@ -32,6 +32,7 @@ let hostProgressSaveChain = Promise.resolve();
 const WAITING_TIMER_SECONDS = 300;
 const SECTION_EXERCISE_CLOSE_MS = 260;
 const LOGIN_SCAN_CYCLE_MS = 3600;
+const SECTION_INTRO_EXERCISE_BASE_ID = -900000;
 const HOST_SOUND_EFFECTS = {
   loginSuccess: "/assets/soundeffect/login_success.mp3",
   loginFail: "/assets/soundeffect/login_fail.mp3",
@@ -919,8 +920,9 @@ function findCourseInList(courseId) {
 }
 
 function findSectionInList(sectionId) {
-  if (!sectionId) return null;
-  return state.sections.find((s) => s.id === sectionId) || null;
+  const id = Number(sectionId);
+  if (!Number.isFinite(id)) return null;
+  return state.sections.find((s) => Number(s.id) === id) || null;
 }
 
 function sectionTitle(section) {
@@ -937,11 +939,24 @@ function emptyHostProgress() {
 }
 
 function completedExerciseIdSet() {
-  return new Set(state.hostProgress?.completedExerciseIds || []);
+  return new Set(
+    (state.hostProgress?.completedExerciseIds || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id))
+  );
 }
 
 function isHostExerciseCompleted(exerciseId) {
   return completedExerciseIdSet().has(Number(exerciseId));
+}
+
+function cmsSectionExercises(section) {
+  return [...(section?.exercises || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function isHostSectionComplete(section) {
+  const exercises = cmsSectionExercises(section);
+  return exercises.length > 0 && exercises.every((exercise) => isHostExerciseCompleted(exercise.id));
 }
 
 function getSortedSections() {
@@ -952,30 +967,63 @@ function getPlayableSections(sections = getSortedSections()) {
   return sections.filter((section) => (section.exercises || []).length > 0);
 }
 
+function sectionIntroVideoUrl(section) {
+  return String(section?.introVideoUrl || "").trim();
+}
+
+function isSectionIntroExercise(exercise) {
+  return Boolean(exercise?.isSectionIntro);
+}
+
+function sectionIntroExerciseId(section) {
+  const sectionId = Number(section?.id);
+  if (!Number.isFinite(sectionId) || sectionId <= 0) return SECTION_INTRO_EXERCISE_BASE_ID;
+  return SECTION_INTRO_EXERCISE_BASE_ID - sectionId;
+}
+
+function buildSectionIntroExercise(section) {
+  const url = sectionIntroVideoUrl(section);
+  if (!url) return null;
+  return {
+    id: sectionIntroExerciseId(section),
+    type: "video",
+    title: hostT("intro.title"),
+    subTitle: hostT("intro.listSub"),
+    order: 0,
+    isSectionIntro: true,
+    items: [{ videoUrl: url }],
+  };
+}
+
 function sectionExerciseList(section) {
-  return [...(section.exercises || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const exercises = [...(section?.exercises || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const intro = buildSectionIntroExercise(section);
+  return intro ? [intro, ...exercises] : exercises;
 }
 
 function isHostSectionUnlocked(section, playableSections) {
-  const index = playableSections.findIndex((entry) => entry.id === section.id);
+  const targetId = Number(section?.id);
+  const index = playableSections.findIndex((entry) => Number(entry.id) === targetId);
   if (index <= 0) return index === 0;
   const previous = playableSections[index - 1];
-  const previousExercises = sectionExerciseList(previous);
-  if (!previousExercises.length) return isHostSectionUnlocked(previous, playableSections);
-  return previousExercises.every((exercise) => isHostExerciseCompleted(exercise.id));
+  if (!cmsSectionExercises(previous).length) return isHostSectionUnlocked(previous, playableSections);
+  return isHostSectionComplete(previous);
+}
+
+function firstQuizIndexInList(exercises) {
+  if (!exercises?.length) return -1;
+  return isSectionIntroExercise(exercises[0]) ? 1 : 0;
 }
 
 function isHostExerciseUnlocked(exercise, exerciseIndex, exercises) {
   if (exerciseIndex <= 0) return true;
+  const firstQuizIndex = firstQuizIndexInList(exercises);
+  if (firstQuizIndex >= 0 && exerciseIndex <= firstQuizIndex) return true;
   return isHostExerciseCompleted(exercises[exerciseIndex - 1]?.id);
 }
 
 function countCompletedHostSections(sections = getSortedSections()) {
-  const playable = getPlayableSections(sections);
-  return playable.filter((section) => {
-    const exercises = sectionExerciseList(section);
-    return exercises.length > 0 && exercises.every((exercise) => isHostExerciseCompleted(exercise.id));
-  }).length;
+  return getPlayableSections(sections).filter((section) => isHostSectionComplete(section)).length;
 }
 
 function defaultUnlockedHostExercise(exercises) {
@@ -983,17 +1031,21 @@ function defaultUnlockedHostExercise(exercises) {
 }
 
 function preferredHostExercise(exercises) {
-  const lastExerciseId = state.hostProgress?.lastExerciseId;
-  if (lastExerciseId != null) {
-    const saved = exercises.find((exercise) => exercise.id === lastExerciseId);
-    const savedIndex = saved ? exercises.findIndex((exercise) => exercise.id === saved.id) : -1;
-    if (saved && savedIndex >= 0 && isHostExerciseUnlocked(saved, savedIndex, exercises)) {
-      return saved;
-    }
-  }
+  if (!exercises?.length) return null;
+  const firstQuizIndex = firstQuizIndexInList(exercises);
+  const starter = exercises
+    .slice(0, Math.max(firstQuizIndex, 0) + 1)
+    .find(
+      (exercise, index) =>
+        !isHostExerciseCompleted(exercise.id) && isHostExerciseUnlocked(exercise, index, exercises)
+    );
+  if (starter) return starter;
+
   const nextIncomplete = exercises.find(
     (exercise, index) =>
-      isHostExerciseUnlocked(exercise, index, exercises) && !isHostExerciseCompleted(exercise.id)
+      index > firstQuizIndex &&
+      isHostExerciseUnlocked(exercise, index, exercises) &&
+      !isHostExerciseCompleted(exercise.id)
   );
   return nextIncomplete || defaultUnlockedHostExercise(exercises);
 }
@@ -1118,7 +1170,7 @@ function getSelectedSectionExercises() {
     findSectionInList(state.selectedSection.id) ||
     state.sections.find((s) => s.id === state.selectedSection?.id) ||
     state.selectedSection;
-  return [...(section.exercises || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  return sectionExerciseList(section);
 }
 
 function getNextExerciseAfter(exercise) {
@@ -1130,7 +1182,7 @@ function getNextExerciseAfter(exercise) {
 
 function getNextSectionAfter(section) {
   const playableSections = getPlayableSections();
-  const idx = playableSections.findIndex((entry) => entry.id === section?.id);
+  const idx = playableSections.findIndex((entry) => Number(entry.id) === Number(section?.id));
   if (idx < 0 || idx >= playableSections.length - 1) return null;
   return playableSections[idx + 1];
 }
@@ -1287,7 +1339,11 @@ function updateSectionStartButtonLabel() {
   const isLast =
     state.selectedExercise &&
     isLastExerciseInSection(state.selectedExercise, state.selectedSection);
-  startLabel.textContent = isLast ? hostT("quiz.nextExercise") : hostT("section.startExercise");
+  startLabel.textContent = isSectionIntroExercise(state.selectedExercise)
+    ? hostT("intro.play")
+    : isLast
+      ? hostT("quiz.nextExercise")
+      : hostT("section.startExercise");
 }
 
 function setNextStepButtonLabel(btn, buttonLabel) {
@@ -2069,7 +2125,7 @@ function renderSectionRoadCard(section, { selectedId, index, locked = false }) {
   const disabled = !hasExercises || locked ? "disabled" : "";
   const thumbnailContent = banner
     ? `<img class="section-road-thumb" src="${escapeHtml(banner)}" alt="" />`
-    : `<span class="section-road-thumb section-road-thumb--empty" aria-hidden="true"></span>`;
+    : `<span class="section-road-thumb section-road-thumb--empty" aria-hidden="true">${index + 1}</span>`;
   const lockIcon = disabled
     ? `<span class="section-road-lock" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false">
@@ -2520,7 +2576,7 @@ function renderExercises({ animate = false } = {}) {
   container.querySelectorAll(".exercise-item:not([disabled])").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = Number(btn.dataset.id);
-      const exerciseIndex = exercises.findIndex((exercise) => exercise.id === id);
+      const exerciseIndex = exercises.findIndex((exercise) => Number(exercise.id) === id);
       const exercise = exercises[exerciseIndex];
       if (!exercise || !isHostExerciseUnlocked(exercise, exerciseIndex, exercises)) return;
       state.selectedExercise = exercise;
@@ -2802,6 +2858,12 @@ function renderCourseSections() {
 
 async function loadCourseSections() {
   const data = await api(`/api/cms/courses/${state.course.id}`);
+  if (data.course) {
+    state.course = {
+      ...state.course,
+      ...data.course,
+    };
+  }
   state.sections = data.sections || [];
   state.exercises = flattenSections(state.sections);
   return state.sections;
@@ -2914,7 +2976,7 @@ async function showSectionExercises() {
     active: true,
   });
   destroyExerciseLotties();
-  const expectedCount = (state.selectedSection?.exercises || []).length;
+  const expectedCount = getSelectedSectionExercises().length || (state.selectedSection?.exercises || []).length;
   renderExerciseListSkeleton(expectedCount || 4);
   $("#btn-start-session").disabled = true;
   setSectionExercisePanelVisible(true);
@@ -3785,15 +3847,27 @@ async function launchHostExercise(exercise, {
 async function handleStartSession() {
   if (!state.selectedExercise || !state.activeRoomId) return;
 
+  if (
+    isLastExerciseInSection(state.selectedExercise, state.selectedSection) &&
+    isHostSectionComplete(state.selectedSection)
+  ) {
+    playPageNextSound();
+    await returnHostToJourney();
+    return;
+  }
+
   playPageNextSound();
   void markHostExerciseSelected(state.selectedExercise.id);
   const btn = $("#btn-start-session");
+  const idleText = isSectionIntroExercise(state.selectedExercise)
+    ? hostT("intro.play")
+    : hostT("section.startExercise");
 
   try {
     await launchHostExercise(state.selectedExercise, {
       button: btn,
       errorElement: $("#journey-error"),
-      idleText: "Start exercise",
+      idleText,
     });
   } catch {
     /* error shown in launchHostExercise */
@@ -4147,7 +4221,7 @@ function showHostExerciseFinishedScreen(payload) {
 function wrapUpRoomExercise(callback) {
   const roomId = state.activeRoomId;
   if (!roomId || typeof getHostSessionSocket !== "function") {
-    callback?.();
+    callback?.({ ok: true });
     return;
   }
 
@@ -4195,7 +4269,7 @@ async function returnHostToJourney() {
 
 function finishVideoOrBuzzinExercise() {
   wrapUpRoomExercise(async (res) => {
-    if (res?.ok && state.selectedExercise?.id) {
+    if (state.selectedExercise?.id) {
       await markHostExerciseCompleted(state.selectedExercise.id);
     }
     if (res?.ok && (res.semesterLeaderboard?.length || res.exerciseLeaderboard?.length)) {
@@ -4207,8 +4281,8 @@ function finishVideoOrBuzzinExercise() {
 }
 
 function endExerciseAndReturnToDashboard() {
-  wrapUpRoomExercise(async (res) => {
-    if (res?.ok && state.selectedExercise?.id) {
+  wrapUpRoomExercise(async () => {
+    if (state.selectedExercise?.id) {
       await markHostExerciseCompleted(state.selectedExercise.id);
     }
     await returnHostToJourney();
@@ -4283,7 +4357,7 @@ $("#btn-start-another-video")?.addEventListener("click", () => {
 });
 
 document.querySelectorAll(
-  "#btn-host-quiz-next-exercise, #btn-host-fast-results-next-exercise, #btn-host-video-next-exercise"
+  "#btn-host-quiz-next-exercise, #btn-host-fast-results-next-exercise"
 ).forEach((btn) => btn.addEventListener("click", () => void handleStartNextExercise()));
 
 $("#login-username").addEventListener("change", () => {

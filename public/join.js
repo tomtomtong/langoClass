@@ -500,18 +500,44 @@ function showRoomJoinPanels({ showNameForm = false, showJoining = false } = {}) 
   $("#join-panel-room").hidden = !showJoining;
 }
 
+function readJoinFormRoomId() {
+  const typed = normalizePin($("#join-room-code")?.value || "");
+  if (typed) return typed;
+  return normalizePin(urlRoom || loadStoredParticipant()?.roomId || "");
+}
+
+function wireLeaveRoomButton() {
+  const leaveBtn = $("#btn-leave-room");
+  if (!leaveBtn || leaveBtn.dataset.wired === "1") return;
+  leaveBtn.dataset.wired = "1";
+  leaveBtn.addEventListener("click", () => {
+    stopRoomStatusPoll();
+    stopRoomQuizJoinRetry();
+    if (roomSessionSocket) roomSessionSocket.disconnect();
+    roomSessionSocket = null;
+    showClassEnded({ statusKey: "join.endedStatus" });
+  });
+}
+
 function wireRoomNameForm() {
   const formBtn = $("#btn-join-room-name");
   const nameInput = $("#join-room-name");
+  const codeInput = $("#join-room-code");
   if (!formBtn || formBtn.dataset.wired === "1") return;
   formBtn.dataset.wired = "1";
 
+  codeInput?.addEventListener("input", () => {
+    const digits = normalizePin(codeInput.value);
+    codeInput.value = formatRoomCode(digits);
+  });
+
   const submitName = () => {
-    const roomId = normalizePin(urlRoom || loadStoredParticipant()?.roomId || "");
+    const roomId = readJoinFormRoomId();
     const name = nameInput?.value.trim().slice(0, 40) || "";
     const errorEl = $("#join-room-name-error");
-    if (!roomId) {
-      if (errorEl) errorEl.textContent = joinT("join.classHint");
+    if (roomId.length !== 6) {
+      if (errorEl) errorEl.textContent = joinT("join.invalidRoomCode");
+      codeInput?.focus();
       return;
     }
     if (!name) {
@@ -526,6 +552,16 @@ function wireRoomNameForm() {
   };
 
   formBtn.addEventListener("click", submitName);
+  codeInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (!nameInput?.value.trim()) {
+        nameInput?.focus();
+        return;
+      }
+      submitName();
+    }
+  });
   nameInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -537,14 +573,23 @@ function wireRoomNameForm() {
 function initRoomNameForm(roomId) {
   showRoomJoinPanels({ showNameForm: true });
   wireRoomNameForm();
+  wireLeaveRoomButton();
 
   const nameInput = $("#join-room-name");
+  const codeInput = $("#join-room-code");
   const errorEl = $("#join-room-name-error");
   if (errorEl) errorEl.textContent = "";
+  const presetRoom = normalizePin(
+    roomId || urlRoom || loadStoredParticipant()?.roomId || ""
+  );
+  if (codeInput) codeInput.value = presetRoom ? formatRoomCode(presetRoom) : "";
   if (nameInput) {
     nameInput.value = String(lastJoinDisplayName || urlNickname || "").trim().slice(0, 40);
-    requestAnimationFrame(() => nameInput.focus());
   }
+  requestAnimationFrame(() => {
+    if (codeInput && !presetRoom) codeInput.focus();
+    else nameInput?.focus();
+  });
 }
 
 function initRoomJoin() {
@@ -557,18 +602,10 @@ function initRoomJoin() {
     if (urlToken) roomParticipant.userId = urlToken;
   }
 
-  $("#btn-leave-room").addEventListener("click", () => {
-    stopRoomStatusPoll();
-    stopRoomQuizJoinRetry();
-    if (roomSessionSocket) roomSessionSocket.disconnect();
-    roomSessionSocket = null;
-    showClassEnded({ statusKey: "join.endedStatus" });
-  });
+  wireLeaveRoomButton();
 
   if (!activeRoom) {
-    showRoomJoinPanels({ showJoining: true });
-    $("#join-room-status").textContent = "";
-    $("#join-room-error").textContent = joinT("join.classHint");
+    initRoomNameForm("");
     return;
   }
 
@@ -601,14 +638,13 @@ function doJoinRoom(roomId, displayNameOverride) {
       setEndedSubmitBusy(false);
       setJoinEndedError(message);
     } else {
-      if ($("#join-panel-room-name") && !$("#join-panel-room-name").hidden) {
-        showRoomJoinPanels({ showNameForm: true });
-        const nameError = $("#join-room-name-error");
-        if (nameError) nameError.textContent = message;
-        return;
+      showRoomJoinPanels({ showNameForm: true });
+      const nameError = $("#join-room-name-error");
+      if (nameError) nameError.textContent = message;
+      else {
+        $("#join-room-status").textContent = "";
+        $("#join-room-error").textContent = message;
       }
-      $("#join-room-status").textContent = "";
-      $("#join-room-error").textContent = message;
     }
   };
 
@@ -743,9 +779,7 @@ function doJoinRoom(roomId, displayNameOverride) {
 function initQuizJoin() {
   const pin = normalizePin(urlPin || "");
   if (pin.length !== 6) {
-    $("#join-panel-quiz").hidden = true;
-    $("#join-panel-room-name").hidden = true;
-    $("#join-panel-link-required").hidden = false;
+    initRoomNameForm("");
     return;
   }
 
@@ -960,10 +994,7 @@ function initQuizJoin() {
 }
 
 function initJoinLinkRequired() {
-  $("#join-panel-quiz").hidden = true;
-  $("#join-panel-room").hidden = true;
-  $("#join-panel-room-name").hidden = true;
-  $("#join-panel-link-required").hidden = false;
+  initRoomNameForm("");
 }
 
 window.LangoI18n?.init?.(isHkElderlyVariant() ? { locale: "yue" } : undefined);

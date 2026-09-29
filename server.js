@@ -278,6 +278,16 @@ const bannerUpload = multer({
   },
 });
 
+const introVideoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 250 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(String(file.originalname || "")).toLowerCase();
+    const ok = materialExtract.VIDEO_EXTENSIONS.has(ext) || /^video\//i.test(file.mimetype);
+    cb(ok ? null : new Error("Only MP4, MOV, WebM, MKV, M4V, or AVI videos are allowed."), ok);
+  },
+});
+
 const sectionBannerUpload = multer({
   storage: multer.diskStorage({
     destination: SECTION_UPLOADS_DIR,
@@ -354,14 +364,16 @@ const courseImportChunkUpload = multer({
   limits: { fileSize: courseImportChunked.IMPORT_CHUNK_BYTES + 1024 * 1024 },
 });
 
-const MATERIAL_MAX_BYTES = 25 * 1024 * 1024;
+const MATERIAL_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+const MATERIAL_VIDEO_MAX_BYTES = 250 * 1024 * 1024;
+const MATERIAL_MAX_BYTES = MATERIAL_UPLOAD_MAX_BYTES;
 const MATERIAL_ALLOWED_EXTS = new Set([
   ...materialExtract.SUPPORTED_EXTENSIONS,
 ]);
 
 const materialUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MATERIAL_MAX_BYTES },
+  limits: { fileSize: MATERIAL_VIDEO_MAX_BYTES },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(String(file.originalname || "")).toLowerCase();
     const ok = MATERIAL_ALLOWED_EXTS.has(ext);
@@ -516,6 +528,7 @@ function deleteLocalBanner(bannerUrl) {
 function deleteSectionBanners(sections) {
   for (const section of sections || []) {
     deleteLocalUpload(section?.banner);
+    deleteLocalUpload(section?.introVideoUrl);
   }
 }
 
@@ -1434,12 +1447,42 @@ async function transcribeMaterialVideoBuffer(buffer, filename, language) {
   if (!buffer?.length) {
     throw new Error("Video file is empty.");
   }
-  if (buffer.length > MATERIAL_MAX_BYTES) {
-    throw new Error("Video file is too large (max 25 MB).");
+  if (buffer.length > MATERIAL_VIDEO_MAX_BYTES) {
+    throw new Error(`Video file is too large (max ${MATERIAL_VIDEO_MAX_BYTES / (1024 * 1024)} MB).`);
   }
   if (!getInworldApiKey() && !getOpenRouterApiKey()) {
     throw new Error("Configure Inworld or OpenRouter STT in Config before transcribing video.");
   }
+
+  const originalBytes = buffer.length;
+  const compressed = await materialVideoCompress.compressMaterialVideoBuffer(
+    buffer,
+    MATERIAL_VIDEO_TARGET_BYTES,
+    { filename }
+  );
+  buffer = compressed.buffer;
+  // #region agent log
+  try {
+    fs.appendFileSync(
+      path.join(__dirname, ".cursor/debug-a727e0.log"),
+      JSON.stringify({
+        sessionId: "a727e0",
+        runId: "video-compress",
+        hypothesisId: "VC1",
+        location: "server.js:transcribeMaterialVideoBuffer",
+        message: "video compressed for material",
+        data: {
+          filename,
+          originalBytes,
+          outputBytes: buffer.length,
+          compressed: compressed.compressed,
+          targetBytes: MATERIAL_VIDEO_TARGET_BYTES,
+        },
+        timestamp: Date.now(),
+      }) + "\n"
+    );
+  } catch {}
+  // #endregion
 
   const resolvedLanguage = normalizeBuzzinSttLanguage(language, getInworldSttLanguage());
   const saved = saveMaterialVideoUpload(buffer, filename);
@@ -1464,6 +1507,11 @@ async function transcribeMaterialVideoBuffer(buffer, filename, language) {
   };
 }
 
+const MATERIAL_VISION_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
+const MATERIAL_VIDEO_TARGET_BYTES = 12 * 1024 * 1024;
+const materialImageCompress = require("./lib/material-image-compress");
+const materialVideoCompress = require("./lib/material-video-compress");
+
 async function describeMaterialImageBuffer(buffer, mimeType, filename) {
   const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
@@ -1472,12 +1520,19 @@ async function describeMaterialImageBuffer(buffer, mimeType, filename) {
   if (!buffer?.length) {
     throw new Error("Image file is empty.");
   }
-  if (buffer.length > 10 * 1024 * 1024) {
-    throw new Error("Image file is too large (max 10 MB).");
-  }
 
-  const mime = String(mimeType || "image/jpeg").toLowerCase();
-  const base64 = buffer.toString("base64");
+  let visionBuffer = buffer;
+  let mime = String(mimeType || "image/jpeg").toLowerCase();
+  if (visionBuffer.length > MATERIAL_VISION_IMAGE_MAX_BYTES) {
+    const compressed = await materialImageCompress.compressMaterialImageBuffer(
+      visionBuffer,
+      MATERIAL_VISION_IMAGE_MAX_BYTES,
+      { mimeType: mime, filename }
+    );
+    visionBuffer = compressed.buffer;
+    mime = compressed.mime || "image/jpeg";
+  }
+  const base64 = visionBuffer.toString("base64");
   const label = path.basename(String(filename || "image"));
 
   const res = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
@@ -5077,8 +5132,20 @@ function materialExtractHttpStatus(err) {
   return 500;
 }
 
+function materialUploadMaxBytes(originalname, mimetype) {
+  const format = materialExtract.detectFormat(originalname, mimetype);
+  if (materialExtract.isVideoFormat(format, mimetype)) return MATERIAL_VIDEO_MAX_BYTES;
+  return MATERIAL_UPLOAD_MAX_BYTES;
+}
+
 async function extractUploadedMaterialFile(uploadedFile, { language, materialHint, enableVisionCrop = true }) {
   const format = materialExtract.detectFormat(uploadedFile.originalname, uploadedFile.mimetype);
+  const maxBytes = materialUploadMaxBytes(uploadedFile.originalname, uploadedFile.mimetype);
+  if (uploadedFile.buffer.length > maxBytes) {
+    throw new Error(
+      `${uploadedFile.originalname} is too large (max ${maxBytes / (1024 * 1024)} MB).`
+    );
+  }
 
   if (
     materialExtract.isAudioFormat(format, uploadedFile.mimetype) &&
@@ -5175,9 +5242,93 @@ async function extractUploadedMaterialFile(uploadedFile, { language, materialHin
   return { result, videoMeta, source, imageAssets };
 }
 
+app.post("/api/cms/compress-material-video", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  materialUpload.single("file")(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      const uploadMessage =
+        uploadErr.code === "LIMIT_FILE_SIZE"
+          ? `Video is too large (max ${MATERIAL_VIDEO_MAX_BYTES / (1024 * 1024)} MB).`
+          : uploadErr.message || "Upload failed.";
+      return res.status(400).json({ message: uploadMessage });
+    }
+
+    try {
+      const uploadedFile = req.file;
+      if (!uploadedFile?.buffer?.length) {
+        return res.status(400).json({ message: "No video file received." });
+      }
+
+      const format = materialExtract.detectFormat(uploadedFile.originalname, uploadedFile.mimetype);
+      if (!materialExtract.isVideoFormat(format, uploadedFile.mimetype)) {
+        return res.status(400).json({ message: "Only video files can be compressed on this endpoint." });
+      }
+
+      const originalBytes = uploadedFile.buffer.length;
+      const compressed = await materialVideoCompress.compressMaterialVideoBuffer(
+        uploadedFile.buffer,
+        MATERIAL_VIDEO_TARGET_BYTES,
+        { filename: uploadedFile.originalname }
+      );
+      // #region agent log
+      try {
+        fs.appendFileSync(
+          path.join(__dirname, ".cursor/debug-a727e0.log"),
+          JSON.stringify({
+            sessionId: "a727e0",
+            runId: "video-compress",
+            hypothesisId: "VC1",
+            location: "server.js:compress-material-video",
+            message: "video compressed for CMS ingest",
+            data: {
+              name: uploadedFile.originalname,
+              originalBytes,
+              outputBytes: compressed.buffer.length,
+              compressed: compressed.compressed,
+            },
+            timestamp: Date.now(),
+          }) + "\n"
+        );
+      } catch {}
+      // #endregion
+
+      res.set("Content-Type", "video/mp4");
+      res.set("X-Original-Bytes", String(originalBytes));
+      res.set("X-Output-Bytes", String(compressed.buffer.length));
+      res.set("X-Compressed", compressed.compressed ? "1" : "0");
+      return res.send(compressed.buffer);
+    } catch (err) {
+      console.error("compress-material-video failed:", err);
+      return res.status(500).json({ message: err.message || "Video compression failed." });
+    }
+  });
+});
+
 app.post("/api/cms/extract-material", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
+
+  // #region agent log
+  try {
+    fs.appendFileSync(
+      path.join(__dirname, ".cursor/debug-a727e0.log"),
+      JSON.stringify({
+        sessionId: "a727e0",
+        runId: "pre-fix",
+        hypothesisId: "H4",
+        location: "server.js:extract-material:entry",
+        message: "Node received extract-material (past nginx)",
+        data: {
+          contentLength: req.headers["content-length"] || null,
+          contentType: String(req.headers["content-type"] || "").slice(0, 80),
+        },
+        timestamp: Date.now(),
+      }) + "\n"
+    );
+  } catch {}
+  // #endregion
 
   materialUpload.fields([
     { name: "file", maxCount: 1 },
@@ -5200,7 +5351,11 @@ app.post("/api/cms/extract-material", async (req, res) => {
         );
       } catch {}
       // #endregion
-      return res.status(400).json({ message: uploadErr.message || "Upload failed." });
+      const uploadMessage =
+        uploadErr.code === "LIMIT_FILE_SIZE"
+          ? `File is too large (max ${MATERIAL_VIDEO_MAX_BYTES / (1024 * 1024)} MB for video, ${MATERIAL_UPLOAD_MAX_BYTES / (1024 * 1024)} MB for other files). Large images are compressed automatically in the browser.`
+          : uploadErr.message || "Upload failed.";
+      return res.status(400).json({ message: uploadMessage });
     }
 
     try {
@@ -6136,6 +6291,51 @@ app.post("/api/cms/courses/:courseId/banner", async (req, res) => {
         updatedAt: updated.updatedAt,
       },
     });
+  });
+});
+
+app.post("/api/cms/courses/:courseId/sections/:sectionId/intro-video", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  const courseId = Number(req.params.courseId);
+  const sectionId = Number(req.params.sectionId);
+  const course = cmsStore.getCourseForTeacher(courseId, auth.teacherId);
+  if (!course) return res.status(404).json({ message: "Course not found." });
+  const section = (course.sections || []).find((entry) => entry.id === sectionId);
+  if (!section) return res.status(404).json({ message: "Section not found." });
+
+  introVideoUpload.single("video")(req, res, (err) => {
+    if (err) {
+      const tooBig = err.code === "LIMIT_FILE_SIZE";
+      return res.status(400).json({
+        message: tooBig ? "Video is too large (max 250 MB)." : err.message || "Upload failed.",
+      });
+    }
+    if (!req.file?.buffer?.length) {
+      return res.status(400).json({ message: "No video file provided." });
+    }
+
+    try {
+      const saved = saveMaterialVideoUpload(req.file.buffer, req.file.originalname);
+      const updated = cmsStore.updateSectionIntroVideo(
+        courseId,
+        auth.teacherId,
+        sectionId,
+        saved.videoUrl
+      );
+      if (updated?.oldIntroVideoUrl && updated.oldIntroVideoUrl !== saved.videoUrl) {
+        deleteLocalUpload(updated.oldIntroVideoUrl);
+      }
+      return res.json({
+        url: saved.videoUrl,
+        section: updated?.section || { id: sectionId, introVideoUrl: saved.videoUrl },
+        updatedAt: updated?.updatedAt || null,
+      });
+    } catch (saveErr) {
+      console.error("section intro-video upload failed:", saveErr);
+      return res.status(500).json({ message: saveErr.message || "Could not save video." });
+    }
   });
 });
 

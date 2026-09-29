@@ -82,6 +82,51 @@ body.join-page::before {
   isolation: isolate;
 }
 
+.join-page #screen-join {
+  color: #fff;
+}
+
+.join-page #screen-join h2 {
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.join-page #screen-join .connection-status,
+.join-page #screen-join .field span {
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.join-page #screen-join .connection-status {
+  text-align: left;
+  line-height: 1.35;
+  min-height: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.join-page #screen-join .connection-status.ok {
+  color: #d4ffe4;
+}
+
+.join-page #screen-join .connection-status.err,
+.join-page #screen-join .error {
+  color: #ffd4d4;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.join-page #screen-join .field input {
+  color: #fff;
+}
+
+.join-page #screen-join .field input::placeholder {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.join-page #join-room-code {
+  letter-spacing: 0.08em;
+}
+
 html:has(body.join-page) {
   width: 100%;
   height: 100%;
@@ -6724,7 +6769,6 @@ body.cms-light .cms-tab:hover:not(.active) {
 
 body.cms-light .cms-course-card-thumb,
 body.cms-light .cms-thumbnail-preview img,
-body.cms-light .cms-section-thumbnail-preview img,
 body.cms-light .cms-q-image-preview img {
   background: var(--bg);
   border-color: var(--border);
@@ -8050,13 +8094,34 @@ body.cms-light .cms-course-card:hover {
   gap: 0.75rem;
 }
 
-.cms-section-thumbnail-preview img {
-  width: 120px;
-  height: 68px;
-  border-radius: 10px;
-  object-fit: cover;
+.cms-section-banner-preview-btn {
+  display: block;
+  padding: 0;
   border: 1px solid var(--border);
-  background: var(--bg);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: zoom-in;
+  background:
+    linear-gradient(180deg, #9fe7ff 0%, #d7f6ff 48%, #fff4c2 100%);
+}
+
+.cms-section-banner-preview-btn:hover {
+  filter: brightness(1.04);
+}
+
+.cms-section-banner-preview-btn:focus-visible {
+  outline: 3px solid #7c5cbf;
+  outline-offset: 3px;
+}
+
+.cms-section-thumbnail-preview img {
+  display: block;
+  width: 168px;
+  height: 168px;
+  border-radius: 0;
+  object-fit: contain;
+  border: 0;
+  background: transparent;
 }
 
 .cms-section-banner-status {
@@ -15238,8 +15303,13 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 42px;
+  font-size: 64px;
   font-weight: 900;
+  background:
+    linear-gradient(180deg, #f6c34a 0%, #e38a2b 58%, #c96a1c 100%);
+  box-shadow:
+    inset 0 -10px 0 rgba(120, 52, 8, 0.18),
+    0 12px 12px rgba(52, 67, 86, 0.2);
 }
 
 #app.lango-host .section-road-copy {

@@ -182,6 +182,12 @@ body.join-page.hk-elderly .general-waiting-ui {
   color: var(--hk-text);
 }
 
+body.join-page.hk-elderly #screen-join .connection-status,
+body.join-page.hk-elderly #screen-join .field span {
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
 body.join-page.hk-elderly #screen-room-waiting.general-waiting-ui,
 body.join-page.hk-elderly #screen-room-ended.general-waiting-ui,
 body.join-page.hk-elderly #screen-room-passive-waiting.passive-waiting-ui {

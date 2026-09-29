@@ -4,6 +4,13 @@ const CMS_TEXT_SIZE_DEFAULT = "lg";
 const CMS_EMPTY_COVER = "/assets/cms/cover-empty.svg";
 const CMS_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const HOME_UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
+const MATERIAL_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+const MATERIAL_VIDEO_MAX_BYTES = 250 * 1024 * 1024;
+const MATERIAL_IMAGE_TARGET_BYTES = 5 * 1024 * 1024;
+const MATERIAL_VIDEO_TARGET_BYTES = 12 * 1024 * 1024;
+const MATERIAL_VIDEO_COMPRESS_MIN_BYTES = 8 * 1024 * 1024;
+const MATERIAL_IMAGE_EXT = /\.(jpe?g|png|webp|gif|heic|heif|bmp)$/i;
+const MATERIAL_VIDEO_EXT = /\.(mp4|mov|m4v|mkv|avi|webm)$/i;
 
 const CMS_TOUR_KEY = "lango_cms_tour_v1";
 
@@ -85,6 +92,7 @@ const state = {
   aiWizardMaxStep: 1,
   aiWizardActive: false,
   aiWizardBusy: false,
+  aiMaterialIngestBusy: false,
   aiPlanGenerateArmed: false,
   aiCourseWorkspace: false,
   aiTemplate: "vocab",
@@ -126,6 +134,9 @@ const state = {
 function formatCmsErrorMessage(message) {
   const msg = String(message || "");
   if (!msg) return "";
+  if (/^file too large$/i.test(msg.trim()) || /max 25\s*mb per file/i.test(msg)) {
+    return escapeHtml(cmsT("cms.ai.fileTooLargeGeneric"));
+  }
   if (/too large.*2\s*mb/i.test(msg) || /max 2\s*mb/i.test(msg)) {
     return escapeHtml(cmsT("cms.upload.imageTooLarge"));
   }
@@ -470,6 +481,39 @@ function syncAiPlanGenerateUi() {
   }
 }
 
+function setAiMaterialIngestBusy(busy) {
+  state.aiMaterialIngestBusy = busy;
+  const next = $("#btn-cms-ai-next");
+  const dropZone = $("#cms-ai-file-drop");
+  const overlay = $("#cms-ai-upload-overlay");
+  const overlayLabel = $("#cms-ai-upload-overlay-label");
+  if (next) next.disabled = busy || state.aiWizardBusy;
+  if (dropZone) dropZone.classList.toggle("is-busy", busy);
+  if (overlay) overlay.hidden = !busy;
+  if (busy && overlayLabel && !overlayLabel.textContent) {
+    overlayLabel.textContent = cmsT("cms.ai.preparingFiles");
+  }
+  if (!busy && overlayLabel) overlayLabel.textContent = "";
+}
+
+function setAiUploadStatus(message, { isError = false } = {}) {
+  const el = $("#cms-ai-extract-status");
+  const overlayLabel = $("#cms-ai-upload-overlay-label");
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = "";
+    el.classList.remove("is-error");
+    return;
+  }
+  el.hidden = false;
+  el.textContent = message;
+  el.classList.toggle("is-error", isError);
+  if (overlayLabel && state.aiMaterialIngestBusy && !isError) {
+    overlayLabel.textContent = message;
+  }
+}
+
 function setAiWizardBusy(busy, message) {
   state.aiWizardBusy = busy;
   const back = $("#btn-cms-ai-back");
@@ -477,7 +521,7 @@ function setAiWizardBusy(busy, message) {
   const changePath = $("#btn-cms-ai-change-path");
   if (back) back.disabled = busy;
   if (next) {
-    next.disabled = busy;
+    next.disabled = busy || state.aiMaterialIngestBusy;
     next.classList.toggle("is-loading", busy);
     if (busy) next.setAttribute("aria-busy", "true");
     else next.removeAttribute("aria-busy");
@@ -621,8 +665,13 @@ function beginMaterialExtractProgress(files, pasted, videoUrl) {
     : isVideo
       ? [
           { t: 0, label: "Uploading video…", detail: "Sending media to the server." },
-          { t: 0.2, label: "Transcribing speech…", detail: "Speech-to-text can take a few minutes." },
-          { t: 0.75, label: "Finalizing transcript…", detail: "Preparing lesson text." },
+          {
+            t: 0.12,
+            label: "Compressing video…",
+            detail: "Large videos are re-encoded to a smaller size for faster processing.",
+          },
+          { t: 0.28, label: "Transcribing speech…", detail: "Speech-to-text can take a few minutes." },
+          { t: 0.78, label: "Finalizing transcript…", detail: "Preparing lesson text." },
         ]
       : isAudio
         ? [
@@ -883,6 +932,234 @@ function syncAiMaterialState() {
 
   el.hidden = false;
   el.innerHTML = chips.join("");
+}
+
+function isImageMaterialFile(file) {
+  if (!file) return false;
+  return /^image\//i.test(file.type || "") || MATERIAL_IMAGE_EXT.test(file.name || "");
+}
+
+function isVideoMaterialFile(file) {
+  if (!file) return false;
+  return /^video\//i.test(file.type || "") || MATERIAL_VIDEO_EXT.test(file.name || "");
+}
+
+function materialFileMaxBytes(file) {
+  return isVideoMaterialFile(file) ? MATERIAL_VIDEO_MAX_BYTES : MATERIAL_UPLOAD_MAX_BYTES;
+}
+
+function isHeicMaterialFile(file) {
+  return /heic|heif/i.test(file.type || "") || /\.hei[cf]$/i.test(file.name || "");
+}
+
+function canvasToJpegBlob(canvas, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
+  });
+}
+
+async function compressImageMaterialFile(file, maxBytes = MATERIAL_IMAGE_TARGET_BYTES) {
+  if (!file || file.size <= maxBytes) return file;
+  if (isHeicMaterialFile(file)) return file;
+
+  let bitmap = null;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    if (file.size > maxBytes) {
+      throw new Error(
+        cmsT("cms.ai.imageCompressFailed", {
+          name: file.name,
+          maxMb: Math.round(maxBytes / (1024 * 1024)),
+        })
+      );
+    }
+    return file;
+  }
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  let scale = Math.min(1, 4096 / Math.max(bitmap.width, bitmap.height, 1));
+  let bestBlob = null;
+
+  for (let round = 0; round < 10; round += 1) {
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    for (let quality = 0.82; quality >= 0.38; quality -= 0.06) {
+      const blob = await canvasToJpegBlob(canvas, quality);
+      if (!blob) continue;
+      if (blob.size <= maxBytes) {
+        bestBlob = blob;
+        break;
+      }
+      if (!bestBlob || blob.size < bestBlob.size) bestBlob = blob;
+    }
+    if (bestBlob && bestBlob.size <= maxBytes) break;
+    scale *= 0.68;
+    if (scale < 0.18) break;
+  }
+
+  bitmap.close?.();
+
+  if (!bestBlob || bestBlob.size > maxBytes) {
+    throw new Error(
+      cmsT("cms.ai.imageCompressFailed", {
+        name: file.name,
+        maxMb: Math.round(maxBytes / (1024 * 1024)),
+      })
+    );
+  }
+
+  const baseName = String(file.name || "image").replace(/\.[^.]+$/, "");
+  return new File([bestBlob], `${baseName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+async function prepareMaterialFileForUpload(file) {
+  if (!file) return file;
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"post-fix",hypothesisId:"H1-H4",location:"cms.js:prepareMaterialFileForUpload",message:"prepare file",data:{name:file.name,size:file.size,type:file.type,isImage:isImageMaterialFile(file),isVideo:isVideoMaterialFile(file),maxBytes:materialFileMaxBytes(file),overLimit:file.size>materialFileMaxBytes(file)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  if (isImageMaterialFile(file)) {
+    const targetBytes =
+      file.size > MATERIAL_UPLOAD_MAX_BYTES
+        ? MATERIAL_UPLOAD_MAX_BYTES - 256 * 1024
+        : MATERIAL_IMAGE_TARGET_BYTES;
+    const prepared = await compressImageMaterialFile(file, targetBytes);
+    if (prepared.size > MATERIAL_UPLOAD_MAX_BYTES) {
+      throw new Error(
+        cmsT("cms.ai.imageCompressFailed", {
+          name: file.name,
+          maxMb: Math.round(MATERIAL_UPLOAD_MAX_BYTES / (1024 * 1024)),
+        })
+      );
+    }
+    return prepared;
+  }
+  if (isVideoMaterialFile(file)) {
+    if (file.size > MATERIAL_VIDEO_MAX_BYTES) {
+      throw new Error(
+        cmsT("cms.ai.fileTooLarge", {
+          name: file.name,
+          maxMb: MATERIAL_VIDEO_MAX_BYTES / (1024 * 1024),
+        })
+      );
+    }
+    if (file.size > MATERIAL_VIDEO_COMPRESS_MIN_BYTES) {
+      const prepared = await compressVideoMaterialFile(file);
+      return prepared;
+    }
+    return file;
+  }
+  const maxBytes = materialFileMaxBytes(file);
+  if (file.size > maxBytes) {
+    throw new Error(
+      cmsT("cms.ai.fileTooLarge", {
+        name: file.name,
+        maxMb: maxBytes / (1024 * 1024),
+      })
+    );
+  }
+  return file;
+}
+
+async function compressVideoMaterialFile(file, targetBytes = MATERIAL_VIDEO_TARGET_BYTES) {
+  if (!file || file.size <= targetBytes) return file;
+
+  const form = new FormData();
+  form.append("file", file);
+  const headers = { Accept: "video/mp4,*/*" };
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  headers["X-Teacher-Id"] = String(state.user?.id || "");
+
+  const res = await fetch("/api/cms/compress-material-video", { method: "POST", headers, body: form });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload.message || cmsT("cms.ai.videoCompressFailed", { name: file.name }));
+  }
+  const blob = await res.blob();
+  const outName = String(file.name || "video").replace(/\.[^.]+$/, "") + ".mp4";
+  const compressed = new File([blob], outName, { type: "video/mp4", lastModified: Date.now() });
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"video-compress",hypothesisId:"VC1",location:"cms.js:compressVideoMaterialFile",message:"video compressed via server",data:{name:file.name,originalBytes:file.size,outputBytes:compressed.size,ratio:Number((compressed.size/file.size).toFixed(3))},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return compressed;
+}
+
+async function prepareMaterialFilesForUpload(files, { onProgress } = {}) {
+  const prepared = [];
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    if (typeof onProgress === "function") onProgress(file, index, files.length);
+    prepared.push(await prepareMaterialFileForUpload(file));
+  }
+  return prepared;
+}
+
+async function ingestAiSelectedFiles(fileList) {
+  const rawCount = fileList?.length || 0;
+  const incoming = Array.from(fileList || []).filter((file) => file instanceof File);
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"pre-fix",hypothesisId:"H3",location:"cms.js:ingestAiSelectedFiles:entry",message:"ingest called",data:{rawCount,incoming:incoming.length,names:incoming.map((file)=>file.name),sizes:incoming.map((file)=>file.size),types:incoming.map((file)=>file.type)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  if (!incoming.length) return 0;
+
+  const errorEl = $("#cms-ai-error");
+  setCmsError(errorEl, "");
+  setAiMaterialIngestBusy(true);
+
+  try {
+    const needsCompress = incoming.some(
+      (file) =>
+        (isImageMaterialFile(file) && file.size > MATERIAL_IMAGE_TARGET_BYTES) ||
+        (isVideoMaterialFile(file) && file.size > MATERIAL_VIDEO_COMPRESS_MIN_BYTES)
+    );
+    if (needsCompress) {
+      setAiUploadStatus(cmsT("cms.ai.compressingFiles"));
+    } else {
+      setAiUploadStatus(cmsT("cms.ai.preparingFiles"));
+    }
+    const prepared = await prepareMaterialFilesForUpload(incoming, {
+      onProgress: (file) => {
+        setAiUploadStatus(
+          isImageMaterialFile(file)
+            ? cmsT("cms.ai.compressingFile", { name: file.name })
+            : isVideoMaterialFile(file)
+              ? cmsT("cms.ai.compressingVideo", { name: file.name })
+              : cmsT("cms.ai.addingFile", { name: file.name })
+        );
+      },
+    });
+    const added = addAiSelectedFiles(prepared);
+    if (!added) {
+      const message = cmsT("cms.ai.fileAlreadyAdded");
+      setCmsError(errorEl, message);
+      setAiUploadStatus(message, { isError: true });
+      return 0;
+    }
+    setAiUploadStatus(
+      prepared.length === 1
+        ? cmsT("cms.ai.fileReady", { name: prepared[0].name })
+        : cmsT("cms.ai.filesReady", { count: prepared.length })
+    );
+    return added;
+  } catch (err) {
+    const message = err.message || String(err);
+    // #region agent log
+    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"pre-fix",hypothesisId:"H1",location:"cms.js:ingestAiSelectedFiles:catch",message:"ingest failed",data:{error:message},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    setCmsError(errorEl, message);
+    setAiUploadStatus(message, { isError: true });
+    return 0;
+  } finally {
+    setAiMaterialIngestBusy(false);
+  }
 }
 
 function aiFileKey(file) {
@@ -2861,6 +3138,52 @@ function parseUploadResponse(text, status) {
   }
 }
 
+function updateSectionIntroVideoPreview(sectionCard, url) {
+  const input = sectionCard.querySelector(".cms-section-intro-url");
+  const wrap = sectionCard.querySelector(".cms-section-intro-preview-wrap");
+  const video = sectionCard.querySelector(".cms-section-intro-preview");
+  const removeBtn = sectionCard.querySelector(".cms-remove-section-intro");
+  const trimmed = String(url || "").trim();
+  if (input && input.value !== trimmed) input.value = trimmed;
+  if (removeBtn) removeBtn.hidden = !trimmed;
+  if (!wrap || !video) return;
+  if (!trimmed) {
+    wrap.hidden = true;
+    video.removeAttribute("src");
+    video.load();
+    return;
+  }
+  wrap.hidden = false;
+  if (video.getAttribute("src") !== trimmed) {
+    video.src = trimmed;
+    video.load();
+  }
+}
+
+async function uploadSectionIntroVideoFile(sectionId, file) {
+  if (!state.editingCourse) throw new Error("No course selected.");
+  if (!sectionId) throw new Error("Save the section before uploading.");
+  if (!file) throw new Error("No file selected.");
+
+  const formData = new FormData();
+  formData.append("video", file);
+
+  const res = await fetch(
+    `/api/cms/courses/${state.editingCourse.id}/sections/${sectionId}/intro-video`,
+    {
+      method: "POST",
+      headers: uploadAuthHeaders(),
+      body: formData,
+    }
+  );
+
+  const data = parseUploadResponse(await res.text(), res.status);
+  if (!res.ok) {
+    throw new Error(data?.message || `Upload failed (${res.status})`);
+  }
+  return data;
+}
+
 async function uploadBannerFile(file) {
   if (!state.editingCourse) throw new Error("No course selected.");
   if (!file) throw new Error("No file selected.");
@@ -4299,6 +4622,7 @@ function syncSectionsMetadataFromDom() {
       id: idRaw != null ? Number(idRaw) : section.id,
       title: sectionCard.querySelector(".cms-section-title")?.value.trim() || section.title || "",
       banner: sectionCard.querySelector(".cms-section-banner-value")?.value.trim() || "",
+      introVideoUrl: sectionCard.querySelector(".cms-section-intro-url")?.value.trim() || "",
       order: Number(sectionCard.querySelector(".cms-section-order")?.value) || section.order || 1,
       exercises: section.exercises || [],
     });
@@ -4680,7 +5004,7 @@ function attachMaterialAssetToQuestionBlock(block, url) {
   if (statusEl) statusEl.textContent = "Image attached from material library.";
 }
 
-function openMaterialAssetPreview({ url, label, attachTarget = null } = {}) {
+function openMaterialAssetPreview({ url, label, attachTarget = null, variant = "" } = {}) {
   const overlay = $("#cms-asset-preview");
   const img = $("#cms-asset-preview-img");
   const title = $("#cms-asset-preview-title");
@@ -4691,10 +5015,27 @@ function openMaterialAssetPreview({ url, label, attachTarget = null } = {}) {
   img.alt = label || "Material image preview";
   title.textContent = label || "Material image";
   overlay.hidden = false;
+  overlay.classList.toggle("cms-asset-preview--island", variant === "island");
+  img.classList.toggle("cms-asset-preview-img--island", variant === "island");
   document.body.classList.add("cms-asset-preview-open");
   state.materialAssetPreviewTarget = attachTarget || null;
   if (attachBtn) attachBtn.hidden = !attachTarget;
   $("#btn-cms-asset-preview-close")?.focus();
+}
+
+function openSectionPathTilePreview(sectionCard) {
+  if (!sectionCard) return;
+  const url =
+    sectionCard.querySelector(".cms-section-banner-value")?.value.trim() ||
+    sectionCard.querySelector(".cms-section-banner-img")?.getAttribute("src")?.trim() ||
+    "";
+  if (!url) return;
+  const title = sectionCard.querySelector(".cms-section-title")?.value.trim() || "";
+  openMaterialAssetPreview({
+    url,
+    label: title ? `${cmsT("cms.sections.pathTile")} · ${title}` : cmsT("cms.sections.previewTileTitle"),
+    variant: "island",
+  });
 }
 
 function openQuestionImagePreview(block, prefix = "cms-q") {
@@ -4720,8 +5061,10 @@ function closeMaterialAssetPreview() {
   const img = $("#cms-asset-preview-img");
   if (!overlay) return;
   overlay.hidden = true;
+  overlay.classList.remove("cms-asset-preview--island");
   document.body.classList.remove("cms-asset-preview-open");
   state.materialAssetPreviewTarget = null;
+  $("#cms-asset-preview-img")?.classList.remove("cms-asset-preview-img--island");
   if (img) {
     img.removeAttribute("src");
     img.alt = "";
@@ -5912,11 +6255,12 @@ function downloadJsonFile(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-async function extractMaterialRequest({ files, file, pasted, videoUrl, language, maxChars }) {
+async function extractMaterialRequest({ files, file, pasted, videoUrl, language, maxChars, onPrepareFile }) {
   const uploadFiles = files?.length ? files : file ? [file] : [];
   if (uploadFiles.length) {
+    const preparedFiles = await prepareMaterialFilesForUpload(uploadFiles, { onProgress: onPrepareFile });
     const form = new FormData();
-    for (const uploadFile of uploadFiles) {
+    for (const uploadFile of preparedFiles) {
       form.append("files", uploadFile);
     }
     form.append("language", language || getAiSpeakLangCode());
@@ -5926,6 +6270,36 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
     const headers = { Accept: "application/json" };
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
     headers["X-Teacher-Id"] = String(state.user?.id || "");
+    // #region agent log
+    {
+      const fileSizes = uploadFiles.map((uploadFile) => ({
+        name: uploadFile.name,
+        size: uploadFile.size,
+        type: uploadFile.type,
+      }));
+      const totalBytes = uploadFiles.reduce((sum, uploadFile) => sum + (uploadFile.size || 0), 0);
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a727e0" },
+        body: JSON.stringify({
+          sessionId: "a727e0",
+          runId: "pre-fix",
+          hypothesisId: "H1",
+          location: "cms.js:extractMaterialRequest:beforeFetch",
+          message: "extract-material upload about to send",
+          data: {
+            fileCount: uploadFiles.length,
+            totalBytes,
+            totalMb: Number((totalBytes / (1024 * 1024)).toFixed(2)),
+            largestBytes: Math.max(0, ...uploadFiles.map((uploadFile) => uploadFile.size || 0)),
+            files: fileSizes,
+            hintChars: String(materialHint || "").length,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+    }
+    // #endregion
     const res = await fetch("/api/cms/extract-material", { method: "POST", headers, body: form });
     const text = await res.text();
     let parsed = null;
@@ -5946,6 +6320,26 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
           location: "cms.js:extractMaterialRequest:error",
           message: "extract-material failed",
           data: { status: res.status, error: parsed?.message || text?.slice(0, 200) },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      const nginx413 = res.status === 413 || /413 Request Entity Too Large/i.test(text || "");
+      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a727e0" },
+        body: JSON.stringify({
+          sessionId: "a727e0",
+          runId: "pre-fix",
+          hypothesisId: nginx413 ? "H2" : "H3",
+          location: "cms.js:extractMaterialRequest:error",
+          message: "extract-material failed",
+          data: {
+            status: res.status,
+            contentType: res.headers.get("content-type") || "",
+            nginx413,
+            server: res.headers.get("server") || "",
+            bodyPreview: String(text || "").slice(0, 240),
+          },
           timestamp: Date.now(),
         }),
       }).catch(() => {});
@@ -6877,6 +7271,12 @@ async function extractAiMaterial(options = {}) {
       videoUrl,
       language: getAiSpeakLangCode(),
       maxChars: options.forCourse || state.aiCourseMode ? 40000 : undefined,
+      onPrepareFile: (uploadFile) => {
+        if (statusEl && uploadFile.size > MATERIAL_IMAGE_TARGET_BYTES && isImageMaterialFile(uploadFile)) {
+          statusEl.hidden = false;
+          statusEl.textContent = cmsT("cms.ai.compressingFile", { name: uploadFile.name });
+        }
+      },
     });
 
     state.aiMaterialText = data.text || "";
@@ -7333,15 +7733,22 @@ async function publishAiExercises() {
 async function handleAiWizardNext() {
   if (state.aiWizardBusy) return;
   const errorEl = $("#cms-ai-error");
-  if (errorEl) setCmsError(errorEl, "");
   const step = state.aiWizardStep;
 
   if (step === 1) {
+    if (state.aiMaterialIngestBusy) {
+      setCmsError(errorEl, cmsT("cms.ai.fileStillPreparing"));
+      setAiUploadStatus(cmsT("cms.ai.fileStillPreparing"), { isError: true });
+      return;
+    }
     if (state.aiCourseMode) {
       if (!hasAiMaterialSource()) {
-        setCmsError(errorEl, "Add a document, paste text, or a video link first.");
+        if (!errorEl?.textContent?.trim()) {
+          setCmsError(errorEl, cmsT("cms.ai.needMaterialSource"));
+        }
         return;
       }
+      setCmsError(errorEl, "");
       resetAiGenProgress();
       setAiGenProgress(0, "Building outline…");
       setAiWizardBusy(true, "Building outline…");
@@ -7359,12 +7766,17 @@ async function handleAiWizardNext() {
       return;
     }
     if (!hasAiMaterialSource()) {
-      setCmsError(errorEl, "Add a document, paste text, or a video link first.");
+      if (!errorEl?.textContent?.trim()) {
+        setCmsError(errorEl, cmsT("cms.ai.needMaterialSource"));
+      }
       return;
     }
+    setCmsError(errorEl, "");
     setAiWizardStep(2);
     return;
   }
+
+  if (errorEl) setCmsError(errorEl, "");
 
   if (step === 2) {
     if (state.aiCourseMode) {
@@ -7993,6 +8405,7 @@ function defaultSection(title) {
     id: maxId + 1,
     title: title == null ? `Section ${state.sections.length + 1}` : title,
     banner: "",
+    introVideoUrl: "",
     order: maxOrder + 1,
     exercises: [],
   };
@@ -9777,7 +10190,64 @@ function renderSectionEditors() {
     sectionCard.querySelector(".cms-section-order").addEventListener("change", applySectionOrderFromDom);
     sectionCard.querySelector(".cms-section-banner-value").value = section.banner || "";
     updateSectionBannerPreview(sectionCard, section.banner || "");
+    updateSectionIntroVideoPreview(sectionCard, section.introVideoUrl || "");
 
+    sectionCard.querySelector(".cms-section-intro-upload")?.addEventListener("click", () => {
+      sectionCard.querySelector(".cms-section-intro-file")?.click();
+    });
+    sectionCard.querySelector(".cms-section-intro-url")?.addEventListener("input", (event) => {
+      updateSectionIntroVideoPreview(sectionCard, event.target.value);
+      if (state.sections[sectionIndex]) {
+        state.sections[sectionIndex].introVideoUrl = event.target.value.trim();
+      }
+      markCmsDirty();
+    });
+    sectionCard.querySelector(".cms-section-intro-file")?.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const statusEl = sectionCard.querySelector(".cms-section-intro-status");
+      if (statusEl) statusEl.textContent = "";
+      $("#cms-sections-error").textContent = "";
+
+      const sectionId = Number(sectionCard.dataset.sectionId);
+      if (!sectionId) {
+        if (statusEl) statusEl.textContent = cmsT("cms.sections.needId");
+        e.target.value = "";
+        return;
+      }
+
+      try {
+        if (statusEl) statusEl.textContent = cmsT("cms.details.uploadingVideo");
+        const data = await uploadSectionIntroVideoFile(sectionId, file);
+        const url = data.url || "";
+        updateSectionIntroVideoPreview(sectionCard, url);
+        if (state.sections[sectionIndex]) {
+          state.sections[sectionIndex].introVideoUrl = url;
+        }
+        if (statusEl) statusEl.textContent = cmsT("cms.details.introVideoUploaded");
+        markCmsDirty();
+      } catch (err) {
+        if (statusEl) statusEl.textContent = "";
+        $("#cms-sections-error").textContent = err.message;
+      } finally {
+        e.target.value = "";
+      }
+    });
+    sectionCard.querySelector(".cms-remove-section-intro")?.addEventListener("click", () => {
+      updateSectionIntroVideoPreview(sectionCard, "");
+      const statusEl = sectionCard.querySelector(".cms-section-intro-status");
+      if (statusEl) statusEl.textContent = "";
+      if (state.sections[sectionIndex]) {
+        state.sections[sectionIndex].introVideoUrl = "";
+      }
+      markCmsDirty();
+    });
+
+    sectionCard.querySelector(".cms-section-banner-preview-btn")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openSectionPathTilePreview(sectionCard);
+    });
     sectionCard.querySelector(".cms-section-banner-generate")?.addEventListener("click", () => {
       void generateSectionBannerForCard(sectionCard, sectionIndex);
     });
@@ -10033,6 +10503,7 @@ function buildSectionsPayload() {
     id: section.id,
     title: section.title || "",
     banner: section.banner || "",
+    introVideoUrl: section.introVideoUrl || "",
     order: sectionOrder + 1,
     exercises: (section.exercises || []).map((exercise, exerciseOrder) => ({
       ...exercise,
@@ -10373,33 +10844,16 @@ $("#btn-save-exercises").addEventListener("click", () => {
   }
   saveExercises();
 });
-$("#cms-ai-file")?.addEventListener("change", (event) => {
-  const added = addAiSelectedFiles(event.target.files);
-  event.target.value = "";
-  syncAiFileNameLabel();
-  const statusEl = $("#cms-ai-extract-status");
-  const files = getAiSelectedFiles();
-  if (statusEl && added) {
-    statusEl.hidden = false;
-    statusEl.textContent =
-      files.length === 1
-          ? `${files[0].name} selected. Use the button below to continue.`
-          : `${files.length} file(s) selected. Use the button below to continue.`;
-  }
+$("#cms-ai-file")?.addEventListener("change", async (event) => {
+  const incoming = Array.from(event.target.files || []);
   // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      runId: "multi-upload",
-      hypothesisId: "H2",
-      location: "cms.js:cms-ai-file-change",
-      message: "files added to selection",
-      data: { added, total: files.length },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"post-fix",hypothesisId:"H2",location:"cms.js:cms-ai-file-change",message:"file input change",data:{incoming:incoming.map((file)=>({name:file.name,size:file.size,type:file.type}))},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  event.target.value = "";
+  const added = await ingestAiSelectedFiles(incoming);
+  syncAiFileNameLabel();
+  // #region agent log
+  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"post-fix",hypothesisId:"H2",location:"cms.js:cms-ai-file-change",message:"files added to selection",data:{added,total:getAiSelectedFiles().length},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
 });
 $("#cms-ai-file-list")?.addEventListener("click", (event) => {
@@ -10428,19 +10882,10 @@ if (cmsAiFileDrop) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
   });
-  cmsAiFileDrop.addEventListener("drop", (event) => {
+  cmsAiFileDrop.addEventListener("drop", async (event) => {
     event.preventDefault();
-    const added = addAiSelectedFiles(event.dataTransfer?.files);
+    await ingestAiSelectedFiles(event.dataTransfer?.files);
     syncAiFileNameLabel();
-    const statusEl = $("#cms-ai-extract-status");
-    const files = getAiSelectedFiles();
-    if (statusEl && added) {
-      statusEl.hidden = false;
-      statusEl.textContent =
-        files.length === 1
-          ? `${files[0].name} selected. Use the button below to continue.`
-          : `${files.length} file(s) selected. Use the button below to continue.`;
-    }
   });
 }
 $("#cms-playlist-toolbar")?.addEventListener("click", (event) => {

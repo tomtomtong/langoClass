@@ -783,6 +783,13 @@
     </div>
   </div>
 
+  <div class="cms-ai-upload-overlay" id="cms-ai-upload-overlay" hidden aria-live="polite" aria-busy="true">
+    <div class="cms-ai-upload-overlay__card" role="status">
+      <div class="cms-ai-upload-overlay__spinner" aria-hidden="true"></div>
+      <p class="cms-ai-upload-overlay__label" id="cms-ai-upload-overlay-label" data-i18n="cms.ai.preparingFiles">Preparing files…</p>
+    </div>
+  </div>
+
   <div id="cms-toast" class="cms-toast cms-toast--success" role="status" aria-live="polite" aria-atomic="true" hidden>
     <span class="cms-toast-icon" aria-hidden="true">✓</span>
     <span class="cms-toast-message" id="cms-toast-message"></span>
@@ -862,11 +869,35 @@
 
   <template id="tpl-section-editor">
     <article class="cms-section-card">
+      <header class="cms-section-card-toolbar">
+        <span class="cms-drag-handle" title="Drag to reorder section" aria-label="Drag to reorder section" data-i18n="cms.sections.drag" data-i18n-attr="title,aria-label">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+            <circle cx="5" cy="4" r="1.25" fill="currentColor" />
+            <circle cx="11" cy="4" r="1.25" fill="currentColor" />
+            <circle cx="5" cy="8" r="1.25" fill="currentColor" />
+            <circle cx="11" cy="8" r="1.25" fill="currentColor" />
+            <circle cx="5" cy="12" r="1.25" fill="currentColor" />
+            <circle cx="11" cy="12" r="1.25" fill="currentColor" />
+          </svg>
+        </span>
+        <label class="cms-section-order-field" title="Display order">
+          <span class="cms-order-label">#</span>
+          <input type="number" class="cms-section-order" min="1" aria-label="Section display order" data-i18n="cms.sections.order" data-i18n-attr="aria-label" />
+        </label>
+        <input type="text" class="cms-section-title" placeholder="Section title" data-i18n="cms.sections.titlePlaceholder" data-i18n-attr="placeholder" />
+        <div class="cms-section-aside">
+          <button type="button" class="btn primary cms-manage-exercises" data-i18n="cms.sections.edit">Edit</button>
+          <button type="button" class="btn cms-danger cms-remove-section" data-i18n="cms.sections.remove">Remove section</button>
+        </div>
+      </header>
+      <div class="cms-section-card-content">
       <div class="cms-section-media">
         <span class="cms-section-cover-label" data-i18n="cms.sections.pathTile">Path tile</span>
         <div class="cms-section-cover">
           <div class="cms-section-thumbnail-preview" hidden>
-            <img class="cms-section-banner-img" alt="Section path tile" src="/assets/cms/cover-empty.svg" data-i18n="cms.sections.pathAlt" data-i18n-attr="alt" />
+            <button type="button" class="cms-section-banner-preview-btn" data-i18n="cms.sections.previewTile" data-i18n-attr="aria-label" aria-label="Preview path tile">
+              <img class="cms-section-banner-img" alt="Section path tile" src="/assets/cms/cover-empty.svg" data-i18n="cms.sections.pathAlt" data-i18n-attr="alt" />
+            </button>
           </div>
           <div class="cms-section-cover-empty cms-media-empty">
             <div class="cms-q-image-empty-art" aria-hidden="true"></div>
@@ -891,36 +922,36 @@
         <p class="hint cms-section-cover-hint" data-i18n="cms.sections.coverHint">Art for this level on the journey map.</p>
       </div>
       <div class="cms-section-body">
-        <header class="cms-section-card-head">
-          <span class="cms-drag-handle" title="Drag to reorder section" aria-label="Drag to reorder section" data-i18n="cms.sections.drag" data-i18n-attr="title,aria-label">
-            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
-              <circle cx="5" cy="4" r="1.25" fill="currentColor" />
-              <circle cx="11" cy="4" r="1.25" fill="currentColor" />
-              <circle cx="5" cy="8" r="1.25" fill="currentColor" />
-              <circle cx="11" cy="8" r="1.25" fill="currentColor" />
-              <circle cx="5" cy="12" r="1.25" fill="currentColor" />
-              <circle cx="11" cy="12" r="1.25" fill="currentColor" />
-            </svg>
-          </span>
-          <label class="cms-section-order-field" title="Display order">
-            <span class="cms-order-label">#</span>
-            <input type="number" class="cms-section-order" min="1" aria-label="Section display order" data-i18n="cms.sections.order" data-i18n-attr="aria-label" />
+        <section class="cms-section-panel cms-section-intro">
+          <div class="cms-section-panel-head">
+            <h3 class="cms-section-panel-title" data-i18n="cms.sections.introVideo">Opening video</h3>
+            <p class="hint cms-section-panel-lead" data-i18n="cms.sections.introVideoHint">Optional. Plays at the start of this section, before its questions.</p>
+          </div>
+          <label class="field cms-section-intro-url-field">
+            <span data-i18n="cms.details.introVideoUrl">Video URL</span>
+            <input type="url" class="cms-section-intro-url" placeholder="https://…" />
           </label>
-          <input type="text" class="cms-section-title" placeholder="Section title" data-i18n="cms.sections.titlePlaceholder" data-i18n-attr="placeholder" />
-        </header>
-        <footer class="cms-section-footer">
+          <div class="cms-intro-video-preview-wrap cms-section-intro-preview-wrap" hidden>
+            <video class="cms-intro-video-preview cms-section-intro-preview" controls playsinline preload="metadata"></video>
+          </div>
+          <div class="row cover-actions cms-section-intro-actions">
+            <button type="button" class="btn secondary small cms-section-intro-upload" data-i18n="cms.details.uploadVideo">Upload video</button>
+            <button type="button" class="btn secondary small cms-remove-section-intro" hidden data-i18n="cms.details.remove">Remove</button>
+          </div>
+          <input type="file" class="cms-section-intro-file" accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.webm,.mkv,.m4v,.avi" hidden />
+          <span class="hint cms-section-intro-file-hint" data-i18n="cms.details.introVideoFileHint">MP4, MOV, WebM · max 250 MB</span>
+          <p class="status-msg cms-section-intro-status"></p>
+        </section>
+        <footer class="cms-section-footer cms-section-panel cms-section-outline-panel">
           <div class="cms-section-outline-wrap">
             <div class="cms-section-meta-row">
-              <span class="hint cms-section-exercise-count"></span>
-              <span class="hint cms-section-duration-estimate" hidden></span>
+              <span class="cms-section-meta-pill cms-section-exercise-count"></span>
+              <span class="cms-section-meta-pill cms-section-duration-estimate" hidden></span>
             </div>
             <div class="cms-section-outline" aria-label="Exercises in this section" data-i18n="cms.sections.outline" data-i18n-attr="aria-label"></div>
           </div>
         </footer>
       </div>
-      <div class="cms-section-aside">
-        <button type="button" class="btn primary cms-manage-exercises" data-i18n="cms.sections.edit">Edit</button>
-        <button type="button" class="btn cms-danger cms-remove-section" data-i18n="cms.sections.remove">Remove section</button>
       </div>
     </article>
   </template>

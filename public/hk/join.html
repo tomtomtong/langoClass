@@ -33,7 +33,21 @@
 
       <div id="join-panel-room-name" hidden>
         <h2 data-i18n="join.classTitle">Join class</h2>
-        <p class="connection-status" data-i18n="join.enterNameToJoin">Enter your name to join the class.</p>
+        <p class="connection-status" data-i18n="join.enterNameToJoin">Enter the room code and your name.</p>
+        <label class="field">
+          <span data-i18n="join.roomCode">Room code</span>
+          <input
+            type="text"
+            id="join-room-code"
+            inputmode="numeric"
+            maxlength="7"
+            autocomplete="one-time-code"
+            enterkeyhint="next"
+            placeholder="123 456"
+            data-i18n="join.roomCodePlaceholder"
+            data-i18n-attr="placeholder"
+          />
+        </label>
         <label class="field">
           <span data-i18n="join.nickname">Nickname</span>
           <input
