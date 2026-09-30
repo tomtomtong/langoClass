@@ -857,6 +857,42 @@ function initQuizJoin() {
     setJoinWaitingStatus("status.getReady");
   });
 
+  socket.on("question_preview", (data) => {
+    currentQuestion = data;
+    if (data?.fastMode != null) quizFastMode = !!data.fastMode;
+    clearTimer();
+    resetPlayerMcqAnsweredState();
+    showScreen("player-question");
+
+    const screen = $("#screen-player-question");
+    screen?.classList.add("is-previewing");
+    $("#player-mcq-title").textContent = uiT("mcq.questionN", { n: data.questionIndex + 1 });
+    $("#player-q-meta").textContent = uiT("mcq.readQuestion");
+    setQuestionImage(
+      $("#player-question-image"),
+      $("#player-question-image-wrap"),
+      typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
+    );
+    $("#player-question-text").textContent = data.text || "";
+    $("#player-options").innerHTML = "";
+    $("#answer-feedback").textContent = uiT("mcq.getReadyAnswer");
+
+    animateMcqReadProgress(
+      $("#player-question-read-progress-fill"),
+      data.previewEndsAt,
+      data.previewSeconds || 5
+    );
+
+    startDeadlineTimer(
+      data.previewEndsAt,
+      data.previewSeconds || 5,
+      (remaining) => {
+        $("#timer-text").textContent = remaining;
+        $("#timer-ring").classList.toggle("urgent", remaining <= 1);
+      }
+    );
+  });
+
   socket.on("question_speaking", (data) => {
     currentQuestion = data;
     if (data?.fastMode != null) quizFastMode = !!data.fastMode;
@@ -884,6 +920,7 @@ function initQuizJoin() {
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
     $("#screen-player-question")?.classList.remove("is-previewing");
+    resetMcqReadProgress($("#player-question-read-progress-fill"));
     $("#player-q-meta").textContent = uiT("mcq.questionOf", { n: data.questionIndex + 1, total: data.totalQuestions });
     setQuestionImage(
       $("#player-question-image"),
@@ -917,7 +954,7 @@ function initQuizJoin() {
       },
       () => {
         $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
-        $("#answer-feedback").textContent = uiT("mcq.timesUp");
+        showPlayerMcqTimesUpIfUnanswered(myPlayerId, joinLastMcqResult?.leaderboard || []);
       }
     );
   });

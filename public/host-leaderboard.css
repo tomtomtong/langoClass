@@ -852,13 +852,18 @@
 }
 
 #app.lango-host #screen-host-quiz-results .host-mcq-result-title {
+  font-size: clamp(54px, 5.4vw, 68px);
+  letter-spacing: 0.045em;
+  line-height: 1.05;
   color: #fff;
   -webkit-text-fill-color: #fff;
-  -webkit-text-stroke: 0.06em #c9469a;
+  -webkit-text-stroke: 0.075em #ff6ec7;
   paint-order: stroke fill;
   text-shadow:
-    2px 3px 0 #743c9b,
-    0 0 10px rgba(177, 25, 128, 0.35);
+    0 4px 0 #743c9b,
+    0 7px 0 rgba(177, 25, 128, 0.55),
+    0 0 22px rgba(255, 190, 235, 0.65),
+    0 0 10px rgba(254, 202, 87, 0.4);
 }
 
 #app.lango-host #screen-host-quiz-results .host-mcq-correct-board-header h3 {
@@ -879,7 +884,29 @@
   transform-origin: initial;
 }
 
-#app.lango-host .host-mcq-result-footer,
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer {
+  position: absolute;
+  left: 36px;
+  right: auto;
+  top: auto;
+  bottom: 28px;
+  z-index: 8;
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 20px;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 #app.lango-host .host-fast-result-footer {
   position: absolute;
   left: 36px;
@@ -925,7 +952,28 @@
   cursor: pointer;
 }
 
-#app.lango-host .host-mcq-result-footer .host-mcq-footer-btn:not(.host-mcq-next-btn),
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer .host-mcq-footer-btn:not(.host-mcq-next-btn) {
+  color: #fff;
+  background: linear-gradient(180deg, #d8b4fe 0%, #a855f7 38%, #9333ea 72%, #7e22ce 100%);
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -5px 0 rgba(76, 29, 149, 0.42),
+    0 10px 0 #5b21b6,
+    0 16px 26px rgba(88, 28, 135, 0.38);
+  text-shadow: 0 2px 0 rgba(76, 29, 149, 0.45);
+}
+
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer .host-mcq-next-btn {
+  color: #fff;
+  background: linear-gradient(180deg, #ffe082 0%, #ffc947 40%, #ff9f43 78%, #f97316 100%);
+  box-shadow:
+    inset 0 4px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -6px 0 rgba(234, 88, 12, 0.38),
+    0 11px 0 #c2410c,
+    0 18px 30px rgba(249, 115, 22, 0.42);
+  text-shadow: 0 2px 0 rgba(194, 65, 12, 0.4);
+}
+
 #app.lango-host .host-fast-result-button--back,
 #app.lango-host .host-leaderboard__back {
   color: #4c1d95;
@@ -936,7 +984,6 @@
     0 10px 16px rgba(88, 28, 135, 0.16);
 }
 
-#app.lango-host .host-mcq-result-footer .host-mcq-next-btn,
 #app.lango-host .host-fast-result-button--next,
 #app.lango-host .host-leaderboard__next {
   color: #fff;
@@ -1060,7 +1107,17 @@
   animation: hostLeaderboardNextPulse 1.6s ease-in-out infinite;
 }
 
-#app.lango-host .host-mcq-result-footer .host-btn-face,
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer .host-btn-face {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  background: linear-gradient(180deg, #f3e8ff 0%, #c084fc 55%, #9333ea 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -3px 0 rgba(91, 33, 182, 0.35),
+    0 4px 0 rgba(91, 33, 182, 0.55);
+}
+
 #app.lango-host .host-fast-result-button .host-btn-face,
 #app.lango-host .host-leaderboard__back .host-btn-face {
   width: 36px;
@@ -1358,8 +1415,27 @@
   }
 }
 
-#app.lango-host .host-mcq-result-footer button.host-mcq-footer-btn,
-#app.lango-host .host-mcq-result-footer button.host-mcq-next-btn,
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer button.host-mcq-footer-btn,
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer button.host-mcq-next-btn {
+  min-height: 70px;
+  min-width: 210px;
+  padding: 6px 22px 4px;
+  font-size: 28px;
+}
+
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer .host-mcq-footer-btn:hover:not(:disabled),
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer .host-mcq-next-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  filter: brightness(1.06);
+}
+
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer .host-mcq-footer-btn:active:not(:disabled),
+#app.lango-host #screen-host-quiz-results .host-mcq-result-footer .host-mcq-next-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  filter: brightness(0.98);
+  transition-duration: 80ms;
+}
+
 #app.lango-host:has(#screen-section.active) button.course-toolbar-back,
 #app.lango-host button.course-toolbar-back {
   height: auto;

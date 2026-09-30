@@ -940,6 +940,12 @@ function setupRoomPlayerQuiz(socket) {
     $("#player-options").innerHTML = "";
     $("#answer-feedback").textContent = uiT("mcq.getReadyAnswer");
 
+    animateMcqReadProgress(
+      $("#player-question-read-progress-fill"),
+      data.previewEndsAt,
+      data.previewSeconds || 5
+    );
+
     startDeadlineTimer(
       data.previewEndsAt,
       data.previewSeconds || 5,
@@ -984,6 +990,7 @@ function setupRoomPlayerQuiz(socket) {
     resetPlayerMcqAnsweredState();
     showScreen("player-question");
     $("#screen-player-question")?.classList.remove("is-previewing");
+    resetMcqReadProgress($("#player-question-read-progress-fill"));
     $("#player-mcq-title").textContent = uiT("mcq.title");
     $("#player-q-meta").textContent =
       uiT("mcq.questionOf", { n: data.questionIndex + 1, total: data.totalQuestions });
@@ -1019,7 +1026,10 @@ function setupRoomPlayerQuiz(socket) {
       },
       () => {
         $("#player-options").querySelectorAll(".player-btn").forEach((b) => (b.disabled = true));
-        $("#answer-feedback").textContent = uiT("mcq.timesUp");
+        showPlayerMcqTimesUpIfUnanswered(
+          roomQuizPlayerId,
+          joinLastMcqResult?.leaderboard || []
+        );
       }
     );
   });
@@ -1169,6 +1179,15 @@ function showStudentBuzzinExercise(exercisePayload) {
 
 function startRoomExercise(roomId, displayName, userId, exercisePayload) {
   const exercise = exerciseFromSessionRecord(exercisePayload);
+  const branch = !exercise
+    ? "none"
+    : isLiveMcQuizExercise(exercise)
+      ? "mcq"
+      : isVideoExercise(exercise)
+        ? "video"
+        : isBuzzinExercise(exercise)
+          ? "buzzin"
+          : "unknown";
   if (!exercise) return;
   if (isLiveMcQuizExercise(exercise)) {
     connectRoomQuiz(roomId, displayName, userId);

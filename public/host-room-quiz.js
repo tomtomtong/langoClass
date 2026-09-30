@@ -4,7 +4,7 @@ let roomQuizCurrentQuestion = null;
 let roomQuizFastMode = false;
 
 const HOST_MCQ_OPTION_LABELS = ["A.", "B.", "C.", "D.", "E.", "F."];
-const HOST_MCQ_OPTION_COLORS = ["#15c4f8", "#45c937", "#f33b3d", "#eab308", "#a855f7", "#14b8a6"];
+const HOST_MCQ_OPTION_COLORS = LANGO_MCQ_OPTION_COLORS;
 
 const HOST_ELDERLY_OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
 
@@ -979,7 +979,8 @@ function getRoomQuizSocket() {
 function renderHostQuizPreview(data, { transition = true } = {}) {
   roomQuizCurrentQuestion = data;
   clearTimer();
-  showScreen("host-quiz-preview", { transition });
+  const activeBefore = document.querySelector(".screen.active")?.id || null;
+  const showPromise = showScreen("host-quiz-preview", { transition });
 
   const points = data.points || 300;
   const previewScreen = $("#screen-host-quiz-preview");
@@ -992,6 +993,25 @@ function renderHostQuizPreview(data, { transition = true } = {}) {
     $("#host-quiz-preview-image"),
     $("#host-quiz-preview-image-wrap"),
     questionImageUrl
+  );
+
+  const previewSeconds = data.previewSeconds || 5;
+  const previewScreenEl = $("#screen-host-quiz-preview");
+  previewScreenEl?.classList.add("is-read-phase");
+  const fillEl = $("#host-quiz-preview-progress");
+  const startPreviewBar = (phase) => {
+    animateMcqReadProgress(fillEl, data.previewEndsAt, previewSeconds, { drain: true });
+  };
+  Promise.resolve(showPromise).then(() => {
+    requestAnimationFrame(() => startPreviewBar("after-showScreen"));
+  });
+
+  startDeadlineTimer(
+    data.previewEndsAt,
+    previewSeconds,
+    (remaining) => {
+      /* Host preview uses the bar under the question; keep countdown off-screen. */
+    }
   );
 }
 
@@ -1028,6 +1048,8 @@ async function playHostQuestionTts(data) {
 }
 
 function renderHostQuizQuestion(data, { preparing = false, transition = true } = {}) {
+  $("#screen-host-quiz-preview")?.classList.remove("is-read-phase");
+  resetMcqReadProgress($("#host-quiz-preview-progress"));
   const screen = $("#screen-host-quiz-question");
   const isFastMode = !!data.fastMode;
   const questionText = data.text || "";
@@ -1057,52 +1079,6 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
     optionLabels: hostMcqOptionLabels(),
     kahootGrid: isHkElderlyVariant(),
   });
-  // #region agent log
-  if (isHkElderlyVariant()) {
-    requestAnimationFrame(() => {
-      const optionsEl = $("#host-quiz-options");
-      const firstOption = optionsEl?.querySelector(".option");
-      const lastOption = optionsEl?.querySelector('.option[data-index="3"]');
-      const mainEl = $("#screen-host-quiz-question .host-mcq-main");
-      const optionRect = firstOption?.getBoundingClientRect();
-      const lastOptionRect = lastOption?.getBoundingClientRect();
-      const mainRect = mainEl?.getBoundingClientRect();
-      const footerEl = $("#screen-host-quiz-question .host-mcq-footer");
-      const footerRect = footerEl?.getBoundingClientRect();
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-        body: JSON.stringify({
-          sessionId: "d0607f",
-          runId: "post-fix-centered",
-          hypothesisId: "H1-H6",
-          location: "host-room-quiz.js:renderHostQuizQuestion",
-          message: "Elderly MCQ layout metrics",
-          data: {
-            viewportHeight: window.innerHeight,
-            optionCount: optionsEl?.querySelectorAll(".option").length || 0,
-            optionHeight: optionRect?.height || 0,
-            lastOptionBottom: lastOptionRect?.bottom || 0,
-            mainBottom: mainRect?.bottom || 0,
-            mainCenterY: mainRect ? mainRect.top + mainRect.height / 2 : 0,
-            viewportCenterY: window.innerHeight / 2,
-            footerTop: footerRect?.top || 0,
-            footerOverlap: lastOptionRect && footerRect ? lastOptionRect.bottom > footerRect.top : null,
-            letterSize: firstOption?.querySelector(".option-index")
-              ? getComputedStyle(firstOption.querySelector(".option-index")).fontSize
-              : null,
-            optionsMaxHeight: optionsEl ? getComputedStyle(optionsEl).maxHeight : null,
-            optionsMinHeight: optionsEl ? getComputedStyle(optionsEl).minHeight : null,
-            imageMaxHeight: $("#host-quiz-question-image")
-              ? getComputedStyle($("#host-quiz-question-image")).maxHeight
-              : null,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    });
-  }
-  // #endregion
   $("#host-quiz-answered-count").textContent = preparing
     ? uiT("mcq.startingShortly")
     : isFastMode
@@ -2076,25 +2052,6 @@ function startHostRoomQuiz(roomId, exercise) {
   if (!quiz?.questions?.length) {
     return Promise.reject(new Error("No quiz questions in this exercise."));
   }
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      location: "host-room-quiz.js:startHostRoomQuiz",
-      message: "quiz payload for room game",
-      data: {
-        exerciseSpeakLangCode: exercise?.speakLangCode || null,
-        quizSpeakLangCode: quiz?.speakLangCode || null,
-        questionCount: quiz.questions.length,
-      },
-      timestamp: Date.now(),
-      hypothesisId: "H2",
-      runId: "speak-lang",
-    }),
-  }).catch(() => {});
-  // #endregion
 
   roomQuizFastMode = !!quiz.fastMode;
   const socket = getRoomQuizSocket();

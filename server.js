@@ -1461,28 +1461,6 @@ async function transcribeMaterialVideoBuffer(buffer, filename, language) {
     { filename }
   );
   buffer = compressed.buffer;
-  // #region agent log
-  try {
-    fs.appendFileSync(
-      path.join(__dirname, ".cursor/debug-a727e0.log"),
-      JSON.stringify({
-        sessionId: "a727e0",
-        runId: "video-compress",
-        hypothesisId: "VC1",
-        location: "server.js:transcribeMaterialVideoBuffer",
-        message: "video compressed for material",
-        data: {
-          filename,
-          originalBytes,
-          outputBytes: buffer.length,
-          compressed: compressed.compressed,
-          targetBytes: MATERIAL_VIDEO_TARGET_BYTES,
-        },
-        timestamp: Date.now(),
-      }) + "\n"
-    );
-  } catch {}
-  // #endregion
 
   const resolvedLanguage = normalizeBuzzinSttLanguage(language, getInworldSttLanguage());
   const saved = saveMaterialVideoUpload(buffer, filename);
@@ -2438,26 +2416,6 @@ async function prepareTextForGameplayTts(text, speakLangCode) {
     apiKey,
     model: getOpenRouterGenerateModel(),
   });
-  // #region agent log
-  try {
-    fs.appendFileSync(
-      path.join(__dirname, ".cursor", "debug-d0607f.log"),
-      `${JSON.stringify({
-        sessionId: "d0607f",
-        runId: "cantonese-tts-prep",
-        hypothesisId: "H2",
-        location: "server.js:prepareTextForGameplayTts",
-        message: "Cantonese TTS prep applied",
-        data: {
-          originalPreview: trimmed.slice(0, 80),
-          preppedPreview: String(prepped || "").slice(0, 80),
-          changed: prepped !== trimmed,
-        },
-        timestamp: Date.now(),
-      })}\n`
-    );
-  } catch {}
-  // #endregion
   return prepped || trimmed;
 }
 
@@ -2508,24 +2466,6 @@ async function speakQuestionThenOpen(game, questionIndex) {
     }
 
     const speakLangCode = resolveGameSpeakLangCode(game);
-    // #region agent log
-    debugSessionLog(
-      "server.js:speakQuestionThenOpen",
-      "question TTS language resolved",
-      {
-        pin: game.pin,
-        questionIndex,
-        speakLangCode,
-        ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
-        ttsModel: IS_HK_ELDERLY_VARIANT ? getOpenRouterTtsModel() : INWORLD_TTS_MODEL_ID,
-        quizSpeakLangCode: game.quiz?.speakLangCode || null,
-        exerciseSpeakLangCode: game.sessionContext?.speakLangCode || null,
-        bcp47: speakLangToBcp47(speakLangCode),
-        textPreview: String(question.text || "").slice(0, 80),
-      },
-      "H3"
-    );
-    // #endregion
     const tts = await resolveQuestionTts(question.text, speakLangCode);
     if (!stillSpeakingThisQuestion()) return;
 
@@ -2728,6 +2668,38 @@ function endQuestion(game) {
   });
 }
 
+function finishQuestionPreview(game) {
+  if (games.get(game.pin) !== game || game.status !== "preview") return;
+  clearQuestionTimer(game);
+  game.previewEndsAt = null;
+  openQuestionAnswering(game);
+}
+
+function startQuestionPreview(game) {
+  const questionIndex = game.currentQuestionIndex;
+  const question = game.quiz.questions[questionIndex];
+  if (!question) return;
+
+  game.status = "preview";
+  game.previewEndsAt = Date.now() + QUESTION_PREVIEW_SECONDS * 1000;
+  game.answers.clear();
+  game.questionStartedAt = null;
+
+  io.to(game.pin).emit("question_preview", {
+    questionIndex,
+    totalQuestions: game.quiz.questions.length,
+    text: question.text,
+    previewSeconds: QUESTION_PREVIEW_SECONDS,
+    previewEndsAt: game.previewEndsAt,
+    points: questionPointsForGame(game),
+    image: question.image || null,
+    fastMode: !!game.fastMode,
+  });
+
+  clearQuestionTimer(game);
+  game.questionTimer = setTimeout(() => finishQuestionPreview(game), QUESTION_PREVIEW_SECONDS * 1000);
+}
+
 function startQuestion(game) {
   const nextIndex = game.currentQuestionIndex + 1;
 
@@ -2754,14 +2726,19 @@ function startQuestion(game) {
   }
 
   game.currentQuestionIndex = nextIndex;
-  game.status = "speaking";
   game.answers.clear();
   game.questionStartedAt = null;
   game.previewEndsAt = null;
 
-  const question = game.quiz.questions[nextIndex];
-  io.to(game.pin).emit("question_speaking", questionSpeakingPayload(game, question));
-  void speakQuestionThenOpen(game, nextIndex);
+  if (game.fastMode) {
+    game.status = "speaking";
+    const question = game.quiz.questions[nextIndex];
+    io.to(game.pin).emit("question_speaking", questionSpeakingPayload(game, question));
+    void speakQuestionThenOpen(game, nextIndex);
+    return;
+  }
+
+  startQuestionPreview(game);
 }
 
 /** @type {Map<string, ReturnType<typeof setTimeout>>} */
@@ -4197,27 +4174,6 @@ function buildDashboardCourseProgress(course, progress, insightsContext = {}) {
 
 app.get("/api/cms/app-context", (_req, res) => {
   const speakLanguages = cmsSpeakLanguages.getCmsSpeakLanguages(APP_VARIANT);
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-    body: JSON.stringify({
-      sessionId: "d0607f",
-      runId: "pre-fix",
-      hypothesisId: "H1",
-      location: "server.js:app-context",
-      message: "CMS app-context served",
-      data: {
-        appVariant: APP_VARIANT || "",
-        isHkElderly: IS_HK_ELDERLY_VARIANT,
-        speakLanguageCount: speakLanguages.length,
-        ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
-        port: PORT,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   return res.json({
     appVariant: APP_VARIANT || "",
     speakLanguages,
@@ -5208,28 +5164,6 @@ async function extractUploadedMaterialFile(uploadedFile, { language, materialHin
     console.warn("material image extraction failed:", uploadedFile.originalname, imageErr.message);
   }
 
-  // #region agent log
-  if (materialExtract.isImageFormat(format)) {
-    try {
-      fs.appendFileSync(
-        path.join(__dirname, ".cursor/debug-365eeb.log"),
-        JSON.stringify({
-          sessionId: "365eeb",
-          location: "server.js:extractUploadedMaterialFile",
-          message: "image assets extracted",
-          data: {
-            filename: uploadedFile.originalname,
-            assetCount: imageAssets.length,
-            labels: imageAssets.map((asset) => asset.label),
-          },
-          timestamp: Date.now(),
-          hypothesisId: "IMG-CROP",
-          runId: "image-vision-crop",
-        }) + "\n"
-      );
-    } catch {}
-  }
-  // #endregion
 
   const source = videoMeta
     ? "video"
@@ -5272,27 +5206,6 @@ app.post("/api/cms/compress-material-video", async (req, res) => {
         MATERIAL_VIDEO_TARGET_BYTES,
         { filename: uploadedFile.originalname }
       );
-      // #region agent log
-      try {
-        fs.appendFileSync(
-          path.join(__dirname, ".cursor/debug-a727e0.log"),
-          JSON.stringify({
-            sessionId: "a727e0",
-            runId: "video-compress",
-            hypothesisId: "VC1",
-            location: "server.js:compress-material-video",
-            message: "video compressed for CMS ingest",
-            data: {
-              name: uploadedFile.originalname,
-              originalBytes,
-              outputBytes: compressed.buffer.length,
-              compressed: compressed.compressed,
-            },
-            timestamp: Date.now(),
-          }) + "\n"
-        );
-      } catch {}
-      // #endregion
 
       res.set("Content-Type", "video/mp4");
       res.set("X-Original-Bytes", String(originalBytes));
@@ -5310,47 +5223,12 @@ app.post("/api/cms/extract-material", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  // #region agent log
-  try {
-    fs.appendFileSync(
-      path.join(__dirname, ".cursor/debug-a727e0.log"),
-      JSON.stringify({
-        sessionId: "a727e0",
-        runId: "pre-fix",
-        hypothesisId: "H4",
-        location: "server.js:extract-material:entry",
-        message: "Node received extract-material (past nginx)",
-        data: {
-          contentLength: req.headers["content-length"] || null,
-          contentType: String(req.headers["content-type"] || "").slice(0, 80),
-        },
-        timestamp: Date.now(),
-      }) + "\n"
-    );
-  } catch {}
-  // #endregion
 
   materialUpload.fields([
     { name: "file", maxCount: 1 },
     { name: "files", maxCount: 20 },
   ])(req, res, async (uploadErr) => {
     if (uploadErr) {
-      // #region agent log
-      try {
-        fs.appendFileSync(
-          path.join(__dirname, ".cursor/debug-365eeb.log"),
-          JSON.stringify({
-            sessionId: "365eeb",
-            runId: "multi-upload",
-            hypothesisId: "H4",
-            location: "server.js:extract-material:uploadErr",
-            message: "multer upload rejected",
-            data: { error: uploadErr.message, code: uploadErr.code || null },
-            timestamp: Date.now(),
-          }) + "\n"
-        );
-      } catch {}
-      // #endregion
       const uploadMessage =
         uploadErr.code === "LIMIT_FILE_SIZE"
           ? `File is too large (max ${MATERIAL_VIDEO_MAX_BYTES / (1024 * 1024)} MB for video, ${MATERIAL_UPLOAD_MAX_BYTES / (1024 * 1024)} MB for other files). Large images are compressed automatically in the browser.`
@@ -5370,22 +5248,6 @@ app.post("/api/cms/extract-material", async (req, res) => {
         const maxChars =
           Number.isFinite(requestedMaxChars) && requestedMaxChars > 0 ? requestedMaxChars : undefined;
 
-        // #region agent log
-        try {
-          fs.appendFileSync(
-            path.join(__dirname, ".cursor/debug-365eeb.log"),
-            JSON.stringify({
-              sessionId: "365eeb",
-              runId: "multi-upload",
-              hypothesisId: "H3",
-              location: "server.js:extract-material",
-              message: "processing uploads",
-              data: { count: uploads.length, names: uploads.map((file) => file.originalname) },
-              timestamp: Date.now(),
-            }) + "\n"
-          );
-        } catch {}
-        // #endregion
 
         const extracted = [];
         let lastVideoMeta = null;
@@ -5426,29 +5288,6 @@ app.post("/api/cms/extract-material", async (req, res) => {
           usedVisionOcr: extractionMethods.some((method) => method === "pdf-ocr"),
         };
 
-        // #region agent log
-        try {
-          fs.appendFileSync(
-            path.join(__dirname, ".cursor", "debug-d0607f.log"),
-            `${JSON.stringify({
-              sessionId: "d0607f",
-              runId: "extract-material",
-              hypothesisId: "H1-H3",
-              location: "server.js:extract-material:success",
-              message: "Material extracted",
-              data: {
-                fileCount: extracted.length,
-                filenames,
-                extractionMeta,
-                charCount: truncateResult.text.length,
-                hasOpenRouterKey: Boolean(getOpenRouterApiKey()),
-                visionModel: getOpenRouterVisionModel(),
-              },
-              timestamp: Date.now(),
-            })}\n`
-          );
-        } catch {}
-        // #endregion
 
         writeAppLog("ai", "extract_material_ok", "Material extracted", {
           teacherId: auth.teacherId,
@@ -5554,26 +5393,6 @@ app.post("/api/cms/extract-material", async (req, res) => {
         { teacherId: auth.teacherId },
         "error"
       );
-      // #region agent log
-      try {
-        fs.appendFileSync(
-          path.join(__dirname, ".cursor", "debug-d0607f.log"),
-          `${JSON.stringify({
-            sessionId: "d0607f",
-            runId: "extract-material",
-            hypothesisId: "H1-H3",
-            location: "server.js:extract-material:error",
-            message: "Material extraction failed",
-            data: {
-              error: err?.message || String(err),
-              hasOpenRouterKey: Boolean(getOpenRouterApiKey()),
-              visionModel: getOpenRouterVisionModel(),
-            },
-            timestamp: Date.now(),
-          })}\n`
-        );
-      } catch {}
-      // #endregion
       const status = materialExtractHttpStatus(err);
       return res.status(status).json({
         message: err.message || "Material extraction failed.",
@@ -5623,31 +5442,6 @@ app.post("/api/cms/prefetch-question-tts", async (req, res) => {
       const tts = await resolveGameplayTts(item.text, item.speakLangCode, item.purpose, {
         skipCache: item.force,
       });
-      // #region agent log
-      if (item.force) {
-        try {
-          fs.appendFileSync(
-            path.join(__dirname, ".cursor", "debug-d0607f.log"),
-            `${JSON.stringify({
-              sessionId: "d0607f",
-              runId: "tts-regen",
-              hypothesisId: "H-REGEN",
-              location: "server.js:prefetch-question-tts:force",
-              message: "Forced TTS regen",
-              data: {
-                key: item.key,
-                deletedCache,
-                cacheKey: tts.cacheKey,
-                cached: !!tts.cached,
-                speakLangCode: item.speakLangCode,
-                textPreview: item.text.slice(0, 60),
-              },
-              timestamp: Date.now(),
-            })}\n`
-          );
-        } catch {}
-      }
-      // #endregion
       results.push({
         key: item.key,
         ok: true,
@@ -5865,28 +5659,6 @@ app.post("/api/cms/revise-exercises", async (req, res) => {
       },
       openRouterGenerateComplete
     );
-    // #region agent log
-    try {
-      fs.appendFileSync(
-        path.join(__dirname, ".cursor", "debug-d0607f.log"),
-        `${JSON.stringify({
-          sessionId: "d0607f",
-          runId: "regen-q",
-          hypothesisId: "H-REGEN",
-          location: "server.js:revise-exercises",
-          message: "Revision complete",
-          data: {
-            revisionPreview: revision.slice(0, 120),
-            questionNumber: questionNumber || null,
-            revisionMode: result.revisionMode || null,
-            stats: result.stats || null,
-            summary: result.summary || null,
-          },
-          timestamp: Date.now(),
-        })}\n`
-      );
-    } catch {}
-    // #endregion
 
     const model = String(req.body?.model || getOpenRouterGenerateModel()).trim();
     const { exercises: resolvedExercises, autoImageStats } = await finalizeExerciseImages(
@@ -7840,26 +7612,6 @@ io.on("connection", (socket) => {
 server.listen(PORT, "0.0.0.0", () => {
   const base = `http://localhost:${PORT}`;
   const networkBase = `http://${getLocalIPv4()[0] || "localhost"}:${PORT}`;
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-    body: JSON.stringify({
-      sessionId: "d0607f",
-      runId: "pre-fix",
-      hypothesisId: "H1-H5",
-      location: "server.js:listen",
-      message: "Server started",
-      data: {
-        port: PORT,
-        appVariant: APP_VARIANT || "",
-        isHkElderly: IS_HK_ELDERLY_VARIANT,
-        speakLanguageCount: cmsSpeakLanguages.getCmsSpeakLanguages(APP_VARIANT).length,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   console.log(`QuizLive running at ${base}`);
   if (IS_HK_ELDERLY_VARIANT) {
     console.log(`  Variant: hk-elderly`);

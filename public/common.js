@@ -1,6 +1,8 @@
 const OPTION_LABELS = ["▲", "◆", "●", "■", "★", "⬡"];
 /** Kahoot answer colors: red triangle, blue diamond, yellow circle, green square */
 const KAHOOT_OPTION_COLORS = ["#e21b3c", "#1368ce", "#d89e00", "#26890c", "#662c91", "#104039"];
+/** LangoClass MCQ choice buttons (A–D): pink, yellow, purple, teal */
+const LANGO_MCQ_OPTION_COLORS = ["#E838A8", "#FFE566", "#5C3A9E", "#45E0E8", "#c02888", "#28c4cc"];
 
 function isHkElderlyVariant() {
   return window.LANGO_VARIANT === "hk-elderly";
@@ -213,21 +215,6 @@ function showScreen(id, { transition = true } = {}) {
     typeof isHkElderlyVariant === "function" && isHkElderlyVariant();
 
   if (calmHost) {
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        runId: "elderly-transition",
-        hypothesisId: "H-portal",
-        location: "common.js:showScreen",
-        message: "elderly calm screen switch (no portal)",
-        data: { screenId: id, requestedTransition: transition },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     cancelScreenTransition();
     activateScreen(id);
     return Promise.resolve();
@@ -844,6 +831,23 @@ function setPlayerResultIcon(kind) {
   icon.textContent = "⏰";
 }
 
+function playerMcqQuestionUnanswered() {
+  const screen = $("#screen-player-question");
+  if (!screen?.classList.contains("active")) return false;
+  if (screen.classList.contains("is-answered")) return false;
+  return true;
+}
+
+function showPlayerMcqTimesUpIfUnanswered(playerId, leaderboard = []) {
+  if (!playerId || !playerMcqQuestionUnanswered()) return;
+  showScreen("player-results");
+  renderPlayerMcqResult(
+    { correct: false, points: 0, answerIndex: null },
+    leaderboard,
+    playerId
+  );
+}
+
 function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
   const screen = $("#screen-player-results");
   const msg = $("#player-result-msg");
@@ -919,6 +923,45 @@ function showPlayerMcqAnsweredState(answerIndex) {
     button.disabled = true;
     button.classList.toggle("selected", index === answerIndex);
   });
+}
+
+function animateMcqReadProgress(fillEl, endsAt, fallbackSeconds = 5, { drain = true } = {}) {
+  if (!fillEl) {
+    return;
+  }
+  const track = fillEl.parentElement;
+  if (track) {
+    track.hidden = false;
+    track.removeAttribute("hidden");
+    track.setAttribute("aria-hidden", "false");
+  }
+  const deadline = Number(endsAt) || Date.now() + fallbackSeconds * 1000;
+  const ms = Math.max(400, deadline - Date.now());
+  const previewActive = document.querySelector("#screen-host-quiz-preview")?.classList.contains("active");
+  const playerPreview = document.querySelector("#screen-player-question")?.classList.contains("is-previewing");
+
+  fillEl.style.animation = "none";
+  fillEl.style.transition = "none";
+  fillEl.style.width = drain ? "100%" : "0%";
+  void fillEl.offsetWidth;
+  fillEl.style.transition = `width ${ms}ms linear`;
+  fillEl.style.width = drain ? "0%" : "100%";
+
+  if (track) {
+    track.style.setProperty("--read-ms", `${ms}ms`);
+  }
+
+}
+
+function resetMcqReadProgress(fillEl) {
+  if (!fillEl) return;
+  const track = fillEl.parentElement;
+  fillEl.style.transition = "none";
+  fillEl.style.width = "0%";
+  if (track) {
+    track.hidden = true;
+    track.setAttribute("aria-hidden", "true");
+  }
 }
 
 function startDeadlineTimer(endsAt, fallbackSeconds, onTick, onEnd) {

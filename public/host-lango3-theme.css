@@ -245,6 +245,19 @@ body:not(.hk-elderly) #app.lango-host .class-screen .class-card-go {
   text-shadow: none;
 }
 
+body:not(.hk-elderly) #app.lango-host .class-screen .class-sections,
+body:not(.hk-elderly) #app.lango-host .class-screen .class-grid {
+  max-width: min(1280px, 94vw);
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+body:not(.hk-elderly) #app.lango-host .class-screen .class-card-inner {
+  min-height: 200px;
+}
+
 /* Course picker cards — white tiles, subtle border */
 body:not(.hk-elderly) #app.lango-host .course-pick-card,
 body:not(.hk-elderly) #app.lango-host .course-pick-card.active {
