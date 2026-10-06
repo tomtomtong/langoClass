@@ -1045,25 +1045,33 @@ function resolvedMediaUrl(url) {
   return mediaBlobCache.get(u) || u;
 }
 
-function collectExerciseMediaUrls(exercises) {
+function collectExerciseMediaUrls(exercises, { includeVideos = true, videoExerciseIds = null } = {}) {
   const urls = new Set();
   if (!Array.isArray(exercises)) return [];
 
+  const allowVideo = (exercise) => {
+    if (!includeVideos) return false;
+    if (!videoExerciseIds) return true;
+    return videoExerciseIds.has(exercise?.id);
+  };
+
   for (const exercise of exercises) {
     if (isVideoExercise(exercise)) {
-      const video = videoUrlFromExercise(exercise);
-      if (video) urls.add(String(video).trim());
-    }
-    if (isLiveMcQuizExercise(exercise)) {
-      for (const item of exercise.items || []) {
-        const image = String(item.image || item.imageUrl || "").trim();
-        if (image) urls.add(image);
+      if (allowVideo(exercise)) {
+        const video = videoUrlFromExercise(exercise);
+        if (video) urls.add(String(video).trim());
+      }
+      for (const track of captionTracksFromExercise(exercise) || []) {
+        const caption = String(track?.url || "").trim();
+        if (caption) urls.add(caption);
       }
     }
-    if (isBuzzinExercise(exercise)) {
-      for (const item of exercise.items || []) {
-        const image = String(item.image || item.imageUrl || "").trim();
-        if (image) urls.add(image);
+    for (const item of exercise.items || []) {
+      const image = String(item.image || item.imageUrl || "").trim();
+      if (image) urls.add(image);
+      for (const option of item.options || []) {
+        const optionImage = String(option.image || option.imageUrl || "").trim();
+        if (optionImage) urls.add(optionImage);
       }
     }
   }
@@ -1101,14 +1109,41 @@ async function preloadMediaUrl(url) {
   }
 }
 
-async function preloadExerciseMedia(exercises, { onProgress } = {}) {
-  const urls = collectExerciseMediaUrls(exercises);
+async function preloadExerciseMedia(exercises, { onProgress, parallel = false, includeVideos, videoExerciseIds } = {}) {
+  const urls = collectExerciseMediaUrls(exercises, { includeVideos, videoExerciseIds });
   let done = 0;
-  for (const url of urls) {
-    await preloadMediaUrl(url);
+  const markDone = () => {
     done += 1;
     onProgress?.(done, urls.length);
+  };
+  if (parallel) {
+    await Promise.all(
+      urls.map(async (url) => {
+        await preloadMediaUrl(url);
+        markDone();
+      })
+    );
+    return;
   }
+  for (const url of urls) {
+    await preloadMediaUrl(url);
+    markDone();
+  }
+}
+
+function scheduleStudentMediaPreload({ exercise, preloadExercises } = {}) {
+  const current = typeof exerciseFromSessionRecord === "function"
+    ? exerciseFromSessionRecord(exercise)
+    : exercise;
+  const extras = (preloadExercises || [])
+    .map((entry) =>
+      typeof exerciseFromSessionRecord === "function" ? exerciseFromSessionRecord(entry) : entry
+    )
+    .filter(Boolean);
+  const list = extras.length ? extras : current ? [current] : [];
+  if (!list.length) return;
+  const videoIds = current?.id != null ? new Set([current.id]) : null;
+  void preloadExerciseMedia(list, { parallel: true, videoExerciseIds: videoIds }).catch(() => {});
 }
 
 /** Normalize exercise from CMS or legacy session payload. */

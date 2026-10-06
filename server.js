@@ -2908,6 +2908,18 @@ function normalizeRoomId(roomId) {
   return id.length === 6 ? id : null;
 }
 
+function sessionPreloadPayload(session) {
+  return {
+    exercise: session?.exercise || null,
+    preloadExercises: sessionStore.collectSessionPreloadExercises(session),
+  };
+}
+
+function emitSessionMediaPreload(session) {
+  if (!session?.roomId) return;
+  io.to(session.roomId).emit("session_media_preload", sessionPreloadPayload(session));
+}
+
 function broadcastSessionLobby(session) {
   io.to(session.roomId).emit("session_lobby_update", {
     roomId: session.roomId,
@@ -6695,12 +6707,15 @@ io.on("connection", (socket) => {
       displayName: name,
       sessionStatus: session.status,
       uiLocale: session.uiLocale || "en",
+      ...sessionPreloadPayload(session),
     });
 
     broadcastSessionLobby(session);
 
     if (session.status === "start") {
-      socket.emit("session_started", { exercise: session.exercise });
+      socket.emit("session_started", sessionPreloadPayload(session));
+    } else if (session.exercise || session.coursePreload) {
+      socket.emit("session_media_preload", sessionPreloadPayload(session));
     }
   });
 
@@ -6738,7 +6753,7 @@ io.on("connection", (socket) => {
       });
     }
 
-    io.to(pin).emit("session_started", { exercise: session.exercise });
+    io.to(pin).emit("session_started", sessionPreloadPayload(session));
     broadcastSessionLobby(session);
 
     callback?.({
@@ -6767,6 +6782,8 @@ io.on("connection", (socket) => {
       callback?.({ ok: false, error: "Select a valid exercise." });
       return;
     }
+
+    emitSessionMediaPreload(session);
 
     callback?.({
       ok: true,
@@ -7278,6 +7295,7 @@ io.on("connection", (socket) => {
     if (game) {
       clearQuestionTimer(game);
       games.delete(pin);
+      io.to(pin).emit("room_quiz_cleared");
     }
     clearBuzzInRound(pin);
     sessionStore.waitSession(session);
@@ -7314,6 +7332,7 @@ io.on("connection", (socket) => {
     if (activeGame) {
       clearQuestionTimer(activeGame);
       games.delete(pin);
+      io.to(pin).emit("room_quiz_cleared");
     }
     clearBuzzInRound(pin);
 
@@ -7321,7 +7340,7 @@ io.on("connection", (socket) => {
       sessionStore.startSession(session);
     }
 
-    io.to(pin).emit("session_started", { exercise: session.exercise });
+    io.to(pin).emit("session_started", sessionPreloadPayload(session));
     broadcastSessionLobby(session);
 
     callback?.({

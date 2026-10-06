@@ -758,6 +758,36 @@ function updateStudentBuzzinUi(payload) {
   hideStudentBuzzinWatchingPrompt();
 }
 
+function leaveStudentLiveQuizUi() {
+  if (typeof clearTimer === "function") clearTimer();
+  if (typeof resetPlayerMcqAnsweredState === "function") resetPlayerMcqAnsweredState();
+  if (typeof resetMcqReadProgress === "function") {
+    resetMcqReadProgress($("#player-question-read-progress-fill"));
+  }
+  if (typeof cancelScreenTransition === "function") cancelScreenTransition();
+}
+
+function revealStudentScreen(id) {
+  if (typeof showScreen !== "function") return;
+  showScreen(id, { transition: false });
+}
+
+function isStudentOnNextExerciseScreen() {
+  return Boolean(
+    $("#screen-room-buzzin")?.classList.contains("active") ||
+      $("#screen-room-passive-waiting")?.classList.contains("active")
+  );
+}
+
+function openStudentBuzzinScreen(payload) {
+  leaveStudentLiveQuizUi();
+  if (payload?.topic) {
+    const topicEl = $("#room-buzzin-topic");
+    if (topicEl) topicEl.textContent = payload.topic;
+  }
+  revealStudentScreen("room-buzzin");
+}
+
 function resetStudentBuzzinUi() {
   roomBuzzinRoundId = null;
   roomBuzzinSubmitInFlight = false;
@@ -789,6 +819,7 @@ function ensureRoomBuzzinSocket() {
   socket.on("buzzin_round_started", (payload) => {
     resetStudentBuzzinUi();
     roomBuzzinRoundId = payload.roundId;
+    openStudentBuzzinScreen(payload);
     updateStudentBuzzinUi(payload);
   });
 
@@ -1095,6 +1126,14 @@ function setupRoomPlayerQuiz(socket) {
     if (playBtn) playBtn.hidden = true;
   });
 
+  socket.on("room_quiz_cleared", () => {
+    leaveStudentLiveQuizUi();
+    if ($("#screen-player-question")?.classList.contains("active")) {
+      revealStudentScreen("room-waiting");
+      if (typeof setJoinWaitingStatus === "function") setJoinWaitingStatus("status.getReady");
+    }
+  });
+
   socket.on("game_ended", () => {
     clearTimer();
     if (typeof showClassEnded === "function") {
@@ -1149,6 +1188,7 @@ function tryJoinRoomQuiz(roomId, displayName, userId) {
 function showStudentVideoExercise(exercisePayload) {
   stopRoomStatusPoll();
   stopRoomQuizJoinRetry();
+  leaveStudentLiveQuizUi();
 
   const exercise = exerciseFromSessionRecord(exercisePayload);
   const title = exercise?.title || uiT("join.watchTitle");
@@ -1160,36 +1200,35 @@ function showStudentVideoExercise(exercisePayload) {
     else delete titleEl.dataset.customTitle;
   }
   $("#room-passive-waiting-status").textContent = uiT("join.watchStatus");
-  showScreen("room-passive-waiting");
+  revealStudentScreen("room-passive-waiting");
 }
 
 function showStudentBuzzinExercise(exercisePayload) {
   stopRoomStatusPoll();
   stopRoomQuizJoinRetry();
+  leaveStudentLiveQuizUi();
 
   const exercise = exerciseFromSessionRecord(exercisePayload);
   const buzzin = buzzinFromExercise(exercise);
-  if (!buzzin) return;
-
-  $("#room-buzzin-topic").textContent = buzzin.topic;
+  const topicEl = $("#room-buzzin-topic");
+  if (topicEl) topicEl.textContent = buzzin?.topic || exercise?.title || "";
   resetStudentBuzzinUi();
-  showScreen("room-buzzin");
+  revealStudentScreen("room-buzzin");
   startStudentBuzzinRound(roomParticipant?.roomId);
 }
 
 function startRoomExercise(roomId, displayName, userId, exercisePayload) {
   const exercise = exerciseFromSessionRecord(exercisePayload);
-  const branch = !exercise
-    ? "none"
-    : isLiveMcQuizExercise(exercise)
-      ? "mcq"
-      : isVideoExercise(exercise)
-        ? "video"
-        : isBuzzinExercise(exercise)
-          ? "buzzin"
-          : "unknown";
   if (!exercise) return;
+  if (typeof scheduleStudentMediaPreload === "function") {
+    scheduleStudentMediaPreload({ exercise: exercisePayload });
+  }
+  leaveStudentLiveQuizUi();
   if (isLiveMcQuizExercise(exercise)) {
+    if ($("#screen-player-question")?.classList.contains("active")) {
+      revealStudentScreen("room-waiting");
+      if (typeof setJoinWaitingStatus === "function") setJoinWaitingStatus("status.getReady");
+    }
     connectRoomQuiz(roomId, displayName, userId);
     return;
   }

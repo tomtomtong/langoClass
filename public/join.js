@@ -58,6 +58,7 @@ function clearStoredParticipant() {
 }
 
 let roomSessionSocket = null;
+let studentExerciseEpoch = 0;
 let joinSessionLocale = "en";
 const FAST_RESULT_OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
 let joinWaitingStatusKey = "join.waitingStatus";
@@ -327,7 +328,7 @@ function showPlayerPassiveWaiting({
     else delete titleEl.dataset.customTitle;
   }
   if (statusEl) statusEl.textContent = message;
-  showScreen("room-passive-waiting");
+  showScreen("room-passive-waiting", { transition: false });
 }
 
 function answerHistoryForPlayer(answerHistory, playerId) {
@@ -432,10 +433,21 @@ function getRoomSessionSocket() {
       if (data?.uiLocale) applyJoinUiLocale(data.uiLocale);
     });
 
-    roomSessionSocket.on("session_started", ({ exercise }) => {
+    roomSessionSocket.on("session_media_preload", (payload) => {
+      if (typeof scheduleStudentMediaPreload === "function") {
+        scheduleStudentMediaPreload(payload);
+      }
+    });
+
+    roomSessionSocket.on("session_started", ({ exercise, preloadExercises } = {}) => {
       if (!roomParticipant) return;
+      studentExerciseEpoch += 1;
       window.roomFastQuizCompleted = false;
       setJoinWaitingStatus("join.classStarting");
+      if (typeof ensureRoomBuzzinSocket === "function") ensureRoomBuzzinSocket();
+      if (typeof scheduleStudentMediaPreload === "function") {
+        scheduleStudentMediaPreload({ exercise, preloadExercises });
+      }
       startRoomExercise(
         roomParticipant.roomId,
         roomParticipant.displayName,
@@ -450,9 +462,15 @@ function getRoomSessionSocket() {
 
     roomSessionSocket.on("room_exercise_wrap_up", (payload) => {
       if (!roomParticipant) return;
+      const epochAtStart = studentExerciseEpoch;
+      if (typeof leaveStudentLiveQuizUi === "function") leaveStudentLiveQuizUi();
+      if (typeof isStudentOnNextExerciseScreen === "function" && isStudentOnNextExerciseScreen()) {
+        return;
+      }
 
       if (window.roomFastQuizCompleted) {
         if ($("#screen-player-fast-results")?.classList.contains("active")) return;
+        if (studentExerciseEpoch !== epochAtStart) return;
         showPlayerPassiveWaiting();
         return;
       }
@@ -461,8 +479,10 @@ function getRoomSessionSocket() {
         (payload?.exerciseLeaderboard || []).length > 0 ||
         (payload?.semesterLeaderboard || []).length > 0;
 
+      if (studentExerciseEpoch !== epochAtStart) return;
+
       if (hasScores) {
-        showScreen("player-finished");
+        showScreen("player-finished", { transition: false });
         joinLastLeaderboard = {
           exerciseLeaderboard: payload.exerciseLeaderboard,
           semesterLeaderboard: payload.semesterLeaderboard,
@@ -479,7 +499,7 @@ function getRoomSessionSocket() {
       }
 
       setJoinWaitingStatus("join.inClassWaiting");
-      showScreen("room-waiting");
+      showScreen("room-waiting", { transition: false });
     });
   }
   return roomSessionSocket;
@@ -692,10 +712,14 @@ function doJoinRoom(roomId, displayNameOverride) {
         saveStoredParticipant(participant);
         roomParticipant = participant;
         rememberJoinDisplayName(participant.displayName);
+        if (typeof ensureRoomBuzzinSocket === "function") ensureRoomBuzzinSocket();
         clearJoinEndedState();
         setEndedSubmitBusy(false);
 
         if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
+        if (typeof scheduleStudentMediaPreload === "function") {
+          scheduleStudentMediaPreload(data);
+        }
 
         setJoinWaitingStatus(
           data.sessionStatus === "start" ? "join.classStarting" : "join.inClassWaiting"
@@ -757,6 +781,9 @@ function doJoinRoom(roomId, displayNameOverride) {
             roomParticipant = participant;
             rememberJoinDisplayName(participant.displayName);
             if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
+            if (typeof scheduleStudentMediaPreload === "function") {
+              scheduleStudentMediaPreload(data);
+            }
             setJoinWaitingStatus(
               data.sessionStatus === "start" ? "join.classStarting" : "join.inClassWaiting"
             );
