@@ -2666,6 +2666,13 @@ function endQuestion(game) {
     results,
     leaderboard: getLeaderboard(game),
   });
+  game.lastQuestionResults = {
+    questionIndex: game.currentQuestionIndex,
+    correctIndex: question.correctIndex,
+    answerCounts,
+    results,
+    leaderboard: getLeaderboard(game),
+  };
 }
 
 function finishQuestionPreview(game) {
@@ -7556,6 +7563,8 @@ io.on("connection", (socket) => {
 
     if (game.status === "lobby") {
       broadcastLobby(game);
+    } else if (game.status === "results" && game.lastQuestionResults) {
+      socket.emit("question_results", game.lastQuestionResults);
     } else if (
       game.status === "preview" ||
       game.status === "speaking" ||

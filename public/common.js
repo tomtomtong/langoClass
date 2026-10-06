@@ -869,7 +869,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg correct";
     setPlayerResultIcon("tick");
-    points.textContent = uiT("leaderboard.pts", { n: mine?.points || 0 });
+    points.textContent = uiT("mcq.pts", { n: isCorrect ? mine?.points || 0 : 0 });
     points.dataset.text = points.textContent;
     encouragement.textContent = uiT("mcq.encourageKeepGoing");
     encouragement.dataset.text = encouragement.textContent;
@@ -878,7 +878,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
     setPlayerResultIcon("cross");
-    points.textContent = uiT("leaderboard.pts", { n: 0 });
+    points.textContent = uiT("mcq.pts", { n: 0 });
     points.dataset.text = points.textContent;
     encouragement.textContent = uiT("mcq.encourageNextTime");
     encouragement.dataset.text = encouragement.textContent;
@@ -887,7 +887,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
     msg.dataset.text = msg.textContent;
     msg.className = "result-msg wrong";
     setPlayerResultIcon("timesup");
-    points.textContent = uiT("leaderboard.pts", { n: 0 });
+    points.textContent = uiT("mcq.pts", { n: 0 });
     points.dataset.text = points.textContent;
     encouragement.textContent = uiT("mcq.encourageTryNext");
     encouragement.dataset.text = encouragement.textContent;
