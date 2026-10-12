@@ -1508,47 +1508,63 @@ async function renderWaitingRoomQr(roomId) {
   wrap.hidden = false;
 }
 
-async function renderRoomJoinLinks(roomId) {
-  const wrap = $("#waiting-join-links-wrap");
-  const list = $("#waiting-join-links");
-  if (!wrap || !list || !roomId) {
-    if (wrap) wrap.hidden = true;
-    return;
-  }
-
-  const links = [];
-  const path = `${langoJoinPagePath()}?room=${encodeURIComponent(roomId)}`;
-  links.push({ label: "This device", url: `${window.location.origin}${path}` });
-
-  const host = window.location.hostname;
-  const isLocal = host === "localhost" || host === "127.0.0.1";
-
+async function resolvePublicJoinBaseUrl() {
+  let base = window.location.origin.replace(/\/$/, "");
   try {
     const res = await fetch("/api/network-urls");
-    const { port, addresses, publicBaseUrl } = await res.json();
-    if (isLocal && addresses?.length) {
-      for (const ip of addresses) {
-        links.push({
-          label: `Phone on Wi‑Fi (${ip})`,
-          url: `http://${ip}:${port}${path}`,
-        });
-      }
-    } else if (publicBaseUrl) {
-      links.push({
-        label: "Student join link",
-        url: `${publicBaseUrl.replace(/\/$/, "")}${path}`,
-      });
-    }
+    const { publicBaseUrl } = await res.json();
+    if (publicBaseUrl) base = String(publicBaseUrl).replace(/\/$/, "");
   } catch {
     /* ignore */
   }
+  return base;
+}
 
-  list.innerHTML = links
-    .map(
-      (l) =>
-        `<li><span class="link-label">${escapeHtml(l.label)}</span><a href="${escapeHtml(l.url)}">${escapeHtml(l.url)}</a></li>`
-    )
+async function renderStudentJoinLinks(_roomId) {
+  const wrap = $("#waiting-student-links-wrap");
+  const list = $("#waiting-student-links");
+  if (!wrap || !list) return;
+
+  const roster = getWaitingClassRoster();
+  if (!roster.length) {
+    wrap.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+
+  const publicBase = await resolvePublicJoinBaseUrl();
+  list.innerHTML = roster
+    .map((student) => {
+      const studentId = studentJoinIdentifier(student);
+      if (!studentId) return "";
+      const name = studentDisplayName(student);
+      const url = studentJoinUrl(publicBase, { studentId, name });
+      const codeLabel = student.studentCode ? ` · ${student.studentCode}` : "";
+      return `<li>
+        <span class="link-label">${escapeHtml(name)}${escapeHtml(codeLabel)}</span>
+        <a href="${escapeHtml(url)}">${escapeHtml(url)}</a>
+        <button type="button" class="btn secondary small waiting-copy-student-link" data-url="${escapeHtml(url)}">Copy</button>
+      </li>`;
+    })
+    .filter(Boolean)
     .join("");
+
+  list.querySelectorAll(".waiting-copy-student-link").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const url = btn.getAttribute("data-url") || "";
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        btn.textContent = "Copied";
+        setTimeout(() => {
+          btn.textContent = "Copy";
+        }, 1500);
+      } catch {
+        /* ignore */
+      }
+    });
+  });
+
   wrap.hidden = false;
 }
 
@@ -2655,13 +2671,14 @@ async function handleLogin() {
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
-      body: { username, password },
+      body: { login: username, username, password },
     });
     const user = data.user;
-    if (!user?.token) throw new Error("Login succeeded but no token in response.");
+    const token = data.token || user?.token;
+    if (!token || !user?.id) throw new Error("Login succeeded but no token in response.");
 
-    state.user = user;
-    state.token = user.token;
+    state.user = { ...user, token };
+    state.token = token;
     state.loginUsername = username;
     savePrefs();
     await waitForLoginScanCycle(scanStartedAt);
@@ -2708,9 +2725,9 @@ async function enterClassStep() {
 
     $("#class-status").textContent = "";
 
-    function handleClassSelect(id) {
-      const next = classes.find((c) => Number(c.id) === Number(id)) || null;
-      if (state.classItem?.id !== next?.id) {
+    async function handleClassSelect(id) {
+      const next = classes.find((c) => String(c.id) === String(id)) || null;
+      if (String(state.classItem?.id) !== String(next?.id)) {
         state.course = null;
         state.selectedSection = null;
         state.hostProgress = null;
@@ -2720,7 +2737,19 @@ async function enterClassStep() {
         selectedId: state.classItem?.id,
         onSelect: handleClassSelect,
       });
-      if (state.classItem) void createWaitingRoomForClass();
+      if (!state.classItem) return;
+
+      $("#class-error").textContent = "";
+      $("#class-status").textContent = hostT("class.loadingStudents") || "Loading students…";
+      try {
+        state.classItem = await loadClassStudentsForTeacher(state.classItem);
+        savePrefs();
+      } catch (err) {
+        $("#class-error").textContent = err.message;
+      } finally {
+        $("#class-status").textContent = "";
+      }
+      void createWaitingRoomForClass();
     }
 
     renderClassGrid($("#class-sections"), classes, {
@@ -3104,8 +3133,64 @@ function getWaitingClassRoster() {
   return Array.isArray(list) ? list : [];
 }
 
+function studentJoinIdentifier(student) {
+  if (!student) return "";
+  return String(
+    student.studentCode ?? student.student_id ?? student.id ?? student.username ?? ""
+  ).trim();
+}
+
+function teacherSchoolId() {
+  return state.user?.school_id ?? state.user?.schoolId ?? null;
+}
+
+async function loadClassStudentsForTeacher(classItem) {
+  const classId = classItem?.id ?? classItem?.class_id;
+  if (classId == null || classId === "") return classItem;
+
+  const schoolId = teacherSchoolId();
+  if (!schoolId) {
+    const cached = normalizeWaitingStudentList(classItem);
+    if (cached.length) {
+      return { ...classItem, studentList: cached, studentCount: cached.length };
+    }
+    throw new Error("Missing school_id on teacher account.");
+  }
+
+  const data = await api(
+    `/api/lango/classStudents?schoolId=${encodeURIComponent(schoolId)}&classId=${encodeURIComponent(classId)}`
+  );
+  const studentList = (data.students || []).map(normalizeWaitingStudent).filter(Boolean);
+  return {
+    ...classItem,
+    studentList,
+    studentCount: studentList.length || classItem.studentCount,
+  };
+}
+
+async function syncSessionStudentRoster() {
+  if (!state.activeRoomId || !state.classItem) return;
+  try {
+    await api("/api/session/roster", {
+      method: "PUT",
+      body: {
+        roomId: state.activeRoomId,
+        class: state.classItem,
+        user: state.user,
+      },
+    });
+  } catch {
+    /* best effort */
+  }
+}
+
 function participantMatchesStudent(participant, student) {
   if (!participant || !student) return false;
+
+  const joinId = studentJoinIdentifier(student);
+  if (participant.userId != null && joinId && String(participant.userId) === joinId) {
+    return true;
+  }
 
   if (
     participant.userId != null &&
@@ -3151,8 +3236,11 @@ function countConnectedRosterStudents(participants, roster) {
 function normalizeWaitingStudent(raw) {
   if (!raw || typeof raw !== "object") return null;
 
-  const id = Number(raw.id ?? raw.student_id ?? raw.studentId);
-  if (!Number.isFinite(id)) return null;
+  const rawId = raw.id ?? raw.student_id ?? raw.studentId;
+  if (rawId == null || rawId === "") return null;
+  const idText = String(rawId).trim();
+  const idNum = Number(idText);
+  const id = Number.isFinite(idNum) && String(idNum) === idText ? idNum : idText;
 
   const firstName = String(
     raw.firstName ?? raw.first_name ?? raw.firstname ?? raw.givenName ?? raw.given_name ?? ""
@@ -3161,10 +3249,18 @@ function normalizeWaitingStudent(raw) {
     raw.lastName ?? raw.last_name ?? raw.lastname ?? raw.familyName ?? raw.family_name ?? ""
   ).trim();
   const fullName =
-    String(raw.fullName ?? raw.full_name ?? raw.name ?? `${firstName} ${lastName}`.trim()).trim() ||
-    `Student ${id}`;
+    String(
+      raw.fullName ??
+        raw.full_name ??
+        raw.name_en ??
+        raw.name_zh ??
+        raw.name ??
+        `${firstName} ${lastName}`.trim()
+    ).trim() || `Student ${id}`;
 
-  return { id, firstName, lastName, fullName };
+  const studentCode = String(raw.student_id ?? raw.studentCode ?? "").trim() || null;
+  const username = String(raw.username ?? "").trim() || null;
+  return { id, studentCode, username, firstName, lastName, fullName };
 }
 
 function normalizeWaitingStudentList(classItem) {
@@ -3173,34 +3269,14 @@ function normalizeWaitingStudentList(classItem) {
   return list.map(normalizeWaitingStudent).filter(Boolean);
 }
 
-function findRawClassMatch(data, classId) {
-  const rawPayload = data?._rawClassList ?? data;
-  const rawClasses = extractClassList(rawPayload);
-  return rawClasses.find((c) => Number(c.id ?? c.class_id ?? c.classId) === Number(classId)) || null;
-}
-
 async function refreshWaitingClassRoster() {
-  if (!state.classItem?.id) return;
+  if (state.classItem?.id == null || state.classItem?.id === "") return;
 
   try {
-    const data = await api("/api/lango/classList");
-    const classes = extractClassList(data);
-    let match = classes.find((c) => Number(c.id) === Number(state.classItem.id)) || null;
-    const rawMatch = findRawClassMatch(data, state.classItem.id);
-
-    if (match) {
-      const studentList = rawMatch
-        ? normalizeWaitingStudentList(rawMatch)
-        : normalizeWaitingStudentList(match);
-
-      match = {
-        ...match,
-        studentList,
-        studentCount: studentList.length || match.studentCount,
-      };
-      state.classItem = match;
-      savePrefs();
-    }
+    state.classItem = await loadClassStudentsForTeacher(state.classItem);
+    savePrefs();
+    await syncSessionStudentRoster();
+    if (state.activeRoomId) void renderStudentJoinLinks(state.activeRoomId);
   } catch {
     /* keep cached class roster */
   }
@@ -3622,33 +3698,11 @@ function renderParticipants(participants, { announceJoins = false } = {}) {
   }
 }
 
-function pickNotificationStats(apiResponse) {
-  const payload = apiResponse?.data && typeof apiResponse.data === "object"
-    ? apiResponse.data
-    : apiResponse;
-
-  const sentCount = payload?.sentCount ?? payload?.sent_count;
-  const totalTarget = payload?.totalTarget ?? payload?.total_target;
-
-  return {
-    sentCount: sentCount == null ? null : Number(sentCount),
-    totalTarget: totalTarget == null ? null : Number(totalTarget),
-  };
-}
-
-function renderNotificationStats(apiResponse) {
-  const { totalTarget } = pickNotificationStats(apiResponse);
+function renderWaitingRosterLayout() {
   const roster = getWaitingClassRoster();
-
-  state.waitingTotalTarget =
-    roster.length > 0
-      ? roster.length
-      : totalTarget != null && !Number.isNaN(totalTarget) && totalTarget > 0
-        ? totalTarget
-        : 0;
-
-  updateWaitingStudentCount(0, roster.length || state.waitingTotalTarget || 0);
-  updateWaitingGridLayout(roster.length || state.waitingTotalTarget || 1);
+  state.waitingTotalTarget = roster.length;
+  updateWaitingStudentCount(0, roster.length);
+  updateWaitingGridLayout(roster.length || 1);
 }
 
 function updateWaitingStartButton() {
@@ -3659,19 +3713,19 @@ function updateWaitingStartButton() {
   if (label) label.textContent = hostT("common.start");
 }
 
-async function setupClassSession(roomId, apiResponse) {
+async function setupClassSession(roomId) {
   state.activeRoomId = roomId;
   state.quizActive = false;
 
   $("#waiting-error").textContent = "";
   $("#waiting-room-id").textContent = formatRoomCode(roomId);
   await refreshWaitingClassRoster();
-  renderNotificationStats(apiResponse);
+  renderWaitingRosterLayout();
   updateWaitingStartButton();
 
   renderParticipants([]);
   void startWaitingPoll();
-  void renderRoomJoinLinks(roomId);
+  void renderStudentJoinLinks(roomId);
   await showWaitingRoom();
 }
 
@@ -3690,12 +3744,12 @@ async function showWaitingRoom() {
   initWaitingClockLottie();
 
   if (!hostSessionConnected) void startWaitingPoll();
-  void renderRoomJoinLinks(state.activeRoomId);
+  void renderStudentJoinLinks(state.activeRoomId);
   void renderWaitingRoomQr(state.activeRoomId);
 }
 
 async function enterWaitingRoom(roomId, apiResponse) {
-  await setupClassSession(roomId, apiResponse);
+  await setupClassSession(roomId);
 }
 
 async function endActiveClassSession() {
@@ -3759,13 +3813,9 @@ async function createWaitingRoomForClass() {
       },
     });
 
-    const roomId =
-      result.roomId ||
-      result.sessionId ||
-      result.notification?.data?.session_id ||
-      "";
+    const roomId = result.roomId || result.sessionId || "";
 
-    await setupClassSession(roomId, result.apiResponse);
+    await setupClassSession(roomId);
   } catch (err) {
     $("#class-error").textContent = err.message;
   } finally {

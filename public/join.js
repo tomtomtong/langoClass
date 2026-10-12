@@ -33,12 +33,12 @@ function resolveDisplayName(roomId, stored) {
   return "";
 }
 
-function roomJoinUrl({ roomId = "", token = "", name = "" } = {}) {
-  const url = new URL(langoJoinPagePath(), window.location.origin);
-  if (roomId) url.searchParams.set("room", roomId);
-  if (token) url.searchParams.set("token", token);
-  if (name) url.searchParams.set("name", name);
-  return `${url.pathname}${url.search}`;
+function roomJoinUrl({ roomId = "", token = "", studentId = "", name = "" } = {}) {
+  return studentJoinQuery({
+    roomId,
+    studentId: studentId || token,
+    name,
+  });
 }
 
 function loadStoredParticipant() {
@@ -612,6 +612,46 @@ function initRoomNameForm(roomId) {
   });
 }
 
+async function lookupOpenRoomForStudent(studentId) {
+  const res = await fetch(
+    `/api/join/lookup?studentId=${encodeURIComponent(String(studentId || "").trim())}`,
+    { headers: { Accept: "application/json" } }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.ok || !data.roomId) {
+    throw new Error(
+      data?.message ||
+        "There is no class open for you right now. Ask your teacher to start the waiting room, then try again."
+    );
+  }
+  return data;
+}
+
+async function initStudentIdJoin() {
+  showRoomJoinPanels({ showJoining: true });
+  $("#join-room-error").textContent = "";
+
+  const studentId = urlToken;
+  if (!studentId) {
+    initJoinLinkRequired();
+    return;
+  }
+
+  $("#join-room-status").textContent = joinT("join.findingClass") || "Finding your class…";
+
+  try {
+    const lookup = await lookupOpenRoomForStudent(studentId);
+    await doJoinRoom(lookup.roomId, lookup.displayName || urlNickname, {
+      userId: lookup.userId,
+      keepUrlStudentId: studentId,
+    });
+  } catch (err) {
+    showRoomJoinPanels({ showNameForm: false });
+    $("#join-room-status").textContent = "";
+    $("#join-room-error").textContent = err.message;
+  }
+}
+
 function initRoomJoin() {
   showRoomJoinPanels({ showJoining: true });
 
@@ -630,7 +670,8 @@ function initRoomJoin() {
   }
 
   const displayName = resolveDisplayName(activeRoom, stored);
-  if (!displayName) {
+  const studentId = resolveStudentUserId(activeRoom, stored);
+  if (!displayName && !studentId) {
     initRoomNameForm(activeRoom);
     return;
   }
@@ -638,7 +679,7 @@ function initRoomJoin() {
   void doJoinRoom(activeRoom, displayName);
 }
 
-function doJoinRoom(roomId, displayNameOverride) {
+function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrlStudentId } = {}) {
   const stored = loadStoredParticipant();
   const displayName = (displayNameOverride || resolveDisplayName(roomId, stored)).trim();
   const fromEnded = isOnEndedScreen();
@@ -672,7 +713,8 @@ function doJoinRoom(roomId, displayNameOverride) {
     failJoin(joinT("join.classHint"));
     return;
   }
-  if (!displayName) {
+  const studentId = forcedUserId || resolveStudentUserId(roomId, stored);
+  if (!displayName && !studentId) {
     failJoin(joinT("join.nameMissing"));
     return;
   }
@@ -685,7 +727,7 @@ function doJoinRoom(roomId, displayNameOverride) {
       {
         roomId,
         displayName,
-        userId: resolveStudentUserId(roomId, stored),
+        userId: studentId,
       },
       (data) => {
         if (!data?.ok) {
@@ -733,10 +775,14 @@ function doJoinRoom(roomId, displayNameOverride) {
         }
 
         const nextUrl = new URL(window.location.href);
-        nextUrl.searchParams.set("room", data.roomId);
+        nextUrl.searchParams.delete("room");
         nextUrl.searchParams.delete("roomId");
-        if (data.userId) nextUrl.searchParams.set("token", data.userId);
-        else nextUrl.searchParams.delete("token");
+        nextUrl.searchParams.delete("pin");
+        const bookmarkStudentId = keepUrlStudentId || urlToken || data.userId;
+        if (bookmarkStudentId) nextUrl.searchParams.set("studentId", bookmarkStudentId);
+        else nextUrl.searchParams.delete("studentId");
+        nextUrl.searchParams.delete("token");
+        nextUrl.searchParams.delete("userId");
         if (data.displayName) nextUrl.searchParams.set("name", data.displayName);
         else nextUrl.searchParams.delete("name");
         nextUrl.searchParams.delete("nickname");
@@ -1075,6 +1121,9 @@ if (urlParams.has("preview")) {
   /* Layout preview mode — join-preview.js drives the UI. */
 } else if (urlPin) {
   initQuizJoin();
+} else if (urlToken && !urlRoom) {
+  void initStudentIdJoin();
+  bindPlayAgain();
 } else if (urlRoom || loadStoredParticipant()?.roomId) {
   initRoomJoin();
   bindPlayAgain();
@@ -1083,7 +1132,7 @@ if (urlParams.has("preview")) {
   if (endedState) {
     if (endedState.name) lastJoinDisplayName = endedState.name;
     showClassEnded({ statusKey: endedState.statusKey || "join.endedStatus" });
-  } else if (urlToken || urlNickname) {
+  } else if (urlNickname) {
     initRoomJoin();
     bindPlayAgain();
   } else {

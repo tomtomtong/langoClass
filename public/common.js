@@ -125,6 +125,28 @@ function formatRoomCode(roomId) {
   return `${digits.slice(0, 3)} ${digits.slice(3)}`;
 }
 
+/** Student join path — studentId only; server resolves the open waiting room. */
+function studentJoinQuery({ roomId = "", studentId = "", name = "" } = {}) {
+  const params = new URLSearchParams();
+  const sid = String(studentId || "").trim();
+  if (sid) params.set("studentId", sid);
+  const displayName = String(name || "").trim();
+  if (displayName) params.set("name", displayName.slice(0, 40));
+  const room = normalizePin(roomId);
+  if (room) params.set("room", room);
+  const qs = params.toString();
+  const base = typeof langoJoinPagePath === "function" ? langoJoinPagePath() : "/join.html";
+  return qs ? `${base}?${qs}` : base;
+}
+
+function studentJoinUrl(origin, options) {
+  const base = String(origin || (typeof window !== "undefined" ? window.location.origin : "")).replace(
+    /\/$/,
+    ""
+  );
+  return `${base}${studentJoinQuery(options)}`;
+}
+
 let screenTransitionPromise = Promise.resolve();
 let screenTransitionToken = 0;
 

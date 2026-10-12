@@ -154,11 +154,14 @@ function renderConfig(data) {
   $("#config-public-base-url").value = data.publicBaseUrl || "";
   $("#config-effective-url").textContent = state.effectivePublicBaseUrl || "—";
   $("#config-env-default").textContent = state.envDefault || "—";
-  $("#config-preview-json").textContent = JSON.stringify(
-    data.notificationPreview || { base_endpoint: state.effectivePublicBaseUrl },
-    null,
-    2
-  );
+  const previewEl = $("#config-preview-json");
+  if (previewEl) {
+    previewEl.textContent = JSON.stringify(
+      { public_join_base: state.effectivePublicBaseUrl || "—" },
+      null,
+      2
+    );
+  }
   renderTtsRouting(data);
 
   const inworldConfigured = !!data.inworldApiKeyConfigured;
@@ -732,12 +735,13 @@ async function handleLogin() {
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
-      body: { username, password },
+      body: { login: username, username, password },
     });
-    if (!data.user?.token) throw new Error("Login succeeded but no token returned.");
+    const token = data.token || data.user?.token;
+    if (!token || !data.user?.id) throw new Error("Login succeeded but no token returned.");
 
-    state.token = data.user.token;
-    state.user = data.user;
+    state.token = token;
+    state.user = { ...data.user, token };
     state.loginUsername = username;
     savePrefs();
     updateAuthUi();

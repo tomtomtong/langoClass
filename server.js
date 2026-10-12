@@ -7,7 +7,11 @@ const multer = require("multer");
 const { Server } = require("socket.io");
 const path = require("path");
 const { randomUUID, randomBytes, timingSafeEqual } = require("crypto");
-const { normalizeClassListResponse, findStudentById } = require("./lib/lango-classes");
+const {
+  normalizeClassListResponse,
+  findStudentById,
+  normalizeStudentListResponse,
+} = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
 const logStore = require("./lib/log-store");
 const {
@@ -63,7 +67,10 @@ const APP_VARIANT = String(process.env.APP_VARIANT || "").trim();
 const IS_HK_ELDERLY_VARIANT = APP_VARIANT === "hk-elderly";
 const HOST_PAGE_PATH = IS_HK_ELDERLY_VARIANT ? "/hk/host.html" : "/host.html";
 const JOIN_PAGE_PATH = IS_HK_ELDERLY_VARIANT ? "/hk/join.html" : "/join.html";
-const LANGO_API_BASE = "https://dev.api.lango.ai/v1";
+const CMS_API_BASE = String(process.env.CMS_API_BASE || "https://newcms.lango.ai").replace(
+  /\/$/,
+  ""
+);
 const ENV_PUBLIC_BASE_URL = (
   process.env.PUBLIC_BASE_URL || "https://test.n9n.uk"
 ).replace(/\/$/, "");
@@ -2864,8 +2871,12 @@ function pickTeacherId(req) {
   const header = req.headers["x-teacher-id"];
   const fromBody = req.body?.teacherId;
   const raw = header ?? fromBody;
-  const id = Number(raw);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  if (raw == null || raw === "") return null;
+  const text = String(raw).trim();
+  if (!text) return null;
+  const id = Number(text);
+  if (Number.isInteger(id) && id > 0) return id;
+  return text;
 }
 
 async function requireCmsAuth(req, res) {
@@ -2881,7 +2892,11 @@ async function requireCmsAuth(req, res) {
     return null;
   }
 
-  const { ok } = await langoRequest("GET", "/whiteboard/classList", { token });
+  const { ok } = await cmsRequest(
+    "GET",
+    `/api/teachers/${encodeURIComponent(String(teacherId))}/classes`,
+    { token }
+  );
   if (!ok) {
     res.status(401).json({ message: "Invalid or expired token." });
     return null;
@@ -2890,14 +2905,15 @@ async function requireCmsAuth(req, res) {
   return { token, teacherId };
 }
 
-async function langoRequest(method, endpoint, { token, body } = {}) {
+async function cmsRequest(method, endpoint, { token, body } = {}) {
   const headers = {
     Accept: "application/json",
     "Content-Type": "application/json",
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${LANGO_API_BASE}${endpoint}`, {
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const res = await fetch(`${CMS_API_BASE}${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -2908,7 +2924,7 @@ async function langoRequest(method, endpoint, { token, body } = {}) {
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
-    data = { message: text };
+    data = { message: text, error: text };
   }
 
   return { ok: res.ok, status: res.status, data };
@@ -3069,14 +3085,6 @@ function resolveSessionParticipantName(session, { displayName, nickname, userId 
   return String(student?.fullName || "").trim().slice(0, 40);
 }
 
-function buildNotificationData(extra = {}) {
-  return {
-    ...extra,
-    base_endpoint: getPublicBaseUrl(),
-    join_path: getJoinPagePath(),
-  };
-}
-
 function buildConfigResponse() {
   const settings = settingsStore.readSettings();
   const effectiveInworldKey = getInworldApiKey();
@@ -3143,21 +3151,6 @@ function buildConfigResponse() {
     videoGeneratorApiUrlSaved: settings.videoGeneratorApiUrl || "",
     videoGeneratorApiUrlEnvDefault: ENV_VIDEO_GENERATOR_API_URL,
     effectiveVideoGeneratorApiUrl: getVideoGeneratorApiUrl(),
-    notificationPreview: buildNotificationData({
-      session_id: "123456",
-      class_name: "Example class",
-      teacher_name: "Example teacher",
-      tts_classroom: {
-        provider: "Inworld",
-        model: INWORLD_TTS_MODEL_ID,
-        voice: "uncle_tommy",
-      },
-      tts_elderly: {
-        provider: "OpenRouter",
-        model: getOpenRouterTtsModel() || ENV_OPENROUTER_TTS_MODEL,
-        voice: ENV_OPENROUTER_TTS_VOICE,
-      },
-    }),
     studentDatabase: scoreStore.getStats(),
   };
 }
@@ -4016,50 +4009,83 @@ app.post("/api/transcribe/audio", (req, res) => {
 });
 
 app.post("/api/lango/login", async (req, res) => {
-  const username = String(req.body?.username || "").trim().toLowerCase();
+  const login = String(req.body?.login || req.body?.username || req.body?.email || "").trim();
   const password = req.body?.password;
-  if (!username || !password) {
-    writeAppLog("login", "teacher_login_rejected", "Missing username or password", { username }, "warn");
+  const school_id = req.body?.school_id ?? req.body?.schoolId;
+  if (!login || !password) {
+    writeAppLog("login", "teacher_login_rejected", "Missing username or password", { login }, "warn");
     return res.status(400).json({ message: "Username and password are required." });
   }
 
-  const { ok, status, data } = await langoRequest("POST", "/user/login", {
-    body: { username, password },
-  });
+  const body = { login, password };
+  if (school_id != null && String(school_id).trim()) {
+    body.school_id = String(school_id).trim();
+  }
+
+  const { ok, status, data } = await cmsRequest("POST", "/api/login", { body });
 
   if (!ok) {
+    const message = data?.error || data?.message || "Login failed";
     writeAppLog(
       "login",
       "teacher_login_failed",
       "Teacher login failed",
-      { username, status, message: data?.message || null },
+      { login, status, message },
       "warn"
     );
-    return res.status(status).json(data || { message: "Login failed" });
+    return res.status(status).json({ message, error: data?.error, ...(data || {}) });
   }
 
-  const userSummary = summarizeUserForLog(data?.user);
-  writeAppLog("login", "teacher_login_ok", `Teacher signed in: ${username}`, {
-    username,
+  const token = data?.token;
+  const user = data?.user;
+  if (!token || !user?.id) {
+    return res.status(502).json({ message: "Login succeeded but token or user id was missing." });
+  }
+
+  const userSummary = summarizeUserForLog({ ...user, token });
+  writeAppLog("login", "teacher_login_ok", `Teacher signed in: ${login}`, {
+    login,
     user: userSummary,
   });
   if (userSummary?.schoolName || userSummary?.schoolId) {
     writeAppLog("school", "teacher_school_context", "School context from login", {
-      username,
+      login,
       schoolId: userSummary.schoolId,
       schoolName: userSummary.schoolName,
       teacherId: userSummary.id,
     });
   }
-  return res.json(data);
+
+  return res.json({
+    ok: true,
+    token,
+    user: {
+      ...user,
+      token,
+      school_id: user.school_id ?? user.schoolId ?? body.school_id ?? null,
+    },
+  });
 });
 
 app.get("/api/lango/classList", async (req, res) => {
   const token = pickToken(req);
   if (!token) return res.status(401).json({ message: "Missing auth token." });
 
-  const { ok, status, data } = await langoRequest("GET", "/whiteboard/classList", { token });
-  if (!ok) return res.status(status).json(data || { message: "Failed to load classes" });
+  const teacherId = pickTeacherId(req);
+  if (!teacherId) {
+    return res.status(400).json({ message: "Missing teacher id (X-Teacher-Id header)." });
+  }
+
+  const { ok, status, data } = await cmsRequest(
+    "GET",
+    `/api/teachers/${encodeURIComponent(String(teacherId))}/classes`,
+    { token }
+  );
+  if (!ok) {
+    const message = data?.error || data?.message || "Failed to load classes";
+    return res.status(status).json({ message, error: data?.error, ...(data || {}) });
+  }
+
   const normalized = normalizeClassListResponse(data);
   const classes = Array.isArray(normalized?.classList) ? normalized.classList : [];
   writeAppLog("school", "class_list_loaded", `Loaded ${classes.length} class(es)`, {
@@ -4073,36 +4099,40 @@ app.get("/api/lango/classList", async (req, res) => {
   });
   return res.json({
     ...normalized,
+    teacher: data?.teacher || null,
     _rawClassList: data,
   });
 });
 
-app.post("/api/lango/sendNotification", async (req, res) => {
+app.get("/api/lango/classStudents", async (req, res) => {
   const token = pickToken(req);
   if (!token) return res.status(401).json({ message: "Missing auth token." });
 
-  const { class_id, title, body, data: notifyData } = req.body || {};
-  if (!class_id || !title) {
-    return res.status(400).json({ message: "class_id and title are required." });
+  const schoolId = String(req.query.schoolId || req.query.school_id || "").trim();
+  const classId = String(req.query.classId || req.query.class_id || "").trim();
+  if (!schoolId || !classId) {
+    return res.status(400).json({ message: "schoolId and classId query parameters are required." });
   }
 
-  const notifyBody = {
-    class_id,
-    title,
-    body: body || "Class will start soon",
-    data: buildNotificationData(notifyData || {}),
-  };
-
-  const { ok, status, data } = await langoRequest("POST", "/whiteboard/sendNotification", {
-    token,
-    body: notifyBody,
-  });
-
+  const query = new URLSearchParams({ sort: "class_no", order: "asc" });
+  const { ok, status, data } = await cmsRequest(
+    "GET",
+    `/api/schools/${encodeURIComponent(schoolId)}/classes/${encodeURIComponent(classId)}/students?${query}`,
+    { token }
+  );
   if (!ok) {
-    return res.status(status).json(data || { message: "Failed to send notification." });
+    const message = data?.error || data?.message || "Failed to load students";
+    return res.status(status).json({ message, error: data?.error, ...(data || {}) });
   }
 
-  return res.json({ ok: true, notification: notifyBody, apiResponse: data });
+  const students = normalizeStudentListResponse(data?.students || []);
+  return res.json({
+    ok: true,
+    schoolId,
+    classId,
+    total: data?.total ?? students.length,
+    students,
+  });
 });
 
 function courseExportDetailsForTeacher(teacherId, { courseId } = {}) {
@@ -6212,7 +6242,6 @@ app.post("/api/session/start", async (req, res) => {
     exercise,
     classItem,
     course,
-    authToken: token,
     uiLocale,
   });
 
@@ -6237,40 +6266,32 @@ app.post("/api/session/start", async (req, res) => {
     });
   }
 
-  const notifyBody = {
-    class_id: classItem.id,
-    title: course?.id ? courseDisplayName(course) : classItem.name || "Class session",
-    body: "Class will start soon",
-    data: buildNotificationData({
-      session_id: sessionId,
-      class_name: classItem.name || `Class ${classItem.id}`,
-      teacher_name: teacherDisplayName(user),
-      banner: courseBanner(course),
-    }),
-  };
-
-  const { ok, status, data } = await langoRequest("POST", "/whiteboard/sendNotification", {
-    token,
-    body: notifyBody,
-  });
-
-  if (!ok) {
-    return res.status(201).json({
-      sessionId,
-      roomId: sessionId,
-      notification: notifyBody,
-      notificationSent: false,
-      notificationWarning: data?.message || "Waiting room created, but the notification failed.",
-      apiResponse: data,
-    });
-  }
-
   return res.status(201).json({
     sessionId,
     roomId: sessionId,
-    notification: notifyBody,
-    apiResponse: data,
   });
+});
+
+app.put("/api/session/roster", async (req, res) => {
+  const token = pickToken(req);
+  if (!token) return res.status(401).json({ message: "Missing auth token." });
+
+  const pin = normalizeRoomId(req.body?.roomId);
+  const classItem = req.body?.class;
+  if (!pin || !classItem) {
+    return res.status(400).json({ message: "roomId and class are required." });
+  }
+
+  const session = sessionStore.getSession(pin);
+  if (!session) return res.status(404).json({ message: "Session not found." });
+
+  const user = req.body?.user;
+  if (user?.id && session.teacherId !== user.id) {
+    return res.status(403).json({ message: "Not allowed to update this session." });
+  }
+
+  sessionStore.syncStudentList(session, classItem);
+  return res.json({ ok: true, studentCount: session.studentList?.length || 0 });
 });
 
 app.post("/api/session/end", async (req, res) => {
@@ -6294,22 +6315,6 @@ app.post("/api/session/end", async (req, res) => {
 
   const classId = classItem?.id || session.classId;
   const className = session.className || classItem?.name || `Class ${classId}`;
-  const notifyBody = {
-    class_id: classId,
-    title: className,
-    body: "End",
-    data: buildNotificationData({
-      session_id: pin,
-      body: "End",
-      class_name: className,
-      teacher_name: teacherDisplayName(user || { id: session.teacherId }),
-    }),
-  };
-
-  const { ok, data } = await langoRequest("POST", "/whiteboard/sendNotification", {
-    token: session.authToken || token,
-    body: notifyBody,
-  });
 
   const game = games.get(pin);
   if (game) {
@@ -6322,17 +6327,12 @@ app.post("/api/session/end", async (req, res) => {
     classId,
     className,
     teacherId: user?.id || session.teacherId,
-    notificationSent: ok,
   });
   endSession(pin, "Class session ended");
 
   return res.json({
     ok: true,
     roomId: pin,
-    notification: notifyBody,
-    notificationSent: ok,
-    notificationWarning: ok ? undefined : data?.message || "Session ended, but the notification failed.",
-    apiResponse: data,
   });
 });
 
@@ -6567,6 +6567,45 @@ app.get("/api/network-urls", (_req, res) => {
   });
 });
 
+app.get("/api/join/lookup", (req, res) => {
+  const studentId = String(
+    req.query.studentId || req.query.student_id || req.query.token || ""
+  ).trim();
+  if (!studentId) {
+    return res.status(400).json({
+      ok: false,
+      message: "studentId is required.",
+    });
+  }
+
+  const match = sessionStore.findOpenSessionForStudent(studentId);
+  if (!match) {
+    return res.status(404).json({
+      ok: false,
+      message:
+        "There is no class open for you right now. Ask your teacher to start the waiting room, then try again.",
+    });
+  }
+
+  const { session, student } = match;
+  const displayName = String(student.fullName || "").trim().slice(0, 40);
+  if (!displayName) {
+    return res.status(404).json({
+      ok: false,
+      message: "We found a class session but could not identify your student profile.",
+    });
+  }
+
+  return res.json({
+    ok: true,
+    roomId: session.roomId,
+    userId: String(student.id),
+    displayName,
+    className: session.className || "",
+    sessionStatus: session.status,
+  });
+});
+
 app.get("/api/room-qr.svg", async (req, res) => {
   const url = String(req.query.url || "").trim();
   if (!url || !/^https?:\/\//i.test(url)) {
@@ -6700,7 +6739,10 @@ io.on("connection", (socket) => {
 
     const name = resolveSessionParticipantName(session, { displayName, nickname, userId: playerId });
     if (!name) {
-      callback?.({ ok: false, error: "Enter your name." });
+      callback?.({
+        ok: false,
+        error: "Could not identify this student. Check your join link or ask your teacher.",
+      });
       return;
     }
 

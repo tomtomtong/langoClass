@@ -3009,12 +3009,13 @@ async function handleLogin() {
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
-      body: { username, password },
+      body: { login: username, username, password },
     });
-    if (!data.user?.token) throw new Error("Login succeeded but no token returned.");
+    const token = data.token || data.user?.token;
+    if (!token || !data.user?.id) throw new Error("Login succeeded but no token returned.");
 
-    state.user = data.user;
-    state.token = data.user.token;
+    state.user = { ...data.user, token };
+    state.token = token;
     state.loginUsername = username;
     savePrefs();
     updateAuthUi();
