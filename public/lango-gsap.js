@@ -96,10 +96,17 @@
     return { portal, sparks };
   }
 
+  let screenTransitionSettle = null;
+
   function killScreenTransition() {
     if (screenTransitionTl) {
       screenTransitionTl.kill();
       screenTransitionTl = null;
+    }
+    if (screenTransitionSettle) {
+      const settle = screenTransitionSettle;
+      screenTransitionSettle = null;
+      settle();
     }
   }
 
@@ -141,6 +148,15 @@
 
     return new Promise((resolve) => {
       let covered = false;
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        if (screenTransitionSettle === finish) screenTransitionSettle = null;
+        layer.classList.remove("is-playing");
+        resolve();
+      };
+      screenTransitionSettle = finish;
       const cover = () => {
         if (covered) return;
         covered = true;
@@ -154,13 +170,12 @@
       screenTransitionTl = gsap.timeline({
         defaults: { ease: "power2.inOut" },
         onComplete: () => {
-          layer.classList.remove("is-playing");
           if (tommy) {
             gsap.set(tommy, { clearProps: "transform,opacity,visibility" });
           }
           gsap.set([portal, sparks], { clearProps: "transform,opacity,visibility" });
           screenTransitionTl = null;
-          resolve();
+          finish();
         },
       });
 

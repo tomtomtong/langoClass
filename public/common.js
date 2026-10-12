@@ -267,14 +267,23 @@ function showScreen(id, { transition = true } = {}) {
       selectJoinTransitionCharacter(layer);
 
       if (window.LangoGsap?.playScreenTransition) {
-        window.LangoGsap.killScreenTransition?.();
-        await window.LangoGsap.playScreenTransition(layer, {
-          coveredAt: 0.92,
-          duration: 1.18,
-          onCovered: () => {
-            if (token === screenTransitionToken) activateScreen(id);
-          },
-        });
+        let covered = false;
+        const cover = () => {
+          if (covered || token !== screenTransitionToken) return;
+          covered = true;
+          activateScreen(id);
+        };
+        const coverTimer = window.setTimeout(cover, 1400);
+        try {
+          await window.LangoGsap.playScreenTransition(layer, {
+            coveredAt: 0.92,
+            duration: 1.18,
+            onCovered: cover,
+          });
+        } finally {
+          window.clearTimeout(coverTimer);
+          cover();
+        }
         return;
       }
 

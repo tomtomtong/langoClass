@@ -3213,10 +3213,26 @@ async function loadClasses() {
   return state.classes;
 }
 
+function normalizeClientClassId(id) {
+  if (id == null || id === "") return null;
+  const text = String(id).trim();
+  if (!text) return null;
+  const num = Number(text);
+  if (Number.isFinite(num) && String(num) === text) return num;
+  return text;
+}
+
+function classIdListEqual(a, b) {
+  const left = (a || []).map((id) => String(id));
+  const right = (b || []).map((id) => String(id));
+  if (left.length !== right.length) return false;
+  return left.every((id, index) => id === right[index]);
+}
+
 function getSelectedClassIds() {
-  return [...document.querySelectorAll("#course-class-list input[type=checkbox]:checked")].map((el) =>
-    Number(el.value)
-  );
+  return [...document.querySelectorAll("#course-class-list input[type=checkbox]:checked")]
+    .map((el) => normalizeClientClassId(el.value))
+    .filter((id) => id != null);
 }
 
 function renderAssignedClasses() {
@@ -3224,7 +3240,7 @@ function renderAssignedClasses() {
   const statusEl = $("#cms-classes-status");
   if (!container) return;
 
-  const assigned = new Set(state.editingCourse?.classIds || []);
+  const assigned = new Set((state.editingCourse?.classIds || []).map((id) => String(id)));
 
   if (!state.classes.length) {
     container.innerHTML = "";
@@ -3248,7 +3264,7 @@ function renderAssignedClasses() {
 
   container.innerHTML = state.classes
     .map((classItem) => {
-      const checked = assigned.has(classItem.id) ? " checked" : "";
+      const checked = assigned.has(String(classItem.id)) ? " checked" : "";
       const title = classItem.name || `Class ${classItem.id}`;
       return `<label><input type="checkbox" value="${classItem.id}"${checked} /> ${escapeHtml(title)}</label>`;
     })
@@ -4353,12 +4369,24 @@ function courseMatchesListTab(course, tab) {
   return true;
 }
 
-function courseClassUsageForList(course) {
+function courseAssignedClasses(course) {
   const ids = course.classIds || [];
-  const classNames = ids
-    .map((id) => state.classes.find((c) => Number(c.id) === Number(id))?.name)
+  return ids
+    .map((id) => state.classes.find((c) => String(c.id) === String(id)))
     .filter(Boolean);
-  return { classNames, studentCount: null };
+}
+
+function courseClassUsageForList(course) {
+  const matches = courseAssignedClasses(course);
+  const classNames = matches.map((item) => item.name).filter(Boolean);
+  let studentCount = 0;
+  let known = matches.length > 0;
+  for (const item of matches) {
+    const count = classStudentCount(item);
+    if (count == null) known = false;
+    else studentCount += count;
+  }
+  return { classNames, studentCount: known ? studentCount : null };
 }
 
 function courseSectionProgressStatsForList(course) {
@@ -4393,18 +4421,67 @@ function courseProgressMarkupForList(course) {
 
 function courseUsageMarkupForList(course) {
   const usage = courseClassUsageForList(course);
-  if (!usage.classNames.length) {
-    return `<p class="course-usage-meta hint">Not assigned to a class yet</p>`;
+  const status = !usage.classNames.length
+    ? `<p class="hint">Not assigned to a class yet</p>`
+    : `<p class="course-usage-classes hint"><strong>Classes:</strong> ${escapeHtml(usage.classNames.join(", "))}</p>
+       <p class="course-usage-students hint">${usage.studentCount == null ? "..." : usage.studentCount} students using this course</p>`;
+  const chips = (state.classes || [])
+    .map((classItem) => {
+      const on = (course.classIds || []).some((id) => String(id) === String(classItem.id));
+      const title = classItem.name || `Class ${classItem.id}`;
+      return `<button type="button" class="course-class-chip${on ? " is-on" : ""}" data-assign-class="${escapeHtml(String(classItem.id))}" aria-pressed="${on ? "true" : "false"}">${escapeHtml(title)}</button>`;
+    })
+    .join("");
+  const picker = chips
+    ? `<div class="course-class-chips" role="group" aria-label="Assign to class">${chips}</div>`
+    : `<p class="hint">No classes found for this teacher.</p>`;
+  return `<div class="course-usage-meta course-assign">${status}${picker}</div>`;
+}
+
+async function persistCourseClassIds(course) {
+  if (!course) return;
+  if (course._classSaveFlight) {
+    await course._classSaveFlight;
+    return persistCourseClassIds(course);
   }
-  const students = usage.studentCount == null ? "..." : usage.studentCount;
-  return `
-    <div class="course-usage-meta">
-      <p class="course-usage-classes hint">
-        <strong>Classes:</strong>
-        ${escapeHtml(usage.classNames.join(", "))}
-      </p>
-      <p class="course-usage-students hint">${students} students using this course</p>
-    </div>`;
+  const snapshot = [...(course.classIds || [])];
+  course._classSaveFlight = (async () => {
+    const data = await api(`/api/cms/courses/${course.id}`, {
+      method: "PUT",
+      body: { classIds: snapshot },
+    });
+    const saved = data.course?.classIds || snapshot;
+    if (!classIdListEqual(course.classIds, snapshot)) return;
+    course.classIds = saved;
+    if (state.editingCourse && String(state.editingCourse.id) === String(course.id)) {
+      state.editingCourse.classIds = saved;
+    }
+  })().finally(() => {
+    course._classSaveFlight = null;
+  });
+  return course._classSaveFlight;
+}
+
+async function toggleCourseClassAssignment(courseId, classId) {
+  const course = (state.courses || []).find((item) => String(item.id) === String(courseId));
+  const normalized = normalizeClientClassId(classId);
+  if (!course || normalized == null) return;
+  const current = Array.isArray(course.classIds) ? course.classIds : [];
+  const has = current.some((id) => String(id) === String(normalized));
+  course.classIds = has
+    ? current.filter((id) => String(id) !== String(normalized))
+    : [...current, normalized];
+  if (state.editingCourse && String(state.editingCourse.id) === String(course.id)) {
+    state.editingCourse.classIds = course.classIds;
+  }
+  $("#cms-list-error").textContent = "";
+  renderCourseList();
+  try {
+    await persistCourseClassIds(course);
+  } catch (err) {
+    $("#cms-list-error").textContent = err.message || "Could not assign this course to the class.";
+    await enterCourseList();
+  }
 }
 
 function renderCourseListCover(course) {
@@ -4439,7 +4516,7 @@ function renderCourseList() {
   grid.innerHTML = filtered
     .map((course) => {
       const complete = isCourseListComplete(course);
-      return `<article class="paper course-card${complete ? " is-completed" : ""}" data-id="${course.id}" role="button" tabindex="0">
+      return `<article class="paper course-card${complete ? " is-completed" : ""}" data-id="${course.id}" tabindex="0">
         ${renderCourseListCover(course)}
         <div class="card-body">
           <div class="course-card-title-row row">
@@ -4460,12 +4537,23 @@ function renderCourseList() {
 
   grid.querySelectorAll(".course-card").forEach((card) => {
     const open = () => openCourseEditor(Number(card.dataset.id));
-    card.addEventListener("click", open);
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("[data-assign-class]")) return;
+      open();
+    });
     card.addEventListener("keydown", (e) => {
+      if (e.target.closest("[data-assign-class]")) return;
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         open();
       }
+    });
+    card.querySelectorAll("[data-assign-class]").forEach((chip) => {
+      chip.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleCourseClassAssignment(card.dataset.id, chip.dataset.assignClass);
+      });
     });
   });
   cmsMotion()?.playCmsListReveal?.(grid);
@@ -10933,6 +11021,19 @@ $("#screen-cms-edit")?.addEventListener("input", (event) => {
 $("#screen-cms-edit")?.addEventListener("change", (event) => {
   if (!state.editingCourse) return;
   if (event.target.closest("#cms-ai-wizard, #cms-ai-entry-chooser")) return;
+  if (event.target.closest("#course-class-list")) {
+    const course =
+      (state.courses || []).find((item) => String(item.id) === String(state.editingCourse.id)) ||
+      state.editingCourse;
+    const classIds = getSelectedClassIds();
+    course.classIds = classIds;
+    state.editingCourse.classIds = classIds;
+    $("#cms-details-error").textContent = "";
+    persistCourseClassIds(course).catch((err) => {
+      $("#cms-details-error").textContent = err.message || "Could not assign this course to the class.";
+    });
+    return;
+  }
   markCmsDirty();
 });
 $("#btn-cms-ai-next")?.addEventListener("click", handleAiWizardNext);

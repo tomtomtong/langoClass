@@ -374,6 +374,33 @@ p { margin: 0 0 0.75rem; }
   color: var(--purple);
   font-weight: 700;
 }
+.course-class-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+.course-class-chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.course-class-chip:hover {
+  border-color: var(--purple);
+  color: var(--purple);
+}
+.course-class-chip.is-on {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+}
 .template-stats {
   margin: 0.55rem 0 0;
   font-size: 0.88rem;

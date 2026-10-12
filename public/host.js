@@ -2308,7 +2308,7 @@ function renderClassGrid(container, classes, { selectedId, onSelect }) {
   container.querySelectorAll(".class-card").forEach((btn) => {
     btn.addEventListener("click", () => {
       playPageNextSound();
-      onSelect(Number(btn.dataset.id));
+      onSelect(btn.dataset.id);
     });
   });
 
@@ -2727,28 +2727,18 @@ async function enterClassStep() {
 
     async function handleClassSelect(id) {
       const next = classes.find((c) => String(c.id) === String(id)) || null;
-      if (String(state.classItem?.id) !== String(next?.id)) {
+      if (!next) {
+        $("#class-error").textContent = "Could not open that class.";
+        return;
+      }
+      if (String(state.classItem?.id) !== String(next.id)) {
         state.course = null;
         state.selectedSection = null;
         state.hostProgress = null;
       }
       state.classItem = next;
-      renderClassGrid($("#class-sections"), classes, {
-        selectedId: state.classItem?.id,
-        onSelect: handleClassSelect,
-      });
-      if (!state.classItem) return;
-
       $("#class-error").textContent = "";
-      $("#class-status").textContent = hostT("class.loadingStudents") || "Loading students…";
-      try {
-        state.classItem = await loadClassStudentsForTeacher(state.classItem);
-        savePrefs();
-      } catch (err) {
-        $("#class-error").textContent = err.message;
-      } finally {
-        $("#class-status").textContent = "";
-      }
+      $("#class-status").textContent = "";
       void createWaitingRoomForClass();
     }
 
@@ -3792,7 +3782,11 @@ async function leaveCourseForClassMenu() {
 }
 
 async function createWaitingRoomForClass() {
-  if (!state.classItem?.id || !state.user?.id || classSessionCreating) return;
+  if (classSessionCreating) return;
+  if (!state.classItem?.id || !state.user?.id) {
+    $("#class-error").textContent = "Could not open the waiting room. Sign in again, then pick the class.";
+    return;
+  }
 
   classSessionCreating = true;
   $("#class-error").textContent = "";
