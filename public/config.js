@@ -138,14 +138,17 @@ function renderTtsRouting(data) {
     elderlyEl.textContent = `${elderly.provider || "OpenRouter"} · ${elderly.model || "—"} · voice ${elderly.voice || "—"}`;
   }
   if (currentEl) {
-    currentEl.textContent =
-      routing.currentVariant === "elderly"
-        ? `HK Elderly (${elderly.provider || "OpenRouter"} ${elderly.model || "—"})`
-        : `Classroom (${classroom.provider || "Inworld"} ${classroom.model || "—"})`;
+    const current = routing.current || {};
+    const app = routing.currentVariant === "elderly" ? "HK Elderly" : "Classroom";
+    currentEl.textContent = `${app} (${current.provider || "—"} · ${current.model || "—"} · voice ${current.voice || "—"})`;
   }
 }
 
 function renderConfig(data) {
+  $("#config-tts-provider").value = data.gameplayTtsProvider || "";
+  $("#config-elevenlabs-voice").value = data.elevenlabsVoiceId || "";
+  $("#config-elevenlabs-stability").value = data.elevenlabsStability ?? 0.5;
+
   state.envDefault = data.envDefault || "";
   state.effectivePublicBaseUrl = data.effectivePublicBaseUrl || "";
   $("#config-public-base-url").value = data.publicBaseUrl || "";
@@ -535,6 +538,59 @@ async function saveOpenRouterVisionModel(openrouterVisionModel) {
   }
 }
 
+async function saveSpeechSettings() {
+  const btn = $("#btn-config-save-tts");
+  $("#config-tts-error").textContent = "";
+  $("#config-tts-status").textContent = "";
+  const stabilityInput = $("#config-elevenlabs-stability");
+  stabilityInput.removeAttribute("aria-invalid");
+  if (!stabilityInput.value.trim() || !stabilityInput.reportValidity()) {
+    stabilityInput.setAttribute("aria-invalid", "true");
+    $("#config-tts-error").textContent = "Enter stability between 0 and 1.";
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config", {
+      method: "PUT",
+      body: {
+        gameplayTtsProvider: $("#config-tts-provider").value,
+        elevenlabsVoiceId: $("#config-elevenlabs-voice").value.trim(),
+        elevenlabsStability: Number(stabilityInput.value),
+      },
+    });
+    renderConfig(data);
+    $("#config-tts-preview").pause();
+    $("#config-tts-preview").hidden = true;
+    $("#config-tts-status").textContent = `Speech settings saved: ${data.effectiveGameplayTtsProvider}.`;
+  } catch (err) {
+    $("#config-tts-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function testSpeechSettings() {
+  const btn = $("#btn-config-test-tts");
+  const preview = $("#config-tts-preview");
+  preview.pause();
+  preview.hidden = true;
+  $("#config-tts-error").textContent = "";
+  $("#config-tts-status").textContent = "Generating speech sample…";
+  btn.disabled = true;
+  try {
+    const data = await api("/api/config/test-gameplay-tts", { method: "POST", body: {} });
+    preview.src = `data:audio/mpeg;base64,${data.audioContent}`;
+    preview.hidden = false;
+    $("#config-tts-status").textContent = `Speech test succeeded (${data.provider}, ${data.latencyMs} ms). Press play to listen.`;
+  } catch (err) {
+    $("#config-tts-status").textContent = "";
+    $("#config-tts-error").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function saveOpenRouterTtsModel(openrouterTtsModel) {
   $("#config-openrouter-error").textContent = "";
   $("#config-openrouter-save-status").textContent = "";
@@ -847,6 +903,8 @@ async function init() {
   $("#btn-config-save-openrouter-vision-model").addEventListener("click", () => {
     saveOpenRouterVisionModel($("#config-openrouter-vision-model").value.trim());
   });
+  $("#btn-config-save-tts").addEventListener("click", saveSpeechSettings);
+  $("#btn-config-test-tts").addEventListener("click", testSpeechSettings);
   $("#btn-config-save-openrouter-tts-model").addEventListener("click", () => {
     saveOpenRouterTtsModel($("#config-openrouter-tts-model").value.trim());
   });

@@ -40,6 +40,7 @@ const cmsSpeakLanguages = require("./lib/cms-speak-languages");
 const gameplayTtsStyle = require("./lib/gameplay-tts-style");
 const questionTtsCache = require("./lib/question-tts-cache");
 const cmsQuestionTts = require("./lib/cms-question-tts");
+const elevenlabsTts = require("./lib/elevenlabs-tts");
 const cantoneseSpeechText = require("./lib/cantonese-speech-text");
 
 const app = express();
@@ -917,20 +918,7 @@ async function analyzeAndAttachBuzzinResponse(pin, playerId, ctx) {
       const session = sessionStore.getSession(pin);
       const ttsLang =
         normalizeSpeakLangCode(round.sttLanguage) || resolveSessionSpeakLangCode(session);
-      const apiKey = getInworldApiKey();
-      if (!apiKey) {
-        throw new Error("Inworld API key not configured.");
-      }
-      const tts = await inworldTtsSynthesize(
-        apiKey,
-        result.spokenFeedback,
-        INWORLD_BUZZIN_TTS_VOICE_ID,
-        ttsLang,
-        {
-          speakingRate: gameplayTtsStyle.INWORLD_GAMEPLAY_SPEAKING_RATE,
-          instruction: gameplayTtsStyle.INWORLD_GAMEPLAY_INSTRUCTION,
-        }
-      );
+      const tts = await synthesizeGameplayTts(result.spokenFeedback, ttsLang, { purpose: "feedback" });
       entry.analysisAudio = tts.audioContent;
       entry.analysisAudioFormat = tts.format;
     } catch (err) {
@@ -1764,7 +1752,7 @@ async function synthesizeBuzzinAnswerAnnouncement(round, winner, languageCode) {
   let format = null;
 
   try {
-    if (getGameplayTtsApiKey() && text) {
+    if (isGameplayTtsAvailable() && text) {
       const tts = await synthesizeGameplayTts(text, languageCode, { purpose: "announcement" });
       audio = tts.audioContent;
       format = tts.format;
@@ -2385,8 +2373,24 @@ function openQuestionAnswering(game) {
   game.questionTimer = setTimeout(() => endQuestion(game), timeLimit);
 }
 
+function getGameplayTtsProvider() {
+  return settingsStore.readSettings().gameplayTtsProvider || (IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld");
+}
+
+function getElevenlabsTtsSettings() {
+  const settings = settingsStore.readSettings();
+  return {
+    voiceId: settings.elevenlabsVoiceId || elevenlabsTts.DEFAULT_VOICE_ID,
+    stability: settings.elevenlabsStability,
+  };
+}
+
 function buildQuestionTtsCacheMeta() {
-  if (IS_HK_ELDERLY_VARIANT) {
+  if (getGameplayTtsProvider() === "elevenlabs") {
+    const settings = getElevenlabsTtsSettings();
+    return { provider: "elevenlabs", model: "eleven_multilingual_v2", voice: settings.voiceId, stability: settings.stability };
+  }
+  if (getGameplayTtsProvider() === "openrouter") {
     return {
       provider: "openrouter",
       model: getOpenRouterTtsModel() || ENV_OPENROUTER_TTS_MODEL,
@@ -2460,7 +2464,7 @@ async function speakQuestionThenOpen(game, questionIndex) {
   game.questionTimer = setTimeout(openIfStillSpeaking, QUESTION_TTS_MAX_WAIT_MS);
 
   try {
-    if (!getGameplayTtsApiKey()) {
+    if (!isGameplayTtsAvailable()) {
       openIfStillSpeaking();
       return;
     }
@@ -3131,6 +3135,10 @@ function buildConfigResponse() {
     openrouterTtsModelSaved: settings.openrouterTtsModel || "",
     openrouterTtsModelEnvDefault: ENV_OPENROUTER_TTS_MODEL,
     effectiveOpenRouterTtsModel: getOpenRouterTtsModel(),
+    gameplayTtsProvider: settings.gameplayTtsProvider || "",
+    effectiveGameplayTtsProvider: getGameplayTtsProvider(),
+    elevenlabsVoiceId: getElevenlabsTtsSettings().voiceId,
+    elevenlabsStability: getElevenlabsTtsSettings().stability,
     ttsRouting: buildTtsRoutingConfig(),
     videoGeneratorApiUrlSaved: settings.videoGeneratorApiUrl || "",
     videoGeneratorApiUrlEnvDefault: ENV_VIDEO_GENERATOR_API_URL,
@@ -3251,8 +3259,9 @@ function resolveGameSpeakLangCode(game) {
   return resolveSessionSpeakLangCode(session);
 }
 
-function getGameplayTtsApiKey() {
-  return IS_HK_ELDERLY_VARIANT ? getOpenRouterApiKey() : getInworldApiKey();
+function isGameplayTtsAvailable() {
+  const provider = getGameplayTtsProvider();
+  return provider === "elevenlabs" || Boolean(provider === "openrouter" ? getOpenRouterApiKey() : getInworldApiKey());
 }
 
 function buildTtsRoutingConfig() {
@@ -3269,6 +3278,7 @@ function buildTtsRoutingConfig() {
       model: getOpenRouterTtsModel() || ENV_OPENROUTER_TTS_MODEL,
       voice: ENV_OPENROUTER_TTS_VOICE,
     },
+    current: buildQuestionTtsCacheMeta(),
     currentVariant: IS_HK_ELDERLY_VARIANT ? "elderly" : "classroom",
   };
 }
@@ -3337,7 +3347,10 @@ function synthesizeOpenRouterGameplayTts(text, languageCode, purpose) {
 
 async function synthesizeGameplayTts(text, languageCode, options = {}) {
   const purpose = String(options.purpose || "question").trim() || "question";
-  if (IS_HK_ELDERLY_VARIANT) {
+  if (getGameplayTtsProvider() === "elevenlabs") {
+    return elevenlabsTts.synthesize(text, { ...getElevenlabsTtsSettings(), languageCode: languageCode || "en" });
+  }
+  if (getGameplayTtsProvider() === "openrouter") {
     return synthesizeOpenRouterGameplayTts(text, languageCode, purpose);
   }
 
@@ -3720,6 +3733,9 @@ app.put("/api/config", async (req, res) => {
     openrouterGenerateModel,
     openrouterVisionModel,
     openrouterTtsModel,
+    gameplayTtsProvider,
+    elevenlabsVoiceId,
+    elevenlabsStability,
     videoGeneratorApiUrl,
   } = req.body || {};
   const updates = {};
@@ -3797,6 +3813,25 @@ app.put("/api/config", async (req, res) => {
     updates.openrouterTtsModel = String(openrouterTtsModel || "").trim();
   }
 
+  if (gameplayTtsProvider !== undefined) {
+    if (!["", "inworld", "openrouter", "elevenlabs"].includes(gameplayTtsProvider)) {
+      return res.status(400).json({ message: "Invalid TTS provider." });
+    }
+    updates.gameplayTtsProvider = gameplayTtsProvider;
+  }
+  if (elevenlabsVoiceId !== undefined) {
+    if (typeof elevenlabsVoiceId !== "string" || (elevenlabsVoiceId.trim() && !/^[A-Za-z0-9_-]{1,128}$/.test(elevenlabsVoiceId.trim()))) {
+      return res.status(400).json({ message: "Invalid ElevenLabs Voice ID." });
+    }
+    updates.elevenlabsVoiceId = elevenlabsVoiceId.trim();
+  }
+  if (elevenlabsStability !== undefined) {
+    if (typeof elevenlabsStability !== "number" || !Number.isFinite(elevenlabsStability) || elevenlabsStability < 0 || elevenlabsStability > 1) {
+      return res.status(400).json({ message: "Stability must be a number between 0 and 1." });
+    }
+    updates.elevenlabsStability = elevenlabsStability;
+  }
+
   if (videoGeneratorApiUrl !== undefined) {
     updates.videoGeneratorApiUrl = String(videoGeneratorApiUrl || "").trim();
   }
@@ -3807,6 +3842,18 @@ app.put("/api/config", async (req, res) => {
 
   settingsStore.writeSettings(updates);
   return res.json({ ok: true, ...buildConfigResponse() });
+});
+
+app.post("/api/config/test-gameplay-tts", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  const started = Date.now();
+  try {
+    const audio = await synthesizeGameplayTts("Hello from Lango.", "en");
+    return res.json({ ok: true, ...audio, provider: getGameplayTtsProvider(), latencyMs: Date.now() - started });
+  } catch (err) {
+    return res.status(502).json({ message: err.message || "Speech test failed." });
+  }
 });
 
 app.post("/api/config/test-inworld", async (req, res) => {
@@ -4198,8 +4245,8 @@ app.get("/api/cms/app-context", (_req, res) => {
     speakLanguages,
     questionLanguages: cmsSpeakLanguages.getCmsQuestionLanguages(APP_VARIANT),
     defaultSpeakLangCode: cmsSpeakLanguages.getDefaultCmsSpeakLangCode(APP_VARIANT),
-    ttsProvider: IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld",
-    ttsAvailable: Boolean(getGameplayTtsApiKey()),
+    ttsProvider: getGameplayTtsProvider(),
+    ttsAvailable: Boolean(isGameplayTtsAvailable()),
   });
 });
 
@@ -5426,7 +5473,7 @@ app.post("/api/cms/prefetch-question-tts", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  if (!getGameplayTtsApiKey()) {
+  if (!isGameplayTtsAvailable()) {
     return res.status(400).json({ message: "Speech TTS is not configured for this app variant." });
   }
 
@@ -6835,7 +6882,7 @@ io.on("connection", (socket) => {
     let topicAudioFormat = null;
     try {
       const speakLangCode = resolveSessionSpeakLangCode(session);
-      if (getGameplayTtsApiKey() && round.topic) {
+      if (isGameplayTtsAvailable() && round.topic) {
         const tts = await synthesizeGameplayTts(round.topic, speakLangCode, { purpose: "topic" });
         topicAudio = tts.audioContent;
         topicAudioFormat = tts.format;
@@ -6895,7 +6942,7 @@ io.on("connection", (socket) => {
     let topicAudioFormat = null;
     try {
       const speakLangCode = resolveSessionSpeakLangCode(session);
-      if (getGameplayTtsApiKey() && round.topic) {
+      if (isGameplayTtsAvailable() && round.topic) {
         const tts = await synthesizeGameplayTts(round.topic, speakLangCode, { purpose: "topic" });
         topicAudio = tts.audioContent;
         topicAudioFormat = tts.format;
