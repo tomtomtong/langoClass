@@ -1,0 +1,71 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "langoclass",
+  "account_id": "ee3f12054fd4aff92582d187eb1fb320",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 0.1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  },
+  "vars": {
+    // The classroom calls the backend for POST /llm, POST /tts, POST /stt, POST /video, and GET /video/:jobId. Image, PDF, HEIC, and Word run in the media container.
+    "ORIGIN": "https://classroom.lango.ai",
+    "CMS_API_BASE": "https://newcms.lango.ai"
+  },
+  "containers": [
+    {
+      "class_name": "MediaContainer",
+      "image": "./container/Dockerfile",
+      "image_build_context": "./container",
+      "max_instances": 2,
+      "instance_type": "basic"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "RoomDurableObject" },
+      { "name": "MEDIA", "class_name": "MediaContainer" }
+    ]
+  },
+  "exports": {
+    "RoomDurableObject": { "type": "durable-object", "storage": "sqlite" },
+    "MediaContainer": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "langoclass-uploads"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "langoclass",
+      "database_id": "d8db221b-036f-4b3d-8080-fac1e0e64386",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "run_worker_first": ["/api/*", "/uploads/*"]
+  },
+  "routes": [
+    {
+      "pattern": "class.lango.ai",
+      "custom_domain": true
+    }
+  ]
+}

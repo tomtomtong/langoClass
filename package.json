@@ -6,9 +6,14 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "cf:dev": "wrangler dev",
+    "cf:routes": "node scripts/check-api-routes.mjs",
+    "cf:check": "wrangler deploy --dry-run",
+    "cf:deploy": "wrangler deploy",
     "stress:20x20": "node scripts/stress-20x20.js --url https://classroom.lango.ai --classes 20 --students 20 --video-viewers students"
   },
   "dependencies": {
+    "@cloudflare/containers": "^0.3.7",
     "adm-zip": "^0.6.0",
     "archiver": "^7.0.1",
     "express": "^4.21.2",
@@ -21,5 +26,8 @@
     "sharp": "^0.35.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
   }
 }

@@ -7450,7 +7450,7 @@ async function createAiVideoExercise(script, { onUpdate, onLog } = {}) {
   };
 
   renderLog(["Queued."]);
-  const started = await api("/api/cms/generate-video", {
+  const started = await api("/api/video", {
     method: "POST",
     body: { text: trimmed },
   });
@@ -9374,7 +9374,7 @@ async function pollVideoGenerationJob(jobId, { onUpdate } = {}) {
   const pollMs = 3000;
 
   while (Date.now() - started < timeoutMs) {
-    const data = await api(`/api/cms/video-jobs/${encodeURIComponent(jobId)}`);
+    const data = await api(`/api/video/${encodeURIComponent(jobId)}`);
     if (typeof onUpdate === "function") onUpdate(data);
 
     const status = String(data.status || "").toLowerCase();
@@ -9415,7 +9415,7 @@ function renderVideoBody(container, exercise) {
     </label>
     <div class="cms-video-gen-actions">
       <button type="button" class="btn secondary small cms-generate-video">Generate video</button>
-      <p class="hint cms-video-gen-status">Calls the video API (POST /api/video), then polls until an MP4 URL is ready.</p>
+      <p class="hint cms-video-gen-status">Starts a backend video job, then reads the job until the MP4 URL is ready.</p>
     </div>
     <pre class="cms-video-gen-log" hidden aria-live="polite"></pre>
   </div>
@@ -9687,7 +9687,7 @@ function renderVideoBody(container, exercise) {
     renderVideoGenLog(["Queued."]);
 
     try {
-      const started = await api("/api/cms/generate-video", {
+      const started = await api("/api/video", {
         method: "POST",
         body: { text: script },
       });

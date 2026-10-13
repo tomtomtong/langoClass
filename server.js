@@ -4008,6 +4008,63 @@ app.post("/api/transcribe/audio", (req, res) => {
   });
 });
 
+// The classroom calls these three routes. Keys, prompts, and waiting stay here.
+async function handleBackendLlm(req, res) {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const prepared = [];
+  for (const message of messages.slice(0, 16)) {
+    const role = message?.role === "assistant" || message?.role === "system" ? message.role : "user";
+    const content = String(message?.content || "").trim().slice(0, 8000);
+    if (content) prepared.push({ role, content });
+  }
+  if (!prepared.some((message) => message.role === "user")) {
+    return res.status(400).json({ message: "Enter a message for the model." });
+  }
+  const maxTokens = Math.min(4096, Math.max(1, Number(req.body?.maxTokens) || 1024));
+  try {
+    const text = await openRouterGenerateComplete(null, null, prepared, maxTokens);
+    return res.json({ ok: true, text });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Model request failed." });
+  }
+}
+
+async function handleBackendTts(req, res) {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+  const text = String(req.body?.text || "").trim().slice(0, 2000);
+  if (!text) return res.status(400).json({ message: "No text to synthesize." });
+  const language = String(req.body?.language || "en").trim().slice(0, 16) || "en";
+  try {
+    const audio = await synthesizeGameplayTts(text, language, { purpose: "question" });
+    return res.json({ ok: true, audioContent: audio.audioContent, format: audio.format || "mp3" });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Speech synthesis failed." });
+  }
+}
+
+async function handleBackendStt(req, res) {
+  const audioBase64 = String(req.body?.audioBase64 || "").trim();
+  if (!audioBase64) return res.status(400).json({ message: "Choose an audio file first." });
+  const format = String(req.body?.format || "wav").trim().slice(0, 16) || "wav";
+  const language = String(req.body?.language || "").trim().slice(0, 16);
+  try {
+    const text = await transcribeBuzzinAudio(audioBase64, format, { language });
+    return res.json({ ok: true, text });
+  } catch (err) {
+    return res.status(400).json({ message: err.message || "Transcription failed." });
+  }
+}
+
+app.post("/api/llm", handleBackendLlm);
+app.post("/llm", handleBackendLlm);
+app.post("/api/tts", handleBackendTts);
+app.post("/tts", handleBackendTts);
+app.post("/api/stt", handleBackendStt);
+app.post("/stt", handleBackendStt);
+
 app.post("/api/lango/login", async (req, res) => {
   const login = String(req.body?.login || req.body?.username || req.body?.email || "").trim();
   const password = req.body?.password;
@@ -4895,7 +4952,7 @@ app.post("/api/cms/section-banner/generate", async (req, res) => {
   }
 });
 
-app.post("/api/cms/generate-video", async (req, res) => {
+async function handleBackendVideoStart(req, res) {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
@@ -4937,9 +4994,9 @@ app.post("/api/cms/generate-video", async (req, res) => {
       message: err.message || "Could not start video generation.",
     });
   }
-});
+}
 
-app.get("/api/cms/video-jobs/:jobId", async (req, res) => {
+async function handleBackendVideoStatus(req, res) {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
@@ -4974,7 +5031,14 @@ app.get("/api/cms/video-jobs/:jobId", async (req, res) => {
       message: err.message || "Could not fetch video job status.",
     });
   }
-});
+}
+
+app.post("/api/cms/generate-video", handleBackendVideoStart);
+app.get("/api/cms/video-jobs/:jobId", handleBackendVideoStatus);
+app.post("/api/video", handleBackendVideoStart);
+app.post("/video", handleBackendVideoStart);
+app.get("/api/video/:jobId", handleBackendVideoStatus);
+app.get("/video/:jobId", handleBackendVideoStatus);
 
 app.post("/api/cms/generate-video-captions", async (req, res) => {
   const auth = await requireCmsAuth(req, res);

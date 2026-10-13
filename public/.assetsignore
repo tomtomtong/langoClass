@@ -1,0 +1,2 @@
+# Upload files are served from R2, not from the asset bundle.
+uploads/
