@@ -1,3 +1,12 @@
+import {
+  awardBuzz,
+  exerciseKind,
+  queueBuzzScores,
+  queueOpenScores,
+  queueQuizScores,
+  queueVideoScores,
+} from "./room-scores.js";
+
 const PREVIEW_MS = 5000;
 const BUZZ_JOIN_MS = 20000;
 const NORMAL_POINTS = 300;
@@ -37,7 +46,7 @@ export function applyRoomEvent(state, message, ctx) {
     case "question_tts_done":
       return openFromSpeaking(state, data, ctx);
     case "end_room_exercise":
-      return endExercise(state, ctx);
+      return endExercise(state, data, ctx);
     case "start_buzzin_round":
       return startBuzz(state, ctx);
     case "next_buzzin_question":
@@ -65,7 +74,7 @@ export function applyRoomTimer(state, now) {
   if (timer.kind === "question") return finishQuestion(state, now);
   if (timer.kind === "game-start") return beginQuestion(state, now);
   if (timer.kind === "buzz") return closeBuzz(state, now);
-  if (timer.kind === "host-grace") return expireHostGrace(state);
+  if (timer.kind === "host-grace") return expireHostGrace(state, now);
   return done(state, { clearTimer: true });
 }
 
@@ -201,6 +210,7 @@ function selectExercise(state, data, ctx) {
 function startNextExercise(state, data, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can start the next exercise." } });
   if (!data.exercise?.id) return done(state, { ack: { ok: false, error: "Select a valid exercise." } });
+  queueOpenScores(state, ctx.now);
   state.session.exercise = data.exercise;
   state.session.status = "start";
   state.game = null;
@@ -225,6 +235,8 @@ function createRoomGame(state, data, ctx) {
     quiz,
     isRoomGame: true,
     fastMode: quiz.fastMode,
+    exercise: exerciseLabel(state.session.exercise),
+    courseId: state.session.courseId ?? null,
     players: (state.session.participants || []).map((item) => ({
       id: item.userId,
       name: item.displayName,
@@ -330,8 +342,13 @@ function openFromSpeaking(state, data, ctx) {
   return openQuestion(state, ctx.now);
 }
 
-function endExercise(state, ctx) {
+function endExercise(state, data, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can end an exercise." } });
+  const finished = finishedExercise(state, data);
+  const kind = exerciseKind(finished);
+  if (kind === "quiz" && state.game) queueQuizScores(state, ctx.now);
+  else if (kind === "video") queueVideoScores(state, finished, ctx.now);
+  else if (kind === "buzzin") queueBuzzScores(state, finished, ctx.now);
   const leaderboard = state.game ? leaderboardOf(state.game) : [];
   state.game = null;
   state.buzz = null;
@@ -352,6 +369,11 @@ function startBuzz(state, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can start a buzz-in round." } });
   const topics = buzzTopics(state.session.exercise);
   if (!topics.length) return done(state, { ack: { ok: false, error: "This Buzz In exercise has no questions." } });
+  const exerciseId = state.session.exercise?.id ?? null;
+  if (state.session.buzzinExerciseId == null || String(state.session.buzzinExerciseId) !== String(exerciseId)) {
+    state.session.buzzinExerciseId = exerciseId;
+    state.session.buzzinAwardedPlayers = [];
+  }
   state.buzz = newBuzz(topics, 0, ctx.now);
   const payload = buzzPayload(state.buzz, ctx.now);
   return done(state, {
@@ -416,6 +438,7 @@ function buzzIn(state, ctx) {
     at: ctx.now,
     elapsedMs: Math.max(0, ctx.now - (round.joinOpenedAt || ctx.now)),
   });
+  awardBuzz(state, playerId, participant?.displayName);
   round.phase = "typing";
   round.status = "closed";
   const payload = buzzPayload(round, ctx.now);
@@ -446,6 +469,7 @@ function luckyDraw(state, ctx) {
     at: ctx.now,
     elapsedMs: 0,
   }];
+  awardBuzz(state, pick.userId, pick.displayName);
   round.phase = "typing";
   round.status = "closed";
   const payload = buzzPayload(round, ctx.now);
@@ -480,6 +504,7 @@ function beginQuestion(state, now) {
   const nextIndex = game.currentQuestionIndex + 1;
   if (nextIndex >= game.quiz.questions.length) {
     game.status = "finished";
+    queueQuizScores(state, now);
     const exerciseLeaderboard = leaderboardOf(game);
     return done(state, {
       broadcasts: [{
@@ -705,7 +730,7 @@ function resumeAfterHostGrace(state, now, extra) {
   return done(state, { ...extra, clearTimer: true });
 }
 
-function expireHostGrace(state) {
+function expireHostGrace(state, now) {
   if (hasHostSocket(state)) {
     if (state.game) state.game.hostDisconnectedAt = null;
     const paused = state.game?.pausedTimer || null;
@@ -715,6 +740,7 @@ function expireHostGrace(state) {
     }
     return done(state, { clearTimer: true });
   }
+  queueOpenScores(state, now);
   state.game = null;
   state.buzz = null;
   state.session.status = "ended";
@@ -726,6 +752,23 @@ function expireHostGrace(state) {
     ],
     clearTimer: true,
   });
+}
+
+// The exercise end_room_exercise names, as server.js resolveFinishedExercise
+// does: a video can end after the host already moved the room on.
+function finishedExercise(state, data) {
+  const current = state.session.exercise || null;
+  const id = Number(data?.exerciseId);
+  if (Number.isFinite(id) && current?.id != null && Number(current.id) === id) return current;
+  if (exerciseKind({ type: data?.exerciseType }) === "video" && Number.isFinite(id)) {
+    return { id, type: data.exerciseType, title: current?.title || "", subTitle: current?.subTitle || "" };
+  }
+  return current;
+}
+
+function exerciseLabel(exercise) {
+  if (!exercise?.id) return null;
+  return { id: exercise.id, type: exercise.type || "", title: exercise.title || "", subTitle: exercise.subTitle || "" };
 }
 
 function hasHostSocket(state) {

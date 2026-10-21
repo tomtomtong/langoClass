@@ -2,6 +2,10 @@ import { DurableObject } from "cloudflare:workers";
 import { applyRoomEvent, applyRoomTimer, markSocketClosed } from "./room-events.js";
 import { requestSpeechText } from "./models.js";
 import { createRoomState, emptyRoomState, syncRoomRoster } from "./room-state.js";
+import { queueOpenScores } from "./room-scores.js";
+import { saveScoreBatch } from "./score-store.js";
+
+const SCORE_RETRY_MS = 60 * 1000;
 
 export class RoomDurableObject extends DurableObject {
   constructor(ctx, env) {
@@ -20,6 +24,8 @@ export class RoomDurableObject extends DurableObject {
 
   open(input) {
     const state = createRoomState(input);
+    const unsaved = this.#read()?.pendingScores;
+    if (unsaved?.length) state.pendingScores = unsaved;
     this.#write(state);
     return summarize(state);
   }
@@ -32,9 +38,21 @@ export class RoomDurableObject extends DurableObject {
     return { ok: true, studentCount: next.session.studentList.length };
   }
 
-  close() {
-    this.ctx.storage.sql.exec("DELETE FROM room");
-    return { ok: true };
+  // Scores earned before the session ended go to D1 first. If D1 refuses
+  // them, the room stays as a closed shell and its alarm retries the save.
+  async close() {
+    const state = this.#read();
+    if (state?.session) {
+      queueOpenScores(state, Date.now());
+      state.game = null;
+      state.buzz = null;
+      delete state.timer;
+      state.session.status = "ended";
+      state.closed = true;
+      this.#write(state);
+      await this.#flushScores();
+    }
+    return { ok: true, scoresPending: await this.#finishClose() };
   }
 
   read() {
@@ -71,6 +89,10 @@ export class RoomDurableObject extends DurableObject {
     }
     const attachment = ws.deserializeAttachment() || {};
     const state = this.#read();
+    if (state?.closed) {
+      send(ws, { t: "ack", id: incoming.id, data: { ok: false, error: "This class session has ended." } });
+      return;
+    }
     const result = applyRoomEvent(state, incoming, {
       socketId: attachment.id || crypto.randomUUID(),
       role: attachment.role || null,
@@ -88,11 +110,13 @@ export class RoomDurableObject extends DurableObject {
     for (const frame of result.direct || []) send(ws, { t: "event", event: frame.event, data: frame.data });
     this.#broadcast(result.broadcasts);
     await this.#arm(result);
+    await this.#flushScores();
   }
 
   async webSocketClose(ws) {
     const attachment = ws.deserializeAttachment() || {};
     const state = this.#read();
+    if (state?.closed) return;
     const result = markSocketClosed(state, { socketId: attachment.id, now: Date.now() });
     if (result.state) this.#write(result.state);
     this.#broadcast(result.broadcasts);
@@ -106,15 +130,78 @@ export class RoomDurableObject extends DurableObject {
       );
     }
     await this.#arm(result);
+    await this.#flushScores();
   }
 
   async alarm() {
     const state = this.#read();
+    if (state?.closed) {
+      await this.#flushScores();
+      await this.#finishClose();
+      return;
+    }
     if (!state?.timer) return;
     const result = applyRoomTimer(state, Date.now());
     if (result.state) this.#write(result.state);
     this.#broadcast(result.broadcasts);
     await this.#arm(result);
+    await this.#flushScores();
+  }
+
+  // Saves queued score batches, then drops the saved ones from the latest
+  // stored state; other events may have queued more while D1 was writing.
+  async #flushScores() {
+    const pending = this.#read()?.pendingScores;
+    if (!pending?.length) return;
+    if (!this.env.DB) {
+      console.error(JSON.stringify({ message: "scores_save_failed", error: "DB binding missing", batches: pending.length }));
+      return;
+    }
+    const saved = new Set();
+    for (const batch of pending) {
+      try {
+        const result = await saveScoreBatch(this.env.DB, batch);
+        saved.add(batch.id);
+        console.log(
+          JSON.stringify({
+            message: "scores_saved",
+            roomId: batch.roomId,
+            classId: batch.classId,
+            exerciseId: batch.exerciseId,
+            exerciseType: batch.exerciseType,
+            saved: result.saved,
+            skipped: result.skipped,
+          })
+        );
+      } catch (error) {
+        console.error(
+          JSON.stringify({
+            message: "scores_save_failed",
+            roomId: batch.roomId,
+            exerciseId: batch.exerciseId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        );
+      }
+    }
+    if (!saved.size) return;
+    const latest = this.#read();
+    if (!latest) return;
+    latest.pendingScores = (latest.pendingScores || []).filter((batch) => !saved.has(batch.id));
+    this.#write(latest);
+  }
+
+  async #finishClose() {
+    const state = this.#read();
+    if (!state?.closed) return 0;
+    const left = state.pendingScores?.length || 0;
+    if (left) {
+      await this.ctx.storage.setAlarm(Date.now() + SCORE_RETRY_MS);
+      return left;
+    }
+    await this.ctx.storage.deleteAlarm();
+    this.ctx.storage.sql.exec("DELETE FROM room");
+    return 0;
   }
 
   #broadcast(frames) {

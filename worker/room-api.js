@@ -37,8 +37,8 @@ export async function handleRoomApi(request, env, url, proxy) {
     return rememberRoom(request, env, proxy, async (_data, body) => {
       const roomId = roomIdOf(body);
       if (!roomId) return false;
-      await env.ROOM.getByName(roomId).close();
-      console.log(JSON.stringify({ message: "room_closed", roomId }));
+      const result = await env.ROOM.getByName(roomId).close();
+      console.log(JSON.stringify({ message: "room_closed", roomId, scoresPending: result?.scoresPending || 0 }));
       return true;
     });
   }

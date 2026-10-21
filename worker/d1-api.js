@@ -1,4 +1,5 @@
 import { developerAuth, developerClassList, developerLogin } from "./dev-account.js";
+import { readScoreRecords } from "./score-store.js";
 
 const CMS_BASE_DEFAULT = "https://newcms.lango.ai";
 
@@ -231,20 +232,48 @@ async function listScores(request, env, url) {
   const courseId = numberOrUndefined(url.searchParams.get("courseId"));
   const exerciseId = numberOrUndefined(url.searchParams.get("exerciseId"));
   const roomId = url.searchParams.get("roomId")?.trim() || undefined;
-  const store = await readDoc(env, "student-scores", { students: {}, records: [] });
-  const scores = (store.records || [])
-    .filter((record) => sameId(record.teacherId, auth.teacherId) && record.classId === classId)
+  const legacy = await readDoc(env, "student-scores", { students: {}, records: [] });
+  const classRecords = mergeScoreRecords(
+    (legacy.records || []).filter((record) => sameId(record.teacherId, auth.teacherId) && record.classId === classId),
+    await readScoreRecords(env.DB, auth.teacherId, classId)
+  );
+  const store = { records: classRecords };
+  const scores = classRecords
     .filter((record) => courseId == null || record.courseId === courseId)
     .filter((record) => exerciseId == null || record.exerciseId === exerciseId)
     .filter((record) => !roomId || record.roomId === roomId)
     .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
   const prefix = `${Number(auth.teacherId)}:${classId}:`;
-  const students = Object.entries(store.students || {})
-    .filter(([key]) => key.startsWith(prefix))
+  const profiles = Object.fromEntries(Object.entries(legacy.students || {}).filter(([key]) => key.startsWith(prefix)));
+  for (const record of classRecords) {
+    const key = `${prefix}${record.studentUserId}`;
+    if (profiles[key]) continue;
+    profiles[key] = {
+      teacherId: record.teacherId,
+      classId,
+      studentUserId: String(record.studentUserId),
+      displayName: record.displayName || "",
+    };
+  }
+  const students = Object.entries(profiles)
     .map(([key, student]) => enrichStudent(store, student, key))
     .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
   const semesterTotals = [...students].sort((a, b) => b.totalScore - a.totalScore || String(a.displayName).localeCompare(String(b.displayName)));
   return json({ classId, teacherId: auth.teacherId, semesterTotals, students, scores });
+}
+
+// Scores from the student-scores document (written by Node) and from the
+// score_records table (written by rooms). A record key appears once.
+function mergeScoreRecords(legacy, rows) {
+  const seen = new Set();
+  const merged = [];
+  for (const record of [...legacy, ...rows]) {
+    const key = record?.recordKey;
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    merged.push(record);
+  }
+  return merged;
 }
 
 async function listCommunity(request, env, url) {
