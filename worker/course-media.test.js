@@ -124,3 +124,38 @@ test("deleting a course removes its banner from R2", async () => {
   assert.equal(env.UPLOADS.objects.has("uploads/courses/old.png"), false);
   assert.equal((await getDoc(env, "teacher-courses")).courses.length, 0);
 });
+
+test("a question image for a course goes to R2", async () => {
+  const { env, call } = await setup();
+  const response = await call("/api/cms/courses/-5/question-image", {
+    method: "POST",
+    headers: { "x-teacher-id": "835" },
+    body: upload("image", new Uint8Array([4, 5, 6]), "q.jpeg", "image/jpeg"),
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.match(body.url, /^\/uploads\/questions\/question-835-\d+\.jpeg$/);
+  assert.deepEqual(env.UPLOADS.objects.get(body.url.slice(1)).bytes, new Uint8Array([4, 5, 6]));
+});
+
+test("a question image for an unknown course is refused before upload", async () => {
+  const { env, call } = await setup();
+  const response = await call("/api/cms/courses/-99/question-image", {
+    method: "POST",
+    body: upload("image", "x", "q.png", "image/png"),
+  });
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).message, "Course not found.");
+  assert.equal([...env.UPLOADS.objects.keys()].some((key) => key.startsWith("uploads/questions/")), false);
+});
+
+test("the CMS question image route needs no course and checks the file", async () => {
+  const { call } = await setup();
+  const ok = await (await call("/api/cms/question-image", {
+    method: "POST",
+    body: upload("image", "png", "q.png", "image/png"),
+  })).json();
+  assert.match(ok.url, /^\/uploads\/questions\/question-upload-\d+\.png$/);
+  const missing = await call("/api/cms/question-image", { method: "POST", body: new FormData() });
+  assert.equal((await missing.json()).message, "No image file provided.");
+});

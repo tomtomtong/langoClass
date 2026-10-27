@@ -1,6 +1,6 @@
-// Course banner, section banner, and section intro video uploads. The file
-// goes to R2 and the course in D1 points at it, as server.js did with its disk
-// and JSON store.
+// Course banner, section banner, section intro video, and question image
+// uploads. The file goes to R2 and the course in D1 points at it, as server.js
+// did with its disk and JSON store.
 import { deleteUpload, extensionOf, randomPart, storeUpload, uploadUrl } from "./course-files.js";
 import { json, readDoc, requireTeacher, sameId, writeDoc } from "./d1-store.js";
 
@@ -16,10 +16,18 @@ export async function handleCourseMediaApi(request, env, url) {
   const banner = pathname.match(/^\/api\/cms\/courses\/(-?\d+)\/banner$/);
   const sectionBanner = pathname.match(/^\/api\/cms\/courses\/(-?\d+)\/sections\/([^/]+)\/banner$/);
   const introVideo = pathname.match(/^\/api\/cms\/courses\/(-?\d+)\/sections\/([^/]+)\/intro-video$/);
-  if (!banner && !sectionBanner && !introVideo) return null;
+  const courseQuestion = pathname.match(/^\/api\/cms\/courses\/(-?\d+)\/question-image$/);
+  const question = pathname === "/api/cms/question-image";
+  if (!banner && !sectionBanner && !introVideo && !courseQuestion && !question) return null;
 
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
+  if (question) return questionImage(request, env, null);
+  if (courseQuestion) {
+    const courseId = Number(courseQuestion[1]);
+    if (!(await findCourse(env, courseId, auth.teacherId))) return json({ message: "Course not found." }, 404);
+    return questionImage(request, env, courseId);
+  }
   if (banner) return courseBanner(request, env, auth, Number(banner[1]));
   if (sectionBanner) return sectionBannerUpload(request, env, auth, Number(sectionBanner[1]), Number(sectionBanner[2]));
   return introVideoUpload(request, env, auth, Number(introVideo[1]), Number(introVideo[2]));
@@ -56,6 +64,18 @@ async function courseBanner(request, env, auth, courseId) {
       updatedAt: course.updatedAt,
     },
   });
+}
+
+// The CMS puts the returned URL into an exercise item and saves it with the
+// sections, so nothing in D1 changes here. The file name follows server.js:
+// the teacher id header, else the course id.
+async function questionImage(request, env, courseId) {
+  const image = await readImage(request, "image");
+  if (image instanceof Response) return image;
+  const owner = String(request.headers.get("x-teacher-id") || courseId || "upload").replace(/\W/g, "") || "upload";
+  const url = uploadUrl("questions", `question-${owner}-${Date.now()}${pickExt(image.name, IMAGE_EXTS, ".jpg")}`);
+  await storeUpload(env, url, await image.arrayBuffer(), { contentType: image.type });
+  return json({ url });
 }
 
 // A section that is not saved yet still gets its file, as on Node: the CMS
