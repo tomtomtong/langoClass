@@ -23,15 +23,17 @@ if [ "$should_bump" != "1" ]; then
   exit 0
 fi
 
-if ! git diff --quiet -- public/host.html || ! git diff --cached --quiet -- public/host.html; then
-  echo "pre-push: public/host.html has uncommitted changes."
+host_pages="public/host.html public/hk/host.html"
+
+if ! git diff --quiet -- $host_pages || ! git diff --cached --quiet -- $host_pages; then
+  echo "pre-push: public/host.html or public/hk/host.html has uncommitted changes."
   echo "pre-push: commit or stash them first so the login version bump stays clean."
   exit 1
 fi
 
 version="$(node scripts/update-host-login-version.js)"
-git add public/host.html
-git commit -m "Update host login version to $version" -- public/host.html
+git add $host_pages
+git commit -m "Update host login version to $version" -- $host_pages
 
 LANGO_SKIP_VERSION_BUMP=1 git push --no-verify "$remote_name" "HEAD:$current_branch"
 
