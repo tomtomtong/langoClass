@@ -5,6 +5,10 @@ import { collectUploadPaths, mirrorStoredUploads, serveUpload, uploadKey } from 
 test("upload keys stay inside the upload folders", () => {
   assert.equal(uploadKey("/uploads/courses/course--24-1789535179085.png"), "uploads/courses/course--24-1789535179085.png");
   assert.equal(uploadKey("/uploads/community/1/1788247596505-2a7007dc.jpg"), "uploads/community/1/1788247596505-2a7007dc.jpg");
+  assert.equal(
+    uploadKey("/uploads/lectures/lango-cambridge-s8-u1-1/voice/intro.mp3"),
+    "uploads/lectures/lango-cambridge-s8-u1-1/voice/intro.mp3"
+  );
   assert.equal(uploadKey("/uploads/courses/../../server.js"), "");
   assert.equal(uploadKey("/uploads/other/file.png"), "");
   assert.equal(uploadKey("/host.html"), "");

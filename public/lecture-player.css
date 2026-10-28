@@ -1,0 +1,104 @@
+/* Frame and controls around the 1920x1080 lecture stage (lecture-stage.css). */
+:host { display: block; }
+
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #fdfdfe;
+  border-radius: inherit;
+  font-family: "Nunito", sans-serif;
+  outline: none;
+}
+.frame:fullscreen { aspect-ratio: auto; width: 100vw; height: 100vh; border-radius: 0; background: #000; }
+.frame.idle { cursor: none; }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(31, 26, 36, 0.28);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  border: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.overlay[hidden] { display: none; }
+.overlay.loading { cursor: progress; background: rgba(253, 253, 254, 0.9); color: #6a3a93; }
+.overlay.error { cursor: default; background: rgba(253, 253, 254, 0.95); color: #a7307f; padding: 24px; text-align: center; }
+.overlay-icon {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: #6a3a93;
+  box-shadow: 0 12px 30px rgba(60, 30, 100, 0.35);
+}
+.overlay-icon svg { width: 40px; height: 40px; fill: #fff; margin-left: 6px; }
+.overlay-icon.replay svg { margin-left: 0; }
+.overlay:hover .overlay-icon { transform: scale(1.05); }
+.spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 5px solid #e6dcef;
+  border-top-color: #6a3a93;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 26px 16px 12px;
+  background: linear-gradient(to top, rgba(31, 26, 36, 0.62), rgba(31, 26, 36, 0));
+  color: #fff;
+  transition: opacity 0.25s ease;
+}
+.frame.idle .controls { opacity: 0; pointer-events: none; }
+
+.ctl {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.ctl:hover, .ctl:focus-visible { background: rgba(255, 255, 255, 0.18); outline: none; }
+.ctl svg { width: 22px; height: 22px; fill: currentColor; }
+
+.time { flex: 0 0 auto; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 92px; }
+
+.scrub {
+  flex: 1;
+  height: 6px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(to right, #f2b92f var(--p, 0%), rgba(255, 255, 255, 0.35) var(--p, 0%));
+  cursor: pointer;
+}
+.scrub::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 0; }
+.scrub::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 0; }
+.scrub:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }

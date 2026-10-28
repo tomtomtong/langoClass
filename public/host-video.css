@@ -1,5 +1,22 @@
 /* Dual-language caption overlays + language menu hint for host video. */
 
+/* Live lecture (lecture-player.js) takes the place of the <video> and its controls. */
+#app.lango-host .host-video-lecture {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+
+#app.lango-host .host-video-lecture[hidden] {
+  display: none;
+}
+
+#app.lango-host .host-video-screen.is-lecture .host-video-player,
+#app.lango-host .host-video-screen.is-lecture .host-video-captions,
+#app.lango-host .host-video-screen.is-lecture .host-video-controls {
+  display: none !important;
+}
+
 #app.lango-host .host-video-captions {
   display: grid;
   gap: 4px;
