@@ -217,18 +217,25 @@ async function listScores(request, env, url) {
   const courseId = numberOrUndefined(url.searchParams.get("courseId"));
   const exerciseId = numberOrUndefined(url.searchParams.get("exerciseId"));
   const roomId = url.searchParams.get("roomId")?.trim() || undefined;
-  const legacy = await readDoc(env, "student-scores", { students: {}, records: [] });
-  const classRecords = mergeScoreRecords(
-    (legacy.records || []).filter((record) => sameId(record.teacherId, auth.teacherId) && record.classId === classId),
-    await readScoreRecords(env.DB, auth.teacherId, classId)
-  );
-  const store = { records: classRecords };
+  const { classRecords, students } = await classScores(env, auth.teacherId, classId);
   const scores = classRecords
     .filter((record) => courseId == null || record.courseId === courseId)
     .filter((record) => exerciseId == null || record.exerciseId === exerciseId)
     .filter((record) => !roomId || record.roomId === roomId)
     .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
-  const prefix = `${Number(auth.teacherId)}:${classId}:`;
+  const semesterTotals = semesterOrder(students);
+  return json({ classId, teacherId: auth.teacherId, semesterTotals, students, scores });
+}
+
+// A class's score records from both stores and each student's running total.
+async function classScores(env, teacherId, classId) {
+  const legacy = await readDoc(env, "student-scores", { students: {}, records: [] });
+  const classRecords = mergeScoreRecords(
+    (legacy.records || []).filter((record) => sameId(record.teacherId, teacherId) && record.classId === classId),
+    await readScoreRecords(env.DB, teacherId, classId)
+  );
+  const store = { records: classRecords };
+  const prefix = `${Number(teacherId)}:${classId}:`;
   const profiles = Object.fromEntries(Object.entries(legacy.students || {}).filter(([key]) => key.startsWith(prefix)));
   for (const record of classRecords) {
     const key = `${prefix}${record.studentUserId}`;
@@ -243,8 +250,23 @@ async function listScores(request, env, url) {
   const students = Object.entries(profiles)
     .map(([key, student]) => enrichStudent(store, student, key))
     .sort((a, b) => String(a.displayName || "").localeCompare(String(b.displayName || "")));
-  const semesterTotals = [...students].sort((a, b) => b.totalScore - a.totalScore || String(a.displayName).localeCompare(String(b.displayName)));
-  return json({ classId, teacherId: auth.teacherId, semesterTotals, students, scores });
+  return { classRecords, students };
+}
+
+// The semester leaderboard a room shows when an exercise ends, in the shape
+// server.js getSemesterLeaderboardForRoom sends.
+export async function semesterLeaderboard(env, teacherId, classId) {
+  if (!env?.DB || teacherId == null || teacherId === "" || !Number.isFinite(Number(classId))) return [];
+  const { students } = await classScores(env, teacherId, Number(classId));
+  return semesterOrder(students).map((student) => ({
+    id: student.studentUserId,
+    name: student.displayName,
+    score: student.totalScore,
+  }));
+}
+
+function semesterOrder(students) {
+  return [...students].sort((a, b) => b.totalScore - a.totalScore || String(a.displayName).localeCompare(String(b.displayName)));
 }
 
 // Scores from the student-scores document (written by Node) and from the
