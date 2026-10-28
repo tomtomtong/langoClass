@@ -6,12 +6,18 @@ import {
   queueQuizScores,
   queueVideoScores,
 } from "./room-scores.js";
+import { buzzAnnouncement } from "./buzz-feedback.js";
 
 const PREVIEW_MS = 5000;
 const BUZZ_JOIN_MS = 20000;
 const NORMAL_POINTS = 300;
 const FAST_POINTS = 500;
 const HOST_GRACE_MS = 60 * 1000;
+const BUZZ_MAX_ATTEMPTS = 2;
+const BUZZ_RESPONSE_MAX = 500;
+// The host reads a fast-mode question aloud first; this opens it if the
+// speech never arrives or the host never says it finished.
+const SPEAK_WAIT_MS = 45 * 1000;
 
 export function applyRoomEvent(state, message, ctx) {
   const event = message?.event;
@@ -61,19 +67,24 @@ export function applyRoomEvent(state, message, ctx) {
       return luckyDraw(state, ctx);
     case "submit_buzzin_response":
       return submitBuzzResponse(state, data, ctx);
+    case "buzzin_retry_choice":
+      return retryChoice(state, data, ctx);
     default:
       return done(state, { ack: { ok: false, error: `Unknown event: ${event || "message"}` } });
   }
 }
 
-export function applyRoomTimer(state, now) {
+export function applyRoomTimer(state, now, caps = {}) {
   const timer = state?.timer;
   if (!timer) return done(state, { clearTimer: true });
   if (now + 250 < timer.at) return done(state, { timer });
   if (timer.kind === "preview") return openQuestion(state, now);
+  if (timer.kind === "speaking") {
+    return state.game?.status === "speaking" ? openQuestion(state, now) : done(state, { clearTimer: true });
+  }
   if (timer.kind === "question") return finishQuestion(state, now);
-  if (timer.kind === "game-start") return beginQuestion(state, now);
-  if (timer.kind === "buzz") return closeBuzz(state, now);
+  if (timer.kind === "game-start") return beginQuestion(state, now, caps);
+  if (timer.kind === "buzz") return closeBuzz(state, now, caps);
   if (timer.kind === "host-grace") return expireHostGrace(state, now);
   return done(state, { clearTimer: true });
 }
@@ -101,6 +112,7 @@ function hostSession(state, data, ctx) {
   }
   state.session.hostSocketId = ctx.socketId;
   if (data.uiLocale) state.session.uiLocale = clip(data.uiLocale, 16) || "en";
+  if (data.variant) state.session.variant = clip(data.variant, 32);
   rememberSocket(state, ctx.socketId, { role: "host", playerId: null });
   const ack = {
     ok: true,
@@ -200,6 +212,7 @@ function selectExercise(state, data, ctx) {
   if (data.course?.id) {
     state.session.courseId = data.course.id;
     state.session.courseName = clip(data.course.name || data.course.title, 200);
+    state.session.courseLangCode = clip(data.course.langCode, 16);
   }
   return done(state, {
     ack: { ok: true, roomId: state.session.roomId, status: state.session.status, exercise: state.session.exercise },
@@ -297,7 +310,7 @@ function startRoomGame(state, ctx) {
     data: { totalQuestions: state.game.quiz.questions.length, fastMode: !!state.game.fastMode },
   };
   if (delay <= 0) {
-    const next = beginQuestion(state, ctx.now);
+    const next = beginQuestion(state, ctx.now, ctx.caps);
     next.broadcasts = [starting, ...next.broadcasts];
     next.ack = { ok: true };
     return next;
@@ -333,7 +346,7 @@ function submitAnswer(state, data, ctx) {
 
 function nextQuestion(state, ctx) {
   if (!isHost(ctx) || state.game?.status !== "results") return done(state);
-  return beginQuestion(state, ctx.now);
+  return beginQuestion(state, ctx.now, ctx.caps);
 }
 
 function openFromSpeaking(state, data, ctx) {
@@ -356,9 +369,10 @@ function endExercise(state, data, ctx) {
   state.session.startedAt = null;
   return done(state, {
     ack: { ok: true, exerciseLeaderboard: leaderboard, semesterLeaderboard: [] },
+    ackSemester: true,
     broadcasts: [
       { event: "room_quiz_cleared", data: {} },
-      { event: "room_exercise_wrap_up", data: { exerciseLeaderboard: leaderboard, semesterLeaderboard: [] } },
+      { event: "room_exercise_wrap_up", data: { exerciseLeaderboard: leaderboard, semesterLeaderboard: [] }, semester: true },
       lobby(state),
     ],
     clearTimer: true,
@@ -375,10 +389,9 @@ function startBuzz(state, ctx) {
     state.session.buzzinAwardedPlayers = [];
   }
   state.buzz = newBuzz(topics, 0, ctx.now);
-  const payload = buzzPayload(state.buzz, ctx.now);
   return done(state, {
-    ack: { ok: true, ...payload },
-    broadcasts: [{ event: "buzzin_round_started", data: payload }],
+    ack: { ok: true, ...buzzPayload(state.buzz, ctx.now, true) },
+    broadcasts: [buzzFrame("buzzin_round_started", state.buzz, ctx.now)],
     clearTimer: true,
   });
 }
@@ -390,10 +403,9 @@ function nextBuzz(state, ctx) {
   const nextIndex = state.buzz.questionIndex + 1;
   if (nextIndex >= topics.length) return done(state, { ack: { ok: false, error: "No more Buzz In questions." } });
   state.buzz = newBuzz(topics, nextIndex, ctx.now);
-  const payload = buzzPayload(state.buzz, ctx.now);
   return done(state, {
-    ack: { ok: true, ...payload },
-    broadcasts: [{ event: "buzzin_round_started", data: payload }],
+    ack: { ok: true, ...buzzPayload(state.buzz, ctx.now, true) },
+    broadcasts: [buzzFrame("buzzin_round_started", state.buzz, ctx.now)],
     clearTimer: true,
   });
 }
@@ -407,10 +419,9 @@ function openBuzz(state, ctx) {
   round.status = "open";
   round.joinOpenedAt = ctx.now;
   round.joinEndsAt = ctx.now + BUZZ_JOIN_MS;
-  const payload = buzzPayload(round, ctx.now);
   return done(state, {
-    ack: { ok: true, ...payload },
-    broadcasts: [{ event: "buzzin_join_opened", data: payload }],
+    ack: { ok: true, ...buzzPayload(round, ctx.now, true) },
+    broadcasts: [buzzFrame("buzzin_join_opened", round, ctx.now)],
     timer: { kind: "buzz", at: round.joinEndsAt },
   });
 }
@@ -438,67 +449,346 @@ function buzzIn(state, ctx) {
     at: ctx.now,
     elapsedMs: Math.max(0, ctx.now - (round.joinOpenedAt || ctx.now)),
   });
+  markAnswered(round, playerId);
   awardBuzz(state, playerId, participant?.displayName);
-  round.phase = "typing";
-  round.status = "closed";
-  const payload = buzzPayload(round, ctx.now);
-  return done(state, {
-    ack: { ok: true, rank, selected: true, roundId: round.roundId },
-    broadcasts: [{ event: "buzzin_join_closed", data: payload }, { event: "buzzin_update", data: payload }],
-    clearTimer: true,
-  });
+  const typing = startTyping(state, ctx.now, ctx.caps);
+  typing.ack = { ok: true, rank, selected: true, roundId: round.roundId };
+  return typing;
 }
 
 function getBuzz(state, ctx) {
   if (!state.buzz) return done(state, { ack: { ok: true, active: false } });
-  return done(state, { ack: { ok: true, active: true, ...buzzPayload(state.buzz, ctx.now) } });
+  return done(state, { ack: { ok: true, active: true, ...buzzPayload(state.buzz, ctx.now, isHost(ctx)) } });
 }
 
 function luckyDraw(state, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can run a lucky draw." } });
   const round = state.buzz;
   if (!round) return done(state, { ack: { ok: false, error: "Buzz-in round not prepared." } });
-  const answered = new Set(round.buzzes.map((item) => item.playerId));
+  const answered = new Set(round.answeredPlayerIds || []);
+  for (const item of round.buzzes) answered.add(item.playerId);
+  for (const item of round.responses) answered.add(item.playerId);
   const pool = (state.session.participants || []).filter((item) => item.online !== false && !answered.has(item.userId));
-  if (!pool.length) return done(state, { ack: { ok: false, error: "No students left to draw." } });
+  if (!pool.length) {
+    return done(state, {
+      ack: {
+        ok: false,
+        error: answered.size ? "No eligible students left for this question." : "No students are connected for the lucky draw.",
+      },
+    });
+  }
   const pick = pool[ctx.pick(pool.length) % pool.length];
-  round.buzzes = [{
-    playerId: pick.userId,
-    displayName: pick.displayName,
-    rank: 1,
-    at: ctx.now,
-    elapsedMs: 0,
-  }];
-  awardBuzz(state, pick.userId, pick.displayName);
+  const winner = { playerId: pick.userId, displayName: pick.displayName || "Student" };
+  let buzz = round.buzzes.find((item) => item.playerId === winner.playerId);
+  if (!buzz) {
+    buzz = {
+      playerId: winner.playerId,
+      displayName: winner.displayName,
+      rank: round.buzzes.length + 1,
+      at: ctx.now,
+      elapsedMs: Math.max(0, ctx.now - (round.joinOpenedAt || ctx.now)),
+    };
+    round.buzzes.push(buzz);
+  }
+  markAnswered(round, winner.playerId);
+  awardBuzz(state, winner.playerId, winner.displayName);
   round.phase = "typing";
   round.status = "closed";
-  const payload = buzzPayload(round, ctx.now);
+  round.turnIndex = Math.max(0, round.buzzes.findIndex((item) => item.playerId === winner.playerId));
+  round.pendingRetryPlayerId = null;
+  round.retryActivePlayerId = null;
+  const text = buzzAnnouncement(round.topic, winner.displayName);
+  if (ctx.caps?.speech) {
+    round.answerAnnouncement = null;
+    return done(state, {
+      deferAck: true,
+      clearTimer: true,
+      jobs: [announceJob(state, round, winner, text, "lucky-draw")],
+    });
+  }
+  round.answerAnnouncement = { ...winner, text, audio: null, format: null };
   return done(state, {
-    ack: { ok: true, ...payload },
-    broadcasts: [{ event: "buzzin_join_closed", data: payload }],
+    ack: luckyDrawAck(round, winner, ctx.now),
+    broadcasts: [buzzFrame("buzzin_update", round, ctx.now)],
     clearTimer: true,
   });
 }
 
+// Checked before the recording is transcribed, so a student whose turn it
+// is not does not cost a speech-to-text call.
+export function buzzSubmitCheck(state, ctx) {
+  const round = state?.buzz;
+  const playerId = ctx.playerId;
+  if (!playerId || (ctx.role !== "session_player" && ctx.role !== "player")) {
+    return { ok: false, error: "Join the class waiting room first." };
+  }
+  if (!round || round.phase !== "typing") return { ok: false, error: "It is not your turn to answer yet." };
+  const turn = currentTurn(round);
+  if (!turn || turn.playerId !== playerId) return { ok: false, error: "It is not your turn to answer yet." };
+  if (!canSubmit(round, playerId)) {
+    const latest = latestResponse(round, playerId);
+    if (latest?.analysisStatus === "pending") return { ok: false, error: "Your answer is still being checked." };
+    if (round.pendingRetryPlayerId === playerId) return { ok: false, error: "Choose whether to try again first." };
+    return { ok: false, error: "You already submitted an answer." };
+  }
+  return { ok: true, sttLanguage: round.sttLanguage || "" };
+}
+
 function submitBuzzResponse(state, data, ctx) {
+  const check = buzzSubmitCheck(state, ctx);
+  if (!check.ok) return done(state, { ack: check });
   const round = state.buzz;
   const playerId = ctx.playerId;
-  if (!round || !playerId) return done(state, { ack: { ok: false, error: "Buzz in is closed." } });
-  const text = clip(data.text, 500);
-  if (!text) {
-    return done(state, { ack: { ok: false, error: "Record your answer before submitting." } });
+  const turn = currentTurn(round);
+  const text = String(data.text || "").trim();
+  if (!text) return done(state, { ack: { ok: false, error: "Record your answer before submitting." } });
+  if (text.length > BUZZ_RESPONSE_MAX) {
+    return done(state, { ack: { ok: false, error: `Answer must be ${BUZZ_RESPONSE_MAX} characters or fewer.` } });
   }
-  round.responses = round.responses.filter((item) => item.playerId !== playerId);
-  round.responses.push({ playerId, text, analysisStatus: "done", analysis: "" });
-  round.phase = "done";
-  const payload = buzzPayload(round, ctx.now);
+  const audioId = clip(data.responseAudioId, 80);
+  const entry = {
+    playerId,
+    displayName: turn.displayName,
+    rank: turn.rank,
+    text,
+    at: ctx.now,
+    responseAudio: audioId ? audioRef(audioId) : null,
+    responseAudioFormat: audioId ? clip(data.responseAudioFormat, 16) || "webm" : null,
+    analysis: null,
+    spokenFeedback: null,
+    answerVerdict: null,
+    isCorrect: null,
+    analysisStatus: "pending",
+    analysisAudio: null,
+    analysisAudioFormat: null,
+  };
+  round.responses.push(entry);
+  if (round.retryActivePlayerId === playerId) round.retryActivePlayerId = null;
+
+  if (!ctx.caps?.text) {
+    // No marking model: keep the answer and close the turn, as before.
+    entry.analysis = "";
+    entry.analysisStatus = "done";
+    finalizeAnswer(round);
+    return done(state, {
+      ack: { ok: true, ...buzzPayload(round, ctx.now, false) },
+      broadcasts: [buzzFrame("buzzin_response_analyzed", round, ctx.now)],
+    });
+  }
   return done(state, {
-    ack: { ok: true, ...payload },
-    broadcasts: [{ event: "buzzin_response_analyzed", data: payload }],
+    ack: { ok: true, ...buzzPayload(round, ctx.now, false) },
+    broadcasts: [buzzFrame("buzzin_update", round, ctx.now)],
+    jobs: [{
+      kind: "buzz-analyze",
+      roundId: round.roundId,
+      playerId,
+      at: entry.at,
+      topic: round.topic,
+      correctAnswer: round.correctAnswer || "",
+      studentName: turn.displayName,
+      responseText: text,
+      hasAudio: !!audioId || !!data.hadAudio,
+      language: round.sttLanguage || roomSpeakLang(state),
+      speakLanguage: round.sttLanguage || roomSpeakLang(state),
+      variant: state.session.variant || "",
+      speech: !!ctx.caps?.speech,
+    }],
   });
 }
 
-function beginQuestion(state, now) {
+function retryChoice(state, data, ctx) {
+  const playerId = ctx.playerId;
+  if (!playerId || (ctx.role !== "session_player" && ctx.role !== "player")) {
+    return done(state, { ack: { ok: false, error: "Join the class waiting room first." } });
+  }
+  const round = state.buzz;
+  if (!round || round.phase !== "typing") {
+    return done(state, { ack: { ok: false, error: "Buzz-in is not accepting answers right now." } });
+  }
+  if (round.pendingRetryPlayerId !== playerId) {
+    return done(state, { ack: { ok: false, error: "No retry is available right now." } });
+  }
+  round.pendingRetryPlayerId = null;
+  if (data.accept && attemptsOf(round, playerId) < BUZZ_MAX_ATTEMPTS) {
+    round.retryActivePlayerId = playerId;
+    return done(state, {
+      ack: { ok: true, ...buzzPayload(round, ctx.now, false) },
+      broadcasts: [buzzFrame("buzzin_update", round, ctx.now)],
+    });
+  }
+  finalizeAnswer(round);
+  return done(state, {
+    ack: { ok: true, ...buzzPayload(round, ctx.now, false) },
+    broadcasts: [buzzFrame("buzzin_update", round, ctx.now)],
+  });
+}
+
+// Results of the model calls a room event asked for. The room may have moved
+// on while the call ran, so each result is applied only if its round,
+// response or question is still current.
+export function applyRoomJob(state, job, outcome, now) {
+  if (!state?.session || state.closed) return done(state);
+  if (job.kind === "question-tts") return questionSpeech(state, job, outcome, now);
+  if (job.kind === "buzz-announce") return announced(state, job, outcome, now);
+  if (job.kind === "buzz-analyze") return analyzed(state, job, outcome, now);
+  return done(state);
+}
+
+function questionSpeech(state, job, outcome, now) {
+  const game = state.game;
+  if (!game || game.status !== "speaking" || game.currentQuestionIndex !== job.questionIndex) return done(state);
+  if (!outcome?.audioId || !hasHostSocket(state)) return openQuestion(state, now);
+  return done(state, {
+    broadcasts: [{
+      event: "question_tts",
+      hostOnly: true,
+      data: { questionIndex: job.questionIndex, audioContent: audioRef(outcome.audioId), format: outcome.format || "mp3" },
+    }],
+  });
+}
+
+function announced(state, job, outcome, now) {
+  const round = state.buzz;
+  if (!round || round.roundId !== job.roundId) {
+    return done(state, job.ack === "lucky-draw" ? { ack: { ok: false, error: "Buzz-in round changed." } } : {});
+  }
+  const winner = { playerId: job.playerId, displayName: job.displayName };
+  round.answerAnnouncement = {
+    ...winner,
+    text: job.text,
+    audio: outcome?.audioId ? audioRef(outcome.audioId) : null,
+    format: outcome?.audioId ? outcome.format || "mp3" : null,
+  };
+  return done(state, {
+    ack: job.ack === "lucky-draw" ? luckyDrawAck(round, winner, now) : undefined,
+    broadcasts: [buzzFrame("buzzin_update", round, now)],
+  });
+}
+
+function analyzed(state, job, outcome, now) {
+  const round = state.buzz;
+  if (!round || round.roundId !== job.roundId) return done(state);
+  const entry = latestResponse(round, job.playerId);
+  if (!entry || entry.at !== job.at || entry.analysisStatus !== "pending") return done(state);
+  if (outcome?.ok) {
+    entry.analysis = outcome.analysis;
+    entry.spokenFeedback = outcome.spokenFeedback;
+    entry.answerVerdict = outcome.answerVerdict || null;
+    entry.isCorrect = outcome.isCorrect === true;
+    entry.analysisStatus = "done";
+    entry.analysisAudio = outcome.audioId ? audioRef(outcome.audioId) : null;
+    entry.analysisAudioFormat = outcome.audioId ? outcome.format || "mp3" : null;
+    if (entry.isCorrect || attemptsOf(round, job.playerId) >= BUZZ_MAX_ATTEMPTS) {
+      finalizeAnswer(round);
+    } else {
+      round.pendingRetryPlayerId = job.playerId;
+      round.retryActivePlayerId = null;
+    }
+  } else {
+    entry.analysis = outcome?.error || "Analysis failed.";
+    entry.spokenFeedback = null;
+    entry.answerVerdict = null;
+    entry.isCorrect = null;
+    entry.analysisStatus = "error";
+    if (attemptsOf(round, job.playerId) < BUZZ_MAX_ATTEMPTS) {
+      round.pendingRetryPlayerId = job.playerId;
+      round.retryActivePlayerId = null;
+    } else {
+      finalizeAnswer(round);
+    }
+  }
+  return done(state, { broadcasts: [buzzFrame("buzzin_response_analyzed", round, now)] });
+}
+
+// The join window closed with a winner: the winner's turn starts and Uncle
+// Tommy calls them up, as server.js finalizeBuzzInJoinToTyping does.
+function startTyping(state, now, caps = {}) {
+  const round = state.buzz;
+  const winner = round.buzzes[0];
+  round.phase = "typing";
+  round.status = "closed";
+  round.turnIndex = 0;
+  const broadcasts = [buzzFrame("buzzin_join_closed", round, now)];
+  const already = round.responses.some((item) => item.playerId === winner.playerId && String(item.text || "").trim());
+  if (already) return done(state, { broadcasts, clearTimer: true });
+  const text = buzzAnnouncement(round.topic, winner.displayName);
+  if (caps.speech) {
+    round.answerAnnouncement = null;
+    return done(state, {
+      broadcasts,
+      clearTimer: true,
+      jobs: [announceJob(state, round, { playerId: winner.playerId, displayName: winner.displayName }, text, "")],
+    });
+  }
+  round.answerAnnouncement = { playerId: winner.playerId, displayName: winner.displayName, text, audio: null, format: null };
+  broadcasts.push(buzzFrame("buzzin_update", round, now));
+  return done(state, { broadcasts, clearTimer: true });
+}
+
+function announceJob(state, round, winner, text, ack) {
+  return {
+    kind: "buzz-announce",
+    roundId: round.roundId,
+    playerId: winner.playerId,
+    displayName: winner.displayName,
+    text,
+    language: roomSpeakLang(state),
+    variant: state.session.variant || "",
+    ack,
+  };
+}
+
+function luckyDrawAck(round, winner, now) {
+  const announcement = round.answerAnnouncement;
+  return {
+    ok: true,
+    winner,
+    announcementText: announcement?.text || "",
+    announcementAudio: announcement?.audio || null,
+    announcementAudioFormat: announcement?.format || null,
+    ...buzzPayload(round, now, true),
+  };
+}
+
+function finalizeAnswer(round) {
+  round.pendingRetryPlayerId = null;
+  round.retryActivePlayerId = null;
+  if (round.phase !== "typing") return;
+  round.turnIndex += 1;
+  if (round.turnIndex >= round.buzzes.length) round.phase = "done";
+}
+
+function currentTurn(round) {
+  if (round.phase !== "typing") return null;
+  return round.buzzes[round.turnIndex] || null;
+}
+
+function latestResponse(round, playerId) {
+  const matches = (round.responses || []).filter((item) => item.playerId === playerId);
+  return matches.length ? matches[matches.length - 1] : null;
+}
+
+function attemptsOf(round, playerId) {
+  return (round.responses || []).filter((item) => item.playerId === playerId).length;
+}
+
+function canSubmit(round, playerId) {
+  if (round.retryActivePlayerId === playerId) return true;
+  return !latestResponse(round, playerId);
+}
+
+function markAnswered(round, playerId) {
+  if (!Array.isArray(round.answeredPlayerIds)) round.answeredPlayerIds = [];
+  if (!round.answeredPlayerIds.includes(playerId)) round.answeredPlayerIds.push(playerId);
+}
+
+// Audio lives in the room's own table, not in the room state; payloads carry
+// a reference that the Durable Object fills in for host sockets.
+export function audioRef(id) {
+  return `audio:${id}`;
+}
+
+function beginQuestion(state, now, caps = {}) {
   const game = state.game;
   if (!game) return done(state, { clearTimer: true });
   const nextIndex = game.currentQuestionIndex + 1;
@@ -522,6 +812,7 @@ function beginQuestion(state, now) {
           exerciseLeaderboard,
           semesterLeaderboard: [],
         },
+        semester: true,
       }],
       clearTimer: true,
     });
@@ -530,7 +821,22 @@ function beginQuestion(state, now) {
   game.answers = {};
   game.questionStartedAt = null;
   game.previewEndsAt = null;
-  if (game.fastMode) return openQuestion(state, now);
+  if (game.fastMode) {
+    if (!caps.speech) return openQuestion(state, now);
+    game.status = "speaking";
+    const question = game.quiz.questions[nextIndex];
+    return done(state, {
+      broadcasts: [{ event: "question_speaking", data: speakingPayload(game, question) }],
+      timer: { kind: "speaking", at: now + SPEAK_WAIT_MS },
+      jobs: [{
+        kind: "question-tts",
+        questionIndex: nextIndex,
+        text: question.text,
+        language: roomSpeakLang(state),
+        variant: state.session.variant || "",
+      }],
+    });
+  }
   game.status = "preview";
   game.previewEndsAt = now + PREVIEW_MS;
   const question = game.quiz.questions[nextIndex];
@@ -633,18 +939,15 @@ function finishQuestion(state, now) {
   });
 }
 
-function closeBuzz(state, now) {
+function closeBuzz(state, now, caps = {}) {
   const round = state.buzz;
   if (!round || round.phase !== "join") return done(state, { clearTimer: true });
-  if (round.buzzes.length) {
-    round.phase = "typing";
-  } else {
-    round.phase = "done";
-  }
+  if (round.buzzes.length) return startTyping(state, now, caps);
+  round.phase = "done";
   round.status = "closed";
-  const payload = buzzPayload(round, now);
+  round.turnIndex = 0;
   return done(state, {
-    broadcasts: [{ event: "buzzin_join_closed", data: payload }],
+    broadcasts: [buzzFrame("buzzin_join_closed", round, now)],
     clearTimer: true,
   });
 }
@@ -652,6 +955,9 @@ function closeBuzz(state, now) {
 function currentQuestionEvents(state) {
   const game = state.game;
   if (!game || game.currentQuestionIndex < 0) return [];
+  if (game.status === "speaking") {
+    return [{ event: "question_speaking", data: speakingPayload(game, game.quiz.questions[game.currentQuestionIndex]) }];
+  }
   if (game.status === "question") {
     const question = game.quiz.questions[game.currentQuestionIndex];
     return [{
@@ -689,6 +995,9 @@ function done(state, extra = {}) {
     attachment: extra.attachment || null,
     timer: extra.timer || null,
     clearTimer: !!extra.clearTimer,
+    jobs: extra.jobs || [],
+    deferAck: !!extra.deferAck,
+    ackSemester: !!extra.ackSemester,
   };
 }
 
@@ -869,7 +1178,12 @@ function normalizeQuiz(quiz) {
       };
     })
     .filter((question) => question.options.length >= 2);
-  return { title: clip(quiz?.title, 200) || "Quiz", questions, fastMode: !!quiz?.fastMode };
+  return {
+    title: clip(quiz?.title, 200) || "Quiz",
+    questions,
+    fastMode: !!quiz?.fastMode,
+    speakLangCode: clip(quiz?.speakLangCode, 16),
+  };
 }
 
 function pointsOf(game) {
@@ -900,7 +1214,12 @@ function buzzTopics(exercise) {
     .map((item) => {
       const topic = clip(item?.topic || item?.title || item?.question || item?.text, 300);
       if (!topic) return null;
-      return { topic, image: String(item?.image || item?.imageUrl || "").trim() };
+      return {
+        topic,
+        image: String(item?.image || item?.imageUrl || "").trim(),
+        correctAnswer: clip(item?.correctAnswer || item?.answer || item?.expectedAnswer, 500),
+        sttLanguage: languageOf(item?.sttLanguage),
+      };
     })
     .filter(Boolean);
 }
@@ -913,19 +1232,30 @@ function newBuzz(topics, index, now) {
     status: "closed",
     topic: current.topic,
     image: current.image || "",
+    correctAnswer: current.correctAnswer || "",
+    sttLanguage: current.sttLanguage || "",
     topics,
     questionIndex: index,
     totalQuestions: topics.length,
     buzzes: [],
     responses: [],
+    answeredPlayerIds: [],
+    turnIndex: 0,
     joinOpenedAt: 0,
     joinEndsAt: 0,
+    answerAnnouncement: null,
+    pendingRetryPlayerId: null,
+    retryActivePlayerId: null,
   };
 }
 
-function buzzPayload(round, now) {
+// The host sees the answer key and audio; students get the same payload
+// without them, as server.js buzzInPayloadForSocket sends.
+function buzzPayload(round, now, forHost) {
   const remaining = round.phase === "join" ? Math.max(0, round.joinEndsAt - now) : 0;
-  return {
+  const answeredPlayerIds = [...(round.answeredPlayerIds || [])];
+  const announcement = round.answerAnnouncement;
+  const payload = {
     roundId: round.roundId,
     phase: round.phase,
     status: round.status,
@@ -942,10 +1272,68 @@ function buzzPayload(round, now) {
     questionIndex: round.questionIndex,
     totalQuestions: round.totalQuestions,
     hasNextQuestion: round.questionIndex + 1 < round.totalQuestions,
+    currentTurn: currentTurn(round),
     responses: round.responses,
     typingComplete: round.phase === "done",
-    answeredPlayerIds: round.buzzes.map((item) => item.playerId),
+    ineligiblePlayerIds: answeredPlayerIds,
+    answeredPlayerIds,
+    pendingRetryPlayerId: round.pendingRetryPlayerId || null,
+    retryActivePlayerId: round.retryActivePlayerId || null,
+    canOfferRetry: round.pendingRetryPlayerId ? attemptsOf(round, round.pendingRetryPlayerId) < BUZZ_MAX_ATTEMPTS : false,
+    answerAnnouncement: announcement
+      ? {
+          playerId: announcement.playerId,
+          displayName: announcement.displayName,
+          text: announcement.text,
+          audio: announcement.audio,
+          format: announcement.format,
+        }
+      : null,
   };
+  if (forHost) return { ...payload, correctAnswer: round.correctAnswer || "" };
+  return {
+    ...payload,
+    answerAnnouncement: payload.answerAnnouncement ? { ...payload.answerAnnouncement, audio: null } : null,
+    responses: payload.responses.map((item) => ({
+      ...item,
+      responseAudio: null,
+      analysisAudio: null,
+      hasResponseAudio: Boolean(item?.responseAudio),
+      hasAnalysisAudio: Boolean(item?.analysisAudio),
+    })),
+  };
+}
+
+function buzzFrame(event, round, now) {
+  return { event, data: buzzPayload(round, now, false), hostData: buzzPayload(round, now, true) };
+}
+
+function speakingPayload(game, question) {
+  return {
+    questionIndex: game.currentQuestionIndex,
+    totalQuestions: game.quiz.questions.length,
+    text: question.text,
+    options: question.options,
+    points: pointsOf(game),
+    image: question.image || null,
+    fastMode: !!game.fastMode,
+  };
+}
+
+// The language Uncle Tommy speaks in, as server.js resolveGameSpeakLangCode:
+// the quiz, then the exercise, then the course, then the app variant.
+function roomSpeakLang(state) {
+  return (
+    languageOf(state.game?.quiz?.speakLangCode) ||
+    languageOf(state.session.exercise?.speakLangCode) ||
+    languageOf(state.session.courseLangCode) ||
+    (state.session.variant === "hk-elderly" ? "yue" : "en")
+  );
+}
+
+function languageOf(value) {
+  const code = String(value || "").trim().toLowerCase().split(/[-_]/)[0];
+  return /^[a-z]{2,3}$/.test(code) ? code : "";
 }
 
 function clip(value, max) {
