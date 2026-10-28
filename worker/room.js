@@ -52,9 +52,10 @@ export class RoomDurableObject extends DurableObject {
 
   // Scores earned before the session ended go to D1 first. If D1 refuses
   // them, the room stays as a closed shell and its alarm retries the save.
-  async close() {
+  async close(reason = "Session ended") {
     const state = this.#read();
-    if (state?.session) {
+    if (state?.session && !state.closed) {
+      this.#broadcast([{ event: "session_ended", data: { reason } }]);
       queueOpenScores(state, Date.now());
       state.game = null;
       state.buzz = null;
