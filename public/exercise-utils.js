@@ -77,6 +77,16 @@ function videoUrlFromExercise(exercise) {
   return item?.videoUrl || item?.video_url || null;
 }
 
+/** Live lecture (lecture-player.js): item.lectureUrl, or a video URL that points at a lecture.json. */
+function lectureUrlFromExercise(exercise) {
+  if (!exercise || !isVideoExercise(exercise)) return null;
+  const item = exercise?.items?.[0];
+  const explicit = String(item?.lectureUrl || "").trim();
+  if (explicit) return explicit;
+  const video = String(videoUrlFromExercise(exercise) || "").trim();
+  return /\.json(?:[?#]|$)/i.test(video) ? video : null;
+}
+
 const CAPTION_LANGUAGE_OPTIONS = [
   { code: "en", label: "EN", name: "English" },
   { code: "zh", label: "中文", name: "Chinese" },
@@ -1057,7 +1067,7 @@ function collectExerciseMediaUrls(exercises, { includeVideos = true, videoExerci
 
   for (const exercise of exercises) {
     if (isVideoExercise(exercise)) {
-      if (allowVideo(exercise)) {
+      if (allowVideo(exercise) && !lectureUrlFromExercise(exercise)) {
         const video = videoUrlFromExercise(exercise);
         if (video) urls.add(String(video).trim());
       }

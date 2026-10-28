@@ -1974,6 +1974,7 @@ function resetHostVideoControls() {
 }
 
 function stopHostVideoPlayback() {
+  stopHostLecture();
   const video = $("#host-video-player");
   if (!video) return;
   video.pause();
@@ -1982,7 +1983,72 @@ function stopHostVideoPlayback() {
   updateHostVideoControls();
 }
 
+let hostLecturePlayer = null;
+let hostLectureMountId = 0;
+
+function stopHostLecture() {
+  hostLectureMountId += 1;
+  hostLecturePlayer?.destroy();
+  hostLecturePlayer = null;
+  const holder = $("#host-video-lecture");
+  if (holder) {
+    holder.replaceChildren();
+    holder.hidden = true;
+  }
+  $("#screen-host-video")?.classList.remove("is-lecture");
+}
+
+/** Plays a lecture.json live (lecture-player.js) in the video frame instead of an MP4. */
+function showHostLectureExercise(exercise, url) {
+  stopHostLecture();
+  const video = $("#host-video-player");
+  if (video) {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  }
+  clearHostVideoCaptions();
+
+  $("#host-video-title").textContent = exercise.title || "Video";
+  $("#host-video-subtitle").textContent = exercise.subTitle || "";
+  const screen = $("#screen-host-video");
+  screen?.classList.toggle("has-subtitle", Boolean(exercise.subTitle));
+  screen?.classList.add("has-video", "is-lecture");
+
+  // A fresh element per lecture, so a slow load that finishes after we moved on cannot touch the next one.
+  const holder = $("#host-video-lecture");
+  const el = document.createElement("div");
+  holder.replaceChildren(el);
+  holder.hidden = false;
+  el.addEventListener("lecture-ended", () => {
+    if (typeof fadeInHostBgm === "function") fadeInHostBgm();
+  });
+  const mountId = hostLectureMountId;
+  if (typeof LangoLecturePlayer === "undefined") {
+    el.textContent = "Lecture player failed to load.";
+  } else {
+    LangoLecturePlayer.mount(el, url)
+      .then((player) => {
+        if (mountId === hostLectureMountId) hostLecturePlayer = player;
+        else player.destroy();
+      })
+      .catch((error) => console.error("[host] lecture failed", error));
+  }
+
+  if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
+  const isolate =
+    typeof shouldIsolateHostBgmForMedia !== "function" || shouldIsolateHostBgmForMedia();
+  if (isolate && typeof fadeOutHostBgm === "function") fadeOutHostBgm();
+  showScreen("host-video");
+}
+
 function showHostVideoExercise(exercise) {
+  const lectureUrl = lectureUrlFromExercise(exercise);
+  if (lectureUrl) {
+    showHostLectureExercise(exercise, lectureUrl);
+    return;
+  }
+  stopHostLecture();
   const url = resolvedMediaUrl(videoUrlFromExercise(exercise));
   if (!url) throw new Error("No video URL in this exercise.");
 
