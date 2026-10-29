@@ -77,6 +77,11 @@ function videoUrlFromExercise(exercise) {
   return item?.videoUrl || item?.video_url || null;
 }
 
+/** A video URL that points at a lecture.json is played live by lecture-player.js. */
+function isLectureUrl(url) {
+  return /\.json(?:[?#]|$)/i.test(String(url || "").trim());
+}
+
 /** Live lecture (lecture-player.js): item.lectureUrl, or a video URL that points at a lecture.json. */
 function lectureUrlFromExercise(exercise) {
   if (!exercise || !isVideoExercise(exercise)) return null;
@@ -84,7 +89,7 @@ function lectureUrlFromExercise(exercise) {
   const explicit = String(item?.lectureUrl || "").trim();
   if (explicit) return explicit;
   const video = String(videoUrlFromExercise(exercise) || "").trim();
-  return /\.json(?:[?#]|$)/i.test(video) ? video : null;
+  return isLectureUrl(video) ? video : null;
 }
 
 const CAPTION_LANGUAGE_OPTIONS = [

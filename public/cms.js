@@ -9325,32 +9325,61 @@ function renderMcQuizBody(container, exercise) {
 
 function cmsVideoPreviewMarkup(url = "") {
   const trimmed = String(url || "").trim();
+  const videoSrc = isLectureUrl(trimmed) ? "" : trimmed;
   return `
     <div class="cms-video-preview-wrap"${trimmed ? "" : " hidden"}>
       <p class="cms-video-preview-label">Preview</p>
       <video class="cms-video-preview" controls playsinline preload="metadata"${
-        trimmed ? ` src="${escapeHtml(trimmed)}"` : ""
+        videoSrc ? ` src="${escapeHtml(videoSrc)}"` : ""
       }></video>
+      <div class="cms-lecture-preview" hidden></div>
     </div>`;
 }
 
 function syncCmsVideoPreview(wrap, url) {
   if (!wrap) return;
   const trimmed = String(url || "").trim();
+  const lecture = isLectureUrl(trimmed) ? trimmed : "";
+  const videoSrc = lecture ? "" : trimmed;
   const video = wrap.querySelector(".cms-video-preview");
-  if (!trimmed) {
-    wrap.hidden = true;
-    if (video) {
+  wrap.hidden = !trimmed;
+  syncCmsLecturePreview(wrap, lecture);
+  if (!video) return;
+  video.hidden = Boolean(lecture);
+  if (!videoSrc) {
+    if (video.hasAttribute("src")) {
       video.removeAttribute("src");
       video.load();
     }
     return;
   }
-  wrap.hidden = false;
-  if (video && video.getAttribute("src") !== trimmed) {
-    video.src = trimmed;
+  if (video.getAttribute("src") !== videoSrc) {
+    video.src = videoSrc;
     video.load();
   }
+}
+
+/** A lecture.json URL previews in the live lecture player instead of the <video>. */
+function syncCmsLecturePreview(wrap, url) {
+  const holder = wrap.querySelector(".cms-lecture-preview");
+  if (!holder || wrap._lectureUrl === url) return;
+  wrap._lectureUrl = url;
+  wrap._lecturePlayer?.destroy();
+  wrap._lecturePlayer = null;
+  holder.replaceChildren();
+  holder.hidden = !url;
+  if (!url || typeof LangoLecturePlayer === "undefined") return;
+  // A fresh element per URL, so a load that finishes after the URL changed cannot touch the new preview.
+  const el = document.createElement("div");
+  holder.appendChild(el);
+  LangoLecturePlayer.mount(el, url)
+    .then((player) => {
+      if (wrap._lectureUrl === url && el.isConnected) wrap._lecturePlayer = player;
+      else player.destroy();
+    })
+    .catch(() => {
+      // The player shows the load error inside the preview.
+    });
 }
 
 function wireCmsVideoPreview(root, urlInput) {
@@ -9424,7 +9453,8 @@ function renderVideoBody(container, exercise) {
     <input type="url" class="cms-video-url" value="${escapeHtml(url)}" placeholder="https://..." />
   </label>
   ${cmsVideoPreviewMarkup(url)}
-  <label class="field">
+  <p class="hint cms-lecture-hint">Lecture: plays live in class from its lecture.json. Captions are not used.</p>
+  <label class="field cms-video-caption-field">
     <span>字幕 / Caption URL (WebVTT)</span>
     <input type="url" class="cms-video-caption-url" value="${escapeHtml(captionUrl)}" placeholder="https://.../captions.vtt" />
   </label>
@@ -9660,6 +9690,10 @@ function renderVideoBody(container, exercise) {
   const videoGenStatus = container.querySelector(".cms-video-gen-status");
   const videoUrlInput = container.querySelector(".cms-video-url");
   wireCmsVideoPreview(container, videoUrlInput);
+  const syncLectureMode = () => container.classList.toggle("is-lecture-video", isLectureUrl(videoUrlInput?.value));
+  videoUrlInput?.addEventListener("input", syncLectureMode);
+  videoUrlInput?.addEventListener("change", syncLectureMode);
+  syncLectureMode();
 
   const renderVideoGenLog = (logs) => {
     if (!videoGenLog) return;
