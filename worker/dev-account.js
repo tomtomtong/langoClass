@@ -15,12 +15,28 @@ const DEV_USER = {
   schoolName: null,
 };
 
+// The dev teacher has no school_id, so host.js cannot fetch /api/lango/classStudents
+// and falls back to the class's own studentList. Ship placeholder rosters here.
 const DEV_CLASSES = [
-  { id: 62, name: "5A", studentCount: 7, level: null },
-  { id: 579, name: "5B", studentCount: 2, level: null },
-  { id: 195, name: "5C", studentCount: 24, level: null },
-  { id: 2913, name: "5D", studentCount: 13, level: null },
+  devClass(62, "5A", 7),
+  devClass(579, "5B", 2),
+  devClass(195, "5C", 24),
+  devClass(2913, "5D", 13),
 ];
+
+function devClass(id, name, studentCount) {
+  const studentList = Array.from({ length: studentCount }, (_, index) => {
+    const number = String(index + 1).padStart(2, "0");
+    return {
+      id: id * 1000 + index + 1,
+      studentCode: `${name}-${number}`,
+      firstName: "Student",
+      lastName: number,
+      fullName: `${name} Student ${number}`,
+    };
+  });
+  return { id, name, studentCount, level: null, studentList };
+}
 
 export async function developerLogin(request) {
   let body = {};
