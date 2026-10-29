@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 export function memoryD1({ migrate = true } = {}) {
   const db = new DatabaseSync(":memory:");
   if (migrate) {
-    for (const file of ["0001_stores.sql", "0002_score_records.sql"]) {
+    for (const file of ["0001_stores.sql", "0002_score_records.sql", "0003_open_rooms.sql"]) {
       db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), "utf8"));
     }
   }

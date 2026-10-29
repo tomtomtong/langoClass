@@ -1,5 +1,5 @@
 // One classroom room: the session, the live game, the buzz-in round, and
-// socket metadata. Socket.IO still runs on Node until that transport moves.
+// socket metadata.
 export function createRoomState({
   roomId,
   teacherId,
@@ -19,6 +19,7 @@ export function createRoomState({
       className,
       courseId: course?.id ?? null,
       courseName: text(course?.name || course?.title),
+      courseLangCode: text(course?.langCode).slice(0, 16),
       exercise: exercise || null,
       status: "waiting",
       studentList: studentListOf(classItem),

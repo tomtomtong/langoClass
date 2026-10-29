@@ -113,7 +113,7 @@ export default {
         return new Response("Store unavailable", { status: 502 });
       }
       try {
-        const roomed = await handleRoomApi(request, env, incoming, (next) => proxyToOrigin(next, origin));
+        const roomed = await handleRoomApi(request, env, incoming);
         if (roomed) return rememberUploads(roomed, request, env, origin, ctx);
       } catch (error) {
         console.error(

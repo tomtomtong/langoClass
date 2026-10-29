@@ -7,7 +7,7 @@ function currentHostUiLocale() {
 }
 
 function emitHostSessionJoin(socket, roomId, { resolve, reject } = {}) {
-  socket.emit("host_session", { roomId, uiLocale: currentHostUiLocale() }, (res) => {
+  socket.emit("host_session", { roomId, uiLocale: currentHostUiLocale(), variant: window.LANGO_VARIANT || "" }, (res) => {
     if (!res?.ok) {
       reject?.(new Error(res?.error || "Could not connect to waiting room."));
       return;
