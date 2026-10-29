@@ -2260,3 +2260,22 @@ p { margin: 0 0 0.75rem; }
     flex-wrap: wrap;
   }
 }
+
+/* Video exercises whose URL is a lecture.json: live lecture preview, no caption tools. */
+.cms-lecture-preview {
+  width: 100%;
+  max-width: 640px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cms-lecture-hint,
+.is-lecture-video .cms-video-caption-field,
+.is-lecture-video .cms-video-caption-tools,
+.is-lecture-video .cms-caption-editor {
+  display: none !important;
+}
+
+.is-lecture-video .cms-lecture-hint {
+  display: block !important;
+}
