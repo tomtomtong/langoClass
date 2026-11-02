@@ -173,9 +173,14 @@ test("scores and host progress work for a text class ID", async () => {
     body: JSON.stringify({ classId: "Demo", courseId: 7, completedExerciseIds: [11], lastSectionId: 2 }),
   });
   assert.equal(saved.status, 200);
+  await call("/api/host/progress", {
+    method: "PUT",
+    body: JSON.stringify({ classId: "Demo", courseId: 7, completedExerciseIds: [12], visitedSectionIds: [2] }),
+  });
   const read = await call("/api/host/progress?classId=Demo&courseId=7");
   assert.equal(read.status, 200);
-  assert.deepEqual(read.body.progress.completedExerciseIds, [11]);
+  assert.deepEqual(read.body.progress.completedExerciseIds, [11, 12]);
+  assert.deepEqual(read.body.progress.visitedSectionIds, [2]);
   assert.equal(read.body.progress.lastSectionId, 2);
 
   const dashboard = await call("/api/cms/dashboard/progress?classId=Demo");

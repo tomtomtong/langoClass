@@ -216,10 +216,15 @@ async function hostProgress(request, env, url, method) {
     record = emptyProgress(auth.teacherId, classId, courseId);
     store.records.push(record);
   }
-  if (patch.completedExerciseIds != null) record.completedExerciseIds = normalizeIds(patch.completedExerciseIds);
-  if (patch.visitedSectionIds != null) record.visitedSectionIds = normalizeIds(patch.visitedSectionIds);
-  if (patch.lastSectionId !== undefined) record.lastSectionId = patch.lastSectionId ?? null;
-  if (patch.lastExerciseId !== undefined) record.lastExerciseId = patch.lastExerciseId ?? null;
+  // Pages send only the newly finished IDs; add them, as lib/host-progress-store.js did.
+  if (patch.completedExerciseIds != null) {
+    record.completedExerciseIds = normalizeIds([...(record.completedExerciseIds || []), ...patch.completedExerciseIds]);
+  }
+  if (patch.visitedSectionIds != null) {
+    record.visitedSectionIds = normalizeIds([...(record.visitedSectionIds || []), ...patch.visitedSectionIds]);
+  }
+  if (patch.lastSectionId !== undefined) record.lastSectionId = patch.lastSectionId == null ? null : Number(patch.lastSectionId);
+  if (patch.lastExerciseId !== undefined) record.lastExerciseId = patch.lastExerciseId == null ? null : Number(patch.lastExerciseId);
   record.updatedAt = new Date().toISOString();
   await writeDoc(env, "host-progress", store);
   return json({ progress: presentProgress(record, auth.teacherId, classId, courseId) });
