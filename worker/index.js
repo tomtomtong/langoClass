@@ -1,5 +1,7 @@
 import { matchApiRoute } from "./api-routes.js";
 import { handleStoreApi } from "./d1-api.js";
+import { handleLogsApi } from "./app-logs.js";
+import { handleConfigApi, withSettings } from "./app-settings.js";
 import { handleRoomApi } from "./room-api.js";
 import { handleJoinLinks } from "./join-links.js";
 import { serveUpload, uploadKey } from "./uploads.js";
@@ -35,6 +37,8 @@ export default {
       if (!env.ROOM) return new Response("Room store is not configured", { status: 500 });
       return env.ROOM.getByName(roomId).fetch(request);
     }
+
+    if (isApiPath(incoming.pathname)) env = await settledEnv(env);
 
     try {
       const modeled = await handleModelRequest(request, env, incoming);
@@ -83,6 +87,19 @@ export default {
 
     const joinLinks = handleJoinLinks(request, env, incoming);
     if (joinLinks) return joinLinks;
+    try {
+      const admin = (await handleConfigApi(request, env, incoming)) || (await handleLogsApi(request, env, incoming));
+      if (admin) return admin;
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          message: "admin_request_failed",
+          path: incoming.pathname,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      return new Response("Store unavailable", { status: 502 });
+    }
     try {
       const stored = await handleStoreApi(request, env, incoming);
       if (stored) return stored;
@@ -148,6 +165,19 @@ function jsonResponse(body, status) {
     status,
     headers: { "content-type": "application/json; charset=utf-8" },
   });
+}
+
+// Settings saved on the Config page; if D1 cannot be read, the Worker's own
+// variables still serve the request.
+async function settledEnv(env) {
+  try {
+    return await withSettings(env);
+  } catch (error) {
+    console.error(
+      JSON.stringify({ message: "settings_read_failed", error: error instanceof Error ? error.message : String(error) })
+    );
+    return env;
+  }
 }
 
 function isApiPath(pathname) {

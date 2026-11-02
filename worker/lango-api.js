@@ -1,6 +1,7 @@
 // School login and class rosters from newcms, as server.js /api/lango/* served
 // them. The dev account is answered first in d1-api.js; everyone else lands here.
 import { normalizeClassListResponse, normalizeStudent } from "./classes.js";
+import { writeLog } from "./app-logs.js";
 import { json, readJson } from "./d1-store.js";
 
 const CMS_BASE_DEFAULT = "https://newcms.lango.ai";
@@ -19,17 +20,29 @@ async function login(request, env) {
   const login = String(input.login || input.username || input.email || "").trim();
   const password = input.password;
   const schoolId = input.school_id ?? input.schoolId;
-  if (!login || !password) return json({ message: "Username and password are required." }, 400);
+  if (!login || !password) {
+    await writeLog(env, { category: "login", action: "teacher_login_rejected", message: "Missing username or password", level: "warn", meta: { login } });
+    return json({ message: "Username and password are required." }, 400);
+  }
 
   const body = { login, password };
   if (schoolId != null && String(schoolId).trim()) body.school_id = String(schoolId).trim();
 
   const { ok, status, data } = await cmsRequest(env, "POST", "/api/login", { body });
-  if (!ok) return cmsError(status, data, "Login failed");
+  if (!ok) {
+    await writeLog(env, { category: "login", action: "teacher_login_failed", message: `Teacher login failed: ${login}`, level: "warn", meta: { login, status } });
+    return cmsError(status, data, "Login failed");
+  }
 
   const token = data?.token;
   const user = data?.user;
   if (!token || !user?.id) return json({ message: "Login succeeded but token or user id was missing." }, 502);
+  await writeLog(env, {
+    category: "login",
+    action: "teacher_login_ok",
+    message: `Teacher signed in: ${login}`,
+    meta: { login, user: { id: user.id, schoolId: user.school_id ?? user.schoolId ?? null } },
+  });
   return json({
     ok: true,
     token,

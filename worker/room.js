@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed } from "./room-events.js";
 import { completeText, speak, speechReady, textModelReady, transcribe } from "./ai.js";
+import { withSettings } from "./app-settings.js";
 import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
 import { semesterLeaderboard } from "./d1-api.js";
 import { createRoomState, emptyRoomState, syncRoomRoster } from "./room-state.js";
@@ -196,8 +197,9 @@ export class RoomDurableObject extends DurableObject {
 
   async #runJob(job) {
     try {
+      const env = await withSettings(this.env);
       if (job.kind === "question-tts" || job.kind === "buzz-announce") {
-        const speech = await speak(this.env, job.text, {
+        const speech = await speak(env, job.text, {
           language: job.language,
           purpose: job.kind === "question-tts" ? "question" : "announcement",
           variant: job.variant,
@@ -206,7 +208,7 @@ export class RoomDurableObject extends DurableObject {
       }
       if (job.kind === "buzz-analyze") {
         const reply = await completeText(
-          this.env,
+          env,
           [{ role: "user", content: buzzFeedbackPrompt(job) }],
           220,
           { title: "Lango Buzz In" }
@@ -214,7 +216,7 @@ export class RoomDurableObject extends DurableObject {
         const feedback = parseBuzzFeedback(reply, job.studentName);
         if (!job.speech) return { ok: true, ...feedback };
         try {
-          const speech = await speak(this.env, feedback.spokenFeedback, {
+          const speech = await speak(env, feedback.spokenFeedback, {
             language: job.speakLanguage,
             purpose: "feedback",
             variant: job.variant,
@@ -248,7 +250,7 @@ export class RoomDurableObject extends DurableObject {
     }
     if (String(next.text || "").trim() || !audio) return { data: next };
     try {
-      next.text = await transcribe(this.env, { audioBase64: audio, format: next.format, language });
+      next.text = await transcribe(await withSettings(this.env), { audioBase64: audio, format: next.format, language });
       return { data: next };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Transcription failed." };

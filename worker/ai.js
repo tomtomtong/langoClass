@@ -1,5 +1,5 @@
 // Model calls the Worker makes: text from OpenRouter, speech to text from
-// Inworld or OpenRouter, and speech from Inworld, OpenRouter or ElevenLabs.
+// Inworld, and speech from Inworld, OpenRouter or ElevenLabs.
 // With a Worker secret (OPENROUTER_API_KEY, INWORLD_API_KEY) the provider is
 // called directly; without one the same call goes to the keyless newcms
 // router (/api/router/text, /transcribe, /tts, /elevenlabs-tts).
@@ -8,7 +8,6 @@
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
 const INWORLD_API_BASE = "https://api.inworld.ai";
 const DEFAULT_GENERATE_MODEL = "x-ai/grok-4.3";
-const DEFAULT_SPEECH_MODEL = "mistralai/voxtral-small-24b-2507";
 const DEFAULT_OPENROUTER_TTS_MODEL = "x-ai/grok-voice-tts-1.0";
 const DEFAULT_OPENROUTER_TTS_VOICE = "eve";
 const DEFAULT_INWORLD_STT_MODEL = "inworld/inworld-stt-1";
@@ -64,19 +63,19 @@ export async function completeText(env, messages, maxTokens = 1024, { title = "L
 export async function transcribe(env, { audioBase64, format, language } = {}) {
   const audio = audioPayload(audioBase64, format);
   const lang = sttLanguage(language);
+  // Inworld STT handles Cantonese better than voxtral, so without an Inworld key
+  // the router's Inworld STT comes before a saved OpenRouter key.
   const inworld = secret(env, "INWORLD_API_KEY");
   if (inworld) return transcribeWithInworld(env, inworld, audio, lang);
-  const openRouter = secret(env, "OPENROUTER_API_KEY");
-  if (openRouter) return transcribeWithOpenRouter(env, openRouter, audio);
   return transcribeWithRouter(env, audio, lang);
 }
 
 export function speechProvider(env, variant) {
   const chosen = setting(env, "GAMEPLAY_TTS_PROVIDER", "").toLowerCase();
   if (chosen === "elevenlabs" || chosen === "inworld" || chosen === "openrouter") return chosen;
+  // As on Node: the classroom speaks with Inworld unless a provider is chosen;
+  // HK Elderly uses OpenRouter when there is a key for it.
   if (variant === "hk-elderly" && secret(env, "OPENROUTER_API_KEY")) return "openrouter";
-  if (secret(env, "INWORLD_API_KEY")) return "inworld";
-  if (secret(env, "OPENROUTER_API_KEY")) return "openrouter";
   return "inworld";
 }
 
@@ -129,33 +128,6 @@ async function transcribeWithInworld(env, key, audio, language) {
     label: `Transcription (${model})`,
   });
   const text = String(data?.transcription?.transcript || "").trim();
-  if (!text) throw new Error("Could not transcribe your recording. Try again.");
-  return text;
-}
-
-async function transcribeWithOpenRouter(env, key, audio) {
-  const model = setting(env, "OPENROUTER_BUZZIN_MODEL", DEFAULT_SPEECH_MODEL);
-  const data = await postJson(`${OPENROUTER_API_BASE}/chat/completions`, {
-    headers: openRouterHeaders(env, key, "Lango Buzz In"),
-    body: {
-      model,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "input_audio", input_audio: { data: audio.base64, format: audio.format } },
-            {
-              type: "text",
-              text: "Transcribe the spoken words in this audio verbatim. Return only the transcript with no commentary or punctuation unless clearly spoken.",
-            },
-          ],
-        },
-      ],
-      max_tokens: 512,
-    },
-    label: `Transcription (${model})`,
-  });
-  const text = messageText(data);
   if (!text) throw new Error("Could not transcribe your recording. Try again.");
   return text;
 }

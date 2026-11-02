@@ -13,6 +13,7 @@ test("speech uses the chosen provider, then keys, then keyless Inworld through t
   assert.equal(speechProvider({ INWORLD_API_KEY: "k" }), "inworld");
   assert.equal(speechProvider({ INWORLD_API_KEY: "k", OPENROUTER_API_KEY: "o" }, "hk-elderly"), "openrouter");
   assert.equal(speechProvider({}), "inworld");
+  assert.equal(speechProvider({ OPENROUTER_API_KEY: "o" }), "inworld");
   assert.equal(speechReady({}), true);
   assert.equal(speechReady({ GAMEPLAY_TTS_PROVIDER: "openrouter" }), false);
 });
@@ -94,6 +95,8 @@ test("without keys, speech to text uploads the WAV to the router", async () => {
     return new Response(JSON.stringify({ text: " 蘋果 " }));
   };
   assert.equal(await transcribe({}, { audioBase64: "UklGRg==", format: "wav", language: "yue-HK" }), "蘋果");
+  // A saved OpenRouter key does not move speech recognition off Inworld.
+  assert.equal(await transcribe({ OPENROUTER_API_KEY: "o" }, { audioBase64: "UklGRg==", format: "wav", language: "yue-HK" }), "蘋果");
   await assert.rejects(transcribe({}, { audioBase64: "UklGRg==", format: "webm" }), /WAV or MP3/);
 });
 

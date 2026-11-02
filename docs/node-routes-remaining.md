@@ -5,7 +5,7 @@ is retired and nothing is proxied to it. A `server.js` route the Worker does not
 run yet answers 503 at once; any other unmatched `/api/*` path answers 404.
 
 Source of truth: `worker/index.js` dispatch order -> `handleModelRequest`,
-`handleVideoRequest`, `serveUpload`, `handleStoreApi` (d1-api, community,
+`handleVideoRequest`, `serveUpload`, `handleConfigApi`, `handleLogsApi`, `handleStoreApi` (d1-api, community,
 course-media, course-transfer), `handleRoomApi`, `prepareMaterialRequest`,
 then `unservedApi` (503 or 404).
 
@@ -104,9 +104,19 @@ and `proxyToOrigin` go away at the end.
    - Still blocked: captions generated from a video, video/long-audio material, PowerPoint and
      `compress-material-video` need ffmpeg (or a pptx reader) in `container/`, and rebuilding the
      container needs Docker, which this Mac does not have. These answer 501/503 at once.
-6. Admin: `/api/config*` settings in D1, `/api/logs*` in D1 or Workers Logs.
-7. Done (deployed 2026-11-02, 8aa2ebb8): `ORIGIN` and `proxyToOrigin` removed. Routes from steps 5 and 6
-   answer 503 until they move; unknown `/api/*` paths answer 404.
+6. Done (deployed 2026-11-02, ea170dcc): admin routes in the Worker.
+   - `/api/config*` (`worker/app-settings.js`): settings stay in the D1 `app-settings` document, and a
+     saved value wins over the Worker variable of the same meaning (`withSettings`, laid over `env` for
+     API requests and inside the room). The OpenRouter key saved there on Node is used again, so
+     LLM and picture/scanned-PDF material call OpenRouter directly; speech recognition stays on Inworld
+     (via the router without an Inworld key) for Cantonese. The classroom
+     voice stays Inworld (via the router without an Inworld key), as on Node.
+   - `/api/logs*` (`worker/app-logs.js`): the D1 `app_logs` table from migration 0001, which holds the
+     Node logs imported earlier. Admin login uses the Node username/password unless the Worker secrets
+     `LOG_ADMIN_USERNAME` / `LOG_ADMIN_PASSWORD` are set; tokens are signed and last 12 hours.
+     `debug-files` returns an empty list (those files were on the Node disk).
+7. Done (deployed 2026-11-02, 8aa2ebb8): `ORIGIN` and `proxyToOrigin` removed. Routes still blocked in
+   step 5 answer 503; unknown `/api/*` paths answer 404.
 
 Pages never call `/api/llm`, `/api/tts`, `/api/stt` or `/api/cms/video-jobs`
 directly; only the Worker does.
