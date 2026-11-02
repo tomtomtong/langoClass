@@ -8,6 +8,7 @@
 
   i18n.addMessages("yue", {
     "login.title": "LangoClass 登入",
+    "login.schoolCodePlaceholder": "請輸入學校代碼（可以唔填）",
     "login.usernamePlaceholder": "請輸入帳號",
     "login.passwordPlaceholder": "請輸入密碼",
     "login.button": "登入",

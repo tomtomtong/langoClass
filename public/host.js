@@ -7,6 +7,7 @@ const state = {
   token: null,
   user: null,
   loginUsername: "",
+  loginSchoolCode: "",
   classItem: null,
   classes: [],
   course: null,
@@ -857,6 +858,7 @@ function loadPrefs() {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data.loginUsername) state.loginUsername = data.loginUsername;
+    if (data.loginSchoolCode) state.loginSchoolCode = data.loginSchoolCode;
     if (typeof data.soundMuted === "boolean") {
       hostBgmMuted = data.soundMuted;
       hostSoundEffectsMuted = data.soundMuted;
@@ -886,11 +888,14 @@ function savePrefs() {
   const loginUsername =
     $("#login-username")?.value.trim().toLowerCase() || state.loginUsername || "";
   if (loginUsername) state.loginUsername = loginUsername;
+  const schoolInput = $("#login-school-code");
+  if (schoolInput) state.loginSchoolCode = schoolInput.value.trim();
 
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
       loginUsername: state.loginUsername,
+      loginSchoolCode: state.loginSchoolCode,
       token: state.token,
       user: state.user,
       bgmMuted: hostBgmMuted,
@@ -906,6 +911,8 @@ function savePrefs() {
 
 function applyLoginUsernameToForm() {
   applyTeacherLoginDefaults($("#login-username"), $("#login-password"), state.loginUsername);
+  const schoolInput = $("#login-school-code");
+  if (schoolInput) schoolInput.value = state.loginSchoolCode || "";
 }
 
 function clearAuth() {
@@ -2655,6 +2662,7 @@ async function handleLogin() {
 
   const username = $("#login-username").value.trim().toLowerCase();
   const password = $("#login-password").value;
+  const schoolCode = $("#login-school-code")?.value.trim() || "";
   $("#login-error").textContent = "";
   btn.classList.remove("is-success", "is-fail");
   if (btnText) btnText.textContent = hostT("login.button");
@@ -2671,7 +2679,7 @@ async function handleLogin() {
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
-      body: { login: username, username, password },
+      body: { login: username, username, password, ...(schoolCode ? { school_id: schoolCode } : {}) },
     });
     const user = data.user;
     const token = data.token || user?.token;
@@ -2680,6 +2688,7 @@ async function handleLogin() {
     state.user = { ...user, token };
     state.token = token;
     state.loginUsername = username;
+    state.loginSchoolCode = schoolCode;
     savePrefs();
     await waitForLoginScanCycle(scanStartedAt);
     btn.classList.remove("is-scanning");
