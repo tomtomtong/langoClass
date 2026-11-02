@@ -86,17 +86,19 @@ export function countExercises(course) {
   return (course.sections || []).reduce((sum, section) => sum + (section.exercises || []).length, 0);
 }
 
+// A class ID as newcms gives it: a number when it reads as one, otherwise
+// the trimmed text (some schools name classes, e.g. "Demo"); null if blank.
+export function classIdOf(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  const num = Number(text);
+  return Number.isFinite(num) ? num : text;
+}
+
 export function normalizeClassIds(value) {
   if (!Array.isArray(value)) return [];
-  const ids = value
-    .map((id) => {
-      if (id == null || id === "") return null;
-      const text = String(id).trim();
-      if (!text) return null;
-      const num = Number(text);
-      return Number.isFinite(num) ? num : text;
-    })
-    .filter((id) => id != null);
+  const ids = value.map(classIdOf).filter((id) => id != null);
   return [...new Set(ids)];
 }
 

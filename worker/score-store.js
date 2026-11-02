@@ -3,11 +3,13 @@
 
 export async function saveScoreBatch(db, batch, savedAt = new Date().toISOString()) {
   const teacherId = idOf(batch?.teacherId);
-  const classId = idOf(batch?.classId) == null ? NaN : Number(batch.classId);
+  // A class ID may be text (e.g. "Demo"); class_id keeps it as given.
+  const classId = idOf(batch?.classId);
   const exerciseId = idOf(batch?.exerciseId) == null ? NaN : Number(batch.exerciseId);
   const roomId = String(batch?.roomId || "");
-  if (teacherId == null || !Number.isFinite(classId) || !Number.isFinite(exerciseId) || !roomId || !Array.isArray(batch.scores)) {
-    return { saved: 0, skipped: Array.isArray(batch?.scores) ? batch.scores.length : 0 };
+  if (teacherId == null || classId == null || !Number.isFinite(exerciseId) || !roomId || !Array.isArray(batch.scores)) {
+    const skipped = Array.isArray(batch?.scores) ? batch.scores.length : 0;
+    return { saved: 0, skipped, rejected: "teacherId, classId, exerciseId and roomId are required" };
   }
 
   const records = [];
@@ -48,7 +50,7 @@ export async function readScoreRecords(db, teacherId, classId) {
   try {
     ({ results: rows } = await db
       .prepare("SELECT body FROM score_records WHERE teacher_id = ? AND class_id = ? ORDER BY saved_at DESC")
-      .bind(String(idOf(teacherId)), Number(classId))
+      .bind(String(idOf(teacherId)), idOf(classId))
       .all());
   } catch (error) {
     // Until migration 0002 runs, keep serving the older document scores.
@@ -68,7 +70,7 @@ export async function readScoreRecords(db, teacherId, classId) {
 }
 
 export function recordKey(teacherId, classId, roomId, exerciseId, studentUserId) {
-  return `${idOf(teacherId)}:${Number(classId)}:${String(roomId)}:${Number(exerciseId)}:${String(studentUserId)}`;
+  return `${idOf(teacherId)}:${idOf(classId)}:${String(roomId)}:${Number(exerciseId)}:${String(studentUserId)}`;
 }
 
 function idOf(value) {

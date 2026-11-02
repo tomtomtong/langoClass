@@ -10,6 +10,7 @@ import { handleCmsAiApi } from "./cms-ai.js";
 import { handleCaptionsApi } from "./captions.js";
 import { readScoreRecords } from "./score-store.js";
 import {
+  classIdOf,
   clip,
   countExercises,
   courseDetail,
@@ -73,7 +74,7 @@ export async function handleStoreApi(request, env, url) {
 async function listCourses(request, env, url) {
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
-  const classId = numberOrUndefined(url.searchParams.get("classId"));
+  const classId = classIdOf(url.searchParams.get("classId")) ?? undefined;
   const store = await readDoc(env, "teacher-courses", { courses: [] });
   const courses = (store.courses || [])
     .filter((course) => sameId(course.teacherId, auth.teacherId))
@@ -195,9 +196,9 @@ async function hostProgress(request, env, url, method) {
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
   const source = method === "GET" ? url.searchParams : await readJson(request);
-  const classId = Number(method === "GET" ? source.get("classId") : source.classId);
+  const classId = classIdOf(method === "GET" ? source.get("classId") : source.classId);
   const courseId = Number(method === "GET" ? source.get("courseId") : source.courseId);
-  if (!Number.isFinite(classId) || !Number.isFinite(courseId)) {
+  if (classId == null || !Number.isFinite(courseId)) {
     const message = method === "GET" ? "classId and courseId query parameters are required." : "classId and courseId are required.";
     return json({ message }, 400);
   }
@@ -210,7 +211,7 @@ async function hostProgress(request, env, url, method) {
   if (source.lastSectionId !== undefined) patch.lastSectionId = source.lastSectionId;
   if (source.lastExerciseId !== undefined) patch.lastExerciseId = source.lastExerciseId;
   const store = await readDoc(env, "host-progress", { records: [] });
-  let record = store.records.find((entry) => sameId(entry.teacherId, auth.teacherId) && entry.classId === classId && entry.courseId === courseId);
+  let record = store.records.find((entry) => sameId(entry.teacherId, auth.teacherId) && sameId(entry.classId, classId) && entry.courseId === courseId);
   if (!record) {
     record = emptyProgress(auth.teacherId, classId, courseId);
     store.records.push(record);
@@ -227,8 +228,8 @@ async function hostProgress(request, env, url, method) {
 async function listScores(request, env, url) {
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
-  const classId = Number(url.searchParams.get("classId"));
-  if (!Number.isFinite(classId)) return json({ message: "classId query parameter is required." }, 400);
+  const classId = classIdOf(url.searchParams.get("classId"));
+  if (classId == null) return json({ message: "classId query parameter is required." }, 400);
   const courseId = numberOrUndefined(url.searchParams.get("courseId"));
   const exerciseId = numberOrUndefined(url.searchParams.get("exerciseId"));
   const roomId = url.searchParams.get("roomId")?.trim() || undefined;
@@ -247,8 +248,8 @@ async function listScores(request, env, url) {
 async function dashboardProgress(request, env, url) {
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
-  const classId = Number(url.searchParams.get("classId"));
-  if (!Number.isFinite(classId) || classId <= 0) return json({ message: "classId query parameter is required." }, 400);
+  const classId = classIdOf(url.searchParams.get("classId"));
+  if (classId == null || (typeof classId === "number" && classId <= 0)) return json({ message: "classId query parameter is required." }, 400);
 
   const [store, progressStore, { classRecords }] = await Promise.all([
     readDoc(env, "teacher-courses", { courses: [] }),
@@ -257,7 +258,7 @@ async function dashboardProgress(request, env, url) {
   ]);
   const progressByCourse = new Map(
     (progressStore.records || [])
-      .filter((record) => sameId(record.teacherId, auth.teacherId) && record.classId === classId)
+      .filter((record) => sameId(record.teacherId, auth.teacherId) && sameId(record.classId, classId))
       .map((record) => [Number(record.courseId), record])
   );
   const courses = (store.courses || [])
@@ -341,11 +342,11 @@ function engagementInsights(scores) {
 async function classScores(env, teacherId, classId) {
   const legacy = await readDoc(env, "student-scores", { students: {}, records: [] });
   const classRecords = mergeScoreRecords(
-    (legacy.records || []).filter((record) => sameId(record.teacherId, teacherId) && record.classId === classId),
+    (legacy.records || []).filter((record) => sameId(record.teacherId, teacherId) && sameId(record.classId, classId)),
     await readScoreRecords(env.DB, teacherId, classId)
   );
   const store = { records: classRecords };
-  const prefix = `${Number(teacherId)}:${classId}:`;
+  const prefix = `${teacherId}:${classId}:`;
   const profiles = Object.fromEntries(Object.entries(legacy.students || {}).filter(([key]) => key.startsWith(prefix)));
   for (const record of classRecords) {
     const key = `${prefix}${record.studentUserId}`;
@@ -366,8 +367,9 @@ async function classScores(env, teacherId, classId) {
 // The semester leaderboard a room shows when an exercise ends, in the shape
 // server.js getSemesterLeaderboardForRoom sends.
 export async function semesterLeaderboard(env, teacherId, classId) {
-  if (!env?.DB || teacherId == null || teacherId === "" || !Number.isFinite(Number(classId))) return [];
-  const { students } = await classScores(env, teacherId, Number(classId));
+  const id = classIdOf(classId);
+  if (!env?.DB || teacherId == null || teacherId === "" || id == null) return [];
+  const { students } = await classScores(env, teacherId, id);
   return semesterOrder(students).map((student) => ({
     id: student.studentUserId,
     name: student.displayName,
@@ -401,13 +403,13 @@ async function findCourse(env, courseId, teacherId) {
 
 async function progressFor(env, teacherId, classId, courseId) {
   const store = await readDoc(env, "host-progress", { records: [] });
-  const record = store.records.find((entry) => sameId(entry.teacherId, teacherId) && entry.classId === classId && entry.courseId === courseId);
+  const record = store.records.find((entry) => sameId(entry.teacherId, teacherId) && sameId(entry.classId, classId) && entry.courseId === courseId);
   return presentProgress(record, teacherId, classId, courseId);
 }
 
 function emptyProgress(teacherId, classId, courseId) {
   return {
-    teacherId: Number(teacherId),
+    teacherId: Number.isFinite(Number(teacherId)) ? Number(teacherId) : String(teacherId),
     classId,
     courseId,
     completedExerciseIds: [],
@@ -436,7 +438,7 @@ function enrichStudent(store, student, key) {
   let firstScoreAt = null;
   let lastScoreAt = null;
   for (const record of store.records || []) {
-    if (!sameId(record.teacherId, teacherId) || record.classId !== Number(classId) || String(record.studentUserId) !== studentUserId) continue;
+    if (!sameId(record.teacherId, teacherId) || !sameId(record.classId, classId) || String(record.studentUserId) !== studentUserId) continue;
     totalScore += Math.max(0, Number(record.score) || 0);
     exerciseCount += 1;
     if (!firstScoreAt || record.savedAt < firstScoreAt) firstScoreAt = record.savedAt;

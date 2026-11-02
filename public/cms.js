@@ -1547,6 +1547,16 @@ function renderAiPreviewGrouped(groups) {
   }
 }
 
+// A class ID as the class list gives it: a positive number, or text such as
+// "Demo" for schools that name their classes. null when there is none.
+function dashboardClassIdOf(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const id = Number(text);
+  if (!Number.isFinite(id)) return text;
+  return id > 0 ? id : null;
+}
+
 function loadPrefs() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1557,10 +1567,7 @@ function loadPrefs() {
       state.token = data.token;
       state.user = data.user;
     }
-    if (data.dashboardClassId != null) {
-      const id = Number(data.dashboardClassId);
-      state.dashboardClassId = Number.isFinite(id) && id > 0 ? id : null;
-    }
+    if (data.dashboardClassId != null) state.dashboardClassId = dashboardClassIdOf(data.dashboardClassId);
   } catch {
     /* ignore */
   }
@@ -3131,7 +3138,7 @@ function renderDashboardClassPicker() {
       options.push(`<optgroup label="${escapeHtml(section.label)}">`);
     }
     for (const classItem of section.items) {
-      const selected = state.dashboardClassId === classItem.id ? " selected" : "";
+      const selected = String(state.dashboardClassId) === String(classItem.id) ? " selected" : "";
       const label = classItem.name || `Class ${classItem.id}`;
       options.push(`<option value="${classItem.id}"${selected}>${escapeHtml(label)}</option>`);
     }
@@ -3142,7 +3149,7 @@ function renderDashboardClassPicker() {
 }
 
 function dashboardSelectedClass() {
-  return (state.classes || []).find((item) => Number(item.id) === Number(state.dashboardClassId)) || null;
+  return (state.classes || []).find((item) => String(item.id) === String(state.dashboardClassId)) || null;
 }
 
 function dashboardStudentCount() {
@@ -3325,7 +3332,7 @@ async function loadDashboardProgress() {
     return;
   }
 
-  const data = await api(`/api/cms/dashboard/progress?classId=${state.dashboardClassId}`);
+  const data = await api(`/api/cms/dashboard/progress?classId=${encodeURIComponent(state.dashboardClassId)}`);
   state.dashboardCourses = data.courses || [];
   renderInsightsSessions(state.dashboardCourses);
 }
@@ -10451,8 +10458,7 @@ document.addEventListener("keydown", (event) => {
   if (!$("#cms-asset-preview")?.hidden) closeMaterialAssetPreview();
 });
 $("#cms-dashboard-class")?.addEventListener("change", async (event) => {
-  const nextId = Number(event.target.value);
-  state.dashboardClassId = Number.isFinite(nextId) && nextId > 0 ? nextId : null;
+  state.dashboardClassId = dashboardClassIdOf(event.target.value);
   savePrefs();
   $("#class-sessions").innerHTML = `
     <div class="cms-list-loading" aria-hidden="true">

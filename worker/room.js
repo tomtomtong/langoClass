@@ -327,9 +327,11 @@ export class RoomDurableObject extends DurableObject {
       try {
         const result = await saveScoreBatch(this.env.DB, batch);
         saved.add(batch.id);
-        console.log(
+        // A rejected batch can never save, so it is dropped but logged as an error.
+        (result.rejected ? console.error : console.log)(
           JSON.stringify({
-            message: "scores_saved",
+            message: result.rejected ? "scores_rejected" : "scores_saved",
+            reason: result.rejected,
             roomId: batch.roomId,
             classId: batch.classId,
             exerciseId: batch.exerciseId,

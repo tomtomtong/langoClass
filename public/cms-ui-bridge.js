@@ -96,7 +96,7 @@
     await Promise.all(
       classes.map(async (cl) => {
         try {
-          const data = await api(`/api/cms/dashboard/progress?classId=${cl.id}`);
+          const data = await api(`/api/cms/dashboard/progress?classId=${encodeURIComponent(cl.id)}`);
           for (const row of data.courses || []) {
             const id = Number(row.courseId);
             const prev = map.get(id);
@@ -170,13 +170,13 @@
       });
       el.querySelector("[data-dash]")?.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (p?.classId && window.state) window.state.dashboardClassId = Number(p.classId);
+        if (p?.classId && window.state) window.state.dashboardClassId = dashboardClassIdOf(p.classId);
         if (typeof enterDashboard === "function") enterDashboard();
         else showComingSoonToast("View dashboard");
       });
       el.addEventListener("click", (e) => {
         if (e.target.closest("a,button")) return;
-        if (p?.classId && window.state) window.state.dashboardClassId = Number(p.classId);
+        if (p?.classId && window.state) window.state.dashboardClassId = dashboardClassIdOf(p.classId);
         if (typeof enterDashboard === "function") enterDashboard();
       });
       box.appendChild(el);
@@ -345,7 +345,7 @@
             <span class="hint">... students · ... progress complete</span>
             <div class="bar"><span style="width:0%"></span></div>`;
           el.addEventListener("click", () => {
-            if (window.state) window.state.dashboardClassId = Number(cl.id);
+            if (window.state) window.state.dashboardClassId = dashboardClassIdOf(cl.id);
             if (typeof enterDashboard === "function") enterDashboard();
           });
           classBox.appendChild(el);

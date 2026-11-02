@@ -1058,7 +1058,7 @@ async function loadHostProgress() {
 
   try {
     const data = await api(
-      `/api/host/progress?classId=${state.classItem.id}&courseId=${state.course.id}`
+      `/api/host/progress?classId=${encodeURIComponent(state.classItem.id)}&courseId=${state.course.id}`
     );
     state.hostProgress = data.progress || emptyHostProgress();
   } catch {
