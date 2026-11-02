@@ -5,10 +5,14 @@ const { convertHeicToJpeg } = require("./heic");
 const { compressMaterialImageBuffer } = require("./compress");
 const { processGeneratedPathTile } = require("./path-tile");
 const { audioChunks, compressVideo } = require("./ffmpeg");
+const { MIN_IMAGE_DIMENSION, normalizeImage } = require("./image");
+const path = require("path");
+const { Worker } = require("worker_threads");
 
 const PORT = Number(process.env.PORT || 8080);
 const MAX_BYTES = 100 * 1024 * 1024;
-const MIN_IMAGE_DIMENSION = 72;
+// A PDF's pictures are optional; past this the text goes back without them.
+const PDF_IMAGES_TIMEOUT_MS = 75 * 1000;
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -125,35 +129,23 @@ async function pdfScreenshots(buffer) {
   }
 }
 
-async function pdfImages(buffer) {
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const result = await parser.getImage({
-      imageBuffer: true,
-      imageDataUrl: false,
-      imageThreshold: MIN_IMAGE_DIMENSION,
-      first: 30,
-    });
-    const images = [];
-    for (const page of result?.pages || []) {
-      for (const image of page.images || []) {
-        if (!image?.data?.length) continue;
-        const normalized = await normalizeImage(Buffer.from(image.data));
-        if (!normalized.jpeg) continue;
-        images.push({
-          pageNumber: page.pageNumber,
-          name: image.name || "",
-          width: normalized.width,
-          height: normalized.height,
-          jpeg: normalized.jpeg,
-        });
-        if (images.length >= 40) return images;
-      }
-    }
-    return images;
-  } finally {
-    await parser.destroy?.();
-  }
+function pdfImages(buffer) {
+  return new Promise((resolve) => {
+    const worker = new Worker(path.join(__dirname, "pdf-images.js"), { workerData: buffer });
+    let done = false;
+    const finish = (images, note) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (note) console.warn(`pdf images: ${note}`);
+      worker.terminate().catch(() => {});
+      resolve(images);
+    };
+    const timer = setTimeout(() => finish([], `stopped after ${PDF_IMAGES_TIMEOUT_MS / 1000} s`), PDF_IMAGES_TIMEOUT_MS);
+    worker.once("message", (msg) => finish(msg.images || [], msg.error));
+    worker.once("error", (error) => finish([], error.message));
+    worker.once("exit", (code) => finish([], code ? `worker exited with ${code}` : ""));
+  });
 }
 
 // Slide text in slide order, as lib/material-extract.js extractPptx did.
@@ -207,19 +199,6 @@ async function zipImages(buffer, mediaPrefix) {
     if (images.length >= 40) break;
   }
   return images;
-}
-
-async function normalizeImage(buffer) {
-  const sharp = require("sharp");
-  try {
-    const meta = await sharp(buffer).metadata();
-    if (!meta.width || !meta.height) return { jpeg: null };
-    if (meta.width < MIN_IMAGE_DIMENSION && meta.height < MIN_IMAGE_DIMENSION) return { jpeg: null };
-    const jpeg = await sharp(buffer).rotate().jpeg({ quality: 88 }).toBuffer();
-    return { jpeg: jpeg.toString("base64"), width: meta.width, height: meta.height };
-  } catch {
-    return { jpeg: null };
-  }
 }
 
 async function cropRegions(buffer, regions) {

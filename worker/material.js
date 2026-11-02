@@ -33,6 +33,7 @@ const AUDIO_DIRECT_MAX_BYTES = 4 * 1024 * 1024;
 const DEFAULT_VISION_MODEL = "google-ai-studio/gemini-2.5-flash";
 const INWORLD_CHAT_URL = "https://api.inworld.ai/v1/chat/completions";
 const VISION_TIMEOUT_MS = 120000;
+const DOCUMENT_IMAGES_TIMEOUT_MS = 90000;
 const IMAGE_PROMPT =
   "Convert this lesson image into clean markdown for a language-learning course generator.\n" +
   "Include:\n" +
@@ -387,9 +388,22 @@ async function storeUploadedImage(env, bytes, filename) {
   return [await storeAsset(env, image, { label: filename, sourceFile: filename, origin: "upload", description: "Uploaded image" })];
 }
 
+// Pictures are optional: if the container is slow, the text goes back without them.
 async function documentImages(env, kind, bytes, filename) {
   if (!env.UPLOADS) return [];
-  const response = await callMedia(env, `/${kind}/images`, bytes, "application/octet-stream");
+  const timeoutMs = Number(env.MATERIAL_IMAGES_TIMEOUT_MS) || DOCUMENT_IMAGES_TIMEOUT_MS;
+  let timer;
+  const timedOut = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+  const response = await Promise.race([
+    callMedia(env, `/${kind}/images`, bytes, "application/octet-stream").catch(() => null),
+    timedOut,
+  ]).finally(() => clearTimeout(timer));
+  if (!response) {
+    console.warn(JSON.stringify({ message: "document_images_skipped", kind, filename }));
+    return [];
+  }
   if (!response.ok) return [];
   const stem = filename.replace(/\.[^.]+$/, "");
   const images = [];

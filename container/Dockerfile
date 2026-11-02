@@ -6,7 +6,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
-COPY heic.js compress.js ffmpeg.js path-tile.js server.js ./
+COPY heic.js compress.js ffmpeg.js path-tile.js image.js pdf-images.js server.js ./
 
 ENV PORT=8080
 EXPOSE 8080

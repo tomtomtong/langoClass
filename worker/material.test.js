@@ -297,3 +297,15 @@ test("pasted text and caption URLs work without a file", async () => {
   assert.equal(caption.body.text, "Hi there");
   assert.equal((await send({})).status, 400);
 });
+
+test("a PDF whose pictures take too long still returns its text", async () => {
+  const MEDIA = media({
+    "/pdf": () => Response.json({ text: "Chapter 1. ".repeat(20) }),
+    "/pdf/images": () => new Promise(() => {}),
+  });
+  const { send } = await setup({ MEDIA, MATERIAL_IMAGES_TIMEOUT_MS: 20 });
+  const { status, body } = await send(form(new File(["%PDF"], "Slow.pdf")));
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.match(body.text, /Chapter 1\./);
+  assert.equal(body.imageAssetCount, 0);
+});
