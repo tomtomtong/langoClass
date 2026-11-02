@@ -322,11 +322,22 @@ function startRoomGame(state, ctx) {
   });
 }
 
+// A student whose quiz socket missed join_room_game (the quiz started before
+// its join retry) still names itself, so take the answer if it is in the room.
 function submitAnswer(state, data, ctx) {
   const game = state.game;
-  const playerId = ctx.playerId;
-  if (!playerId || !game || game.status !== "question") return done(state);
-  if (game.answers[playerId]) return done(state);
+  let playerId = ctx.playerId;
+  let attachment = null;
+  if (!playerId && game?.isRoomGame) {
+    const named = clip(String(data.userId || "").replace(/[^a-zA-Z0-9_-]/g, ""), 64);
+    if (named && (state.session.participants || []).some((item) => item.userId === named)) {
+      playerId = named;
+      attachment = { role: "player", playerId };
+      rememberSocket(state, ctx.socketId, attachment);
+    }
+  }
+  if (!playerId || !game || game.status !== "question") return done(state, { attachment });
+  if (game.answers[playerId]) return done(state, { attachment });
   syncGamePlayers(state);
   const player = game.players.find((item) => item.id === playerId);
   if (player) player.participated = true;
@@ -337,10 +348,11 @@ function submitAnswer(state, data, ctx) {
   game.answers[playerId] = { answerIndex: idx, timeMs: Math.max(0, ctx.now - (game.questionStartedAt || ctx.now)) };
   const everyone = game.players.length > 0 && Object.keys(game.answers).length >= game.players.length;
   if (!everyone) {
-    return done(state, { direct: [{ event: "answer_received", data: {} }] });
+    return done(state, { attachment, direct: [{ event: "answer_received", data: {} }] });
   }
   const finished = finishQuestion(state, ctx.now);
   finished.direct = [{ event: "answer_received", data: {} }, ...(finished.direct || [])];
+  finished.attachment = attachment;
   return finished;
 }
 

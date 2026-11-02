@@ -71,6 +71,46 @@ test("submit_answer scores the question and closes it when everyone has answered
   assert.equal(answered.broadcasts.at(-1).event, "question_results");
 });
 
+test("submit_answer counts a room student whose quiz socket missed join_room_game", () => {
+  let state = room();
+  state.session.participants = [{ userId: "ada", displayName: "Ada", online: true, joinedAt: 1 }];
+  state = applyRoomEvent(state, {
+    event: "create_room_game",
+    data: { quiz: { title: "Demo", questions: [{ text: "2+2", options: ["3", "4"], correctIndex: 1, timeLimit: 15 }] } },
+  }, { socketId: "quiz-host", role: null, now: 4000, pick: () => 0 }).state;
+  state = applyRoomEvent(state, { event: "start_room_game", data: {} }, {
+    socketId: "quiz-host",
+    role: "host",
+    now: 4000,
+    pick: () => 0,
+  }).state;
+  state = applyRoomTimer(state, state.timer.at).state;
+
+  const stranger = applyRoomEvent(state, { event: "submit_answer", data: { answerIndex: 1, userId: "eve" } }, {
+    socketId: "quiz-eve",
+    role: null,
+    playerId: null,
+    now: 6000,
+    pick: () => 0,
+  });
+  assert.equal(stranger.state.game.answers.eve, undefined);
+  assert.equal(stranger.state.game.status, "question");
+
+  const answered = applyRoomEvent(stranger.state, { event: "submit_answer", data: { answerIndex: 1, userId: "ada" } }, {
+    socketId: "quiz-student",
+    role: null,
+    playerId: null,
+    now: 6000,
+    pick: () => 0,
+  });
+  assert.deepEqual(answered.attachment, { role: "player", playerId: "ada" });
+  assert.equal(answered.direct[0].event, "answer_received");
+  const results = answered.broadcasts.at(-1);
+  assert.equal(results.event, "question_results");
+  assert.deepEqual(results.data.answerCounts, [0, 1]);
+  assert.equal(results.data.results[0].correct, true);
+});
+
 test("buzz_in keeps the first student on that room", () => {
   let state = room();
   state.session.exercise = { id: 1, type: "buzzin", items: [{ topic: "Say hello" }] };

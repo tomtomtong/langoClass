@@ -938,6 +938,12 @@ function startStudentBuzzinRound(roomId) {
   syncStudentBuzzinState(roomId);
 }
 
+// Until join_room_game answers, the room still knows the student by their
+// waiting-room id, which is the id the quiz seats them under.
+function roomQuizSeatId() {
+  return roomQuizPlayerId || roomParticipant?.userId || "";
+}
+
 function stopRoomQuizJoinRetry() {
   if (roomQuizJoinTimer) {
     clearInterval(roomQuizJoinTimer);
@@ -955,7 +961,7 @@ function setupRoomPlayerQuiz(socket) {
 
   socket.on("question_preview", (data) => {
     stopRoomStatusPoll();
-    stopRoomQuizJoinRetry();
+    if (roomQuizPlayerId) stopRoomQuizJoinRetry();
     roomQuizCurrentQuestion = data;
     clearTimer();
     resetPlayerMcqAnsweredState();
@@ -992,7 +998,7 @@ function setupRoomPlayerQuiz(socket) {
 
   socket.on("question_speaking", (data) => {
     stopRoomStatusPoll();
-    stopRoomQuizJoinRetry();
+    if (roomQuizPlayerId) stopRoomQuizJoinRetry();
     roomQuizCurrentQuestion = data;
     if (data?.fastMode != null) roomQuizFastMode = !!data.fastMode;
     clearTimer();
@@ -1017,7 +1023,7 @@ function setupRoomPlayerQuiz(socket) {
 
   socket.on("question_start", (data) => {
     stopRoomStatusPoll();
-    stopRoomQuizJoinRetry();
+    if (roomQuizPlayerId) stopRoomQuizJoinRetry();
     roomQuizCurrentQuestion = data;
     if (data?.fastMode != null) roomQuizFastMode = !!data.fastMode;
     clearTimer();
@@ -1046,7 +1052,7 @@ function setupRoomPlayerQuiz(socket) {
       optionLabels: isHkElderlyVariant() ? undefined : ["A.", "B.", "C.", "D.", "E.", "F."],
       onClick: (index, btn) => {
         showPlayerMcqAnsweredState(index);
-        socket.emit("submit_answer", { answerIndex: index });
+        socket.emit("submit_answer", { answerIndex: index, userId: roomQuizSeatId() });
         $("#answer-feedback").textContent = uiT("mcq.answerLocked");
       },
     });
@@ -1085,12 +1091,13 @@ function setupRoomPlayerQuiz(socket) {
   socket.on("question_results", ({ results, leaderboard }) => {
     if (roomQuizFastMode) return;
     clearTimer();
-    const mine = (results || []).find((r) => r.playerId === roomQuizPlayerId);
+    const seatId = roomQuizSeatId();
+    const mine = (results || []).find((r) => r.playerId === seatId);
     if (typeof joinLastMcqResult !== "undefined") {
-      joinLastMcqResult = { mine, leaderboard, playerId: roomQuizPlayerId };
+      joinLastMcqResult = { mine, leaderboard, playerId: seatId };
     }
     revealStudentScreen("player-results");
-    renderPlayerMcqResult(mine, leaderboard, roomQuizPlayerId);
+    renderPlayerMcqResult(mine, leaderboard, seatId);
   });
 
   socket.on("game_finished", ({ leaderboard, semesterLeaderboard, exerciseLeaderboard, answerReview, answerHistory, accuracyLeaderboard }) => {
