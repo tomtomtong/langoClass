@@ -83,3 +83,23 @@ Needs ffmpeg / long jobs, so the MediaContainer is the likely home.
 Restarting the Express deploy at classroom.lango.ai brings all of the above
 back immediately. Doing P0 alone lets real teachers log in and run the host
 page without Node.
+
+## Plan to drop the Node origin (decided 2026-11-02)
+
+classroom.lango.ai is retired. Everything moves into the Worker, and `ORIGIN`
+and `proxyToOrigin` go away at the end.
+
+1. Worker secrets: `OPENROUTER_API_KEY`, `INWORLD_API_KEY` (none set on 2026-11-02).
+2. Done (not yet deployed): `/api/network-urls`, `/api/room-qr.svg` (`worker/join-links.js`);
+   `/uploads/*` is R2 only. `/api/logs/login|logout` is the System Logs admin login, so it moves with step 6.
+3. Done (not yet deployed): `/api/llm|tts|stt` and Buzz In STT use `worker/ai.js` providers only;
+   question TTS prefetch/get in `worker/question-tts.js`, cached in R2 `question-tts/`.
+   STT needs `INWORLD_API_KEY` or `OPENROUTER_API_KEY`; TTS falls back to the keyless ElevenLabs router.
+4. CMS AI authoring (11 routes, `lib/exercise-generator.js` ~1.5k lines) on OpenRouter.
+5. Video and media: captions, compression, `extract-material`, video generation
+   (MediaContainer).
+6. Admin: `/api/config*` settings in D1, `/api/logs*` in D1 or Workers Logs.
+7. Remove `ORIGIN`; unmatched `/api/*` returns 404.
+
+Pages never call `/api/llm`, `/api/tts`, `/api/stt` or `/api/cms/video-jobs`
+directly; only the Worker does.

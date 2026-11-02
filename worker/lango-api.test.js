@@ -125,6 +125,13 @@ test("class students come from newcms, sorted by class number", async () => {
   );
 });
 
+test("app context reports the Worker's speech provider", async () => {
+  const url = new URL("https://class.lango.ai/api/cms/app-context");
+  const body = await (await handleStoreApi(new Request(url), { ...env(), INWORLD_API_KEY: "k" }, url)).json();
+  assert.equal(body.ttsProvider, "inworld");
+  assert.equal(body.ttsAvailable, true);
+});
+
 test("app context lists the classroom languages without a login", async () => {
   const url = new URL("https://class.lango.ai/api/cms/app-context");
   const response = await handleStoreApi(new Request(url), env(), url);
@@ -133,6 +140,7 @@ test("app context lists the classroom languages without a login", async () => {
   assert.deepEqual(body.speakLanguages, [{ code: "en", label: "English" }]);
   assert.equal(body.defaultSpeakLangCode, "en");
   assert.equal(body.ttsProvider, "inworld");
+  assert.equal(body.ttsAvailable, true);
   assert.ok(body.questionLanguages.some((entry) => entry.code === "yue"));
 });
 

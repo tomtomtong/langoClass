@@ -1,102 +1,77 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { handleModelRequest, requestSpeechText } from "./models.js";
+import { handleModelRequest, modelKind, requestSpeechText } from "./models.js";
 
-function jsonResponse(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+const realFetch = globalThis.fetch;
+test.afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+function post(path, body, env) {
+  const url = new URL(path, "https://class.lango.ai");
+  const request = new Request(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  return handleModelRequest(request, env, url);
 }
 
-test("speech calls the backend transcription route when the dedicated route is absent", async () => {
-  const calls = [];
-  const original = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    calls.push({ url: String(url), method: init?.method, body: init?.body });
-    if (String(url).endsWith("/api/stt")) return jsonResponse({ message: "Cannot POST /api/stt" }, 404);
-    assert.equal(String(url), "https://classroom.lango.ai/api/transcribe/audio");
-    assert.ok(init.body instanceof FormData);
-    return jsonResponse({ ok: true, text: "hello class" });
+function refuseOldServer() {
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("classroom.lango.ai")) throw new Error(`Called the old server: ${url}`);
+    throw new Error(`Unexpected fetch ${url}`);
   };
-  try {
-    const text = await requestSpeechText(
-      { ORIGIN: "https://classroom.lango.ai" },
-      { audioBase64: btoa("hello"), format: "wav" }
-    );
-    assert.equal(text, "hello class");
-    assert.equal(calls.length, 2);
-    const response = await handleModelRequest(
-      new Request("https://class.lango.ai/api/stt", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ audioBase64: btoa("hello"), format: "wav" }),
-      }),
-      { ORIGIN: "https://classroom.lango.ai" },
-      new URL("https://class.lango.ai/api/stt")
-    );
-    assert.equal(response.headers.get("x-model-runtime"), "backend");
-    assert.deepEqual(await response.json(), { ok: true, text: "hello class" });
-  } finally {
-    globalThis.fetch = original;
-  }
+}
+
+test("model paths cover llm, tts and stt with and without /api", () => {
+  assert.equal(modelKind("/api/llm"), "llm");
+  assert.equal(modelKind("/tts"), "tts");
+  assert.equal(modelKind("/api/stt"), "stt");
+  assert.equal(modelKind("/api/other"), "");
 });
 
-test("language calls stay on the backend and ignore a client-supplied key", async () => {
-  const original = globalThis.fetch;
-  let sent = null;
+test("language calls go to OpenRouter with the Worker key, not a client key", async () => {
+  let sent;
   globalThis.fetch = async (url, init) => {
-    if (String(url).endsWith("/api/llm")) return jsonResponse({ message: "missing" }, 404);
-    sent = JSON.parse(init.body);
-    assert.equal(init.headers.get("authorization"), "Bearer teacher");
-    return jsonResponse({ reply: "A noun is a naming word." });
+    assert.equal(String(url), "https://openrouter.ai/api/v1/chat/completions");
+    sent = { headers: new Headers(init.headers), body: JSON.parse(init.body) };
+    return Response.json({ choices: [{ message: { content: "Hello class" } }] });
   };
-  try {
-    const response = await handleModelRequest(
-      new Request("https://class.lango.ai/llm", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: "Bearer teacher",
-          "x-teacher-id": "835",
-        },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "What is a noun?" }],
-          maxTokens: 64,
-          openrouterApiKey: "should-not-be-forwarded",
-        }),
-      }),
-      { ORIGIN: "https://classroom.lango.ai" },
-      new URL("https://class.lango.ai/llm")
-    );
-    assert.equal(response.headers.get("x-model-runtime"), "backend");
-    assert.deepEqual(await response.json(), { ok: true, text: "A noun is a naming word." });
-    assert.equal(sent.message, "What is a noun?");
-    assert.equal(sent.openrouterApiKey, undefined);
-  } finally {
-    globalThis.fetch = original;
-  }
+  const response = await post(
+    "/api/llm",
+    { apiKey: "client-key", messages: [{ role: "user", content: "Hi" }], maxTokens: 99999 },
+    { OPENROUTER_API_KEY: "worker-key", ORIGIN: "https://classroom.lango.ai" }
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, text: "Hello class" });
+  assert.equal(response.headers.get("x-model-runtime"), "worker");
+  assert.equal(sent.headers.get("authorization"), "Bearer worker-key");
+  assert.equal(sent.body.max_tokens, 4096);
+  assert.deepEqual(sent.body.messages, [{ role: "user", content: "Hi" }]);
 });
 
-test("speech synthesis uses the dedicated backend route when it exists", async () => {
-  const original = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    assert.equal(String(url), "https://classroom.lango.ai/api/tts");
-    assert.equal(JSON.parse(init.body).text, "Good morning.");
-    return jsonResponse({ ok: true, audioContent: "abc", format: "mp3" });
+test("speech recognition uses Inworld with the Worker key", async () => {
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "https://api.inworld.ai/stt/v1/transcribe");
+    return Response.json({ transcription: { transcript: "apple" } });
   };
-  try {
-    const response = await handleModelRequest(
-      new Request("https://class.lango.ai/api/tts", {
-        method: "POST",
-        body: JSON.stringify({ text: "Good morning.", language: "en" }),
-      }),
-      { ORIGIN: "https://classroom.lango.ai" },
-      new URL("https://class.lango.ai/api/tts")
-    );
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { ok: true, audioContent: "abc", format: "mp3" });
-  } finally {
-    globalThis.fetch = original;
-  }
+  const response = await post("/api/stt", { audioBase64: "UklGRg==", format: "wav", language: "en" }, { INWORLD_API_KEY: "k" });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.deepEqual(body, { ok: true, text: "apple" });
+});
+
+test("without keys, speech recognition goes to the router instead of the old server", async () => {
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "https://newcms.lango.ai/api/router/transcribe");
+    return Response.json({ text: "apple" });
+  };
+  assert.equal(await requestSpeechText({ ORIGIN: "https://classroom.lango.ai" }, { audioBase64: "UklGRg==", format: "wav" }), "apple");
+  const response = await post("/api/stt", { audioBase64: "UklGRg==", format: "wav" }, { ORIGIN: "https://classroom.lango.ai" });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, text: "apple" });
+});
+
+test("bad bodies are refused before any provider call", async () => {
+  refuseOldServer();
+  assert.equal((await post("/api/llm", { messages: [] }, {})).status, 400);
+  assert.equal((await post("/api/tts", { text: " " }, {})).status, 400);
+  assert.equal((await post("/api/stt", { audioBase64: "UklGRg==", format: "exe" }, {})).status, 400);
 });

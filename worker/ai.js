@@ -1,8 +1,9 @@
-// Model calls the Worker makes itself: text from OpenRouter, speech to text
-// from Inworld or OpenRouter, and speech from Inworld, OpenRouter or
-// ElevenLabs. Keys are Worker secrets (OPENROUTER_API_KEY, INWORLD_API_KEY).
+// Model calls the Worker makes: text from OpenRouter, speech to text from
+// Inworld or OpenRouter, and speech from Inworld, OpenRouter or ElevenLabs.
+// With a Worker secret (OPENROUTER_API_KEY, INWORLD_API_KEY) the provider is
+// called directly; without one the same call goes to the keyless newcms
+// router (/api/router/text, /transcribe, /tts, /elevenlabs-tts).
 // Defaults match server.js so the room sounds the same as it did on Node.
-import { requestSpeechText } from "./models.js";
 
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
 const INWORLD_API_BASE = "https://api.inworld.ai";
@@ -41,13 +42,14 @@ const BCP47 = {
   bn: "bn-BD",
 };
 
-export function textModelReady(env) {
-  return Boolean(secret(env, "OPENROUTER_API_KEY"));
+// The keyless router is always there behind the Worker's own keys.
+export function textModelReady() {
+  return true;
 }
 
 export async function completeText(env, messages, maxTokens = 1024, { title = "Lango Classroom" } = {}) {
   const key = secret(env, "OPENROUTER_API_KEY");
-  if (!key) throw new Error("LLM not configured. Add OPENROUTER_API_KEY to the Worker.");
+  if (!key) return completeTextWithRouter(env, messages);
   const model = setting(env, "OPENROUTER_GENERATE_MODEL", DEFAULT_GENERATE_MODEL);
   const data = await postJson(`${OPENROUTER_API_BASE}/chat/completions`, {
     headers: openRouterHeaders(env, key, title),
@@ -64,7 +66,7 @@ export async function transcribe(env, { audioBase64, format, language } = {}) {
   if (inworld) return transcribeWithInworld(env, inworld, audio, lang);
   const openRouter = secret(env, "OPENROUTER_API_KEY");
   if (openRouter) return transcribeWithOpenRouter(env, openRouter, audio);
-  return requestSpeechText(env, { audioBase64: audio.base64, format: audio.format, language: lang });
+  return transcribeWithRouter(env, audio, lang);
 }
 
 export function speechProvider(env, variant) {
@@ -73,12 +75,12 @@ export function speechProvider(env, variant) {
   if (variant === "hk-elderly" && secret(env, "OPENROUTER_API_KEY")) return "openrouter";
   if (secret(env, "INWORLD_API_KEY")) return "inworld";
   if (secret(env, "OPENROUTER_API_KEY")) return "openrouter";
-  return "elevenlabs";
+  return "inworld";
 }
 
 export function speechReady(env, variant) {
   const provider = speechProvider(env, variant);
-  if (provider === "inworld") return Boolean(secret(env, "INWORLD_API_KEY"));
+  if (provider === "inworld") return true;
   if (provider === "openrouter") return Boolean(secret(env, "OPENROUTER_API_KEY"));
   return Boolean(elevenLabsEndpoint(env));
 }
@@ -158,7 +160,7 @@ async function transcribeWithOpenRouter(env, key, audio) {
 
 async function speakWithInworld(env, text, code) {
   const key = secret(env, "INWORLD_API_KEY");
-  if (!key) throw new Error("Inworld API key not configured.");
+  if (!key) return speakWithRouter(env, text, code);
   const data = await postJson(`${INWORLD_API_BASE}/tts/v1/voice`, {
     headers: { Authorization: `Basic ${key}` },
     body: {
@@ -174,6 +176,64 @@ async function speakWithInworld(env, text, code) {
   const audioContent = String(data?.audioContent || "").trim();
   if (!audioContent) throw new Error("TTS: No audio returned.");
   return { audioContent, format: "mp3" };
+}
+
+// The router takes one prompt and an optional system message, so the chat
+// history is written out as a transcript.
+async function completeTextWithRouter(env, messages) {
+  const base = routerBase(env);
+  const list = Array.isArray(messages) ? messages : [];
+  const system = list
+    .filter((message) => message?.role === "system")
+    .map((message) => contentText(message.content))
+    .filter(Boolean)
+    .join("\n\n");
+  const turns = list.filter((message) => message?.role !== "system");
+  const prompt =
+    turns.length === 1
+      ? contentText(turns[0].content)
+      : turns.map((message) => `${message.role === "assistant" ? "Assistant" : "User"}: ${contentText(message.content)}`).join("\n\n");
+  const data = await postJson(`${base}/text`, {
+    body: { prompt, ...(system ? { system } : {}) },
+    label: "LLM (router)",
+  });
+  return String(data?.text || "").trim();
+}
+
+async function transcribeWithRouter(env, audio, language) {
+  const base = routerBase(env);
+  if (audio.format !== "wav" && audio.format !== "mp3") {
+    throw new Error("Speech recognition needs a WAV or MP3 recording.");
+  }
+  const form = new FormData();
+  const type = audio.format === "wav" ? "audio/wav" : "audio/mpeg";
+  form.append("audio", new File([base64ToBytes(audio.base64)], `speech.${audio.format}`, { type }));
+  form.append("language", language);
+  const response = await timedFetch(`${base}/transcribe`, { method: "POST", body: form });
+  const data = await readJson(response);
+  if (!response.ok) throw new Error(`Transcription (router): ${errorMessage(data, response.status)}`);
+  const text = String(data?.text || "").trim();
+  if (!text) throw new Error("Could not transcribe your recording. Try again.");
+  return text;
+}
+
+async function speakWithRouter(env, text, code) {
+  const base = routerBase(env);
+  const data = await postJson(`${base}/tts`, {
+    body: {
+      text,
+      voice: setting(env, "INWORLD_TTS_VOICE", INWORLD_TTS_VOICE),
+      model: INWORLD_TTS_MODEL,
+      language: BCP47[code] || "en-US",
+      audioEncoding: "MP3",
+      sampleRate: 24000,
+      speakingRate: INWORLD_SPEAKING_RATE,
+    },
+    label: "TTS (router)",
+  });
+  const match = typeof data?.audio === "string" && data.audio.match(/^data:audio\/(?:mpeg|mp3);base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!match) throw new Error("TTS (router): No MP3 audio returned.");
+  return { audioContent: match[1].replace(/\s/g, ""), format: "mp3" };
 }
 
 async function speakWithOpenRouter(env, text, code, purpose) {
@@ -305,10 +365,24 @@ function openRouterHeaders(env, key, title) {
 }
 
 function elevenLabsEndpoint(env) {
-  const explicit = setting(env, "ELEVENLABS_TTS_URL", "");
-  if (explicit) return explicit;
+  return setting(env, "ELEVENLABS_TTS_URL", "") || `${routerBase(env)}/elevenlabs-tts`;
+}
+
+function routerBase(env) {
   const cms = String(env?.CMS_API_BASE || "https://newcms.lango.ai").replace(/\/$/, "");
-  return `${cms}/api/router/elevenlabs-tts`;
+  return `${cms}/api/router`;
+}
+
+function contentText(content) {
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part?.type === "text")
+      .map((part) => String(part.text || "").trim())
+      .filter(Boolean)
+      .join(" ");
+  }
+  return "";
 }
 
 async function postJson(url, { headers = {}, body, label }) {
@@ -341,17 +415,7 @@ function errorMessage(data, status) {
 }
 
 function messageText(data) {
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content === "string") return content.trim();
-  if (Array.isArray(content)) {
-    return content
-      .filter((part) => part?.type === "text")
-      .map((part) => String(part.text || "").trim())
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-  }
-  return "";
+  return contentText(data?.choices?.[0]?.message?.content);
 }
 
 function secret(env, name) {
@@ -360,6 +424,13 @@ function secret(env, name) {
 
 function setting(env, name, fallback) {
   return String(env?.[name] || "").trim() || fallback;
+}
+
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
 }
 
 function bytesToBase64(bytes) {

@@ -8,13 +8,27 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-test("speech uses the chosen provider, then keys, then the keyless ElevenLabs router", () => {
+test("speech uses the chosen provider, then keys, then keyless Inworld through the router", () => {
   assert.equal(speechProvider({ GAMEPLAY_TTS_PROVIDER: "openrouter" }), "openrouter");
   assert.equal(speechProvider({ INWORLD_API_KEY: "k" }), "inworld");
   assert.equal(speechProvider({ INWORLD_API_KEY: "k", OPENROUTER_API_KEY: "o" }, "hk-elderly"), "openrouter");
-  assert.equal(speechProvider({}), "elevenlabs");
+  assert.equal(speechProvider({}), "inworld");
   assert.equal(speechReady({}), true);
-  assert.equal(speechReady({ GAMEPLAY_TTS_PROVIDER: "inworld" }), false);
+  assert.equal(speechReady({ GAMEPLAY_TTS_PROVIDER: "openrouter" }), false);
+});
+
+test("without an Inworld key, speech goes through the router's Inworld TTS", async () => {
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "https://cms.example/api/router/tts");
+    const body = JSON.parse(init.body);
+    assert.equal(body.text, "Hello Ada");
+    assert.equal(body.model, "inworld-tts-1.5-max");
+    assert.equal(body.language, "en-US");
+    assert.match(body.voice, /uncle_tommy/);
+    return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
+  };
+  const audio = await speak({ CMS_API_BASE: "https://cms.example" }, "Hello Ada", { language: "en-US" });
+  assert.deepEqual(audio, { audioContent: "SUQz", format: "mp3" });
 });
 
 test("ElevenLabs speech goes through the CMS router", async () => {
@@ -25,12 +39,28 @@ test("ElevenLabs speech goes through the CMS router", async () => {
     assert.equal(body.languageCode, "en");
     return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
   };
-  const audio = await speak({ CMS_API_BASE: "https://cms.example" }, "Hello Ada", { language: "en-US" });
+  const audio = await speak({ CMS_API_BASE: "https://cms.example", GAMEPLAY_TTS_PROVIDER: "elevenlabs" }, "Hello Ada", {
+    language: "en-US",
+  });
   assert.deepEqual(audio, { audioContent: "SUQz", format: "mp3" });
 });
 
-test("text needs an OpenRouter key and returns the model reply", async () => {
-  await assert.rejects(completeText({}, [{ role: "user", content: "hi" }]), /OPENROUTER_API_KEY/);
+test("without an OpenRouter key, text goes through the router with the system message apart", async () => {
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "https://newcms.lango.ai/api/router/text");
+    assert.deepEqual(JSON.parse(init.body), { prompt: "User: hi\n\nAssistant: hello\n\nUser: mark it", system: "Be kind." });
+    return new Response(JSON.stringify({ text: " Verdict: Correct " }));
+  };
+  const messages = [
+    { role: "system", content: "Be kind." },
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "hello" },
+    { role: "user", content: [{ type: "text", text: "mark it" }] },
+  ];
+  assert.equal(await completeText({}, messages), "Verdict: Correct");
+});
+
+test("with an OpenRouter key, text goes straight to OpenRouter", async () => {
   globalThis.fetch = async (url, init) => {
     assert.equal(url, "https://openrouter.ai/api/v1/chat/completions");
     assert.equal(init.headers.Authorization, "Bearer secret");
@@ -51,6 +81,20 @@ test("speech to text prefers Inworld in the round's language", async () => {
   };
   const text = await transcribe({ INWORLD_API_KEY: "k" }, { audioBase64: "data:audio/wav;base64,UklGRg==", format: "wav", language: "yue-HK" });
   assert.equal(text, "蘋果");
+});
+
+test("without keys, speech to text uploads the WAV to the router", async () => {
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "https://newcms.lango.ai/api/router/transcribe");
+    const audio = init.body.get("audio");
+    assert.equal(audio.name, "speech.wav");
+    assert.equal(audio.type, "audio/wav");
+    assert.deepEqual([...new Uint8Array(await audio.arrayBuffer())], [82, 73, 70, 70]);
+    assert.equal(init.body.get("language"), "yue");
+    return new Response(JSON.stringify({ text: " 蘋果 " }));
+  };
+  assert.equal(await transcribe({}, { audioBase64: "UklGRg==", format: "wav", language: "yue-HK" }), "蘋果");
+  await assert.rejects(transcribe({}, { audioBase64: "UklGRg==", format: "webm" }), /WAV or MP3/);
 });
 
 test("Buzz In feedback splits the host lines from the spoken line", () => {

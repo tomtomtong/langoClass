@@ -75,20 +75,19 @@ export function contentTypeForKey(key) {
   return CONTENT_TYPES[ext] || "application/octet-stream";
 }
 
-export async function serveUpload(request, { bucket, origin, fetchImpl = fetch, waitUntil } = {}) {
+// Uploads live in R2 only. The retired classroom server is no longer asked for
+// files R2 does not have.
+export async function serveUpload(request, { bucket } = {}) {
   const key = uploadKey(new URL(request.url).pathname);
   if (!key) return new Response("Not found", { status: 404 });
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } });
   }
-  if (!bucket) return fetchOriginUpload(request, origin, key, fetchImpl);
+  if (!bucket) return new Response("Upload store is not configured", { status: 500 });
 
   if (request.method === "HEAD") {
     const head = await bucket.head(key);
-    if (!head) {
-      waitUntil?.(copyUpload(bucket, origin, `/${key}`, fetchImpl));
-      return uncached(await fetchOriginUpload(request, origin, key, fetchImpl));
-    }
+    if (!head) return missingUpload(key);
     return objectResponse(head, request, { head: true });
   }
 
@@ -97,40 +96,12 @@ export async function serveUpload(request, { bucket, origin, fetchImpl = fetch, 
     range: request.headers,
   });
   if (object) return objectResponse(object, request);
-
-  const originResponse = await fetchOriginUpload(request, origin, key, fetchImpl);
-  if (!originResponse.ok || !originResponse.body || request.headers.has("range")) {
-    if (originResponse.ok && request.headers.has("range")) {
-      waitUntil?.(copyUpload(bucket, origin, `/${key}`, fetchImpl));
-    }
-    return uncached(originResponse);
-  }
-
-  const contentType = mediaType(originResponse.headers.get("content-type")) || contentTypeForKey(key);
-  const [clientBody, storeBody] = originResponse.body.tee();
-  waitUntil?.(
-    bucket.put(key, storeBody, { httpMetadata: { contentType } }).then(() => {
-      console.log(JSON.stringify({ message: "upload_stored", key }));
-    }).catch((error) => {
-      console.error(
-        JSON.stringify({
-          message: "upload_store_failed",
-          key,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      );
-    })
-  );
-  const headers = new Headers(originResponse.headers);
-  headers.set("content-type", contentType);
-  headers.set("cache-control", "no-store");
-  return new Response(clientBody, { status: originResponse.status, headers });
+  return missingUpload(key);
 }
 
-function uncached(response) {
-  const headers = new Headers(response.headers);
-  headers.set("cache-control", "no-store");
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+function missingUpload(key) {
+  console.log(JSON.stringify({ message: "upload_missing", key }));
+  return new Response("Not found", { status: 404, headers: { "cache-control": "no-store" } });
 }
 
 export async function mirrorStoredUploads(response, { bucket, origin, fetchImpl = fetch, method } = {}) {
@@ -178,17 +149,6 @@ async function copyUpload(bucket, origin, uploadPath, fetchImpl) {
   console.log(JSON.stringify({ message: "upload_stored", key }));
   return true;
 }
-
-async function fetchOriginUpload(request, origin, key, fetchImpl) {
-  const headers = new Headers();
-  const range = request.headers.get("range");
-  if (range) headers.set("range", range);
-  headers.set("user-agent", "LangoClass");
-  return fetchImpl(new URL(`/${key}`, origin), { method: request.method, headers });
-}
-
-// If-None-Match is only applied once the object is already in R2. Forwarding it
-// on a miss lets the classroom server answer 304, and the file is never stored.
 
 function objectResponse(object, request, { head = false } = {}) {
   const headers = new Headers();

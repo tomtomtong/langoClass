@@ -1,6 +1,7 @@
 import { matchApiRoute } from "./api-routes.js";
 import { handleStoreApi } from "./d1-api.js";
 import { handleRoomApi } from "./room-api.js";
+import { handleJoinLinks } from "./join-links.js";
 import { mirrorStoredUploads, serveUpload, uploadKey } from "./uploads.js";
 import { prepareMaterialRequest } from "./material.js";
 import { handleModelRequest } from "./models.js";
@@ -71,11 +72,7 @@ export default {
 
     if (uploadKey(incoming.pathname)) {
       try {
-        return await serveUpload(request, {
-          bucket: env.UPLOADS,
-          origin,
-          waitUntil: (promise) => ctx.waitUntil(promise),
-        });
+        return await serveUpload(request, { bucket: env.UPLOADS });
       } catch (error) {
         console.error(
           JSON.stringify({
@@ -99,6 +96,8 @@ export default {
           })
         );
       }
+      const joinLinks = handleJoinLinks(request, env, incoming);
+      if (joinLinks) return joinLinks;
       try {
         const stored = await handleStoreApi(request, env, incoming);
         if (stored) return rememberUploads(stored, request, env, origin, ctx);

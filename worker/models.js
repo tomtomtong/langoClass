@@ -1,5 +1,6 @@
-// The classroom asks the backend for a model result. Keys and prompts stay there.
-// exercise-generator.js is not used here.
+// POST /llm, /tts and /stt, answered by the providers in ai.js with the
+// Worker's own keys. exercise-generator.js is not used here.
+import { completeText, speak, transcribe } from "./ai.js";
 
 const MODEL_PATHS = new Map([
   ["/llm", "llm"],
@@ -29,8 +30,6 @@ export async function handleModelRequest(request, env, url) {
   if (request.method !== "POST") {
     return json({ message: "Method not allowed." }, 405);
   }
-  const origin = String(env?.ORIGIN || "").replace(/\/$/, "");
-  if (!origin) return json({ message: "Model backend is not configured." }, 500);
 
   let body;
   try {
@@ -47,7 +46,16 @@ export async function handleModelRequest(request, env, url) {
   }
 
   try {
-    return await callBackend(origin, kind, prepared, forwardedAuth(request));
+    if (kind === "llm") {
+      const text = String(await completeText(env, prepared.messages, prepared.maxTokens)).trim();
+      if (!text) return json({ message: "Model request failed." }, 502);
+      return json({ ok: true, text }, 200);
+    }
+    if (kind === "tts") {
+      const audio = await speak(env, prepared.text, { language: prepared.language, variant: env?.APP_VARIANT });
+      return json({ ok: true, audioContent: audio.audioContent, format: audio.format || "mp3" }, 200);
+    }
+    return json({ ok: true, text: await requestSpeechText(env, prepared) }, 200);
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -56,75 +64,15 @@ export async function handleModelRequest(request, env, url) {
         error: error instanceof Error ? error.message : String(error),
       })
     );
-    return json({ message: "Model backend unavailable." }, 502);
+    return json({ message: error instanceof Error ? error.message : "Model request failed." }, 502);
   }
 }
 
 export async function requestSpeechText(env, data) {
-  const origin = String(env?.ORIGIN || "").replace(/\/$/, "");
-  if (!origin) throw new Error("Speech backend is not configured.");
   const prepared = prepareModelBody("stt", data || {});
-  const response = await callBackend(origin, "stt", prepared, {});
-  const payload = await response.json().catch(() => ({}));
-  const text = String(payload?.text || "").trim();
-  if (!response.ok || !payload?.ok || !text) {
-    throw new Error(payload?.message || "Transcription failed.");
-  }
+  const text = String(await transcribe(env, prepared)).trim();
+  if (!text) throw new Error("Transcription failed.");
   return text;
-}
-
-async function callBackend(origin, kind, body, authHeaders) {
-  const dedicated = await postJson(`${origin}/api/${kind}`, body, authHeaders);
-  if (dedicated.status !== 404 && dedicated.status !== 405) return tagBackend(dedicated);
-  if (kind === "stt") return tagBackend(await fallbackStt(origin, body));
-  if (kind === "tts") return tagBackend(await fallbackTts(origin, body, authHeaders));
-  return tagBackend(await fallbackLlm(origin, body, authHeaders));
-}
-
-async function fallbackStt(origin, body) {
-  const format = body.format || "wav";
-  const bytes = decodeBase64(body.audioBase64);
-  const form = new FormData();
-  form.append("audio", new File([bytes], `speech.${format}`, { type: AUDIO_TYPES[format] || "application/octet-stream" }));
-  return fetch(`${origin}/api/transcribe/audio`, { method: "POST", body: form });
-}
-
-async function fallbackTts(origin, body, authHeaders) {
-  const prepared = await postJson(
-    `${origin}/api/cms/prefetch-question-tts`,
-    {
-      items: [{ key: "speech", text: body.text, speakLangCode: body.language || "en", purpose: "question" }],
-    },
-    authHeaders
-  );
-  if (!prepared.ok) return prepared;
-  const payload = await prepared.json().catch(() => ({}));
-  const result = Array.isArray(payload.results) ? payload.results[0] : null;
-  if (!result?.ok || !result.cacheKey) {
-    return json({ message: result?.error || "Speech synthesis failed." }, 400);
-  }
-  const audio = await fetch(`${origin}/api/cms/question-tts/${encodeURIComponent(result.cacheKey)}`, {
-    headers: authHeaders,
-  });
-  if (!audio.ok) return audio;
-  const bytes = new Uint8Array(await audio.arrayBuffer());
-  return json({ ok: true, audioContent: bytesToBase64(bytes), format: "mp3" });
-}
-
-async function fallbackLlm(origin, body, authHeaders) {
-  const messages = body.messages;
-  const lastUser = [...messages].reverse().find((message) => message.role === "user");
-  const history = messages.slice(0, messages.lastIndexOf(lastUser)).slice(-8);
-  const response = await postJson(
-    `${origin}/api/cms/assistant`,
-    { message: lastUser.content, history },
-    authHeaders
-  );
-  if (!response.ok) return response;
-  const payload = await response.json().catch(() => ({}));
-  const text = String(payload.reply || payload.text || "").trim();
-  if (!text) return json({ message: payload.message || "Model request failed." }, 400);
-  return json({ ok: true, text });
 }
 
 function prepareModelBody(kind, body) {
@@ -161,53 +109,10 @@ function prepareModelBody(kind, body) {
   return { audioBase64, format, ...(language ? { language } : {}) };
 }
 
-function forwardedAuth(request) {
-  const headers = new Headers();
-  const authorization = request.headers.get("authorization");
-  const teacher = request.headers.get("x-teacher-id");
-  if (authorization) headers.set("authorization", authorization);
-  if (teacher) headers.set("x-teacher-id", teacher);
-  return headers;
-}
-
-async function postJson(url, body, authHeaders) {
-  const headers = new Headers(authHeaders || {});
-  headers.set("content-type", "application/json");
-  return fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-}
-
-function tagBackend(response) {
-  const headers = new Headers(response.headers);
-  headers.set("x-model-runtime", "backend");
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
 function json(body, status) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8", "x-model-runtime": "backend" },
+    headers: { "content-type": "application/json; charset=utf-8", "x-model-runtime": "worker" },
   });
 }
 
-function decodeBase64(value) {
-  const raw = String(value || "").trim();
-  const data = raw.startsWith("data:") ? raw.slice(raw.indexOf(",") + 1) : raw;
-  const binary = atob(data);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-  if (!bytes.length) throw new Error("Invalid audio data.");
-  return bytes;
-}
-
-function bytesToBase64(bytes) {
-  let binary = "";
-  const size = 0x8000;
-  for (let index = 0; index < bytes.length; index += size) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + size));
-  }
-  return btoa(binary);
-}
