@@ -179,3 +179,55 @@ test("AI routes need a teacher login", async () => {
   });
   assert.equal(response.status, 401);
 });
+
+test("an AI revision keeps the images questions already had", async () => {
+  const { call } = await setup();
+  const options = (right) => [
+    { text: right, isCorrect: true },
+    { text: "Dog", isCorrect: false },
+    { text: "Cow", isCorrect: false },
+    { text: "Pig", isCorrect: false },
+  ];
+  const current = [
+    {
+      type: "mcquiz",
+      title: "Animals",
+      items: [
+        { title: "Which animal says meow?", image: "/uploads/questions/cat.png", options: options("Cat") },
+        { title: "Which animal says moo?", image: "/uploads/questions/cow.png", options: options("Cow") },
+        { title: "Which animal says oink?", image: null, options: options("Pig") },
+      ],
+    },
+  ];
+  // The model drops images, rewrites question 2 and swaps it with question 1.
+  router(() =>
+    JSON.stringify({
+      summary: "Made question 2 easier.",
+      exercises: [
+        {
+          type: "mcquiz",
+          title: "Animals",
+          items: [
+            { title: "What does a cow say?", options: options("Moo") },
+            { title: "Which animal says meow?", options: options("Cat") },
+            { title: "Which animal says oink?", options: options("Pig") },
+          ],
+        },
+      ],
+    })
+  );
+  const response = await call("/api/cms/revise-exercises", {
+    method: "POST",
+    json: { material: "Cats meow. Cows moo. Pigs oink.", revision: "Make question 2 easier.", exercises: current, autoGenerateImages: false },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.deepEqual(
+    body.exercises[0].items.map((item) => [item.title, item.image]),
+    [
+      ["What does a cow say?", "/uploads/questions/cow.png"],
+      ["Which animal says meow?", "/uploads/questions/cat.png"],
+      ["Which animal says oink?", null],
+    ]
+  );
+});
