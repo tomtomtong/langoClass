@@ -231,3 +231,22 @@ test("an AI revision keeps the images questions already had", async () => {
     ]
   );
 });
+
+test("a question picture the AI decides to add is saved and returned as its URL", async () => {
+  const { env, call } = await setup();
+  router((body) =>
+    JSON.stringify(body).includes("benefit from a simple illustration")
+      ? JSON.stringify({ generations: [{ key: "0:0", generateConfidence: 0.9, imagePrompt: "A cat saying meow" }] })
+      : JSON.stringify(draft)
+  );
+  const response = await call("/api/cms/generate-exercises", {
+    method: "POST",
+    json: { material: "Cats say meow. Dogs say woof.", types: { mcquiz: 1 }, countPerType: 1 },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  const image = body.exercises[0].items[0].image;
+  assert.equal(typeof image, "string");
+  assert.match(image, /^\/uploads\/questions\/question-ai-/);
+  assert.ok(await env.UPLOADS.get(image.replace(/^\/uploads\//, "uploads/")) || await env.UPLOADS.get(image.slice(1)));
+});
