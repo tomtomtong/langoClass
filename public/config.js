@@ -4,6 +4,7 @@ const state = {
   token: null,
   user: null,
   loginUsername: "",
+  loginSchoolCode: "",
   envDefault: "",
   effectivePublicBaseUrl: "",
 };
@@ -14,6 +15,7 @@ function loadPrefs() {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data.loginUsername) state.loginUsername = data.loginUsername;
+    if (data.loginSchoolCode) state.loginSchoolCode = data.loginSchoolCode;
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
@@ -27,6 +29,8 @@ function savePrefs() {
   const loginUsername =
     $("#config-login-username")?.value.trim().toLowerCase() || state.loginUsername || "";
   if (loginUsername) state.loginUsername = loginUsername;
+  const schoolInput = $("#config-login-school-code");
+  if (schoolInput) state.loginSchoolCode = schoolInput.value.trim();
 
   let data = {};
   try {
@@ -41,6 +45,7 @@ function savePrefs() {
     JSON.stringify({
       ...data,
       loginUsername: state.loginUsername,
+      loginSchoolCode: state.loginSchoolCode,
       token: state.token,
       user: state.user,
     })
@@ -723,6 +728,7 @@ async function loadConfig() {
 async function handleLogin() {
   const username = $("#config-login-username").value.trim().toLowerCase();
   const password = $("#config-login-password").value;
+  const schoolCode = $("#config-login-school-code")?.value.trim() || "";
   $("#config-login-error").textContent = "";
 
   if (!username || !password) {
@@ -735,7 +741,7 @@ async function handleLogin() {
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
-      body: { login: username, username, password },
+      body: { login: username, username, password, ...(schoolCode ? { school_id: schoolCode } : {}) },
     });
     const token = data.token || data.user?.token;
     if (!token || !data.user?.id) throw new Error("Login succeeded but no token returned.");
@@ -743,6 +749,7 @@ async function handleLogin() {
     state.token = token;
     state.user = { ...data.user, token };
     state.loginUsername = username;
+    state.loginSchoolCode = schoolCode;
     savePrefs();
     updateAuthUi();
     showConfigScreen("main");
@@ -754,17 +761,23 @@ async function handleLogin() {
   }
 }
 
+function applyConfigLoginDefaults() {
+  applyTeacherLoginDefaults(
+    $("#config-login-username"),
+    $("#config-login-password"),
+    state.loginUsername
+  );
+  const schoolInput = $("#config-login-school-code");
+  if (schoolInput) schoolInput.value = state.loginSchoolCode || "";
+}
+
 function handleLogout() {
   state.token = null;
   state.user = null;
   savePrefs();
   updateAuthUi();
   showConfigScreen("login");
-  applyTeacherLoginDefaults(
-    $("#config-login-username"),
-    $("#config-login-password"),
-    state.loginUsername
-  );
+  applyConfigLoginDefaults();
 }
 
 async function clearStudentDatabase() {
@@ -828,11 +841,7 @@ async function init() {
   loadPrefs();
   updateAuthUi();
 
-  applyTeacherLoginDefaults(
-    $("#config-login-username"),
-    $("#config-login-password"),
-    state.loginUsername
-  );
+  applyConfigLoginDefaults();
 
   $("#btn-config-login").addEventListener("click", handleLogin);
   $("#btn-config-logout").addEventListener("click", handleLogout);
