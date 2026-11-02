@@ -9049,8 +9049,8 @@ function wireAiVideoPreviews() {
 
 async function pollVideoGenerationJob(jobId, { onUpdate } = {}) {
   const started = Date.now();
-  const timeoutMs = 20 * 60 * 1000;
-  const pollMs = 3000;
+  const timeoutMs = 60 * 60 * 1000;
+  const pollMs = 5000;
 
   while (Date.now() - started < timeoutMs) {
     const data = await api(`/api/video/${encodeURIComponent(jobId)}`);

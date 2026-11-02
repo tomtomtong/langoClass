@@ -1,7 +1,8 @@
-// Video generation jobs, as server.js handleBackendVideoStart/Status served
-// them: the newcms video API makes the video and the CMS polls the job.
-// lib/video-generator.js holds the request and job shapes.
-import videoGenerator from "../lib/video-generator.js";
+// Uncle Tommy lecture video jobs for the CMS. Each job runs in its own
+// VideoContainer (worker/video-container.js, image in video-container/): the
+// lesson plan and voice come from the newcms router, HyperFrames renders the
+// video, and the MP4 lands in R2 under lectures/. The CMS starts a job and
+// polls it; the response shape is the one it already reads.
 import { requireTeacher } from "./d1-store.js";
 
 export async function handleVideoRequest(request, env, url) {
@@ -9,7 +10,7 @@ export async function handleVideoRequest(request, env, url) {
   if (!target) return null;
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return tag(auth);
-  const base = videoBase(env);
+  if (!env.VIDEO) return json({ message: "The video renderer is not configured." }, 500);
 
   if (target.kind === "start") {
     let body;
@@ -20,9 +21,16 @@ export async function handleVideoRequest(request, env, url) {
     }
     const text = String(body?.text || "").trim().slice(0, 100000);
     if (!text) return json({ message: "Script text is required." }, 400);
+    const jobId = crypto.randomUUID().replace(/-/g, "");
     try {
-      const started = await videoGenerator.startVideoJob(base, text);
-      return json({ ok: true, jobId: started.jobId, status: started.status }, 202);
+      const res = await env.VIDEO.getByName(jobId).fetch("http://video/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jobId, text, routerBase: routerBase(env) }),
+      });
+      const job = await res.json();
+      if (!res.ok) return json({ message: job?.error || "Could not start video generation." }, 502);
+      return json({ ok: true, jobId, status: job.status }, 202);
     } catch (error) {
       return failure("video_start", error, "Could not start video generation.");
     }
@@ -35,15 +43,17 @@ export async function handleVideoRequest(request, env, url) {
     return json({ message: "Job id is required." }, 400);
   }
   try {
-    const job = await videoGenerator.getVideoJob(base, jobId);
+    const res = await env.VIDEO.getByName(jobId).fetch("http://video/status");
+    const job = await res.json();
+    if (job.status === "missing") return json({ message: "Video job not found." }, 404);
     return json({
       ok: true,
-      jobId: job.jobId || jobId,
+      jobId,
       status: job.status,
       logs: job.logs,
       error: job.error,
       videoUrl: job.videoUrl,
-      multiSegment: job.multiSegment,
+      multiSegment: false,
       segmentCount: job.segmentCount,
       segmentsDone: job.segmentsDone,
     }, 200);
@@ -63,14 +73,14 @@ function videoTarget(method, pathname) {
 }
 
 function safeJobId(value) {
-  let id = String(value || "").trim();
-  id = decodeURIComponent(id);
-  if (!id || id.length > 200 || /[/\\]|\.\./.test(id)) throw new Error("Job id is required.");
+  const id = decodeURIComponent(String(value || "").trim());
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new Error("Job id is required.");
   return id;
 }
 
-function videoBase(env) {
-  return String(env?.VIDEO_GENERATOR_API_URL || env?.CMS_API_BASE || "https://newcms.lango.ai").replace(/\/$/, "");
+function routerBase(env) {
+  const cms = String(env?.CMS_API_BASE || "https://newcms.lango.ai").replace(/\/$/, "");
+  return `${cms}/api/router`;
 }
 
 function failure(label, error, fallback) {

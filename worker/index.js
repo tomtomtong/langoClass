@@ -11,6 +11,7 @@ import { handleVideoRequest } from "./video.js";
 
 export { RoomDurableObject } from "./room.js";
 export { MediaContainer } from "./media-container.js";
+export { VideoContainer } from "./video-container.js";
 
 const PAGE_REDIRECTS = new Map([
   ["/", "/host.html"],

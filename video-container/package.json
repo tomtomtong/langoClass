@@ -1,0 +1,10 @@
+{
+  "name": "lango-lecture-video-container",
+  "private": true,
+  "type": "module",
+  "description": "Renders Uncle Tommy lecture videos for the CMS (HyperFrames, gif Tommy, no stock).",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  }
+}

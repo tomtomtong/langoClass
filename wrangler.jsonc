@@ -29,17 +29,27 @@
       "image_build_context": "./container",
       "max_instances": 2,
       "instance_type": "basic"
+    },
+    {
+      // Uncle Tommy lecture videos (worker/video-container.js); one instance per job.
+      "class_name": "VideoContainer",
+      "image": "./video-container/Dockerfile",
+      "image_build_context": "./video-container",
+      "max_instances": 3,
+      "instance_type": "standard-4"
     }
   ],
   "durable_objects": {
     "bindings": [
       { "name": "ROOM", "class_name": "RoomDurableObject" },
-      { "name": "MEDIA", "class_name": "MediaContainer" }
+      { "name": "MEDIA", "class_name": "MediaContainer" },
+      { "name": "VIDEO", "class_name": "VideoContainer" }
     ]
   },
   "exports": {
     "RoomDurableObject": { "type": "durable-object", "storage": "sqlite" },
-    "MediaContainer": { "type": "durable-object", "storage": "sqlite" }
+    "MediaContainer": { "type": "durable-object", "storage": "sqlite" },
+    "VideoContainer": { "type": "durable-object", "storage": "sqlite" }
   },
   "r2_buckets": [
     {
