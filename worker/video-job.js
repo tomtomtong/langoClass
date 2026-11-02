@@ -126,11 +126,12 @@ async function saveVideo(box, job) {
   // cannot pipeTo() a FixedLengthStream, so copy it chunk by chunk.
   const { readable, writable } = new FixedLengthStream(size);
   const copying = copyStream(res.body, writable);
-  const key = `lectures/tommy-${job.jobId}.mp4`;
+  // R2 keys carry the uploads/ prefix the /uploads/* route looks up (uploads.js).
+  const key = `uploads/lectures/tommy-${job.jobId}.mp4`;
   console.log(JSON.stringify({ message: "video_save_started", jobId: job.jobId, bytes: size }));
   await Promise.all([box.env.UPLOADS.put(key, readable, { httpMetadata: { contentType: "video/mp4" } }), copying]);
   console.log(JSON.stringify({ message: "video_saved", jobId: job.jobId, key, seconds: Math.round((Date.now() - job.startedAt) / 1000) }));
-  Object.assign(job, { status: "completed", videoUrl: `/uploads/${key}` });
+  Object.assign(job, { status: "completed", videoUrl: `/${key}` });
   job.logs = [...job.logs, "Saved."];
   await box.ctx.storage.put("job", job);
   await box.stop();

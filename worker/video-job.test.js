@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { poll, resumeStalled, startJob, tryStart } from "./video-job.js";
 import { memoryR2 } from "./test-env.js";
+import { uploadKey } from "./uploads.js";
 
 // FixedLengthStream is Workers-only; a pass-through stream stands in for it.
 globalThis.FixedLengthStream ??= class extends TransformStream {
@@ -91,7 +92,8 @@ test("a finished video is copied into R2 and the renderer stops", async () => {
   const job = await b.ctx.storage.get("job");
   assert.equal(job.status, "completed");
   assert.equal(job.videoUrl, "/uploads/lectures/tommy-job1.mp4");
-  const stored = await b.env.UPLOADS.get("lectures/tommy-job1.mp4");
+  const stored = await b.env.UPLOADS.get(uploadKey(job.videoUrl));
+  assert.ok(stored, "the video is stored under the key /uploads/* serves");
   assert.equal((await stored.arrayBuffer()).byteLength, mp4.length);
   assert.equal(b.calls.stopped, 1);
 });
