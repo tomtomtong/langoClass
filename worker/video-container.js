@@ -6,6 +6,8 @@ import { Container } from "@cloudflare/containers";
 
 const POLL_SECONDS = 15;
 const MAX_JOB_MS = 60 * 60 * 1000;
+const MAX_SAVE_ATTEMPTS = 4;
+const STALE_POLL_MS = 2 * 60 * 1000;
 const TERMINAL = new Set(["completed", "failed"]);
 
 export class VideoContainer extends Container {
@@ -40,10 +42,13 @@ export class VideoContainer extends Container {
   async poll() {
     const job = await this.ctx.storage.get("job");
     if (!job || TERMINAL.has(job.status)) return;
-    if (Date.now() - job.startedAt > MAX_JOB_MS) {
+    // A finished video is still on the container, so saving is not held to the render limit.
+    if (job.status !== "saving" && Date.now() - job.startedAt > MAX_JOB_MS) {
       await this.fail(job, "Video generation took too long.");
       return;
     }
+    job.lastPolledAt = Date.now();
+    await this.ctx.storage.put("job", job);
     try {
       const res = await this.containerFetch(`http://container/jobs/${job.jobId}`);
       if (res.status === 404) {
@@ -61,14 +66,21 @@ export class VideoContainer extends Container {
         await this.fail(job, state.error || "Video generation failed.");
         return;
       }
+      await this.ctx.storage.put("job", job);
       if (state.status === "completed") {
-        await this.ctx.storage.put("job", job);
         await this.saveVideo(job);
         return;
       }
-      await this.ctx.storage.put("job", job);
     } catch (error) {
-      console.error(JSON.stringify({ message: "video_poll_failed", jobId: job.jobId, error: String(error?.message || error) }));
+      console.error(JSON.stringify({ message: "video_poll_failed", jobId: job.jobId, status: job.status, error: String(error?.message || error) }));
+      if (job.status === "saving") {
+        job.saveAttempts = (job.saveAttempts || 0) + 1;
+        if (job.saveAttempts >= MAX_SAVE_ATTEMPTS) {
+          await this.fail(job, "The video was made but could not be saved. Try again.");
+          return;
+        }
+        await this.ctx.storage.put("job", job);
+      }
     }
     await this.schedule(POLL_SECONDS, "poll");
   }
@@ -78,12 +90,12 @@ export class VideoContainer extends Container {
     if (!res.ok || !res.body) throw new Error(`Could not read the finished video (${res.status}).`);
     const size = Number(res.headers.get("content-length") || 0);
     if (!size) throw new Error("The finished video has no length.");
-    // R2 needs the length up front for a streamed body.
+    // R2 needs the length up front for a streamed body. The container's body
+    // cannot pipeTo() a FixedLengthStream, so copy it chunk by chunk.
     const { readable, writable } = new FixedLengthStream(size);
-    const piping = res.body.pipeTo(writable);
+    const copying = copyStream(res.body, writable);
     const key = `lectures/tommy-${job.jobId}.mp4`;
-    await this.env.UPLOADS.put(key, readable, { httpMetadata: { contentType: "video/mp4" } });
-    await piping;
+    await Promise.all([this.env.UPLOADS.put(key, readable, { httpMetadata: { contentType: "video/mp4" } }), copying]);
     Object.assign(job, { status: "completed", videoUrl: `/uploads/${key}` });
     job.logs = [...job.logs, "Saved."];
     await this.ctx.storage.put("job", job);
@@ -99,12 +111,30 @@ export class VideoContainer extends Container {
   }
 
   // Keep the container up while a render is running even without requests.
+  // If the poll chain broke (a poll that threw, or a code update), start it again.
   async onActivityExpired() {
     const job = await this.ctx.storage.get("job");
     if (job && !TERMINAL.has(job.status)) {
+      if (Date.now() - (job.lastPolledAt || 0) > STALE_POLL_MS) await this.poll();
       this.renewActivityTimeout();
       return;
     }
     await this.stop();
+  }
+}
+
+async function copyStream(from, to) {
+  const reader = from.getReader();
+  const writer = to.getWriter();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      await writer.write(value);
+    }
+    await writer.close();
+  } catch (error) {
+    await writer.abort(error).catch(() => {});
+    throw error;
   }
 }
