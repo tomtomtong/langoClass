@@ -3,6 +3,8 @@ import { handleCommunityApi } from "./community.js";
 import { deleteUpload } from "./course-files.js";
 import { handleCourseMediaApi } from "./course-media.js";
 import { handleCourseTransferApi } from "./course-transfer.js";
+import { cmsAppContext } from "./cms-context.js";
+import { handleLangoApi } from "./lango-api.js";
 import { readScoreRecords } from "./score-store.js";
 import {
   clip,
@@ -25,10 +27,17 @@ export async function handleStoreApi(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === "POST" && pathname === "/api/lango/login") {
-    return developerLogin(request);
+    const dev = await developerLogin(request);
+    if (dev) return dev;
   }
   if (method === "GET" && pathname === "/api/lango/classList") {
-    return developerClassList(request);
+    const dev = await developerClassList(request);
+    if (dev) return dev;
+  }
+  const lango = await handleLangoApi(request, env, url);
+  if (lango) return lango;
+  if (method === "GET" && pathname === "/api/cms/app-context") {
+    return json(cmsAppContext(env));
   }
 
   if (method === "GET" && pathname === "/api/cms/courses") {
@@ -51,6 +60,9 @@ export async function handleStoreApi(request, env, url) {
   }
   if (method === "GET" && pathname === "/api/scores") {
     return listScores(request, env, url);
+  }
+  if (method === "GET" && pathname === "/api/cms/dashboard/progress") {
+    return dashboardProgress(request, env, url);
   }
   return (await handleCommunityApi(request, env, url)) || (await handleCourseMediaApi(request, env, url)) || (await handleCourseTransferApi(request, env, url));
 }
@@ -225,6 +237,101 @@ async function listScores(request, env, url) {
     .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
   const semesterTotals = semesterOrder(students);
   return json({ classId, teacherId: auth.teacherId, semesterTotals, students, scores });
+}
+
+// Each course a class can see with how far the class got, as server.js
+// /api/cms/dashboard/progress builds it. Started courses sort first.
+async function dashboardProgress(request, env, url) {
+  const auth = await requireTeacher(request, env);
+  if (auth instanceof Response) return auth;
+  const classId = Number(url.searchParams.get("classId"));
+  if (!Number.isFinite(classId) || classId <= 0) return json({ message: "classId query parameter is required." }, 400);
+
+  const [store, progressStore, { classRecords }] = await Promise.all([
+    readDoc(env, "teacher-courses", { courses: [] }),
+    readDoc(env, "host-progress", { records: [] }),
+    classScores(env, auth.teacherId, classId),
+  ]);
+  const progressByCourse = new Map(
+    (progressStore.records || [])
+      .filter((record) => sameId(record.teacherId, auth.teacherId) && record.classId === classId)
+      .map((record) => [Number(record.courseId), record])
+  );
+  const courses = (store.courses || [])
+    .filter((course) => sameId(course.teacherId, auth.teacherId) && courseMatchesClass(course, classId))
+    .map((course) => {
+      const progress = presentProgress(progressByCourse.get(Number(course.id)), auth.teacherId, classId, course.id);
+      const scores = classRecords.filter((record) => record.courseId === course.id);
+      return courseProgress(course, progress, scores);
+    })
+    .sort((a, b) => {
+      const aTime = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+      const bTime = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+      if (a.started !== b.started) return a.started ? -1 : 1;
+      if (aTime !== bTime) return bTime - aTime;
+      return String(a.name).localeCompare(String(b.name));
+    });
+  return json({ classId, courses });
+}
+
+function courseProgress(course, progress, scores) {
+  const sections = [...(course.sections || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const exercises = sections.flatMap((section) =>
+    [...(section.exercises || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
+  );
+  const completed = new Set(progress.completedExerciseIds.map(Number));
+  const completedCount = exercises.filter((exercise) => completed.has(Number(exercise.id))).length;
+  const totalExercises = exercises.length;
+  const percent = totalExercises ? Math.round((completedCount / totalExercises) * 100) : 0;
+  const lastSection = sections.find((section) => section.id === progress.lastSectionId);
+  const lastExercise = exercises.find((exercise) => exercise.id === progress.lastExerciseId);
+  const started =
+    completedCount > 0 ||
+    progress.lastSectionId != null ||
+    progress.lastExerciseId != null ||
+    progress.visitedSectionIds.length > 0;
+  const { engagementScore, topStruggle } = engagementInsights(scores);
+  const complete = totalExercises > 0 && completedCount >= totalExercises;
+  return {
+    courseId: course.id,
+    name: course.name,
+    banner: course.banner || null,
+    description: course.description || "",
+    totalExercises,
+    completedCount,
+    percent,
+    lastSectionId: progress.lastSectionId ?? null,
+    lastSectionTitle: lastSection?.title || null,
+    lastExerciseTitle: lastExercise?.title || null,
+    updatedAt: progress.updatedAt || null,
+    started,
+    status: complete ? "completed" : started ? "in_progress" : "not_started",
+    engagementScore: engagementScore ?? (started ? percent : null),
+    topStruggle: topStruggle || lastExercise?.title || null,
+  };
+}
+
+// The dashboard has no class size, so engagement is the average score and the
+// struggle is the exercise with the lowest average.
+function engagementInsights(scores) {
+  if (!scores.length) return { engagementScore: null, topStruggle: null };
+  const byExercise = new Map();
+  for (const record of scores) {
+    const key = Number(record.exerciseId);
+    if (!byExercise.has(key)) byExercise.set(key, { title: record.exerciseTitle, scores: [] });
+    byExercise.get(key).scores.push(Math.max(0, Number(record.score) || 0));
+  }
+  let topStruggle = null;
+  let lowest = Infinity;
+  for (const entry of byExercise.values()) {
+    const average = entry.scores.reduce((sum, value) => sum + value, 0) / entry.scores.length;
+    if (average < lowest) {
+      lowest = average;
+      topStruggle = entry.title || null;
+    }
+  }
+  const total = scores.reduce((sum, record) => sum + Math.max(0, Number(record.score) || 0), 0);
+  return { engagementScore: Math.min(100, Math.round(total / scores.length)), topStruggle };
 }
 
 // A class's score records from both stores and each student's running total.
