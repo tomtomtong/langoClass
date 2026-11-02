@@ -2,7 +2,7 @@ import { matchApiRoute } from "./api-routes.js";
 import { handleStoreApi } from "./d1-api.js";
 import { handleRoomApi } from "./room-api.js";
 import { handleJoinLinks } from "./join-links.js";
-import { mirrorStoredUploads, serveUpload, uploadKey } from "./uploads.js";
+import { serveUpload, uploadKey } from "./uploads.js";
 import { prepareMaterialRequest } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
@@ -25,12 +25,6 @@ export default {
         incoming.pathname = destination;
         return Response.redirect(incoming.toString(), 302);
       }
-    }
-
-    const origin = String(env.ORIGIN || "").replace(/\/$/, "");
-    if (!origin) {
-      console.error(JSON.stringify({ message: "origin_missing" }));
-      return new Response("Origin is not configured", { status: 500 });
     }
 
     const roomId = roomSocketId(incoming.pathname);
@@ -85,103 +79,75 @@ export default {
       }
     }
 
-    if (isApiPath(incoming.pathname)) {
-      const route = matchApiRoute(request.method, incoming.pathname);
-      if (!route) {
-        console.error(
-          JSON.stringify({
-            message: "api_route_unmatched",
-            method: request.method,
-            path: incoming.pathname,
-          })
-        );
-      }
-      const joinLinks = handleJoinLinks(request, env, incoming);
-      if (joinLinks) return joinLinks;
-      try {
-        const stored = await handleStoreApi(request, env, incoming);
-        if (stored) return rememberUploads(stored, request, env, origin, ctx);
-      } catch (error) {
-        console.error(
-          JSON.stringify({
-            message: "d1_request_failed",
-            path: incoming.pathname,
-            error: error instanceof Error ? error.message : String(error),
-          })
-        );
-        return new Response("Store unavailable", { status: 502 });
-      }
-      try {
-        const roomed = await handleRoomApi(request, env, incoming);
-        if (roomed) return rememberUploads(roomed, request, env, origin, ctx);
-      } catch (error) {
-        console.error(
-          JSON.stringify({
-            message: "room_request_failed",
-            path: incoming.pathname,
-            error: error instanceof Error ? error.message : String(error),
-          })
-        );
-        return new Response("Room unavailable", { status: 502 });
-      }
-    }
+    if (!isApiPath(incoming.pathname)) return new Response("Not found", { status: 404 });
 
-    let outbound = request;
-    let mediaRuntime = "";
-    if (isApiPath(incoming.pathname)) {
-      try {
-        const prepared = await prepareMaterialRequest(request, env, incoming);
-        if (prepared?.response) return prepared.response;
-        if (prepared?.request) outbound = prepared.request;
-        mediaRuntime = prepared?.media || "";
-      } catch (error) {
-        console.error(
-          JSON.stringify({
-            message: "media_request_failed",
-            path: incoming.pathname,
-            error: error instanceof Error ? error.message : String(error),
-          })
-        );
-        return new Response("Media unavailable", { status: 502 });
-      }
-    }
-
+    const joinLinks = handleJoinLinks(request, env, incoming);
+    if (joinLinks) return joinLinks;
     try {
-      const proxied = rememberUploads(await proxyToOrigin(outbound, origin), outbound, env, origin, ctx);
-      if (mediaRuntime === "container") {
-        const headers = new Headers(proxied.headers);
-        headers.set("x-media-runtime", "container");
-        return new Response(proxied.body, { status: proxied.status, statusText: proxied.statusText, headers });
-      }
-      return proxied;
+      const stored = await handleStoreApi(request, env, incoming);
+      if (stored) return stored;
     } catch (error) {
       console.error(
         JSON.stringify({
-          message: "origin_proxy_failed",
+          message: "d1_request_failed",
           path: incoming.pathname,
           error: error instanceof Error ? error.message : String(error),
         })
       );
-      return new Response("Origin unavailable", { status: 502 });
+      return new Response("Store unavailable", { status: 502 });
     }
-  },
-};
-
-function rememberUploads(response, request, env, origin, ctx) {
-  if (!env.UPLOADS || !response) return response;
-  const method = request.method;
-  if (method !== "POST" && method !== "PUT" && method !== "PATCH") return response;
-  ctx.waitUntil(
-    mirrorStoredUploads(response, { bucket: env.UPLOADS, origin, method }).catch((error) => {
+    try {
+      const roomed = await handleRoomApi(request, env, incoming);
+      if (roomed) return roomed;
+    } catch (error) {
       console.error(
         JSON.stringify({
-          message: "upload_mirror_failed",
+          message: "room_request_failed",
+          path: incoming.pathname,
           error: error instanceof Error ? error.message : String(error),
         })
       );
+      return new Response("Room unavailable", { status: 502 });
+    }
+
+    try {
+      const prepared = await prepareMaterialRequest(request, env, incoming);
+      if (prepared?.response) return prepared.response;
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          message: "media_request_failed",
+          path: incoming.pathname,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      return new Response("Media unavailable", { status: 502 });
+    }
+
+    return unservedApi(request, incoming);
+  },
+};
+
+// The Node server (classroom.lango.ai) is retired. Routes it served that the
+// Worker does not run yet answer at once instead of waiting on it.
+function unservedApi(request, incoming) {
+  const route = matchApiRoute(request.method, incoming.pathname);
+  console.error(
+    JSON.stringify({
+      message: route ? "api_route_not_ported" : "api_route_unmatched",
+      method: request.method,
+      path: incoming.pathname,
     })
   );
-  return response;
+  if (!route) return jsonResponse({ message: "Not found." }, 404);
+  return jsonResponse({ message: "This feature is not available on class.lango.ai yet." }, 503);
+}
+
+function jsonResponse(body, status) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
 }
 
 function isApiPath(pathname) {
@@ -191,43 +157,4 @@ function isApiPath(pathname) {
 function roomSocketId(pathname) {
   const match = pathname.match(/^\/api\/room\/(\d{6})\/ws\/?$/);
   return match ? match[1] : "";
-}
-
-async function proxyToOrigin(request, origin) {
-  const incoming = new URL(request.url);
-  const target = new URL(`${incoming.pathname}${incoming.search}`, origin);
-  const proxied = new Request(target, request);
-  proxied.headers.delete("host");
-  proxied.headers.set("X-Forwarded-Host", incoming.host);
-  proxied.headers.set("X-Forwarded-Proto", incoming.protocol.replace(/:$/, ""));
-
-  const response = await fetch(proxied);
-  if (request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
-    return response;
-  }
-  return rewriteOriginRedirect(response, incoming, origin);
-}
-
-function rewriteOriginRedirect(response, incoming, origin) {
-  if (response.status < 300 || response.status >= 400) return response;
-  const location = response.headers.get("Location");
-  if (!location) return response;
-
-  let redirected;
-  try {
-    redirected = new URL(location, origin);
-  } catch {
-    return response;
-  }
-  if (redirected.host !== new URL(origin).host) return response;
-
-  redirected.protocol = incoming.protocol;
-  redirected.host = incoming.host;
-  const headers = new Headers(response.headers);
-  headers.set("Location", redirected.toString());
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
 }

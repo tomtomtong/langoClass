@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collectUploadPaths, mirrorStoredUploads, serveUpload, uploadKey } from "./uploads.js";
+import { serveUpload, uploadKey } from "./uploads.js";
 
 test("upload keys stay inside the upload folders", () => {
   assert.equal(uploadKey("/uploads/courses/course--24-1789535179085.png"), "uploads/courses/course--24-1789535179085.png");
@@ -12,14 +12,6 @@ test("upload keys stay inside the upload folders", () => {
   assert.equal(uploadKey("/uploads/courses/../../server.js"), "");
   assert.equal(uploadKey("/uploads/other/file.png"), "");
   assert.equal(uploadKey("/host.html"), "");
-});
-
-test("course JSON yields the upload paths it references", () => {
-  const paths = collectUploadPaths({
-    banner: "/uploads/courses/a.png",
-    sections: [{ videoUrl: "https://classroom.lango.ai/uploads/videos/clip.mp4", note: "keep" }],
-  });
-  assert.deepEqual([...paths], ["/uploads/courses/a.png", "/uploads/videos/clip.mp4"]);
 });
 
 test("an upload in R2 is served from R2, with ranges", async () => {
@@ -55,23 +47,6 @@ test("an upload missing from R2 is a 404, not a request to the old server", asyn
   } finally {
     globalThis.fetch = realFetch;
   }
-});
-
-test("a saved upload response copies the new file into R2", async () => {
-  const bucket = memoryBucket();
-  const response = new Response(JSON.stringify({ url: "/uploads/questions/q.png" }), {
-    headers: { "content-type": "application/json" },
-  });
-  const stored = await mirrorStoredUploads(response, {
-    bucket,
-    origin: "https://classroom.lango.ai",
-    method: "POST",
-    fetchImpl: async () =>
-      new Response("image", { status: 200, headers: { "content-type": "image/png", "content-length": "5" } }),
-  });
-  assert.equal(stored, 1);
-  assert.equal(bucket.objects.get("uploads/questions/q.png").size, 5);
-  assert.deepEqual(await response.json(), { url: "/uploads/questions/q.png" });
 });
 
 function memoryBucket() {

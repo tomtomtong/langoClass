@@ -1,7 +1,8 @@
 // HTTP API routes from server.js, in Express registration order.
 // The Worker matches these paths. Courses, community, course files, imports,
 // exports, scores, and host progress are handled in the Worker on D1 and R2
-// (see d1-api.js); the rest still run on the Node origin.
+// (see d1-api.js). The rest answer 503 until they move off the retired Node
+// server.
 
 export const API_ROUTES = [
   { method: "GET", path: "/api/config" },

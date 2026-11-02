@@ -19,8 +19,7 @@
     }
   },
   "vars": {
-    // The classroom calls the backend for POST /llm, POST /tts, POST /stt, POST /video, and GET /video/:jobId. Image, PDF, HEIC, and Word run in the media container.
-    "ORIGIN": "https://classroom.lango.ai",
+    // The Node server (classroom.lango.ai) is retired; nothing is proxied to it.
     "CMS_API_BASE": "https://newcms.lango.ai"
   },
   "containers": [

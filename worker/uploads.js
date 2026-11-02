@@ -1,5 +1,4 @@
-// Uploaded files live in R2. Sharp, HEIC, PDF, and Word still run on the
-// classroom server, which writes the file; this module copies that object in.
+// Uploaded files live in R2 and are served from there only.
 
 const FOLDERS = new Set([
   "courses",
@@ -39,8 +38,6 @@ const CONTENT_TYPES = {
   json: "application/json; charset=utf-8",
 };
 
-const MIRROR_LIMIT = 40;
-
 export function uploadKey(pathname) {
   const pathOnly = String(pathname || "").split("?")[0].split("#")[0];
   if (!pathOnly.startsWith("/uploads/")) return "";
@@ -49,25 +46,6 @@ export function uploadKey(pathname) {
   if (parts.some((part) => part === "." || part === ".." || part.includes("\\"))) return "";
   if (!parts.slice(2).every((part) => /^[A-Za-z0-9._-]+$/.test(part))) return "";
   return parts.join("/");
-}
-
-export function collectUploadPaths(value, found = new Set()) {
-  if (typeof value === "string") {
-    const matches = value.match(/\/uploads\/[A-Za-z0-9._/-]+/g) || [];
-    for (const match of matches) {
-      const key = uploadKey(match);
-      if (key) found.add(`/${key}`);
-    }
-    return found;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) collectUploadPaths(item, found);
-    return found;
-  }
-  if (value && typeof value === "object") {
-    for (const item of Object.values(value)) collectUploadPaths(item, found);
-  }
-  return found;
 }
 
 export function contentTypeForKey(key) {
@@ -104,52 +82,6 @@ function missingUpload(key) {
   return new Response("Not found", { status: 404, headers: { "cache-control": "no-store" } });
 }
 
-export async function mirrorStoredUploads(response, { bucket, origin, fetchImpl = fetch, method } = {}) {
-  if (!bucket || !response?.ok) return 0;
-  const verb = String(method || "").toUpperCase();
-  if (verb !== "POST" && verb !== "PUT" && verb !== "PATCH") return 0;
-  const type = response.headers.get("content-type") || "";
-  if (!type.includes("json")) return 0;
-
-  let payload;
-  try {
-    payload = await response.clone().json();
-  } catch {
-    return 0;
-  }
-  const paths = [...collectUploadPaths(payload)].slice(0, MIRROR_LIMIT);
-  let stored = 0;
-  for (const uploadPath of paths) {
-    if (await copyUpload(bucket, origin, uploadPath, fetchImpl)) stored += 1;
-  }
-  return stored;
-}
-
-async function copyUpload(bucket, origin, uploadPath, fetchImpl) {
-  const key = uploadKey(uploadPath);
-  if (!key) return false;
-  const remote = await fetchImpl(new URL(uploadPath, origin), {
-    method: "GET",
-    headers: { "user-agent": "LangoClass" },
-  });
-  if (!remote.ok || !remote.body) {
-    console.log(JSON.stringify({ message: "upload_origin_miss", path: uploadPath, status: remote.status }));
-    return false;
-  }
-  const contentType = mediaType(remote.headers.get("content-type")) || contentTypeForKey(key);
-  const length = Number(remote.headers.get("content-length"));
-  if (!key.endsWith(".vtt") && Number.isFinite(length) && length >= 0) {
-    const current = await bucket.head(key);
-    if (current && current.size === length) {
-      await remote.body.cancel?.();
-      return true;
-    }
-  }
-  await bucket.put(key, remote.body, { httpMetadata: { contentType } });
-  console.log(JSON.stringify({ message: "upload_stored", key }));
-  return true;
-}
-
 function objectResponse(object, request, { head = false } = {}) {
   const headers = new Headers();
   object.writeHttpMetadata?.(headers);
@@ -182,10 +114,4 @@ function contentRangeHeader(object) {
   const length = Number.isFinite(object.range?.length) ? object.range.length : size - start;
   const end = start + length - 1;
   return `bytes ${start}-${end}/${size}`;
-}
-
-function mediaType(value) {
-  const type = String(value || "").split(";")[0].trim().toLowerCase();
-  if (!type || type === "text/html") return "";
-  return type;
 }

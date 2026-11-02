@@ -1,13 +1,13 @@
 # Routes still served by the Node origin (2026-11-02)
 
-class.lango.ai is the `langoclass` Worker. Anything it does not handle itself is
-proxied to `ORIGIN` = `https://classroom.lango.ai` (Express, `server.js`).
-On 2026-11-02 that origin returned Cloudflare 522, so every route below hung.
+class.lango.ai is the `langoclass` Worker. classroom.lango.ai (Express, `server.js`)
+is retired and nothing is proxied to it. A `server.js` route the Worker does not
+run yet answers 503 at once; any other unmatched `/api/*` path answers 404.
 
 Source of truth: `worker/index.js` dispatch order -> `handleModelRequest`,
 `handleVideoRequest`, `serveUpload`, `handleStoreApi` (d1-api, community,
 course-media, course-transfer), `handleRoomApi`, `prepareMaterialRequest`,
-then `proxyToOrigin`.
+then `unservedApi` (503 or 404).
 
 ## Already in the Worker (no Node needed)
 
@@ -78,12 +78,6 @@ Needs ffmpeg / long jobs, so the MediaContainer is the likely home.
 `POST /api/config/clear-student-database`, `GET /api/logs`, `/api/logs/categories`,
 `/api/logs/stats`, `/api/logs/debug-files`, `DELETE /api/logs`.
 
-## Quick unblock
-
-Restarting the Express deploy at classroom.lango.ai brings all of the above
-back immediately. Doing P0 alone lets real teachers log in and run the host
-page without Node.
-
 ## Plan to drop the Node origin (decided 2026-11-02)
 
 classroom.lango.ai is retired. Everything moves into the Worker, and `ORIGIN`
@@ -103,7 +97,8 @@ and `proxyToOrigin` go away at the end.
 5. Video and media: captions, compression, `extract-material`, video generation
    (MediaContainer).
 6. Admin: `/api/config*` settings in D1, `/api/logs*` in D1 or Workers Logs.
-7. Remove `ORIGIN`; unmatched `/api/*` returns 404.
+7. Done (not yet deployed): `ORIGIN` and `proxyToOrigin` removed. Routes from steps 5 and 6
+   answer 503 until they move; unknown `/api/*` paths answer 404.
 
 Pages never call `/api/llm`, `/api/tts`, `/api/stt` or `/api/cms/video-jobs`
 directly; only the Worker does.
