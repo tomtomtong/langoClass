@@ -3,7 +3,7 @@ import { handleStoreApi } from "./d1-api.js";
 import { handleRoomApi } from "./room-api.js";
 import { handleJoinLinks } from "./join-links.js";
 import { serveUpload, uploadKey } from "./uploads.js";
-import { prepareMaterialRequest } from "./material.js";
+import { handleMaterialApi } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
 
@@ -111,8 +111,8 @@ export default {
     }
 
     try {
-      const prepared = await prepareMaterialRequest(request, env, incoming);
-      if (prepared?.response) return prepared.response;
+      const material = await handleMaterialApi(request, env, incoming);
+      if (material) return material;
     } catch (error) {
       console.error(
         JSON.stringify({

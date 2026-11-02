@@ -1,210 +1,379 @@
-import { developerAuth } from "./dev-account.js";
+// POST /api/cms/extract-material, as server.js served it: turns uploaded
+// lesson files, pasted text or a caption file into markdown for the exercise
+// generator, and keeps pictures from the files as material image assets.
+// PDF, Word, HEIC and image work runs in the media container; pictures are
+// read with an OpenRouter vision model; short WAV/MP3 audio goes through
+// speech recognition. Longer audio, video and PowerPoint need ffmpeg or a zip
+// reader the container does not have yet, so those say so.
+import formats from "../lib/material-format.js";
+import { transcribe } from "./ai.js";
+import { openUpload } from "./course-files.js";
+import { json, requireTeacher } from "./d1-store.js";
 
 const EXTRACT_PATH = "/api/cms/extract-material";
-const MAX_CHARS = 12000;
 const MIN_PDF_TEXT_CHARS = 80;
+const MAX_PDF_OCR_PAGES = 12;
+const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
+const VISION_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
+const AUDIO_DIRECT_MAX_BYTES = 4 * 1024 * 1024;
+const DEFAULT_VISION_MODEL = "google/gemini-2.5-flash";
+const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
+const VISION_TIMEOUT_MS = 120000;
+const NEEDS_FFMPEG =
+  "needs ffmpeg in the media container, which is not available yet. Paste the text or upload a .vtt caption file instead.";
+const IMAGE_PROMPT =
+  "Convert this lesson image into clean markdown for a language-learning course generator.\n" +
+  "Include:\n" +
+  "- A short ## heading describing the image topic\n" +
+  "- All visible text verbatim (preserve vocabulary lists, headings, labels)\n" +
+  "- Brief descriptions of diagrams or illustrations only when needed for context\n" +
+  "- Use markdown headings, bullet lists, and tables where appropriate\n" +
+  "Return markdown only, no commentary.";
 
-export async function prepareMaterialRequest(request, env, url) {
-  if (request.method !== "POST" || url.pathname !== EXTRACT_PATH) return null;
-  const contentType = request.headers.get("content-type") || "";
-  if (!contentType.includes("multipart/form-data")) return null;
-  if (!env.MEDIA) return null;
-
-  const auth = await authorizeTeacher(request, env);
-  if (auth instanceof Response) return { response: auth };
-
-  const original = request.clone();
-  let form;
-  try {
-    form = await request.formData();
-  } catch {
-    return { request: original };
+class MaterialError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
   }
+}
 
+export async function handleMaterialApi(request, env, url) {
+  if (request.method.toUpperCase() !== "POST" || url.pathname.replace(/\/+$/, "") !== EXTRACT_PATH) return null;
+  const auth = await requireTeacher(request, env);
+  if (auth instanceof Response) return auth;
+
+  let fields;
+  let files;
+  try {
+    ({ fields, files } = await readInput(request));
+  } catch {
+    return json({ message: "Upload failed." }, 400);
+  }
+  const maxChars = Number(fields.maxChars) > 0 ? Number(fields.maxChars) : undefined;
+  const language = sttLanguage(fields.language);
+
+  try {
+    if (files.length) return await extractFiles(env, files, { language, maxChars });
+
+    const pasted = String(fields.text || "").trim();
+    if (pasted) {
+      const result = formats.truncateMaterial(pasted, maxChars);
+      return json({ ok: true, source: "text", text: result.text, truncated: result.truncated, originalLength: result.originalLength });
+    }
+
+    const captionUrl = String(fields.captionUrl || "").trim();
+    if (captionUrl) {
+      const stored = await openUpload(env, captionUrl);
+      if (!stored) throw new MaterialError("Could not read source captions (404).", 500);
+      const result = formats.truncateMaterial(formats.extractVtt(await new Response(stored.body).text()));
+      if (!result.text) throw new MaterialError("Caption file has no readable text.");
+      return json({
+        ok: true,
+        source: "caption",
+        captionUrl,
+        text: result.text,
+        truncated: result.truncated,
+        originalLength: result.originalLength,
+      });
+    }
+
+    if (String(fields.videoUrl || "").trim()) throw new MaterialError(`Transcribing a video ${NEEDS_FFMPEG}`, 501);
+    return json({ message: "Provide a file, pasted text, captionUrl, or videoUrl." }, 400);
+  } catch (error) {
+    const status = error instanceof MaterialError ? error.status : 500;
+    const message = error instanceof Error ? error.message : "Material extraction failed.";
+    console.error(JSON.stringify({ message: "extract_material_failed", error: message }));
+    return json({ message: message || "Material extraction failed." }, status);
+  }
+}
+
+async function readInput(request) {
+  const type = request.headers.get("content-type") || "";
+  if (!type.includes("multipart/form-data")) {
+    const body = type.includes("json") ? (await request.json()) || {} : {};
+    return { fields: body, files: [] };
+  }
+  const form = await request.formData();
+  const fields = {};
   const files = [];
   for (const [key, value] of form.entries()) {
-    if (value && typeof value === "object" && typeof value.arrayBuffer === "function" && value.name) {
-      files.push({ key, file: value });
+    if (value && typeof value === "object" && typeof value.arrayBuffer === "function") {
+      if (value.size) files.push(value);
+    } else {
+      fields[key] = value;
     }
   }
-  if (!files.length) return { request: original };
-
-  const kinds = files.map((item) => fileKind(item.file));
-  if (kinds.every((kind) => kind === "pdf" || kind === "docx")) {
-    const response = await extractDocuments(env, files);
-    if (response) return { response };
-    return { request: original };
-  }
-  if (kinds.some((kind) => kind === "heic")) {
-    const rewritten = await rewriteHeicFiles(env, request, form, files);
-    if (rewritten instanceof Response) return { response: rewritten };
-    if (rewritten) return { request: rewritten, media: "container" };
-  }
-  return { request: original };
+  return { fields, files: files.slice(0, 21) };
 }
 
-export function fileKind(file) {
-  const name = String(file?.name || "").toLowerCase();
-  const type = String(file?.type || "").toLowerCase();
-  if (name.endsWith(".docx") || type.includes("wordprocessingml")) return "docx";
-  if (name.endsWith(".pdf") || type === "application/pdf") return "pdf";
-  if (name.endsWith(".heic") || name.endsWith(".heif") || type.includes("heic") || type.includes("heif")) {
-    return "heic";
+async function extractFiles(env, files, { language, maxChars }) {
+  const started = Date.now();
+  const extracted = [];
+  const imageAssets = [];
+  for (const file of files) {
+    const { result, source, images } = await extractFile(env, file, language);
+    extracted.push({ result, source });
+    imageAssets.push(...images);
   }
-  return "other";
+  const combined =
+    extracted.length === 1
+      ? extracted[0].result.text
+      : extracted.map(({ result }) => `## ${result.filename}\n\n${result.text}`).join("\n\n---\n\n");
+  const truncated = formats.truncateMaterial(combined, maxChars);
+  const filenames = extracted.map(({ result }) => result.filename).filter(Boolean);
+  const methods = extracted.map(({ result }) => result.extractionMethod).filter(Boolean);
+  return json({
+    ok: true,
+    source: extracted.length > 1 ? "files" : extracted[0]?.source || "file",
+    filename: filenames.join(", "),
+    filenames,
+    fileCount: extracted.length,
+    format: extracted.length === 1 ? extracted[0].result.format : undefined,
+    text: truncated.text,
+    truncated: truncated.truncated,
+    originalLength: truncated.originalLength,
+    extraction: {
+      durationMs: Date.now() - started,
+      methods,
+      pageCount: extracted.reduce((sum, { result }) => sum + (result.pageCount || 0), 0),
+      pagesProcessed: extracted.reduce((sum, { result }) => sum + (result.pagesProcessed || 0), 0),
+      usedVisionOcr: methods.includes("pdf-ocr"),
+    },
+    imageAssets,
+    imageAssetCount: imageAssets.length,
+  });
 }
 
-export function truncateMaterial(text, maxChars = MAX_CHARS) {
-  const normalized = String(text || "")
-    .replace(/\r/g, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  if (normalized.length <= maxChars) {
-    return { text: normalized, truncated: false, originalLength: normalized.length };
+async function extractFile(env, file, language) {
+  const filename = String(file.name || "file");
+  const format = formats.detectFormat(filename, file.type);
+  if (formats.isVideoFormat(format, file.type)) throw new MaterialError(`Transcribing video (${filename}) ${NEEDS_FFMPEG}`, 501);
+  if (file.size > UPLOAD_MAX_BYTES) throw new MaterialError(`${filename} is too large (max ${UPLOAD_MAX_BYTES / (1024 * 1024)} MB).`);
+  const base = { filename, format, pageCount: 0, pagesProcessed: 0 };
+
+  if (formats.isAudioFormat(format, file.type)) {
+    if (!["mp3", "wav"].includes(format) || file.size > AUDIO_DIRECT_MAX_BYTES) {
+      throw new MaterialError(
+        `Transcribing ${filename} needs a WAV or MP3 under 4 MB until the media container has ffmpeg. Paste the text instead.`,
+        501
+      );
+    }
+    const transcript = await transcribe(env, { audioBase64: bytesToBase64(await file.arrayBuffer()), format, language });
+    const title = filename.replace(/\.[^.]+$/, "") || "Audio transcript";
+    return {
+      result: { ...base, text: formats.normalizeWhitespace(`## ${title}\n\n${String(transcript || "").trim()}`), extractionMethod: format },
+      source: "audio",
+      images: [],
+    };
   }
+
+  if (formats.isImageFormat(format)) {
+    let bytes = await file.arrayBuffer();
+    let mime = formats.imageMimeFromFormat(format, file.type);
+    if (formats.isHeicLikeFormat(format, file.type)) {
+      const converted = await callMedia(env, "/heic", bytes, mime);
+      if (!converted.ok) {
+        const reason = (await converted.text()).trim();
+        throw new MaterialError(
+          `Could not read ${filename}. Try exporting it as JPG from Photos, or upload a .jpg/.png instead. (${reason || "conversion failed"})`
+        );
+      }
+      bytes = await converted.arrayBuffer();
+      mime = "image/jpeg";
+    }
+    if (bytes.byteLength > VISION_IMAGE_MAX_BYTES) {
+      const compressed = await callMedia(env, "/image/compress", bytes, mime, {
+        "x-max-bytes": String(VISION_IMAGE_MAX_BYTES),
+        "x-mime": mime,
+        "x-filename": filename,
+      });
+      if (compressed.ok) {
+        bytes = await compressed.arrayBuffer();
+        mime = compressed.headers.get("x-mime") || "image/jpeg";
+      }
+    }
+    const text = await describeImage(env, bytes, mime, filename);
+    return {
+      result: { ...base, text, extractionMethod: "image-vision" },
+      source: "image",
+      images: await storeUploadedImage(env, bytes, filename),
+    };
+  }
+
+  if (format === "pdf") return extractPdf(env, file, base);
+  if (format === "docx") {
+    const bytes = await file.arrayBuffer();
+    const response = await callMedia(env, "/docx", bytes, file.type);
+    if (!response.ok) throw new MaterialError(`Could not read ${filename}.`, 500);
+    const text = formats.normalizeWhitespace((await response.json()).text);
+    if (!text) throw new MaterialError(`No readable text found in ${filename}.`);
+    return { result: { ...base, text, extractionMethod: "docx" }, source: "file", images: await documentImages(env, "docx", bytes, filename) };
+  }
+  if (format === "pptx") {
+    throw new MaterialError(`Reading PowerPoint (${filename}) is not available yet. Save it as PDF and upload that instead.`, 501);
+  }
+
+  const raw = await file.text();
+  const text = format === "vtt" ? formats.extractVtt(raw) : formats.extractPlainText(raw);
+  if (!text) throw new MaterialError(`No readable text found in ${filename}.`);
+  return { result: { ...base, text, extractionMethod: format }, source: "file", images: [] };
+}
+
+async function extractPdf(env, file, base) {
+  const bytes = await file.arrayBuffer();
+  const response = await callMedia(env, "/pdf", bytes, "application/pdf");
+  if (!response.ok) throw new MaterialError(`Could not read ${base.filename}.`, 500);
+  const text = formats.normalizeWhitespace((await response.json()).text);
+  const images = await documentImages(env, "pdf", bytes, base.filename);
+  if (text.length >= MIN_PDF_TEXT_CHARS) {
+    return { result: { ...base, text, extractionMethod: "pdf-text" }, source: "file", images };
+  }
+
+  // A scanned PDF: read each page picture with the vision model.
+  visionKey(env);
+  const shots = await callMedia(env, "/pdf/screenshots", bytes, "application/pdf");
+  if (!shots.ok) throw new MaterialError(`Could not read ${base.filename}.`, 500);
+  const pages = ((await shots.json()).pages || []).filter((page) => page?.base64).slice(0, MAX_PDF_OCR_PAGES);
+  const blocks = [];
+  for (const page of pages) {
+    const pageBytes = base64ToBytes(page.base64);
+    const markdown = await describeImage(env, pageBytes, page.mime || "image/png", `${base.filename} · page ${page.pageNumber}`);
+    if (markdown) blocks.push(`## Page ${page.pageNumber}\n\n${markdown}`);
+  }
+  const ocr = formats.normalizeWhitespace(blocks.join("\n\n"));
+  if (!ocr) throw new MaterialError(`No readable text found in ${base.filename}.`);
   return {
-    text: `${normalized.slice(0, maxChars).trim()}\n\n[…truncated for generation]`,
-    truncated: true,
-    originalLength: normalized.length,
+    result: { ...base, text: ocr, extractionMethod: "pdf-ocr", pageCount: pages.length, pagesProcessed: blocks.length },
+    source: "file",
+    images,
   };
 }
 
-async function extractDocuments(env, files) {
-  const started = Date.now();
-  const extracted = [];
-  for (const item of files) {
-    const kind = fileKind(item.file);
-    const bytes = await item.file.arrayBuffer();
-    const response = await callMedia(env, kind === "pdf" ? "/pdf" : "/docx", bytes, item.file.type || "application/octet-stream");
-    if (!response.ok) return null;
-    const payload = await response.json();
-    const text = String(payload.text || "");
-    if (kind === "pdf" && text.length < MIN_PDF_TEXT_CHARS) return null;
-    const images = await documentImages(env, kind, bytes, item.file.name);
-    extracted.push({
-      filename: item.file.name,
-      format: kind,
-      text,
-      images,
-      extractionMethod: kind === "pdf" ? "pdf-text" : "docx",
-    });
-  }
-
-  const combined =
-    extracted.length === 1
-      ? extracted[0].text
-      : extracted.map((item) => `## ${item.filename}\n\n${item.text}`).join("\n\n---\n\n");
-  const truncated = truncateMaterial(combined);
-  return Response.json(
-    {
-      ok: true,
-      source: extracted.length > 1 ? "files" : "file",
-      filename: extracted.map((item) => item.filename).join(", "),
-      filenames: extracted.map((item) => item.filename),
-      fileCount: extracted.length,
-      format: extracted.length === 1 ? extracted[0].format : undefined,
-      text: truncated.text,
-      truncated: truncated.truncated,
-      originalLength: truncated.originalLength,
-      extraction: {
-        durationMs: Date.now() - started,
-        methods: extracted.map((item) => item.extractionMethod),
-        pageCount: 0,
-        pagesProcessed: 0,
-        usedVisionOcr: false,
-      },
-      imageAssets: extracted.flatMap((item) => item.images),
-      imageAssetCount: extracted.reduce((sum, item) => sum + item.images.length, 0),
+async function describeImage(env, bytes, mime, label) {
+  const key = visionKey(env);
+  const model = String(env.OPENROUTER_VISION_MODEL || "").trim() || DEFAULT_VISION_MODEL;
+  const response = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://class.lango.ai",
+      "X-Title": "Lango Material Extract",
     },
-    { headers: { "x-media-runtime": "container" } }
-  );
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: `data:${mime};base64,${bytesToBase64(bytes)}` } },
+            { type: "text", text: `${IMAGE_PROMPT}\n\nImage filename: ${label}` },
+          ],
+        },
+      ],
+      max_tokens: 2048,
+    }),
+    signal: AbortSignal.timeout(VISION_TIMEOUT_MS),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const reason = data?.error?.message || data?.message || `HTTP ${response.status}`;
+    throw new MaterialError(`Image conversion (${model}): ${reason}`, 500);
+  }
+  const content = data?.choices?.[0]?.message?.content;
+  const text = Array.isArray(content) ? content.map((part) => part?.text || "").join("") : String(content || "");
+  const markdown = formats.normalizeWhitespace(text);
+  if (!markdown) throw new MaterialError("Could not extract markdown from this image.");
+  return markdown;
 }
 
-async function rewriteHeicFiles(env, request, form, files) {
-  const next = new FormData();
-  let fileIndex = 0;
-  for (const [key, value] of form.entries()) {
-    const isFile = value && typeof value === "object" && typeof value.arrayBuffer === "function" && value.name;
-    if (!isFile) {
-      next.append(key, value);
-      continue;
-    }
-    const match = files[fileIndex++];
-    if (!match || fileKind(match.file) !== "heic") {
-      next.append(key, value);
-      continue;
-    }
-    const converted = await callMedia(env, "/heic", await match.file.arrayBuffer(), match.file.type || "image/heic");
-    if (!converted.ok) {
-      const message = (await converted.text()).trim();
-      return Response.json(
-        {
-          message: `Could not read ${match.file.name || "HEIC image"}. Try exporting it as JPG from Photos, or upload a .jpg/.png instead. (${message || "conversion failed"})`,
-        },
-        { status: 400 }
-      );
-    }
-    const bytes = await converted.arrayBuffer();
-    const filename = match.file.name.replace(/\.hei[cf]$/i, ".jpg");
-    next.append(key, new File([bytes], filename, { type: "image/jpeg" }));
+function visionKey(env) {
+  const key = String(env.OPENROUTER_API_KEY || "").trim();
+  if (!key) {
+    throw new MaterialError("Reading pictures and scanned PDFs needs OPENROUTER_API_KEY on the Worker. Paste the text instead.");
   }
-  const headers = new Headers(request.headers);
-  headers.delete("content-type");
-  headers.delete("content-length");
-  return new Request(request.url, { method: "POST", headers, body: next });
+  return key;
+}
+
+async function storeUploadedImage(env, bytes, filename) {
+  if (!env.UPLOADS) return [];
+  const response = await callMedia(env, "/image/normalize", bytes, "application/octet-stream");
+  if (!response.ok) return [];
+  const image = await response.json();
+  if (!image?.jpeg) return [];
+  return [await storeAsset(env, image, { label: filename, sourceFile: filename, origin: "upload", description: "Uploaded image" })];
 }
 
 async function documentImages(env, kind, bytes, filename) {
   if (!env.UPLOADS) return [];
   const response = await callMedia(env, kind === "pdf" ? "/pdf/images" : "/docx/images", bytes, "application/octet-stream");
   if (!response.ok) return [];
-  const payload = await response.json();
+  const stem = filename.replace(/\.[^.]+$/, "");
   const images = [];
-  for (const image of payload.images || []) {
+  for (const image of (await response.json()).images || []) {
     if (!image?.jpeg) continue;
-    const id = `mat-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    const key = `uploads/material/${id}.jpg`;
-    const raw = Uint8Array.from(atob(image.jpeg), (char) => char.charCodeAt(0));
-    await env.UPLOADS.put(key, raw, { httpMetadata: { contentType: "image/jpeg" } });
-    const stem = filename.replace(/\.[^.]+$/, "");
-    images.push({
-      id,
-      url: `/${key}`,
-      label: image.name ? `${stem} · ${image.name}` : stem,
-      sourceFile: filename,
-      page: image.pageNumber ?? null,
-      width: image.width || null,
-      height: image.height || null,
-      origin: kind === "pdf" ? "pdf-embedded" : "docx",
-      description: image.name || "",
-    });
+    images.push(
+      await storeAsset(env, image, {
+        label: image.name ? `${stem} · ${image.name}` : stem,
+        sourceFile: filename,
+        page: image.pageNumber ?? null,
+        origin: kind === "pdf" ? "pdf-embedded" : "docx",
+        description: image.name || "",
+      })
+    );
   }
   return images;
 }
 
-async function callMedia(env, pathname, bytes, contentType) {
+async function storeAsset(env, image, meta) {
+  const id = `mat-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const key = `uploads/material/${id}.jpg`;
+  await env.UPLOADS.put(key, base64ToBytes(image.jpeg), { httpMetadata: { contentType: "image/jpeg" } });
+  return {
+    id,
+    url: `/${key}`,
+    label: meta.label,
+    sourceFile: meta.sourceFile,
+    page: meta.page ?? null,
+    width: image.width || null,
+    height: image.height || null,
+    origin: meta.origin,
+    description: meta.description || "",
+  };
+}
+
+async function callMedia(env, pathname, bytes, contentType, headers = {}) {
+  if (!env.MEDIA) throw new MaterialError("The media container is not configured.", 500);
   return env.MEDIA.getByName("media").fetch(
     new Request(`http://container${pathname}`, {
       method: "POST",
       body: bytes,
-      headers: { "content-type": contentType || "application/octet-stream" },
+      headers: { "content-type": contentType || "application/octet-stream", ...headers },
     })
   );
 }
 
-async function authorizeTeacher(request, env) {
-  const dev = await developerAuth(request);
-  if (dev) return dev;
-  const header = request.headers.get("authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : header.trim();
-  if (!token) return Response.json({ message: "Missing auth token." }, { status: 401 });
-  const raw = request.headers.get("x-teacher-id");
-  if (raw == null || !String(raw).trim()) return Response.json({ message: "Missing teacher id." }, { status: 400 });
-  const base = String(env.CMS_API_BASE || "https://newcms.lango.ai").replace(/\/$/, "");
-  const checked = await fetch(`${base}/api/teachers/${encodeURIComponent(String(raw).trim())}/classes`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-  });
-  if (!checked.ok) return Response.json({ message: "Invalid or expired token." }, { status: 401 });
-  return { token, teacherId: String(raw).trim() };
+// server.js normalizeBuzzinSttLanguage with English as the fallback.
+function sttLanguage(value) {
+  const code = String(value || "")
+    .trim()
+    .toLowerCase()
+    .split("-")[0];
+  return /^[a-z]{2,3}$/.test(code) ? code : "en";
+}
+
+function bytesToBase64(buffer) {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(String(value || ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
 }

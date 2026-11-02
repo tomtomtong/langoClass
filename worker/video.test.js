@@ -1,93 +1,83 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { handleStoreApi } from "./d1-api.js";
+import { developerToken, memoryD1 } from "./test-env.js";
 import { handleVideoRequest } from "./video.js";
 
-function jsonResponse(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+const realFetch = globalThis.fetch;
+test.afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+async function setup() {
+  const env = { DB: memoryD1(), CMS_API_BASE: "https://cms.test", ORIGIN: "https://classroom.lango.ai" };
+  const token = await developerToken(handleStoreApi, env);
+  const call = (path, init = {}) => {
+    const url = new URL(path, "https://class.lango.ai");
+    const headers = new Headers(init.headers);
+    headers.set("authorization", `Bearer ${token}`);
+    if (init.json) headers.set("content-type", "application/json");
+    return handleVideoRequest(
+      new Request(url, { method: init.method || "GET", headers, body: init.json ? JSON.stringify(init.json) : undefined }),
+      env,
+      url
+    );
+  };
+  return { env, call };
 }
 
-test("starting a video falls back to the classroom server and does not send a generator address", async () => {
-  const original = globalThis.fetch;
-  const calls = [];
+function jsonResponse(body, status = 200) {
+  return Response.json(body, { status });
+}
+
+test("starting a video calls the newcms video API, not the old server", async () => {
+  const { call } = await setup();
   globalThis.fetch = async (url, init) => {
-    calls.push(String(url));
-    const body = JSON.parse(init.body);
-    assert.equal(body.text, "Hello class.");
-    assert.equal(body.videoGeneratorApiUrl, undefined);
-    if (String(url).endsWith("/api/video")) return jsonResponse({ message: "missing" }, 404);
-    assert.equal(String(url), "https://classroom.lango.ai/api/cms/generate-video");
-    assert.equal(init.headers.get("authorization"), "Bearer teacher");
-    return jsonResponse({ ok: true, jobId: "job-42", status: "queued" }, 202);
+    assert.equal(String(url), "https://cms.test/api/video");
+    assert.deepEqual(JSON.parse(init.body), { text: "Hello class" });
+    return jsonResponse({ job_id: "job-1", status: "queued" }, 202);
   };
-  try {
-    const response = await handleVideoRequest(
-      new Request("https://class.lango.ai/api/video", {
-        method: "POST",
-        headers: { authorization: "Bearer teacher", "x-teacher-id": "835" },
-        body: JSON.stringify({
-          text: "Hello class.",
-          videoGeneratorApiUrl: "https://should-not-be-forwarded.example",
-        }),
-      }),
-      { ORIGIN: "https://classroom.lango.ai" },
-      new URL("https://class.lango.ai/api/video")
-    );
+  for (const path of ["/api/video", "/api/cms/generate-video"]) {
+    const response = await call(path, { method: "POST", json: { text: "  Hello class  " } });
     assert.equal(response.status, 202);
-    assert.equal(response.headers.get("x-video-runtime"), "backend");
-    assert.deepEqual(await response.json(), { ok: true, jobId: "job-42", status: "queued" });
-    assert.deepEqual(calls, [
-      "https://classroom.lango.ai/api/video",
-      "https://classroom.lango.ai/api/cms/generate-video",
-    ]);
-  } finally {
-    globalThis.fetch = original;
+    assert.deepEqual(await response.json(), { ok: true, jobId: "job-1", status: "queued" });
   }
 });
 
-test("a finished job returns the video URL from the backend without waiting", async () => {
-  const original = globalThis.fetch;
+test("a finished job returns the full video URL", async () => {
+  const { call } = await setup();
   globalThis.fetch = async (url) => {
-    assert.equal(String(url), "https://classroom.lango.ai/api/video/job-42");
-    return jsonResponse({
-      ok: true,
-      jobId: "job-42",
-      status: "completed",
-      videoUrl: "https://classroom.lango.ai/uploads/videos/lesson.mp4",
-    });
+    assert.equal(String(url), "https://cms.test/api/jobs/job-1");
+    return jsonResponse({ id: "job-1", status: "completed", video_url: "/files/job-1.mp4", logs: ["done"] });
   };
-  try {
-    const response = await handleVideoRequest(
-      new Request("https://class.lango.ai/video/job-42"),
-      { ORIGIN: "https://classroom.lango.ai" },
-      new URL("https://class.lango.ai/video/job-42")
-    );
-    assert.equal(response.headers.get("x-video-runtime"), "backend");
-    const body = await response.json();
-    assert.equal(body.videoUrl, "https://classroom.lango.ai/uploads/videos/lesson.mp4");
-  } finally {
-    globalThis.fetch = original;
+  for (const path of ["/api/video/job-1", "/api/cms/video-jobs/job-1"]) {
+    const body = await (await call(path)).json();
+    assert.equal(body.status, "completed");
+    assert.equal(body.videoUrl, "https://cms.test/files/job-1.mp4");
   }
 });
 
 test("a job id cannot leave the video route", async () => {
-  const original = globalThis.fetch;
-  let called = false;
-  globalThis.fetch = async () => {
-    called = true;
-    return jsonResponse({ ok: true });
+  const { call } = await setup();
+  globalThis.fetch = async (url) => {
+    throw new Error(`Unexpected fetch ${url}`);
   };
-  try {
-    const response = await handleVideoRequest(
-      new Request("https://class.lango.ai/api/video/..%2Fconfig"),
-      { ORIGIN: "https://classroom.lango.ai" },
-      new URL("https://class.lango.ai/api/video/..%2Fconfig")
-    );
-    assert.equal(response.status, 400);
-    assert.equal(called, false);
-  } finally {
-    globalThis.fetch = original;
-  }
+  assert.equal((await call("/api/video/..%2Fsecret")).status, 400);
+  assert.equal((await call("/api/video", { method: "POST", json: { text: " " } })).status, 400);
+});
+
+test("video routes need a teacher login", async () => {
+  const env = { DB: memoryD1(), CMS_API_BASE: "https://cms.test" };
+  globalThis.fetch = async () => new Response("no", { status: 401 });
+  const url = new URL("https://class.lango.ai/api/video/job-1");
+  const response = await handleVideoRequest(new Request(url, { headers: { authorization: "Bearer bad", "x-teacher-id": "5" } }), env, url);
+  assert.equal(response.status, 401);
+});
+
+test("an API error is reported as 502 with its message", async () => {
+  const { call } = await setup();
+  globalThis.fetch = async () => jsonResponse({ error: "quota exceeded" }, 429);
+  const response = await call("/api/video", { method: "POST", json: { text: "Hi" } });
+  assert.equal(response.status, 502);
+  assert.equal((await response.json()).message, "quota exceeded");
 });

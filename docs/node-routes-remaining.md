@@ -94,10 +94,18 @@ and `proxyToOrigin` go away at the end.
    same `lib/` code; `lib/material-image-refs.js`, `lib/webvtt.js` and `lib/path-tile-prompt.js` were
    split out of the sharp/ffmpeg files so the Worker can bundle them. Path tiles use the media
    container's `/image/path-tile`.
-5. Video and media: captions, compression, `extract-material`, video generation
-   (MediaContainer).
+5. Mostly done (deployed 2026-11-02, 8aa2ebb8):
+   - Video jobs (`/api/video`, `/api/cms/generate-video`, `/api/cms/video-jobs/:id`) call the newcms
+     video API via `lib/video-generator.js` (`worker/video.js`).
+   - Caption upload/read/save in R2 (`worker/captions.js`).
+   - `extract-material` is answered in full by `worker/material.js`: pasted text, caption URLs, txt/md/vtt,
+     PDF and Word (container), HEIC, pictures and scanned PDFs (vision; needs `OPENROUTER_API_KEY`),
+     WAV/MP3 under 4 MB (speech recognition). `lib/material-format.js` was split out of material-extract.
+   - Still blocked: captions generated from a video, video/long-audio material, PowerPoint and
+     `compress-material-video` need ffmpeg (or a pptx reader) in `container/`, and rebuilding the
+     container needs Docker, which this Mac does not have. These answer 501/503 at once.
 6. Admin: `/api/config*` settings in D1, `/api/logs*` in D1 or Workers Logs.
-7. Done (not yet deployed): `ORIGIN` and `proxyToOrigin` removed. Routes from steps 5 and 6
+7. Done (deployed 2026-11-02, 8aa2ebb8): `ORIGIN` and `proxyToOrigin` removed. Routes from steps 5 and 6
    answer 503 until they move; unknown `/api/*` paths answer 404.
 
 Pages never call `/api/llm`, `/api/tts`, `/api/stt` or `/api/cms/video-jobs`
