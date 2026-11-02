@@ -700,28 +700,6 @@ function beginMaterialExtractProgress(files, pasted, videoUrl) {
   startAiGenEtaCountdown(durationMs);
   startAiGenProgressTicker(5, 92, durationMs);
 
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-    body: JSON.stringify({
-      sessionId: "d0607f",
-      runId: "extract-progress-ui",
-      hypothesisId: "H-UI",
-      location: "cms.js:beginMaterialExtractProgress",
-      message: "Material extract progress started",
-      data: {
-        durationMs,
-        isPdf,
-        isVideo,
-        isAudio,
-        fileCount: uploadFiles.length,
-        phaseCount: phases.length,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   materialExtractPhaseTimer = setInterval(() => {
     const elapsed = (Date.now() - startedAt) / durationMs;
@@ -755,21 +733,6 @@ function finishMaterialExtractProgress(data, { keepForGenerate = false } = {}) {
 
   setAiGenProgress(keepForGenerate ? 35 : 100, "Material ready", { detail, eta: "" });
 
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-    body: JSON.stringify({
-      sessionId: "d0607f",
-      runId: "extract-progress-ui",
-      hypothesisId: "H-UI",
-      location: "cms.js:finishMaterialExtractProgress",
-      message: "Material extract progress complete",
-      data: { chars, extraction, keepForGenerate },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 function abortMaterialExtractProgress() {
@@ -1023,9 +986,6 @@ async function compressImageMaterialFile(file, maxBytes = MATERIAL_IMAGE_TARGET_
 
 async function prepareMaterialFileForUpload(file) {
   if (!file) return file;
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"post-fix",hypothesisId:"H1-H4",location:"cms.js:prepareMaterialFileForUpload",message:"prepare file",data:{name:file.name,size:file.size,type:file.type,isImage:isImageMaterialFile(file),isVideo:isVideoMaterialFile(file),maxBytes:materialFileMaxBytes(file),overLimit:file.size>materialFileMaxBytes(file)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (isImageMaterialFile(file)) {
     const targetBytes =
       file.size > MATERIAL_UPLOAD_MAX_BYTES
@@ -1086,9 +1046,6 @@ async function compressVideoMaterialFile(file, targetBytes = MATERIAL_VIDEO_TARG
   const blob = await res.blob();
   const outName = String(file.name || "video").replace(/\.[^.]+$/, "") + ".mp4";
   const compressed = new File([blob], outName, { type: "video/mp4", lastModified: Date.now() });
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"video-compress",hypothesisId:"VC1",location:"cms.js:compressVideoMaterialFile",message:"video compressed via server",data:{name:file.name,originalBytes:file.size,outputBytes:compressed.size,ratio:Number((compressed.size/file.size).toFixed(3))},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   return compressed;
 }
 
@@ -1103,11 +1060,7 @@ async function prepareMaterialFilesForUpload(files, { onProgress } = {}) {
 }
 
 async function ingestAiSelectedFiles(fileList) {
-  const rawCount = fileList?.length || 0;
   const incoming = Array.from(fileList || []).filter((file) => file instanceof File);
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"pre-fix",hypothesisId:"H3",location:"cms.js:ingestAiSelectedFiles:entry",message:"ingest called",data:{rawCount,incoming:incoming.length,names:incoming.map((file)=>file.name),sizes:incoming.map((file)=>file.size),types:incoming.map((file)=>file.type)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (!incoming.length) return 0;
 
   const errorEl = $("#cms-ai-error");
@@ -1151,9 +1104,6 @@ async function ingestAiSelectedFiles(fileList) {
     return added;
   } catch (err) {
     const message = err.message || String(err);
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"pre-fix",hypothesisId:"H1",location:"cms.js:ingestAiSelectedFiles:catch",message:"ingest failed",data:{error:message},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setCmsError(errorEl, message);
     setAiUploadStatus(message, { isError: true });
     return 0;
@@ -2186,21 +2136,6 @@ function ensureGlobalAgentContextSession() {
   clearGlobalAgentSelectionState();
   syncGlobalAgentSelectionUi();
   renderGlobalAgent();
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      runId: "history-persist",
-      hypothesisId: "H1-context",
-      location: "cms.js:ensureGlobalAgentContextSession",
-      message: "Context changed; chat history preserved",
-      data: { key, historyLength, preserved: (state.globalAgentHistory || []).length },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 function syncGlobalAgentUi() {
@@ -2347,27 +2282,6 @@ function syncGlobalAgentDockVisibility() {
   dock.hidden = !loggedIn || onLogin;
 }
 
-function getAiReviewScrollMetrics() {
-  const preview = $("#cms-ai-preview");
-  const blocks = preview ? [...preview.querySelectorAll(".cms-ai-item-block")] : [];
-  const first = blocks[0];
-  const last = blocks[blocks.length - 1];
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  const firstRect = first?.getBoundingClientRect?.();
-  const lastRect = last?.getBoundingClientRect?.();
-  return {
-    scrollY: window.scrollY,
-    viewportHeight,
-    blockCount: blocks.length,
-    firstQuestionNumber: first?.dataset?.questionNumber || null,
-    lastQuestionNumber: last?.dataset?.questionNumber || null,
-    firstTop: firstRect?.top ?? null,
-    lastTop: lastRect?.top ?? null,
-    firstVisible: firstRect ? firstRect.top >= 0 && firstRect.top < viewportHeight : null,
-    lastVisible: lastRect ? lastRect.top >= 0 && lastRect.top < viewportHeight : null,
-  };
-}
-
 const CMS_REVIEW_AGENT_GAP_PX = 16;
 
 function clearAiReviewWizardInlineLayout(wizard) {
@@ -2406,38 +2320,6 @@ function applyAiReviewWizardLayout() {
   } else {
     clearAiReviewWizardInlineLayout(wizard);
   }
-
-  const wizardRect = wizard.getBoundingClientRect?.();
-  const agentRect = agentPanel?.getBoundingClientRect?.();
-  const wizardStyle = getComputedStyle(wizard);
-  const gapPx = wizardRect && agentRect ? agentRect.left - wizardRect.right : null;
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      location: "cms.js:applyAiReviewWizardLayout",
-      message: "review layout applied",
-      data: {
-        onReview,
-        agentOpen,
-        targetWidth: agentOpen ? measureAiReviewWizardWidth(wizard, agentPanel) : null,
-        wizardWidth: wizard.offsetWidth,
-        wizardLeft: wizardRect?.left ?? null,
-        wizardRight: wizardRect?.right ?? null,
-        wizardMarginRight: wizardStyle.marginRight,
-        agentPanelLeft: agentRect?.left ?? null,
-        gapPx,
-        overlap: wizardRect && agentRect ? wizardRect.right > agentRect.left + 8 : null,
-        ...getAiReviewScrollMetrics(),
-      },
-      timestamp: Date.now(),
-      hypothesisId: "H8",
-      runId: "review-layout-v4",
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 function syncAiReviewAgentLayout() {
@@ -2455,7 +2337,6 @@ function scrollAiPreviewToStart({ smooth = false, reason = "" } = {}) {
   if (state.aiWizardStep !== 3) return;
   const preview = $("#cms-ai-preview");
   if (!preview) return;
-  const before = getAiReviewScrollMetrics();
   const anchor =
     preview.querySelector(".cms-ai-item-block") ||
     preview.querySelector(".cms-ai-course-preview-group") ||
@@ -2465,31 +2346,6 @@ function scrollAiPreviewToStart({ smooth = false, reason = "" } = {}) {
   const stickyOffset = (topbar?.offsetHeight || 0) + 16;
   const targetY = anchor.getBoundingClientRect().top + window.scrollY - stickyOffset;
   window.scrollTo({ top: Math.max(0, targetY), behavior: smooth ? "smooth" : "auto" });
-  requestAnimationFrame(() => {
-    const after = getAiReviewScrollMetrics();
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        location: "cms.js:scrollAiPreviewToStart",
-        message: "scroll preview to start",
-        data: {
-          reason,
-          before,
-          after,
-          stickyOffset,
-          targetY: Math.max(0, targetY),
-          hasTarget: Boolean(anchor),
-        },
-        timestamp: Date.now(),
-        hypothesisId: "H4",
-        runId: "review-layout-v2",
-      }),
-    }).catch(() => {});
-    // #endregion
-  });
 }
 
 function scheduleAiPreviewScrollToStart(reason) {
@@ -2675,21 +2531,6 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
 async function applyGlobalAgentMessage(rawRequest) {
   openGlobalAgent();
   const mode = getGlobalAgentMode();
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      runId: "phase3-verify",
-      hypothesisId: "P3-mode",
-      location: "cms.js:applyGlobalAgentMessage",
-      message: "Global agent message routed",
-      data: { mode, screen: getActiveCmsScreenId(), hasMessage: !!String(rawRequest || "").trim() },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   if (mode === "ai-review") {
     collectAiDraftFromDom();
     const draft = state.aiDraftExercises || [];
@@ -2941,21 +2782,6 @@ function initGlobalAgentSelection() {
     if (state.globalAgentBusy || state.aiWizardBusy) return;
     undoGlobalAgentRevision();
   });
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      runId: "phase3-verify",
-      hypothesisId: "P3-init",
-      location: "cms.js:initGlobalAgentSelection",
-      message: "Global agent initialized",
-      data: { dock: !!$("#cms-global-agent-dock"), panel: !!$("#cms-global-agent") },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 function showCmsScreen(id) {
@@ -3672,44 +3498,7 @@ async function loadCmsAppContext() {
     state.cmsDefaultSpeakLangCode = String(
       data.defaultSpeakLangCode || (isHkElderlyCmsContext() ? "yue" : "en")
     );
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-      body: JSON.stringify({
-        sessionId: "d0607f",
-        runId: "pre-fix",
-        hypothesisId: "H2-H4",
-        location: "cms.js:loadCmsAppContext:ok",
-        message: "CMS app context loaded",
-        data: {
-          fetchUrl: "/api/cms/app-context",
-          status: res.status,
-          appVariant: state.cmsAppVariant,
-          speakLanguageCount: state.cmsSpeakLanguages.length,
-          ttsProvider: state.cmsTtsProvider,
-          sampleCodes: state.cmsSpeakLanguages.slice(0, 3).map((e) => e.code),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
   } catch (err) {
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-      body: JSON.stringify({
-        sessionId: "d0607f",
-        runId: "pre-fix",
-        hypothesisId: "H3",
-        location: "cms.js:loadCmsAppContext:catch",
-        message: "CMS app context fetch failed",
-        data: { error: String(err?.message || err) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     state.cmsSpeakLanguages = CMS_FALLBACK_SPEAK_LANGUAGES.slice();
     state.cmsQuestionLanguages = CMS_FALLBACK_SPEAK_LANGUAGES.slice();
     state.cmsDefaultSpeakLangCode = "en";
@@ -3908,27 +3697,6 @@ async function prefetchExerciseQuestionTts(exercises, speakLangCode, options = {
         };
       }
     }
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-      body: JSON.stringify({
-        sessionId: "d0607f",
-        runId: "cms-tts-prefetch",
-        hypothesisId: "H-TTS",
-        location: "cms.js:prefetchExerciseQuestionTts",
-        message: "CMS question TTS prefetch complete",
-        data: {
-          itemCount: items.length,
-          generated: data.generated || 0,
-          cached: data.cached || 0,
-          failed: data.failed || 0,
-          speakLangCode,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     syncCmsQuestionTtsButtons();
     if (statusEl && !silent) {
       const generated = data.generated || 0;
@@ -4000,27 +3768,6 @@ async function regenerateCmsQuestionTts(key) {
     purpose: item.purpose,
     rev,
   };
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-    body: JSON.stringify({
-      sessionId: "d0607f",
-      runId: "tts-regen",
-      hypothesisId: "H-REGEN",
-      location: "cms.js:regenerateCmsQuestionTts",
-      message: "Speech regen complete",
-      data: {
-        key,
-        cacheKey: result.cacheKey,
-        regenerated: Boolean(result.regenerated),
-        rev,
-        speakLangCode,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   syncCmsQuestionTtsButtons();
   return key;
 }
@@ -5027,25 +4774,6 @@ function mergeAiMaterialAssets(incoming) {
     if (asset?.id && asset?.url) byId.set(asset.id, asset);
   }
   state.aiMaterialAssets = Array.from(byId.values());
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      location: "cms.js:mergeAiMaterialAssets",
-      message: "material assets merged",
-      data: {
-        incomingCount: list.length,
-        totalCount: state.aiMaterialAssets.length,
-        labels: state.aiMaterialAssets.map((asset) => asset.label),
-      },
-      timestamp: Date.now(),
-      hypothesisId: "IMG-CROP",
-      runId: "image-vision-crop",
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 function renderMaterialAssetLibrary() {
@@ -5328,30 +5056,12 @@ function autoApplyMaterialImagesToExercises(exercises, assets) {
     };
   });
 
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      location: "cms.js:autoApplyMaterialImagesToExercises",
-      message: "confident-only image apply",
-      data: { attached, labelMatched, cleared, minConfidence: IMAGE_REF_MIN_CONFIDENCE },
-      timestamp: Date.now(),
-      hypothesisId: "IMG-MATCH",
-      runId: "image-match-v2",
-    }),
-  }).catch(() => {});
-  // #endregion
 
   return nextExercises;
 }
 
 function autoApplyMaterialImagesToDraft() {
   if (!state.aiMaterialAssets?.length || !state.aiDraftExercises?.length) {
-    // #region agent log
-    fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:autoApplyMaterialImagesToDraft',message:'auto-apply skipped',data:{assetCount:state.aiMaterialAssets?.length||0,exerciseCount:state.aiDraftExercises?.length||0},timestamp:Date.now(),hypothesisId:'A',runId:'pre-fix'})}).catch(()=>{});
-    // #endregion
     return 0;
   }
   const before = state.aiDraftExercises.reduce(
@@ -5366,10 +5076,6 @@ function autoApplyMaterialImagesToDraft() {
     (count, exercise) => count + (exercise.items || []).filter((item) => item?.image).length,
     0
   );
-  const sampleImages = state.aiDraftExercises.flatMap((ex) => (ex.items || []).map((item) => item?.image).filter(Boolean)).slice(0, 3);
-  // #region agent log
-  fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:autoApplyMaterialImagesToDraft',message:'auto-apply complete',data:{assetCount:state.aiMaterialAssets.length,before,after,assigned:after-before,sampleImages},timestamp:Date.now(),hypothesisId:'B',runId:'pre-fix'})}).catch(()=>{});
-  // #endregion
   return after - before;
 }
 
@@ -6359,36 +6065,6 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
     const headers = { Accept: "application/json" };
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
     headers["X-Teacher-Id"] = String(state.user?.id || "");
-    // #region agent log
-    {
-      const fileSizes = uploadFiles.map((uploadFile) => ({
-        name: uploadFile.name,
-        size: uploadFile.size,
-        type: uploadFile.type,
-      }));
-      const totalBytes = uploadFiles.reduce((sum, uploadFile) => sum + (uploadFile.size || 0), 0);
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a727e0" },
-        body: JSON.stringify({
-          sessionId: "a727e0",
-          runId: "pre-fix",
-          hypothesisId: "H1",
-          location: "cms.js:extractMaterialRequest:beforeFetch",
-          message: "extract-material upload about to send",
-          data: {
-            fileCount: uploadFiles.length,
-            totalBytes,
-            totalMb: Number((totalBytes / (1024 * 1024)).toFixed(2)),
-            largestBytes: Math.max(0, ...uploadFiles.map((uploadFile) => uploadFile.size || 0)),
-            files: fileSizes,
-            hintChars: String(materialHint || "").length,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
     const res = await fetch("/api/cms/extract-material", { method: "POST", headers, body: form });
     const text = await res.text();
     let parsed = null;
@@ -6397,43 +6073,6 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
     } catch {
       parsed = { message: text || res.statusText };
     }
-    // #region agent log
-    if (!res.ok) {
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-        body: JSON.stringify({
-          sessionId: "365eeb",
-          runId: "multi-upload",
-          hypothesisId: "H4",
-          location: "cms.js:extractMaterialRequest:error",
-          message: "extract-material failed",
-          data: { status: res.status, error: parsed?.message || text?.slice(0, 200) },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      const nginx413 = res.status === 413 || /413 Request Entity Too Large/i.test(text || "");
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a727e0" },
-        body: JSON.stringify({
-          sessionId: "a727e0",
-          runId: "pre-fix",
-          hypothesisId: nginx413 ? "H2" : "H3",
-          location: "cms.js:extractMaterialRequest:error",
-          message: "extract-material failed",
-          data: {
-            status: res.status,
-            contentType: res.headers.get("content-type") || "",
-            nginx413,
-            server: res.headers.get("server") || "",
-            bodyPreview: String(text || "").slice(0, 240),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    }
-    // #endregion
     if (!res.ok) {
       const detail = parsed?.message || `Request failed (${res.status})`;
       if (parsed?.needsOpenRouterKey && parsed?.visionModel) {
@@ -7371,24 +7010,6 @@ async function extractAiMaterial(options = {}) {
     state.aiMaterialText = data.text || "";
     if (Array.isArray(data.imageAssets)) {
       state.aiMaterialAssets = data.imageAssets;
-      // #region agent log
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-        body: JSON.stringify({
-          sessionId: "365eeb",
-          location: "cms.js:extractAiMaterial",
-          message: "material assets replaced from extract",
-          data: {
-            assetCount: state.aiMaterialAssets.length,
-            labels: state.aiMaterialAssets.map((asset) => asset.label),
-          },
-          timestamp: Date.now(),
-          hypothesisId: "IMG-CROP",
-          runId: "image-vision-crop",
-        }),
-      }).catch(() => {});
-      // #endregion
     }
     previewEl.value = state.aiMaterialText;
     previewEl.hidden = true;
@@ -7560,56 +7181,7 @@ async function generateAiExercises(options = {}) {
           imageAssets: state.aiMaterialAssets?.length ? state.aiMaterialAssets : undefined,
         },
       });
-      // #region agent log
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-        body: JSON.stringify({
-          sessionId: "365eeb",
-          location: "cms.js:generateAiExercises",
-          message: "generate-exercises langCode sent",
-          data: {
-            langCode: settings.langCode,
-            speakLangCode: settings.speakLangCode,
-            difficulty: settings.difficulty,
-          },
-          timestamp: Date.now(),
-          hypothesisId: "H-GEN-LANG",
-          runId: "gen-lang",
-        }),
-      }).catch(() => {});
-      // #endregion
       exercises = data.exercises || [];
-      // #region agent log
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-        body: JSON.stringify({
-          sessionId: "365eeb",
-          location: "cms.js:generateAiExercises",
-          message: "api exercises before auto-apply",
-          data: {
-            itemCount: exercises.reduce((count, ex) => count + (ex.items || []).length, 0),
-            withImage: exercises.reduce(
-              (count, ex) => count + (ex.items || []).filter((item) => item?.image).length,
-              0
-            ),
-            sampleItems: exercises
-              .flatMap((ex) => ex.items || [])
-              .slice(0, 5)
-              .map((item) => ({
-                title: item?.title || item?.topic || "",
-                image: item?.image || null,
-                imageRef: item?.imageRef || null,
-                imageRefConfidence: item?.imageRefConfidence ?? item?.confidence ?? null,
-              })),
-          },
-          timestamp: Date.now(),
-          hypothesisId: "IMG-MATCH",
-          runId: "image-match-v3",
-        }),
-      }).catch(() => {});
-      // #endregion
       exercises = autoApplyMaterialImagesToExercises(exercises, state.aiMaterialAssets);
       const stats = data.stats || {};
       const autoImageStats = data.autoImageStats || {};
@@ -7667,28 +7239,6 @@ async function generateAiExercises(options = {}) {
     if (settings.speakLangCode) {
       exercises = exercises.map((exercise) => ({ ...exercise, speakLangCode: settings.speakLangCode }));
     }
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        location: "cms.js:generateAiExercises",
-        message: "speak lang stamped on draft exercises",
-        data: {
-          speakLangCode: settings.speakLangCode,
-          exerciseCount: exercises.length,
-          sample: exercises.slice(0, 3).map((exercise) => ({
-            type: exercise.type,
-            speakLangCode: exercise.speakLangCode || null,
-          })),
-        },
-        timestamp: Date.now(),
-        hypothesisId: "H1",
-        runId: "speak-lang",
-      }),
-    }).catch(() => {});
-    // #endregion
 
     state.aiDraftExercises = exercises;
     resetAiReviewAgent();
@@ -7768,9 +7318,6 @@ function addAiExercisesToSection() {
 
   state.expandedExerciseIndex = null;
   renderExerciseEditors({ skipReveal: true });
-  // #region agent log
-  fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:addAiExercisesToSection',message:'exercises merged for publish',data:{beforeCount,added:picks.length,afterCount:section.exercises.length,speakLangCodes:picks.map((exercise)=>exercise.speakLangCode||null),domCards:document.querySelectorAll('#cms-exercise-list .cms-exercise-card').length},timestamp:Date.now(),hypothesisId:'H2',runId:'speak-lang'})}).catch(()=>{});
-  // #endregion
   const added = picks.length;
   maybeAutoFillSectionTitle(sectionIndex, section.exercises);
   void maybeAutoGenerateSectionPathTile(sectionIndex);
@@ -10645,9 +10192,6 @@ async function saveCourseStructure({ errorEl, statusEl, btn, successMessage }) {
   btn.disabled = true;
   try {
     const sections = buildSectionsPayload();
-    // #region agent log
-    fetch('http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'365eeb'},body:JSON.stringify({sessionId:'365eeb',location:'cms.js:saveCourseStructure',message:'saving sections payload',data:{sectionCount:sections.length,exerciseCounts:sections.map((section)=>section.exercises?.length||0),domCards:document.querySelectorAll('#cms-exercise-list .cms-exercise-card').length},timestamp:Date.now(),hypothesisId:'H2',runId:'publish-fix'})}).catch(()=>{});
-    // #endregion
     const data = await api(`/api/cms/courses/${state.editingCourse.id}/sections`, {
       method: "PUT",
       body: { sections },
@@ -10969,15 +10513,9 @@ $("#btn-save-exercises").addEventListener("click", () => {
 });
 $("#cms-ai-file")?.addEventListener("change", async (event) => {
   const incoming = Array.from(event.target.files || []);
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"post-fix",hypothesisId:"H2",location:"cms.js:cms-ai-file-change",message:"file input change",data:{incoming:incoming.map((file)=>({name:file.name,size:file.size,type:file.type}))},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   event.target.value = "";
   const added = await ingestAiSelectedFiles(incoming);
   syncAiFileNameLabel();
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"a727e0"},body:JSON.stringify({sessionId:"a727e0",runId:"post-fix",hypothesisId:"H2",location:"cms.js:cms-ai-file-change",message:"files added to selection",data:{added,total:getAiSelectedFiles().length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 });
 $("#cms-ai-file-list")?.addEventListener("click", (event) => {
   const btn = event.target.closest("[data-ai-file-index]");

@@ -1202,72 +1202,16 @@ function getNextHostStep() {
       exercise: nextExercise,
       label: nextExercise.title || `Exercise ${nextExercise.id}`,
     };
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        hypothesisId: "A",
-        location: "host.js:getNextHostStep",
-        message: "next step resolved",
-        data: {
-          stepType: step.type,
-          selectedExerciseId: state.selectedExercise?.id,
-          isLastInSection: isLastExerciseInSection(state.selectedExercise),
-          nextExerciseId: step.exercise?.id,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     return step;
   }
 
   const nextSection = getNextSectionAfter(state.selectedSection);
   if (!nextSection) {
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        hypothesisId: "A",
-        location: "host.js:getNextHostStep",
-        message: "no next step",
-        data: {
-          selectedExerciseId: state.selectedExercise?.id,
-          isLastInSection: isLastExerciseInSection(state.selectedExercise),
-          hasNextSection: false,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     return null;
   }
 
   const playableSections = getPlayableSections();
   if (!isHostSectionUnlocked(nextSection, playableSections)) {
-    // #region agent log
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        hypothesisId: "C",
-        location: "host.js:getNextHostStep",
-        message: "next section locked",
-        data: {
-          selectedExerciseId: state.selectedExercise?.id,
-          isLastInSection: isLastExerciseInSection(state.selectedExercise),
-          nextSectionId: nextSection.id,
-          completedIds: state.hostProgress?.completedExerciseIds || [],
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     return null;
   }
 
@@ -1281,26 +1225,6 @@ function getNextHostStep() {
     exercise,
     label: nextSection.title || `Section ${nextSection.id}`,
   };
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      hypothesisId: "B",
-      location: "host.js:getNextHostStep",
-      message: "next section step",
-      data: {
-        stepType: step.type,
-        selectedExerciseId: state.selectedExercise?.id,
-        isLastInSection: isLastExerciseInSection(state.selectedExercise),
-        nextSectionId: nextSection.id,
-        nextExerciseId: exercise.id,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   return step;
 }
 
@@ -1362,26 +1286,6 @@ function refreshNextExerciseUi() {
   const action = resolveHostNextAction();
   const buttonLabel = action?.displayLabel || null;
 
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      runId: "post-fix",
-      hypothesisId: "B",
-      location: "host.js:refreshNextExerciseUi",
-      message: "next exercise ui refreshed",
-      data: {
-        isLastInSection: isLastExerciseInSection(state.selectedExercise),
-        actionType: action?.type || null,
-        buttonLabel,
-        selectedExerciseId: state.selectedExercise?.id,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   for (const id of [
     "btn-host-quiz-next-exercise",
@@ -1458,21 +1362,6 @@ async function resolveBestStudentJoinUrl(roomId) {
     // Host on localhost: phones on the same Wi‑Fi must use LAN IP, not a remote public base URL.
     if (isLocalHost && addresses?.length) {
       const joinUrl = `http://${addresses[0]}:${port}${path}`;
-      // #region agent log
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-        body: JSON.stringify({
-          sessionId: "d0607f",
-          runId: "qr-join-url",
-          hypothesisId: "H1",
-          location: "host.js:resolveBestStudentJoinUrl",
-          message: "Using LAN join URL for local host",
-          data: { joinUrl, publicBaseUrl: publicBaseUrl || null, addresses, port, roomId },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       return joinUrl;
     }
 
@@ -1850,63 +1739,6 @@ function setSectionExercisePanelVisible(visible) {
     overlay.hidden = false;
     overlay.classList.remove("is-closing");
     if (scene) scene.classList.add("section-scene--exercises-open");
-    // #region agent log
-    requestAnimationFrame(() => {
-      const panel = $("#section-exercise-panel");
-      const inner = panel?.querySelector(".exercise-panel-inner");
-      const utility = $("#host-utility-controls");
-      const utilityDock = utility?.querySelector(".host-utility-dock");
-      const panelRect = panel?.getBoundingClientRect();
-      const innerRect = inner?.getBoundingClientRect();
-      const utilityRect = utility?.getBoundingClientRect();
-      const dockRect = utilityDock?.getBoundingClientRect();
-      const overlayStyles = overlay ? getComputedStyle(overlay) : null;
-      const overlapY =
-        panelRect && utilityRect
-          ? panelRect.top < utilityRect.bottom && panelRect.right > utilityRect.left
-          : null;
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-        body: JSON.stringify({
-          sessionId: "365eeb",
-          runId: "post-fix",
-          hypothesisId: "H1-H5",
-          location: "host.js:setSectionExercisePanelVisible",
-          message: "exercise panel layout vs utility bar",
-          data: {
-            viewport: { w: window.innerWidth, h: window.innerHeight },
-            isHkElderly: typeof isHkElderlyVariant === "function" && isHkElderlyVariant(),
-            overlay: overlay?.getBoundingClientRect()
-              ? {
-                  top: overlay.getBoundingClientRect().top,
-                  height: overlay.getBoundingClientRect().height,
-                  paddingTop: overlayStyles?.paddingTop,
-                  alignItems: overlayStyles?.alignItems,
-                  justifyContent: overlayStyles?.justifyContent,
-                }
-              : null,
-            panel: panelRect
-              ? { top: panelRect.top, left: panelRect.left, width: panelRect.width, height: panelRect.height }
-              : null,
-            inner: innerRect
-              ? { top: innerRect.top, left: innerRect.left, width: innerRect.width, height: innerRect.height }
-              : null,
-            utility: utilityRect
-              ? { top: utilityRect.top, left: utilityRect.left, width: utilityRect.width, height: utilityRect.height, bottom: utilityRect.bottom }
-              : null,
-            utilityDock: dockRect
-              ? { top: dockRect.top, bottom: dockRect.bottom, height: dockRect.height }
-              : null,
-            overlapTopRight: overlapY,
-            gapPanelTopToUtilityBottom:
-              panelRect && utilityRect ? panelRect.top - utilityRect.bottom : null,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-    });
-    // #endregion
     return;
   }
 
@@ -2312,31 +2144,6 @@ function renderClassGrid(container, classes, { selectedId, onSelect }) {
     });
   });
 
-  // #region agent log
-  requestAnimationFrame(() => {
-    const scrollEl = container.closest(".course-grid-scroll");
-    if (!scrollEl) return;
-    fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-      body: JSON.stringify({
-        sessionId: "365eeb",
-        location: "host.js:renderClassGrid",
-        message: "class grid scroll metrics",
-        data: {
-          classCount: classes.length,
-          scrollHeight: scrollEl.scrollHeight,
-          clientHeight: scrollEl.clientHeight,
-          overflowY: getComputedStyle(scrollEl).overflowY,
-          scrollable: scrollEl.scrollHeight > scrollEl.clientHeight + 1,
-        },
-        timestamp: Date.now(),
-        hypothesisId: "H-SCROLL",
-        runId: "class-scroll",
-      }),
-    }).catch(() => {});
-  });
-  // #endregion
 }
 
 function renderPickList(container, items, { selectedId, onSelect }) {
@@ -2626,26 +2433,6 @@ function renderExercises({ animate = false } = {}) {
   const isLastSelected =
     state.selectedExercise &&
     isLastExerciseInSection(state.selectedExercise, state.selectedSection);
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      runId: "post-fix",
-      hypothesisId: "D",
-      location: "host.js:renderExercises",
-      message: "section start button label",
-      data: {
-        isLastSelected: Boolean(isLastSelected),
-        startLabel: startLabel?.textContent || null,
-        selectedExerciseId: state.selectedExercise?.id,
-        exerciseCount: exercises.length,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 async function handleLogin() {
@@ -3847,26 +3634,6 @@ async function launchHostExercise(exercise, {
       await playStartSessionSound();
       const playElderlyCountdown = shouldPlayElderlyCountdown321(exercise);
       const playVideoCountdown = shouldPlayExerciseCountdown321Video(exercise);
-      // #region agent log
-      fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-        body: JSON.stringify({
-          sessionId: "365eeb",
-          runId: "countdown-elderly",
-          hypothesisId: "H-countdown",
-          location: "host.js:launchHostExercise",
-          message: "exercise countdown decision",
-          data: {
-            playElderlyCountdown,
-            playVideoCountdown,
-            exerciseType: exercise?.type,
-            isHkElderly: typeof isHkElderlyVariant === "function" && isHkElderlyVariant(),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       if (playElderlyCountdown) {
         await playElderlyCountdown321();
       } else if (playVideoCountdown) {
@@ -3935,26 +3702,6 @@ async function runHostExercise(roomId, exercise) {
 
 async function handleStartNextExercise() {
   const action = resolveHostNextAction();
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "365eeb" },
-    body: JSON.stringify({
-      sessionId: "365eeb",
-      runId: "post-fix",
-      hypothesisId: "E",
-      location: "host.js:handleStartNextExercise",
-      message: "handle next clicked",
-      data: {
-        actionType: action?.type || null,
-        hasExercise: Boolean(action?.exercise),
-        isLastInSection: isLastExerciseInSection(state.selectedExercise),
-        activeRoomId: state.activeRoomId || null,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   if (!state.activeRoomId) return;
 
   if (action?.type === "section-end") {

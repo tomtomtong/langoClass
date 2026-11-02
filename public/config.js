@@ -218,20 +218,6 @@ function renderConfig(data) {
   $("#config-azure-api-version-effective").textContent = data.effectiveAzureApiVersion || "—";
   $("#config-azure-api-version-env-default").textContent = data.azureApiVersionEnvDefault || "—";
 
-  // #region agent log
-  fetch("http://127.0.0.1:7494/ingest/d3173f1c-308f-4084-8487-8b236a140c93", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "d0607f" },
-    body: JSON.stringify({
-      sessionId: "d0607f",
-      location: "config.js:renderConfig",
-      message: "Azure config rendered",
-      data: { azureConfigured, azureSaved, hasEndpoint: !!data.effectiveAzureEndpoint },
-      timestamp: Date.now(),
-      hypothesisId: "H1",
-    }),
-  }).catch(() => {});
-  // #endregion
 
   const openrouterConfigured = !!data.openrouterApiKeyConfigured;
   const openrouterSaved = !!data.openrouterApiKeySaved;
