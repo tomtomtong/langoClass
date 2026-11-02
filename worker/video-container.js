@@ -14,6 +14,18 @@ export class VideoContainer extends Container {
   defaultPort = 8080;
   sleepAfter = "5m";
 
+  // The poll chain lives in scheduled alarms; if a poll died or a code update
+  // reset this object mid-job, schedule the next poll again on start-up.
+  constructor(ctx, env) {
+    super(ctx, env);
+    ctx.blockConcurrencyWhile(async () => {
+      const job = await ctx.storage.get("job");
+      if (!job || TERMINAL.has(job.status) || Date.now() - (job.lastPolledAt || 0) < STALE_POLL_MS) return;
+      console.log(JSON.stringify({ message: "video_poll_resumed", jobId: job.jobId, status: job.status }));
+      await this.schedule(POLL_SECONDS, "poll");
+    });
+  }
+
   async fetch(request) {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/start") return this.startJob(await request.json());
@@ -95,7 +107,9 @@ export class VideoContainer extends Container {
     const { readable, writable } = new FixedLengthStream(size);
     const copying = copyStream(res.body, writable);
     const key = `lectures/tommy-${job.jobId}.mp4`;
+    console.log(JSON.stringify({ message: "video_save_started", jobId: job.jobId, bytes: size }));
     await Promise.all([this.env.UPLOADS.put(key, readable, { httpMetadata: { contentType: "video/mp4" } }), copying]);
+    console.log(JSON.stringify({ message: "video_saved", jobId: job.jobId, key, seconds: Math.round((Date.now() - job.startedAt) / 1000) }));
     Object.assign(job, { status: "completed", videoUrl: `/uploads/${key}` });
     job.logs = [...job.logs, "Saved."];
     await this.ctx.storage.put("job", job);
@@ -111,11 +125,9 @@ export class VideoContainer extends Container {
   }
 
   // Keep the container up while a render is running even without requests.
-  // If the poll chain broke (a poll that threw, or a code update), start it again.
   async onActivityExpired() {
     const job = await this.ctx.storage.get("job");
     if (job && !TERMINAL.has(job.status)) {
-      if (Date.now() - (job.lastPolledAt || 0) > STALE_POLL_MS) await this.poll();
       this.renewActivityTimeout();
       return;
     }
