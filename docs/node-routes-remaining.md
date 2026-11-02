@@ -99,7 +99,8 @@ and `proxyToOrigin` go away at the end.
      video API via `lib/video-generator.js` (`worker/video.js`).
    - Caption upload/read/save in R2 (`worker/captions.js`).
    - `extract-material` is answered in full by `worker/material.js`: pasted text, caption URLs, txt/md/vtt,
-     PDF and Word (container), HEIC, pictures and scanned PDFs (vision; needs `OPENROUTER_API_KEY`),
+     PDF and Word (container), HEIC, pictures and scanned PDFs (vision through Inworld's chat API; needs the
+     Worker secret `INWORLD_API_KEY`),
      WAV/MP3 under 4 MB (speech recognition). `lib/material-format.js` was split out of material-extract.
    - Still blocked: captions generated from a video, video/long-audio material, PowerPoint and
      `compress-material-video` need ffmpeg (or a pptx reader) in `container/`, and rebuilding the
@@ -109,8 +110,8 @@ and `proxyToOrigin` go away at the end.
      saved value wins over the Worker variable of the same meaning (`withSettings`, laid over `env` for
      API requests and inside the room). Provider keys saved there on Node are not used: all model calls
      go through the newcms router unless the Worker has its own key secret. The router has no vision
-     endpoint, so reading pictures and scanned PDFs needs a Worker `OPENROUTER_API_KEY` or a newcms
-     vision endpoint. The classroom voice is Inworld, as on Node.
+     endpoint, so reading pictures and scanned PDFs uses Inworld's chat API with the Worker secret
+     `INWORLD_API_KEY` (user's choice, 2026-11-02: Inworld, not OpenRouter). The classroom voice is Inworld, as on Node.
    - `/api/logs*` (`worker/app-logs.js`): the D1 `app_logs` table from migration 0001, which holds the
      Node logs imported earlier. Admin login uses the Node username/password unless the Worker secrets
      `LOG_ADMIN_USERNAME` / `LOG_ADMIN_PASSWORD` are set; tokens are signed and last 12 hours.

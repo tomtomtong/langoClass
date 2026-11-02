@@ -76,15 +76,16 @@ test("a text PDF uses its text; a scanned one is read page by page with the visi
     "/pdf/images": () => Response.json({ images: [] }),
     "/pdf/screenshots": () => Response.json({ pages: [{ pageNumber: 1, base64: JPEG_B64, mime: "image/png" }] }),
   });
-  const { send } = await setup({ MEDIA, OPENROUTER_API_KEY: "or" });
+  const { send } = await setup({ MEDIA, INWORLD_API_KEY: "iw" });
   const text = await send(form(new File(["x"], "book.pdf", { type: "application/pdf" })));
   assert.deepEqual(text.body.extraction.methods, ["pdf-text"]);
 
   pdfText = "x";
   globalThis.fetch = async (url, init) => {
-    assert.equal(String(url), "https://openrouter.ai/api/v1/chat/completions");
+    assert.equal(String(url), "https://api.inworld.ai/v1/chat/completions");
+    assert.equal(init.headers.Authorization, "Basic iw");
     const sent = JSON.parse(init.body);
-    assert.equal(sent.model, "google/gemini-2.5-flash");
+    assert.equal(sent.model, "google-ai-studio/gemini-2.5-flash");
     assert.match(sent.messages[0].content[0].image_url.url, /^data:image\/png;base64,/);
     return Response.json({ choices: [{ message: { content: "## Fruit\n\n- apple" } }] });
   };
@@ -95,19 +96,19 @@ test("a text PDF uses its text; a scanned one is read page by page with the visi
   assert.equal(scanned.body.extraction.pagesProcessed, 1);
 });
 
-test("pictures need an OpenRouter key and say so instead of waiting", async () => {
-  const { send } = await setup({ MEDIA: media({}) });
+test("pictures need an Inworld key and say so instead of waiting", async () => {
+  const { send } = await setup({ MEDIA: media({}), OPENROUTER_API_KEY: "or" });
   globalThis.fetch = async (url) => {
     throw new Error(`Unexpected fetch ${url}`);
   };
   const { status, body } = await send(form(new File(["x"], "board.jpg", { type: "image/jpeg" })));
   assert.equal(status, 400);
-  assert.match(body.message, /OPENROUTER_API_KEY/);
+  assert.match(body.message, /INWORLD_API_KEY/);
 });
 
 test("a photo is described and kept as an image asset", async () => {
   const MEDIA = media({ "/image/normalize": () => Response.json({ jpeg: JPEG_B64, width: 800, height: 600 }) });
-  const { send } = await setup({ MEDIA, OPENROUTER_API_KEY: "or" });
+  const { send } = await setup({ MEDIA, INWORLD_API_KEY: "iw" });
   globalThis.fetch = async () => Response.json({ choices: [{ message: { content: "## Board\n\ncat, dog" } }] });
   const { status, body } = await send(form(new File(["x"], "board.jpg", { type: "image/jpeg" })));
   assert.equal(status, 200, JSON.stringify(body));

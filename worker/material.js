@@ -2,7 +2,8 @@
 // lesson files, pasted text or a caption file into markdown for the exercise
 // generator, and keeps pictures from the files as material image assets.
 // PDF, Word, HEIC and image work runs in the media container; pictures are
-// read with an OpenRouter vision model; short WAV/MP3 audio goes through
+// read with a vision model through Inworld's chat API (the newcms router takes
+// no images); short WAV/MP3 audio goes through
 // speech recognition. Longer audio, video and PowerPoint need ffmpeg or a zip
 // reader the container does not have yet, so those say so.
 import formats from "../lib/material-format.js";
@@ -16,8 +17,8 @@ const MAX_PDF_OCR_PAGES = 12;
 const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 const VISION_IMAGE_MAX_BYTES = 6 * 1024 * 1024;
 const AUDIO_DIRECT_MAX_BYTES = 4 * 1024 * 1024;
-const DEFAULT_VISION_MODEL = "google/gemini-2.5-flash";
-const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
+const DEFAULT_VISION_MODEL = "google-ai-studio/gemini-2.5-flash";
+const INWORLD_CHAT_URL = "https://api.inworld.ai/v1/chat/completions";
 const VISION_TIMEOUT_MS = 120000;
 const NEEDS_FFMPEG =
   "needs ffmpeg in the media container, which is not available yet. Paste the text or upload a .vtt caption file instead.";
@@ -251,15 +252,10 @@ async function extractPdf(env, file, base) {
 
 async function describeImage(env, bytes, mime, label) {
   const key = visionKey(env);
-  const model = String(env.OPENROUTER_VISION_MODEL || "").trim() || DEFAULT_VISION_MODEL;
-  const response = await fetch(`${OPENROUTER_API_BASE}/chat/completions`, {
+  const model = String(env.INWORLD_VISION_MODEL || "").trim() || DEFAULT_VISION_MODEL;
+  const response = await fetch(INWORLD_CHAT_URL, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://class.lango.ai",
-      "X-Title": "Lango Material Extract",
-    },
+    headers: { Authorization: `Basic ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
       messages: [
@@ -288,9 +284,9 @@ async function describeImage(env, bytes, mime, label) {
 }
 
 function visionKey(env) {
-  const key = String(env.OPENROUTER_API_KEY || "").trim();
+  const key = String(env.INWORLD_API_KEY || "").trim();
   if (!key) {
-    throw new MaterialError("Reading pictures and scanned PDFs needs OPENROUTER_API_KEY on the Worker. Paste the text instead.");
+    throw new MaterialError("Reading pictures and scanned PDFs needs INWORLD_API_KEY on the Worker. Paste the text instead.");
   }
   return key;
 }
