@@ -7139,12 +7139,9 @@ body.cms-light .cms-danger:hover:not(:disabled) {
   box-shadow: 0 8px 20px rgba(233, 69, 96, 0.28);
 }
 
-.config-section-panel {
-  display: none;
-}
-
-.config-section-panel.is-active {
-  display: block;
+.config-sections {
+  display: grid;
+  gap: 1.5rem;
 }
 
 .config-panel-intro {
