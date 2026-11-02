@@ -3,15 +3,28 @@
 // generator, and keeps pictures from the files as material image assets.
 // PDF, Word, HEIC and image work runs in the media container; pictures are
 // read with a vision model through Inworld's chat API (the newcms router takes
-// no images); short WAV/MP3 audio goes through
-// speech recognition. Longer audio, video and PowerPoint need ffmpeg or a zip
-// reader the container does not have yet, so those say so.
+// no images). Short WAV/MP3 audio goes straight to speech recognition; video
+// and longer audio are cut into pieces by the container's ffmpeg first
+// (media-speech.js). PowerPoint needs a zip reader the container does not
+// have yet, so that says so.
+// POST /api/cms/compress-material-video shrinks a lesson video before upload.
 import formats from "../lib/material-format.js";
 import { transcribe } from "./ai.js";
-import { openUpload } from "./course-files.js";
+import { extensionOf, openUpload, randomPart, storeUpload, uploadUrl } from "./course-files.js";
 import { json, requireTeacher } from "./d1-store.js";
+import {
+  MEDIA_MAX_BYTES,
+  MediaError,
+  captionsFromMedia,
+  compressVideo,
+  openVideo,
+  storeCaptions,
+  tooLarge,
+  transcribeMedia,
+} from "./media-speech.js";
 
 const EXTRACT_PATH = "/api/cms/extract-material";
+const COMPRESS_PATH = "/api/cms/compress-material-video";
 const MIN_PDF_TEXT_CHARS = 80;
 const MAX_PDF_OCR_PAGES = 12;
 const UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
@@ -20,8 +33,6 @@ const AUDIO_DIRECT_MAX_BYTES = 4 * 1024 * 1024;
 const DEFAULT_VISION_MODEL = "google-ai-studio/gemini-2.5-flash";
 const INWORLD_CHAT_URL = "https://api.inworld.ai/v1/chat/completions";
 const VISION_TIMEOUT_MS = 120000;
-const NEEDS_FFMPEG =
-  "needs ffmpeg in the media container, which is not available yet. Paste the text or upload a .vtt caption file instead.";
 const IMAGE_PROMPT =
   "Convert this lesson image into clean markdown for a language-learning course generator.\n" +
   "Include:\n" +
@@ -39,9 +50,11 @@ class MaterialError extends Error {
 }
 
 export async function handleMaterialApi(request, env, url) {
-  if (request.method.toUpperCase() !== "POST" || url.pathname.replace(/\/+$/, "") !== EXTRACT_PATH) return null;
+  const path = url.pathname.replace(/\/+$/, "");
+  if (request.method.toUpperCase() !== "POST" || (path !== EXTRACT_PATH && path !== COMPRESS_PATH)) return null;
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
+  if (path === COMPRESS_PATH) return compressUpload(request, env);
 
   let fields;
   let files;
@@ -78,10 +91,25 @@ export async function handleMaterialApi(request, env, url) {
       });
     }
 
-    if (String(fields.videoUrl || "").trim()) throw new MaterialError(`Transcribing a video ${NEEDS_FFMPEG}`, 501);
+    const videoUrl = String(fields.videoUrl || "").trim();
+    if (videoUrl) {
+      const captions = await captionsFromMedia(env, await openVideo(env, videoUrl), language);
+      const captionUrl = await storeCaptions(env, captions.vtt);
+      const result = formats.truncateMaterial(formats.extractVtt(captions.vtt));
+      return json({
+        ok: true,
+        source: "video",
+        videoUrl,
+        captionUrl,
+        cueCount: captions.cueCount,
+        text: result.text,
+        truncated: result.truncated,
+        originalLength: result.originalLength,
+      });
+    }
     return json({ message: "Provide a file, pasted text, captionUrl, or videoUrl." }, 400);
   } catch (error) {
-    const status = error instanceof MaterialError ? error.status : 500;
+    const status = error instanceof MaterialError || error instanceof MediaError ? error.status : 500;
     const message = error instanceof Error ? error.message : "Material extraction failed.";
     console.error(JSON.stringify({ message: "extract_material_failed", error: message }));
     return json({ message: message || "Material extraction failed." }, status);
@@ -111,10 +139,12 @@ async function extractFiles(env, files, { language, maxChars }) {
   const started = Date.now();
   const extracted = [];
   const imageAssets = [];
+  let video = null;
   for (const file of files) {
-    const { result, source, images } = await extractFile(env, file, language);
+    const { result, source, images, videoMeta } = await extractFile(env, file, language);
     extracted.push({ result, source });
     imageAssets.push(...images);
+    if (videoMeta) video = videoMeta;
   }
   const combined =
     extracted.length === 1
@@ -133,6 +163,9 @@ async function extractFiles(env, files, { language, maxChars }) {
     text: truncated.text,
     truncated: truncated.truncated,
     originalLength: truncated.originalLength,
+    videoUrl: video?.videoUrl,
+    captionUrl: video?.captionUrl,
+    cueCount: video?.cueCount,
     extraction: {
       durationMs: Date.now() - started,
       methods,
@@ -148,18 +181,15 @@ async function extractFiles(env, files, { language, maxChars }) {
 async function extractFile(env, file, language) {
   const filename = String(file.name || "file");
   const format = formats.detectFormat(filename, file.type);
-  if (formats.isVideoFormat(format, file.type)) throw new MaterialError(`Transcribing video (${filename}) ${NEEDS_FFMPEG}`, 501);
-  if (file.size > UPLOAD_MAX_BYTES) throw new MaterialError(`${filename} is too large (max ${UPLOAD_MAX_BYTES / (1024 * 1024)} MB).`);
   const base = { filename, format, pageCount: 0, pagesProcessed: 0 };
+  if (formats.isVideoFormat(format, file.type)) return extractVideo(env, file, base, language);
+  if (file.size > UPLOAD_MAX_BYTES) throw new MaterialError(`${filename} is too large (max ${UPLOAD_MAX_BYTES / (1024 * 1024)} MB).`);
 
   if (formats.isAudioFormat(format, file.type)) {
-    if (!["mp3", "wav"].includes(format) || file.size > AUDIO_DIRECT_MAX_BYTES) {
-      throw new MaterialError(
-        `Transcribing ${filename} needs a WAV or MP3 under 4 MB until the media container has ffmpeg. Paste the text instead.`,
-        501
-      );
-    }
-    const transcript = await transcribe(env, { audioBase64: bytesToBase64(await file.arrayBuffer()), format, language });
+    const direct = ["mp3", "wav"].includes(format) && file.size <= AUDIO_DIRECT_MAX_BYTES;
+    const transcript = direct
+      ? await transcribe(env, { audioBase64: bytesToBase64(await file.arrayBuffer()), format, language })
+      : await transcribeMedia(env, await file.arrayBuffer(), language);
     const title = filename.replace(/\.[^.]+$/, "") || "Audio transcript";
     return {
       result: { ...base, text: formats.normalizeWhitespace(`## ${title}\n\n${String(transcript || "").trim()}`), extractionMethod: format },
@@ -218,6 +248,58 @@ async function extractFile(env, file, language) {
   const text = format === "vtt" ? formats.extractVtt(raw) : formats.extractPlainText(raw);
   if (!text) throw new MaterialError(`No readable text found in ${filename}.`);
   return { result: { ...base, text, extractionMethod: format }, source: "file", images: [] };
+}
+
+// As Node did: shrink the video, keep it under /uploads/videos/, make captions
+// from its sound, and use the caption text as the material.
+async function extractVideo(env, file, base, language) {
+  if (file.size > MEDIA_MAX_BYTES) throw new MaterialError(tooLarge());
+  const { bytes, compressed } = await compressVideo(env, await file.arrayBuffer(), base.filename);
+  const ext = compressed ? ".mp4" : extensionOf(base.filename) || ".mp4";
+  const videoUrl = uploadUrl("videos", `material-${Date.now()}-${randomPart(8)}${ext}`);
+  await storeUpload(env, videoUrl, bytes, { contentType: compressed ? "video/mp4" : file.type || undefined });
+  const captions = await captionsFromMedia(env, bytes, language);
+  const captionUrl = await storeCaptions(env, captions.vtt);
+  const text = formats.extractVtt(captions.vtt);
+  if (!text) throw new MaterialError("Speech recognition found no speech in this video.");
+  const title = base.filename.replace(/\.[^.]+$/, "") || "Video transcript";
+  return {
+    result: { ...base, text: formats.normalizeWhitespace(`## ${title}\n\n${text}`), extractionMethod: "video" },
+    source: "video",
+    images: [],
+    videoMeta: { videoUrl, captionUrl, cueCount: captions.cueCount },
+  };
+}
+
+// The CMS sends videos over 8 MB here first and uploads what comes back.
+async function compressUpload(request, env) {
+  let file;
+  try {
+    file = (await request.formData()).get("file");
+  } catch {
+    return json({ message: "Upload failed." }, 400);
+  }
+  if (!file || typeof file === "string" || !file.size) return json({ message: "No video file received." }, 400);
+  const filename = String(file.name || "video.mp4");
+  if (!formats.isVideoFormat(formats.detectFormat(filename, file.type), file.type)) {
+    return json({ message: "Only video files can be compressed on this endpoint." }, 400);
+  }
+  if (file.size > MEDIA_MAX_BYTES) return json({ message: tooLarge() }, 400);
+  try {
+    const { bytes, compressed } = await compressVideo(env, await file.arrayBuffer(), filename);
+    return new Response(bytes, {
+      headers: {
+        "content-type": "video/mp4",
+        "x-original-bytes": String(file.size),
+        "x-output-bytes": String(bytes.byteLength),
+        "x-compressed": compressed ? "1" : "0",
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Video compression failed.";
+    console.error(JSON.stringify({ message: "compress_material_video_failed", error: message }));
+    return json({ message }, error instanceof MediaError ? error.status : 500);
+  }
 }
 
 async function extractPdf(env, file, base) {

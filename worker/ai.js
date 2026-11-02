@@ -11,6 +11,8 @@ const DEFAULT_GENERATE_MODEL = "x-ai/grok-4.3";
 const DEFAULT_OPENROUTER_TTS_MODEL = "x-ai/grok-voice-tts-1.0";
 const DEFAULT_OPENROUTER_TTS_VOICE = "eve";
 const DEFAULT_INWORLD_STT_MODEL = "inworld/inworld-stt-1";
+// Word timings come from Whisper-style models, not inworld-stt-1 (server.js).
+const CAPTION_STT_MODEL = "groq/whisper-large-v3";
 const INWORLD_TTS_MODEL = "inworld-tts-1.5-max";
 const INWORLD_TTS_VOICE = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
 const INWORLD_SPEAKING_RATE = 1.12;
@@ -60,14 +62,32 @@ export async function completeText(env, messages, maxTokens = 1024, { title = "L
   return messageText(data);
 }
 
-export async function transcribe(env, { audioBase64, format, language } = {}) {
+// allowEmpty: a silent piece of a longer recording gives "" instead of an error.
+export async function transcribe(env, { audioBase64, format, language, allowEmpty = false } = {}) {
   const audio = audioPayload(audioBase64, format);
   const lang = sttLanguage(language);
   // Inworld STT handles Cantonese better than voxtral, so without an Inworld key
   // the router's Inworld STT comes before a saved OpenRouter key.
   const inworld = secret(env, "INWORLD_API_KEY");
-  if (inworld) return transcribeWithInworld(env, inworld, audio, lang);
-  return transcribeWithRouter(env, audio, lang);
+  const text = inworld
+    ? await transcribeWithInworld(env, inworld, audio, lang)
+    : await transcribeWithRouter(env, audio, lang);
+  if (!text && !allowEmpty) throw new Error("Could not transcribe your recording. Try again.");
+  return text;
+}
+
+// For captions: { text, words } where words carry timings when Inworld gives
+// them; through the router there are none and the caller spreads the text.
+export async function transcribeTimed(env, { audioBase64, format, language } = {}) {
+  const audio = audioPayload(audioBase64, format);
+  const lang = sttLanguage(language);
+  const inworld = secret(env, "INWORLD_API_KEY");
+  if (!inworld) return { text: await transcribeWithRouter(env, audio, lang), words: [] };
+  const configured = setting(env, "INWORLD_STT_MODEL", DEFAULT_INWORLD_STT_MODEL);
+  const model = /whisper|assemblyai|soniox|deepgram/i.test(configured) ? configured : CAPTION_STT_MODEL;
+  const data = await inworldTranscription(inworld, audio, lang, model, { includeWordTimestamps: true });
+  const words = data?.transcription?.wordTimestamps;
+  return { text: String(data?.transcription?.transcript || "").trim(), words: Array.isArray(words) ? words : [] };
 }
 
 export function speechProvider(env, variant) {
@@ -116,20 +136,22 @@ export function sttLanguage(value, fallback = "en") {
 
 async function transcribeWithInworld(env, key, audio, language) {
   const model = setting(env, "INWORLD_STT_MODEL", DEFAULT_INWORLD_STT_MODEL);
+  const data = await inworldTranscription(key, audio, language, model);
+  return String(data?.transcription?.transcript || "").trim();
+}
+
+async function inworldTranscription(key, audio, language, model, extra = {}) {
   const encoding = inworldEncoding(audio.format);
-  const config = { modelId: model, audioEncoding: encoding, language };
+  const config = { modelId: model, audioEncoding: encoding, language, ...extra };
   if (encoding === "LINEAR16") {
     config.sampleRateHertz = STT_SAMPLE_RATE;
     config.numberOfChannels = 1;
   }
-  const data = await postJson(`${INWORLD_API_BASE}/stt/v1/transcribe`, {
+  return postJson(`${INWORLD_API_BASE}/stt/v1/transcribe`, {
     headers: { Authorization: `Basic ${key}` },
     body: { transcribeConfig: config, audioData: { content: audio.base64 } },
     label: `Transcription (${model})`,
   });
-  const text = String(data?.transcription?.transcript || "").trim();
-  if (!text) throw new Error("Could not transcribe your recording. Try again.");
-  return text;
 }
 
 async function speakWithInworld(env, text, code) {
@@ -187,9 +209,7 @@ async function transcribeWithRouter(env, audio, language) {
   const response = await timedFetch(`${base}/transcribe`, { method: "POST", body: form });
   const data = await readJson(response);
   if (!response.ok) throw new Error(`Transcription (router): ${errorMessage(data, response.status)}`);
-  const text = String(data?.text || "").trim();
-  if (!text) throw new Error("Could not transcribe your recording. Try again.");
-  return text;
+  return String(data?.text || "").trim();
 }
 
 async function speakWithRouter(env, text, code) {

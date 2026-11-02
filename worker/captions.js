@@ -1,10 +1,10 @@
 // Video caption files in R2, as server.js served them: upload a .vtt, read it
-// for the editor, and save edits back. Captions made from a video's audio need
-// ffmpeg, which the media container does not have yet, so that route says so
-// instead of waiting on the retired classroom server.
+// for the editor, save edits back, or make them from a video's sound with the
+// media container's ffmpeg and speech recognition (media-speech.js).
 import webvtt from "../lib/webvtt.js";
 import { openUpload, randomPart, storeUpload, uploadUrl } from "./course-files.js";
 import { json, readJson, requireTeacher } from "./d1-store.js";
+import { MediaError, captionsFromMedia, openVideo, storeCaptions } from "./media-speech.js";
 import { uploadKey } from "./uploads.js";
 
 const CAPTION_BYTES = 2 * 1024 * 1024;
@@ -89,16 +89,20 @@ async function saveCaption(request, env) {
   return json({ ok: true, captionUrl, cueCount: webvtt.parseWebVtt(text).length });
 }
 
-async function generateCaptions(request) {
+async function generateCaptions(request, env) {
   const body = await readJson(request);
-  if (!String(body?.videoUrl || "").trim()) return json({ message: "Video URL is required." }, 400);
-  return json(
-    {
-      message:
-        "Generating captions from a video is not available yet: it needs ffmpeg in the media container. Upload a .vtt caption file instead.",
-    },
-    501
-  );
+  const videoUrl = String(body?.videoUrl || "").trim();
+  if (!videoUrl) return json({ message: "Video URL is required." }, 400);
+  const language = captionLanguage(body?.language);
+  try {
+    const captions = await captionsFromMedia(env, await openVideo(env, videoUrl), language);
+    const captionUrl = await storeCaptions(env, captions.vtt);
+    return json({ ok: true, captionUrl, language, cueCount: captions.cueCount, wordCount: captions.wordCount });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Caption generation failed.";
+    console.error(JSON.stringify({ message: "generate_video_captions_failed", error: message }));
+    return json({ message: message || "Caption generation failed." }, error instanceof MediaError ? error.status : 500);
+  }
 }
 
 function editableKey(captionUrl) {

@@ -68,9 +68,7 @@ Mostly OpenRouter/LLM calls plus prompt code in Node; need Worker secrets.
 `POST /api/video`, `GET /api/video/:id` (wrapped by `worker/video.js`, backend
 still Node), `generate-video-captions`, `upload-video-captions`,
 `GET|PUT /api/cms/video-captions`, `compress-material-video`,
-`extract-material` (container preprocesses, then still proxies to Node).
-
-Needs ffmpeg / long jobs, so the MediaContainer is the likely home.
+`extract-material`. All now in the Worker; see step 5 below for what is not deployed yet.
 
 ### P4: admin
 
@@ -102,9 +100,14 @@ and `proxyToOrigin` go away at the end.
      PDF and Word (container), HEIC, pictures and scanned PDFs (vision through Inworld's chat API; needs the
      Worker secret `INWORLD_API_KEY`),
      WAV/MP3 under 4 MB (speech recognition). `lib/material-format.js` was split out of material-extract.
-   - Still blocked: captions generated from a video, video/long-audio material, PowerPoint and
-     `compress-material-video` need ffmpeg (or a pptx reader) in `container/`, and rebuilding the
-     container needs Docker, which this Mac does not have. These answer 501/503 at once.
+   - Written, not deployed (2026-11-02): ffmpeg in `container/` (`ffmpeg.js`: `/audio/chunks`,
+     `/video/compress`), used by `worker/media-speech.js` for `generate-video-captions`, video and
+     long-audio material, `videoUrl` material and `compress-material-video`. Caption word timings come
+     from Inworld (`groq/whisper-large-v3`) when the Worker has `INWORLD_API_KEY`; through the router the
+     text is spread evenly over each 25-second piece. Media is capped at 100 MB (the container's limit).
+     Deploying needs the container rebuilt, which needs Docker running.
+   - Still blocked: PowerPoint (needs a pptx reader, answers 501), and `/api/transcribe/audio|test`
+     (the OpenRouter test page `public/transcribe.js`, answers 503).
 6. Done (deployed 2026-11-02, 4c47a3f0): admin routes in the Worker.
    - `/api/config*` (`worker/app-settings.js`): settings stay in the D1 `app-settings` document, and a
      saved value wins over the Worker variable of the same meaning (`withSettings`, laid over `env` for

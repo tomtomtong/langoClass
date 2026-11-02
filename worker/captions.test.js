@@ -39,9 +39,41 @@ test("a file that is not WebVTT is refused", async () => {
   assert.equal(bad.status, 400);
 });
 
-test("captions from a video say ffmpeg is missing instead of hanging", async () => {
-  const { call } = await setup();
+test("captions are made from a video's sound and kept in R2", async () => {
+  const { env, call } = await setup();
+  env.CMS_API_BASE = "https://cms.test";
+  env.MEDIA = {
+    getByName: () => ({
+      fetch: async (request) => {
+        assert.equal(new URL(request.url).pathname, "/audio/chunks");
+        assert.equal(await request.text(), "video");
+        return Response.json({ chunks: [{ base64: btoa("mp3"), format: "mp3", durationMs: 3000 }] });
+      },
+    }),
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ text: "Hello and welcome" });
+  try {
+    await env.UPLOADS.put("uploads/videos/a.mp4", "video");
+    const response = await call("/api/cms/generate-video-captions", {
+      method: "POST",
+      json: { videoUrl: "/uploads/videos/a.mp4", language: "zh-HK" },
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.equal(body.language, "zh");
+    assert.equal(body.cueCount, 1);
+    assert.match(body.captionUrl, /^\/uploads\/captions\/captions-\d+-[a-f0-9]{8}\.vtt$/);
+    const vtt = await (await env.UPLOADS.get(body.captionUrl.slice(1))).text();
+    assert.equal(vtt, "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nHello and welcome\n");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("captions for a video that is not stored answer 404", async () => {
+  const { env, call } = await setup();
+  env.MEDIA = { getByName: () => ({ fetch: async () => Response.json({ chunks: [] }) }) };
   const response = await call("/api/cms/generate-video-captions", { method: "POST", json: { videoUrl: "/uploads/videos/a.mp4" } });
-  assert.equal(response.status, 501);
-  assert.match((await response.json()).message, /ffmpeg/);
+  assert.equal(response.status, 404);
 });

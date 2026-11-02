@@ -4,9 +4,10 @@ const mammoth = require("mammoth");
 const { convertHeicToJpeg } = require("./heic");
 const { compressMaterialImageBuffer } = require("./compress");
 const { processGeneratedPathTile } = require("./path-tile");
+const { audioChunks, compressVideo } = require("./ffmpeg");
 
 const PORT = Number(process.env.PORT || 8080);
-const MAX_BYTES = 80 * 1024 * 1024;
+const MAX_BYTES = 100 * 1024 * 1024;
 const MIN_IMAGE_DIMENSION = 72;
 
 const server = http.createServer(async (req, res) => {
@@ -55,6 +56,16 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/image/path-tile") {
       const png = await processGeneratedPathTile(body);
       return send(res, 200, png, "image/png");
+    }
+    if (url.pathname === "/audio/chunks") {
+      const seconds = Number(req.headers["x-chunk-seconds"]) || undefined;
+      return sendJson(res, 200, { chunks: await audioChunks(body, { seconds }) });
+    }
+    if (url.pathname === "/video/compress") {
+      const maxBytes = Number(req.headers["x-max-bytes"]) || 12 * 1024 * 1024;
+      const result = await compressVideo(body, maxBytes, { filename: String(req.headers["x-filename"] || "") });
+      res.setHeader("x-compressed", result.compressed ? "1" : "0");
+      return send(res, 200, result.buffer, "video/mp4");
     }
     if (url.pathname === "/image/crop") {
       const regions = JSON.parse(String(req.headers["x-regions"] || "[]"));
