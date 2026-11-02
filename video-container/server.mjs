@@ -19,6 +19,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WORK = process.env.VIDEO_WORK_DIR || path.join(os.tmpdir(), "lecture-jobs");
 const HF_BIN = process.env.HYPERFRAMES_BIN || "hyperframes";
 const MAX_LOGS = 60;
+const RENDER_FPS = process.env.RENDER_FPS || "24";
+const RENDER_QUALITY = process.env.RENDER_QUALITY || "standard";
+const RENDER_WORKERS = process.env.HF_WORKERS || String(Math.max(2, os.cpus().length));
+const RENDER_STALL_MS = Number(process.env.RENDER_STALL_MS) || 5 * 60 * 1000;
 const jobs = new Map();
 
 function newJob(jobId) {
@@ -38,6 +42,10 @@ function setLastLog(job, line) {
   else log(job, line);
 }
 
+function secondsSince(start) {
+  return Math.round((Date.now() - start) / 1000);
+}
+
 function audioSeconds(file) {
   return parseFloat(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]).toString());
 }
@@ -46,12 +54,15 @@ async function runJob(job, text, routerBase) {
   const dir = path.join(WORK, job.jobId);
   try {
     job.status = "planning";
+    let phaseStart = Date.now();
     const plan = await planLecture(routerBase, text, (line) => log(job, line));
     fs.mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
     for (const file of ["tommy-talking.webm", "lango-logo.png"]) {
       fs.copyFileSync(path.join(HERE, "assets", file), path.join(dir, "assets", file));
     }
 
+    log(job, `Lesson plan took ${secondsSince(phaseStart)} s.`);
+    phaseStart = Date.now();
     job.status = "voicing";
     const scenes = lectureScenes(plan);
     const language = speechLanguage(text);
@@ -71,13 +82,16 @@ async function runJob(job, text, routerBase) {
     };
     await Promise.all(Array.from({ length: 3 }, worker));
 
+    log(job, `Voice took ${secondsSince(phaseStart)} s.`);
     const built = writeProject(dir, plan, voices);
     log(job, `Video is ${Math.round(built.total)} s long. Rendering…`);
     job.status = "rendering";
     job.segmentCount = 0;
     job.segmentsDone = 0;
     const output = path.join(dir, "lecture.mp4");
+    phaseStart = Date.now();
     await render(job, dir, output);
+    log(job, `Render took ${secondsSince(phaseStart)} s.`);
     job.output = output;
     job.status = "completed";
     log(job, `Done in ${Math.round((Date.now() - job.startedAt) / 1000)} s.`);
@@ -90,10 +104,23 @@ async function runJob(job, text, routerBase) {
 
 function render(job, dir, output) {
   return new Promise((resolve, reject) => {
-    const args = ["render", dir, "-o", output, "--quality", "standard", "--workers", process.env.HF_WORKERS || "auto"];
-    const child = spawn(HF_BIN, args, { cwd: dir, env: { ...process.env, HYPERFRAMES_NO_TELEMETRY: "1" } });
+    // Capture is nearly all of the time: 24 fps cuts a fifth of the frames, and
+    // one Chrome per CPU keeps every core busy (each needs about 256 MB).
+    const args = ["render", dir, "-o", output, "--fps", RENDER_FPS, "--quality", RENDER_QUALITY, "--workers", RENDER_WORKERS];
+    // stdin closed: with it open the CLI can sit waiting for input.
+    const child = spawn(HF_BIN, args, { cwd: dir, env: { ...process.env, HYPERFRAMES_NO_TELEMETRY: "1" }, stdio: ["ignore", "pipe", "pipe"] });
     let tail = "";
+    let lastOutputAt = Date.now();
+    // A render that stops printing has stalled; stop it rather than hold the container.
+    const watchdog = setInterval(() => {
+      if (Date.now() - lastOutputAt < RENDER_STALL_MS) return;
+      clearInterval(watchdog);
+      child.kill("SIGKILL");
+      const lastLine = tail.split("\n").filter(Boolean).pop() || "no output";
+      reject(new Error(`Render stopped responding for ${RENDER_STALL_MS / 60000} min (last: ${lastLine.slice(0, 200)})`));
+    }, 15000);
     const onData = (chunk) => {
+      lastOutputAt = Date.now();
       const textChunk = chunk.toString();
       tail = (tail + textChunk).slice(-4000);
       for (const line of textChunk.split("\n")) {
@@ -111,8 +138,14 @@ function render(job, dir, output) {
     };
     child.stdout.on("data", onData);
     child.stderr.on("data", onData);
-    child.on("error", reject);
+    child.on("error", (error) => {
+      clearInterval(watchdog);
+      reject(error);
+    });
     child.on("close", (code) => {
+      clearInterval(watchdog);
+      const stages = tail.split("\n").find((line) => /capture .*\d+(\.\d+)?s/.test(line) && /encode/.test(line));
+      if (stages) log(job, `Render stages: ${stages.trim()}`);
       if (code === 0 && fs.existsSync(output)) return resolve();
       reject(new Error(`Render failed (exit ${code}): ${tail.split("\n").filter(Boolean).slice(-5).join(" | ")}`));
     });

@@ -42,14 +42,26 @@ Rules:
 
 export async function planLecture(routerBase, script, log) {
   log("Writing the lesson plan…");
-  const text = await routerText(routerBase, {
-    system: SYSTEM,
-    prompt: `Lesson material:\n\n${script}`,
-  });
-  const plan = normalizePlan(parseJson(text));
-  log(`Plan ready: ${plan.scenes.length} slides.`);
-  return plan;
+  // The model now and then replies with broken JSON; ask again before giving up.
+  let lastError;
+  for (let attempt = 1; attempt <= PLAN_ATTEMPTS; attempt++) {
+    try {
+      const text = await routerText(routerBase, {
+        system: SYSTEM,
+        prompt: `Lesson material:\n\n${script}`,
+      });
+      const plan = normalizePlan(parseJson(text));
+      log(`Plan ready: ${plan.scenes.length} slides.`);
+      return plan;
+    } catch (error) {
+      lastError = error;
+      if (attempt < PLAN_ATTEMPTS) log(`${error.message} Trying again…`);
+    }
+  }
+  throw lastError;
 }
+
+const PLAN_ATTEMPTS = 3;
 
 async function routerText(routerBase, body) {
   const res = await fetch(`${routerBase}/text`, {
