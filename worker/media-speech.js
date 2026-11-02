@@ -125,9 +125,18 @@ function isYouTube(url) {
   }
 }
 
+// Material work is spread over a few container instances so one teacher's
+// heavy file does not hold up everyone else's. Requests carry all their data,
+// so any instance can serve any request.
+export const MEDIA_INSTANCES = 3;
+
+export function mediaContainer(env) {
+  return env.MEDIA.getByName(`media-${Math.floor(Math.random() * MEDIA_INSTANCES)}`);
+}
+
 async function mediaFetch(env, pathname, body, headers = {}) {
   if (!env.MEDIA) throw new MediaError("The media container is not configured.", 500);
-  return env.MEDIA.getByName("media").fetch(
+  return mediaContainer(env).fetch(
     new Request(`http://container${pathname}`, {
       method: "POST",
       body,

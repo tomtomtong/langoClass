@@ -13,6 +13,7 @@ import webvtt from "../lib/webvtt.js";
 import { completeText } from "./ai.js";
 import { deleteUpload, openUpload, randomPart, storeUpload, uploadUrl } from "./course-files.js";
 import { updateSection } from "./course-media.js";
+import { mediaContainer } from "./media-speech.js";
 import { json, readDoc, readJson, requireTeacher, sameId } from "./d1-store.js";
 
 // Generations run several model calls; give each one well past the
@@ -528,7 +529,7 @@ async function saveQuestionImage(env, imageData, ownerId) {
 async function pathTile(env, bytes) {
   if (!env.MEDIA) return null;
   try {
-    const response = await env.MEDIA.getByName("media").fetch(
+    const response = await mediaContainer(env).fetch(
       new Request("http://container/image/path-tile", {
         method: "POST",
         body: bytes,

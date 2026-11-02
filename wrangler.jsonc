@@ -27,7 +27,8 @@
       "class_name": "MediaContainer",
       "image": "./container/Dockerfile",
       "image_build_context": "./container",
-      "max_instances": 2,
+      // worker/media-speech.js MEDIA_INSTANCES spreads requests over three.
+      "max_instances": 3,
       "instance_type": "basic"
     },
     {
@@ -35,7 +36,8 @@
       "class_name": "VideoContainer",
       "image": "./video-container/Dockerfile",
       "image_build_context": "./video-container",
-      "max_instances": 3,
+      // More jobs than this wait in line (worker/video-container.js tryStart).
+      "max_instances": 5,
       "instance_type": "standard-4"
     }
   ],

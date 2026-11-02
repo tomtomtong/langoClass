@@ -17,6 +17,7 @@ import {
   MediaError,
   captionsFromMedia,
   compressVideo,
+  mediaContainer,
   openVideo,
   storeCaptions,
   tooLarge,
@@ -441,7 +442,7 @@ async function storeAsset(env, image, meta) {
 
 async function callMedia(env, pathname, bytes, contentType, headers = {}) {
   if (!env.MEDIA) throw new MaterialError("The media container is not configured.", 500);
-  return env.MEDIA.getByName("media").fetch(
+  return mediaContainer(env).fetch(
     new Request(`http://container${pathname}`, {
       method: "POST",
       body: bytes,
