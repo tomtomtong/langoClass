@@ -106,8 +106,10 @@ and `proxyToOrigin` go away at the end.
      from Inworld (`groq/whisper-large-v3`) when the Worker has `INWORLD_API_KEY`; through the router the
      text is spread evenly over each 25-second piece. Media is capped at 100 MB (the container's limit).
      Deploying needs the container rebuilt, which needs Docker running.
-   - Still blocked: PowerPoint (needs a pptx reader, answers 501), and `/api/transcribe/audio|test`
-     (the OpenRouter test page `public/transcribe.js`, answers 503).
+   - PowerPoint slide text and pictures come from the container (`/pptx`, `/pptx/images`).
+   - `/api/transcribe/audio|test` stay unported (503): their only caller, the OpenRouter test page
+     `transcribe.html`, was deleted. They remain in `worker/api-routes.js` because that list mirrors
+     `server.js`.
 6. Done (deployed 2026-11-02, 4c47a3f0): admin routes in the Worker.
    - `/api/config*` (`worker/app-settings.js`): settings stay in the D1 `app-settings` document, and a
      saved value wins over the Worker variable of the same meaning (`withSettings`, laid over `env` for

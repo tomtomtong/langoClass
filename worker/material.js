@@ -5,8 +5,8 @@
 // read with a vision model through Inworld's chat API (the newcms router takes
 // no images). Short WAV/MP3 audio goes straight to speech recognition; video
 // and longer audio are cut into pieces by the container's ffmpeg first
-// (media-speech.js). PowerPoint needs a zip reader the container does not
-// have yet, so that says so.
+// (media-speech.js). PowerPoint slide text and pictures also come from the
+// container.
 // POST /api/cms/compress-material-video shrinks a lesson video before upload.
 import formats from "../lib/material-format.js";
 import { transcribe } from "./ai.js";
@@ -241,7 +241,12 @@ async function extractFile(env, file, language) {
     return { result: { ...base, text, extractionMethod: "docx" }, source: "file", images: await documentImages(env, "docx", bytes, filename) };
   }
   if (format === "pptx") {
-    throw new MaterialError(`Reading PowerPoint (${filename}) is not available yet. Save it as PDF and upload that instead.`, 501);
+    const bytes = await file.arrayBuffer();
+    const response = await callMedia(env, "/pptx", bytes, file.type);
+    if (!response.ok) throw new MaterialError(`Could not read ${filename}.`, 500);
+    const text = formats.normalizeWhitespace((await response.json()).text);
+    if (!text) throw new MaterialError(`No readable text found in ${filename}.`);
+    return { result: { ...base, text, extractionMethod: "pptx" }, source: "file", images: await documentImages(env, "pptx", bytes, filename) };
   }
 
   const raw = await file.text();
@@ -384,7 +389,7 @@ async function storeUploadedImage(env, bytes, filename) {
 
 async function documentImages(env, kind, bytes, filename) {
   if (!env.UPLOADS) return [];
-  const response = await callMedia(env, kind === "pdf" ? "/pdf/images" : "/docx/images", bytes, "application/octet-stream");
+  const response = await callMedia(env, `/${kind}/images`, bytes, "application/octet-stream");
   if (!response.ok) return [];
   const stem = filename.replace(/\.[^.]+$/, "");
   const images = [];
@@ -395,7 +400,7 @@ async function documentImages(env, kind, bytes, filename) {
         label: image.name ? `${stem} · ${image.name}` : stem,
         sourceFile: filename,
         page: image.pageNumber ?? null,
-        origin: kind === "pdf" ? "pdf-embedded" : "docx",
+        origin: kind === "pdf" ? "pdf-embedded" : kind,
         description: image.name || "",
       })
     );

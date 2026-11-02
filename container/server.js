@@ -38,7 +38,13 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { text: String(result.value || "").replace(/\r/g, "").trim() });
     }
     if (url.pathname === "/docx/images") {
-      return sendJson(res, 200, { images: await docxImages(body) });
+      return sendJson(res, 200, { images: await zipImages(body, "word/media/") });
+    }
+    if (url.pathname === "/pptx") {
+      return sendJson(res, 200, { text: await pptxText(body) });
+    }
+    if (url.pathname === "/pptx/images") {
+      return sendJson(res, 200, { images: await zipImages(body, "ppt/media/") });
     }
     if (url.pathname === "/image/normalize") {
       return sendJson(res, 200, await normalizeImage(body));
@@ -150,13 +156,44 @@ async function pdfImages(buffer) {
   }
 }
 
-async function docxImages(buffer) {
+// Slide text in slide order, as lib/material-extract.js extractPptx did.
+async function pptxText(buffer) {
+  const JSZip = require("jszip");
+  const zip = await JSZip.loadAsync(buffer);
+  const slideNumber = (name) => Number(name.match(/slide(\d+)\.xml$/i)?.[1] || 0);
+  const names = Object.keys(zip.files)
+    .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+    .sort((a, b) => slideNumber(a) - slideNumber(b));
+  const slides = [];
+  for (const [index, name] of names.entries()) {
+    const xml = await zip.files[name].async("string");
+    const texts = [...xml.matchAll(/<a:t[^>]*>([^<]*)<\/a:t>/g)]
+      .map((match) => decodeXml(match[1]).trim())
+      .filter(Boolean);
+    if (texts.length) slides.push(`## Slide ${index + 1}\n\n${texts.join("\n")}`);
+  }
+  return slides.join("\n\n");
+}
+
+function decodeXml(text) {
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&amp;/g, "&");
+}
+
+// Pictures stored in a Word or PowerPoint file's media folder.
+async function zipImages(buffer, mediaPrefix) {
   const JSZip = require("jszip");
   const zip = await JSZip.loadAsync(buffer);
   const images = [];
   const names = Object.keys(zip.files)
-    .filter((name) => name.toLowerCase().startsWith("word/media/") && /\.(jpe?g|png|webp|gif)$/i.test(name))
-    .sort();
+    .filter((name) => name.toLowerCase().startsWith(mediaPrefix) && /\.(jpe?g|png|webp|gif)$/i.test(name))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   for (const name of names) {
     const raw = Buffer.from(await zip.files[name].async("uint8array"));
     const normalized = await normalizeImage(raw);

@@ -226,15 +226,27 @@ test("long audio is cut into pieces and the pieces are joined", async () => {
   assert.equal(body.text, "## talk\n\nFirst part Last part");
 });
 
-test("a file with no sound and PowerPoint say what to do instead", async () => {
+test("a file with no sound says so", async () => {
   const MEDIA = media({ "/audio/chunks": () => Response.json({ chunks: [] }) });
   const { send } = await setup({ MEDIA });
   const silent = await send(form(new File(["x"], "clip.mp4", { type: "video/mp4" })));
   assert.equal(silent.status, 400);
   assert.match(silent.body.message, /No audio track/);
-  const deck = await send(form(new File(["x"], "deck.pptx")));
-  assert.equal(deck.status, 501);
-  assert.match(deck.body.message, /PDF/);
+});
+
+test("a PowerPoint's slide text and pictures are read in the container", async () => {
+  const MEDIA = media({
+    "/pptx": () => Response.json({ text: "## Slide 1\n\nFruit\n\n## Slide 2\n\nApple" }),
+    "/pptx/images": () => Response.json({ images: [{ jpeg: JPEG_B64, name: "image1.png", width: 400, height: 300 }] }),
+  });
+  const { env, send } = await setup({ MEDIA });
+  const { status, body } = await send(form(new File(["x"], "Fruit.pptx")));
+  assert.equal(status, 200, JSON.stringify(body));
+  assert.equal(body.text, "## Slide 1\n\nFruit\n\n## Slide 2\n\nApple");
+  assert.deepEqual(body.extraction.methods, ["pptx"]);
+  assert.equal(body.imageAssets[0].origin, "pptx");
+  assert.equal(body.imageAssets[0].label, "Fruit · image1.png");
+  assert.ok(await env.UPLOADS.head(body.imageAssets[0].url.slice(1)));
 });
 
 test("a videoUrl in R2 is captioned; a missing one answers 404", async () => {
