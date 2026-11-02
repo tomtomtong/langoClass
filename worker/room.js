@@ -198,10 +198,11 @@ export class RoomDurableObject extends DurableObject {
   async #runJob(job) {
     try {
       const env = await withSettings(this.env);
-      if (job.kind === "question-tts" || job.kind === "buzz-announce") {
+      if (job.kind === "question-tts" || job.kind === "buzz-topic" || job.kind === "buzz-announce") {
+        const purposes = { "question-tts": "question", "buzz-topic": "topic", "buzz-announce": "announcement" };
         const speech = await speak(env, job.text, {
           language: job.language,
-          purpose: job.kind === "question-tts" ? "question" : "announcement",
+          purpose: purposes[job.kind],
           variant: job.variant,
         });
         return { audioId: this.#saveAudio(speech.audioContent), format: speech.format };
@@ -303,6 +304,7 @@ export class RoomDurableObject extends DurableObject {
       next.answerAnnouncement = { ...next.answerAnnouncement, audio: this.#loadAudio(next.answerAnnouncement.audio) };
     }
     if (typeof next.announcementAudio === "string") next.announcementAudio = this.#loadAudio(next.announcementAudio);
+    if (typeof next.topicAudio === "string") next.topicAudio = this.#loadAudio(next.topicAudio);
     if (Array.isArray(next.responses)) {
       next.responses = next.responses.map((item) => ({
         ...item,

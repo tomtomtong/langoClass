@@ -389,11 +389,7 @@ function startBuzz(state, ctx) {
     state.session.buzzinAwardedPlayers = [];
   }
   state.buzz = newBuzz(topics, 0, ctx.now);
-  return done(state, {
-    ack: { ok: true, ...buzzPayload(state.buzz, ctx.now, true) },
-    broadcasts: [buzzFrame("buzzin_round_started", state.buzz, ctx.now)],
-    clearTimer: true,
-  });
+  return buzzStarted(state, ctx);
 }
 
 function nextBuzz(state, ctx) {
@@ -403,10 +399,28 @@ function nextBuzz(state, ctx) {
   const nextIndex = state.buzz.questionIndex + 1;
   if (nextIndex >= topics.length) return done(state, { ack: { ok: false, error: "No more Buzz In questions." } });
   state.buzz = newBuzz(topics, nextIndex, ctx.now);
+  return buzzStarted(state, ctx);
+}
+
+// Uncle Tommy reads the topic to the class before the host opens buzzing, as
+// server.js start_buzzin_round does: the host's ack waits for the audio.
+function buzzStarted(state, ctx) {
+  const round = state.buzz;
+  const broadcasts = [buzzFrame("buzzin_round_started", round, ctx.now)];
+  if (!ctx.caps?.speech || !round.topic) {
+    return done(state, { ack: { ok: true, ...buzzPayload(round, ctx.now, true) }, broadcasts, clearTimer: true });
+  }
   return done(state, {
-    ack: { ok: true, ...buzzPayload(state.buzz, ctx.now, true) },
-    broadcasts: [buzzFrame("buzzin_round_started", state.buzz, ctx.now)],
+    broadcasts,
     clearTimer: true,
+    deferAck: true,
+    jobs: [{
+      kind: "buzz-topic",
+      roundId: round.roundId,
+      text: round.topic,
+      language: roomSpeakLang(state),
+      variant: state.session.variant || "",
+    }],
   });
 }
 
@@ -629,6 +643,7 @@ function retryChoice(state, data, ctx) {
 export function applyRoomJob(state, job, outcome, now) {
   if (!state?.session || state.closed) return done(state);
   if (job.kind === "question-tts") return questionSpeech(state, job, outcome, now);
+  if (job.kind === "buzz-topic") return topicSpoken(state, job, outcome, now);
   if (job.kind === "buzz-announce") return announced(state, job, outcome, now);
   if (job.kind === "buzz-analyze") return analyzed(state, job, outcome, now);
   return done(state);
@@ -644,6 +659,19 @@ function questionSpeech(state, job, outcome, now) {
       hostOnly: true,
       data: { questionIndex: job.questionIndex, audioContent: audioRef(outcome.audioId), format: outcome.format || "mp3" },
     }],
+  });
+}
+
+function topicSpoken(state, job, outcome, now) {
+  const round = state.buzz;
+  if (!round || round.roundId !== job.roundId) return done(state, { ack: { ok: false, error: "Buzz-in round changed." } });
+  return done(state, {
+    ack: {
+      ok: true,
+      ...buzzPayload(round, now, true),
+      topicAudio: outcome?.audioId ? audioRef(outcome.audioId) : null,
+      topicAudioFormat: outcome?.audioId ? outcome.format || "mp3" : null,
+    },
   });
 }
 

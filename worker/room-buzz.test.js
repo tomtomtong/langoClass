@@ -156,6 +156,28 @@ test("lucky draw answers the host after the announcement is spoken", () => {
   assert.equal(spoken.broadcasts[0].event, "buzzin_update");
 });
 
+test("starting and advancing a round answers the host with Uncle Tommy reading the topic", () => {
+  const started = buzzRoom();
+  const next = host(started, "next_buzzin_question", {}, 4000);
+  assert.equal(next.deferAck, true);
+  assert.equal(next.ack, undefined);
+  assert.equal(next.broadcasts[0].event, "buzzin_round_started");
+  assert.deepEqual(next.jobs.map((job) => ({ kind: job.kind, text: job.text })), [{ kind: "buzz-topic", text: "Name a colour" }]);
+  const spoken = applyRoomJob(next.state, next.jobs[0], { audioId: "t1", format: "mp3" }, 5000);
+  assert.equal(spoken.ack.ok, true);
+  assert.equal(spoken.ack.topic, "Name a colour");
+  assert.equal(spoken.ack.topicAudio, "audio:t1");
+
+  const failed = applyRoomJob(next.state, next.jobs[0], { ok: false, error: "TTS down" }, 5000);
+  assert.equal(failed.ack.ok, true);
+  assert.equal(failed.ack.topicAudio, null);
+
+  const noSpeech = { speech: false, text: true };
+  const quiet = host(buzzRoom(noSpeech), "next_buzzin_question", {}, 4000, noSpeech);
+  assert.equal(quiet.ack.ok, true);
+  assert.equal(quiet.jobs.length, 0);
+});
+
 function fastQuiz(caps = SPEECH) {
   let state = createRoomState({ roomId: "123456", teacherId: 835, classItem: { id: 62 }, now: 1000 });
   state.session.participants = [{ userId: "ada", displayName: "Ada", online: true, joinedAt: 1 }];
