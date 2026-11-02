@@ -250,3 +250,87 @@ test("a question picture the AI decides to add is saved and returned as its URL"
   assert.match(image, /^\/uploads\/questions\/question-ai-/);
   assert.ok(await env.UPLOADS.get(image.replace(/^\/uploads\//, "uploads/")) || await env.UPLOADS.get(image.slice(1)));
 });
+
+test("auto question pictures are generated a few at a time, not one by one", async () => {
+  const { call } = await setup();
+  const four = {
+    exercises: [
+      {
+        type: "mcquiz",
+        title: "Zoo",
+        items: ["elephant", "giraffe", "tiger", "monkey"].map((animal) => ({
+          title: `What does the ${animal} do?`,
+          options: [
+            { text: "Eats", isCorrect: true },
+            { text: "Flies", isCorrect: false },
+            { text: "Swims", isCorrect: false },
+            { text: "Sings", isCorrect: false },
+          ],
+        })),
+      },
+    ],
+  };
+  let running = 0;
+  let most = 0;
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (target === `${CMS}/api/router/text`) {
+      const text = JSON.stringify(body).includes("benefit from a simple illustration")
+        ? JSON.stringify({ generations: [0, 1, 2, 3].map((index) => ({ key: `0:${index}`, generateConfidence: 0.9, imagePrompt: "zoo" })) })
+        : JSON.stringify(four);
+      return Response.json({ text });
+    }
+    if (target === `${CMS}/api/router/image`) {
+      running += 1;
+      most = Math.max(most, running);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      running -= 1;
+      return Response.json({ image: PNG });
+    }
+    throw new Error(`Unexpected fetch ${target}`);
+  };
+  const response = await call("/api/cms/generate-exercises", {
+    method: "POST",
+    json: { material: "At the zoo.", types: { mcquiz: 4 } },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.autoImageStats.generated, 4);
+  assert.ok(body.exercises[0].items.every((item) => /^\/uploads\/questions\//.test(item.image)));
+  assert.equal(most, 4);
+});
+
+test("empty course details are suggested from the sections, with a cover picture", async () => {
+  const { env, call } = await setup();
+  const calls = router(() =>
+    JSON.stringify({
+      description: "Students name fruit and talk about shopping at the market.",
+      level: "P3",
+      objectives: ["Name common fruit", "Ask how much something costs"],
+    })
+  );
+  const response = await call("/api/cms/course-details/suggest", {
+    method: "POST",
+    json: {
+      courseName: "Fruit Fun",
+      sections: [{ title: "At the market", content: "What does Mia's mum buy?; Three apples and two mangoes" }],
+      need: { description: true, level: false, objectives: true, banner: true },
+    },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.details.description, "Students name fruit and talk about shopping at the market.");
+  assert.equal(body.details.level, undefined);
+  assert.deepEqual(body.details.objectives, ["Name common fruit", "Ask how much something costs"]);
+  assert.match(body.details.banner, /^\/uploads\/courses\/course-ai-/);
+  assert.ok(await env.UPLOADS.get(body.details.banner.slice(1)));
+  assert.ok(calls.some((entry) => entry.url.endsWith("/api/router/text") && JSON.stringify(entry.body).includes("At the market")));
+});
+
+test("course details need at least one section", async () => {
+  const { call } = await setup();
+  router(() => "{}");
+  const response = await call("/api/cms/course-details/suggest", { method: "POST", json: { sections: [], need: { description: true } } });
+  assert.equal(response.status, 400);
+});

@@ -33,6 +33,8 @@ const ROUTES = {
   "/api/cms/translate-video-captions": translateCaptions,
   "/api/cms/import-exercises-json": importExercisesJson,
   "/api/cms/export-exercises-json": exportExercisesJson,
+  // Worker only: fills a course's empty details once a section is generated.
+  "/api/cms/course-details/suggest": suggestCourseDetails,
 };
 
 export async function handleCmsAiApi(request, env, url) {
@@ -402,6 +404,74 @@ async function exportExercisesJson({ body }) {
 
 // Matches questions to the teacher's material images, then fills the rest
 // with generated pictures, as server.js finalizeExerciseImages did.
+// Course details the teacher left empty, written from the course's sections:
+// a short description, the level, learning objectives and a cover picture.
+// Only the fields listed in `need` are made; the page saves them.
+async function suggestCourseDetails({ env, auth, body }) {
+  const need = body?.need && typeof body.need === "object" ? body.need : {};
+  const sections = (Array.isArray(body?.sections) ? body.sections : [])
+    .map((section) => ({
+      title: String(section?.title || "").trim().slice(0, 160),
+      content: String(section?.content || "").trim().slice(0, 1200),
+    }))
+    .filter((section) => section.title || section.content)
+    .slice(0, 12);
+  if (!sections.length) return json({ message: "Add a section with exercises first." }, 400);
+  const courseName = String(body?.courseName || "").trim().slice(0, 120);
+  const outline = sections.map((section, index) => `Section ${index + 1}: ${section.title}\n${section.content}`).join("\n\n");
+  const wantsText = need.description || need.level || need.objectives;
+
+  const text = wantsText
+    ? (async () => {
+        const reply = await modelCall(env)(WORKER_KEY, chosenModel(body), [
+          {
+            role: "system",
+            content:
+              "You fill in a language course's details for its teacher. Return ONLY valid JSON: " +
+              '{"description":"...","level":"...","objectives":["..."]}. ' +
+              "description: one or two sentences, under 300 characters, saying what students practise. " +
+              'level: a short school level or band such as "P3" or "Beginner", under 20 characters. ' +
+              "objectives: 3 to 5 short learning objectives, each starting with a verb. " +
+              "Write in the same language as the course content.",
+          },
+          { role: "user", content: `Course: ${courseName || "(untitled)"}\n\n${outline}` },
+        ], 600);
+        return exerciseGenerator.parseJsonFromLlm(reply) || {};
+      })()
+    : Promise.resolve({});
+  const cover = need.banner
+    ? routerImage(
+        env,
+        `Wide colourful cover illustration for a children's language course called "${courseName || sections[0].title}" ` +
+          `about ${sections.map((section) => section.title).join(", ")}. Friendly cartoon style, no text or lettering.`
+      ).then((image) => saveCourseCover(env, image, auth.teacherId))
+    : Promise.resolve(null);
+
+  const [textResult, coverResult] = await Promise.allSettled([text, cover]);
+  if (textResult.status === "rejected" && (coverResult.status === "rejected" || !need.banner)) {
+    return failure("course_details_suggest", textResult.reason, 502);
+  }
+  const details = textResult.status === "fulfilled" ? textResult.value : {};
+  const result = {};
+  if (need.description && String(details.description || "").trim()) result.description = String(details.description).trim().slice(0, 500);
+  if (need.level && String(details.level || "").trim()) result.level = String(details.level).trim().slice(0, 40);
+  if (need.objectives && Array.isArray(details.objectives)) {
+    const objectives = details.objectives.map((line) => String(line || "").trim()).filter(Boolean).slice(0, 8);
+    if (objectives.length) result.objectives = objectives;
+  }
+  if (coverResult.status === "fulfilled" && coverResult.value) result.banner = coverResult.value;
+  if (coverResult.status === "rejected") console.error(JSON.stringify({ message: "course_cover_failed", error: String(coverResult.reason?.message || coverResult.reason) }));
+  return json({ ok: true, details: result });
+}
+
+async function saveCourseCover(env, imageData, ownerId) {
+  const image = decodeImage(imageData);
+  const owner = String(ownerId || "upload").replace(/\W/g, "") || "upload";
+  const url = uploadUrl("courses", `course-ai-${owner}-${Date.now()}-${randomPart(4)}${image.ext}`);
+  await storeUpload(env, url, image.bytes, { contentType: image.type });
+  return url;
+}
+
 async function finalizeExerciseImages(env, exercises, { imageAssets, teacherId, model, autoGenerateImages = true }) {
   let resolved = Array.isArray(exercises) ? exercises : [];
   const assets = Array.isArray(imageAssets) ? imageAssets : [];

@@ -6037,6 +6037,7 @@ async function publishAiCourse() {
       `Published ${applied} exercise${applied === 1 ? "" : "s"} — ${created} new section${created === 1 ? "" : "s"}, ${appended} merged, ${skipped} skipped.`
     );
     $("#cms-exercises-status").textContent = `Published course: ${applied} exercise(s).`;
+    void maybeAutoFillCourseDetails();
     state.editingSectionIndex = null;
     state.aiCourseWorkspace = false;
     $("#cms-sections-view").hidden = false;
@@ -7362,6 +7363,7 @@ async function publishAiExercises() {
     );
     $("#cms-exercises-status").textContent = `Published ${added} exercise(s). Ready to host.`;
     cleanupSectionsAfterAiPublish(state.editingSectionIndex);
+    void maybeAutoFillCourseDetails();
     state.expandedExerciseIndex = null;
     state.exercisesSaveUnlocked = true;
     syncExercisesSaveButton();
@@ -8438,6 +8440,100 @@ async function maybeAutoGenerateSectionPathTile(sectionIndex, options = {}) {
     return null;
   } finally {
     if (sectionCard) setSectionBannerLoading(sectionCard, false);
+  }
+}
+
+// After a section is generated, fills the course details the teacher left
+// empty (description, level, objectives, cover picture, host time) from the
+// course's sections. Fields the teacher has typed are never replaced.
+let courseDetailsAutoFillRunning = false;
+
+function emptyCourseDetailFields() {
+  const course = state.editingCourse || {};
+  const value = (selector, fallback) => {
+    const input = $(selector);
+    return String(input ? input.value : fallback ?? "").trim();
+  };
+  return {
+    description: !value("#course-description", course.description),
+    level: !value("#course-level", course.level),
+    objectives: !value("#course-objectives", (course.objectives || []).join("\n")),
+    banner: !value("#course-banner", course.banner),
+    estimatedMinutes: !value("#course-minutes", course.estimatedMinutes),
+  };
+}
+
+function estimateCourseHostMinutes() {
+  if (typeof estimateSectionDurationSeconds !== "function") return null;
+  const seconds = (state.sections || []).reduce(
+    (sum, section) => sum + (Number(estimateSectionDurationSeconds(section?.exercises || [])) || 0),
+    0
+  );
+  return seconds > 0 ? Math.min(180, Math.max(1, Math.round(seconds / 60))) : null;
+}
+
+async function maybeAutoFillCourseDetails() {
+  const courseId = state.editingCourse?.id;
+  if (courseId == null || courseDetailsAutoFillRunning) return;
+  const need = emptyCourseDetailFields();
+  const sections = (state.sections || [])
+    .filter((section) => (section?.exercises || []).length)
+    .map((section) => ({ title: section.title || "", content: summarizeSectionContent(section) }));
+  if (!sections.length || !Object.values(need).some(Boolean)) return;
+
+  courseDetailsAutoFillRunning = true;
+  try {
+    const patch = {};
+    if (need.estimatedMinutes) {
+      const minutes = estimateCourseHostMinutes();
+      if (minutes) patch.estimatedMinutes = minutes;
+    }
+    if (need.description || need.level || need.objectives || need.banner) {
+      const data = await api("/api/cms/course-details/suggest", {
+        method: "POST",
+        body: {
+          courseName: state.editingCourse?.name || $("#course-name")?.value || "",
+          langCode: state.editingCourse?.langCode || "en",
+          sections,
+          need: { description: need.description, level: need.level, objectives: need.objectives, banner: need.banner },
+        },
+      });
+      Object.assign(patch, data?.details || {});
+    }
+    // The teacher may have typed while this ran: keep only fields still empty
+    // in the same course.
+    if (state.editingCourse?.id !== courseId) return;
+    const stillEmpty = emptyCourseDetailFields();
+    for (const key of Object.keys(patch)) {
+      if (!stillEmpty[key]) delete patch[key];
+    }
+    if (!Object.keys(patch).length) return;
+
+    const saved = await api(`/api/cms/courses/${courseId}`, { method: "PUT", body: patch });
+    if (state.editingCourse?.id !== courseId) return;
+    state.editingCourse = { ...state.editingCourse, ...saved.course };
+    const course = state.editingCourse;
+    if (patch.description != null && $("#course-description")) $("#course-description").value = course.description || "";
+    if (patch.level != null && $("#course-level")) $("#course-level").value = course.level || "";
+    if (patch.objectives != null && $("#course-objectives")) $("#course-objectives").value = (course.objectives || []).join("\n");
+    if (patch.estimatedMinutes != null && $("#course-minutes")) $("#course-minutes").value = course.estimatedMinutes || "";
+    if (patch.banner != null) {
+      $("#course-banner").value = course.banner || "";
+      updateBannerPreview(course.banner || "");
+    }
+    syncCourseEditorChrome();
+    const labels = {
+      description: "description",
+      level: "level",
+      objectives: "objectives",
+      banner: "cover",
+      estimatedMinutes: "host time",
+    };
+    showCmsToast(`Course details filled in: ${Object.keys(patch).map((key) => labels[key] || key).join(", ")}.`);
+  } catch (err) {
+    console.warn("Course details auto-fill failed:", err.message);
+  } finally {
+    courseDetailsAutoFillRunning = false;
   }
 }
 
