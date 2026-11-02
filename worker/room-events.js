@@ -443,7 +443,7 @@ function buzzIn(state, ctx) {
   round.status = "closed";
   const payload = buzzPayload(round, ctx.now);
   return done(state, {
-    ack: { ok: true, rank, selected: true, roundId: round.roundId },
+    ack: { ok: true, rank, selected: true, ...payload },
     broadcasts: [{ event: "buzzin_join_closed", data: payload }, { event: "buzzin_update", data: payload }],
     clearTimer: true,
   });
@@ -945,6 +945,21 @@ function buzzPayload(round, now) {
     responses: round.responses,
     typingComplete: round.phase === "done",
     answeredPlayerIds: round.buzzes.map((item) => item.playerId),
+    currentTurn: round.phase === "typing" ? round.buzzes[0] || null : null,
+    answerAnnouncement: buzzAnnouncement(round),
+  };
+}
+
+function buzzAnnouncement(round) {
+  const winner = round.buzzes?.[0];
+  if (!winner || (round.phase !== "typing" && round.phase !== "done")) return null;
+  if (round.answerAnnouncement?.playerId) return round.answerAnnouncement;
+  return {
+    playerId: winner.playerId,
+    displayName: winner.displayName || "Student",
+    text: "",
+    audio: null,
+    format: null,
   };
 }
 

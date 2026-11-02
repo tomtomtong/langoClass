@@ -6191,6 +6191,8 @@ body:has(#screen-host-quiz-question.active) {
 .join-page #screen-room-buzzin .buzzin-btn,
 .join-page #screen-room-buzzin .buzzin-record-btn {
   position: relative;
+  z-index: 2;
+  touch-action: manipulation;
   width: 100%;
   min-width: 0;
   max-width: none;
@@ -6230,7 +6232,7 @@ body:has(#screen-host-quiz-question.active) {
 .join-page #screen-room-buzzin .buzzin-btn:not(:disabled):active,
 .join-page #screen-room-buzzin .buzzin-record-btn:not(:disabled):active,
 .join-page #screen-room-buzzin .buzzin-record-btn.is-recording {
-  transform: translateY(6px);
+  transform: none;
   box-shadow:
     inset 0 -2px 2px rgba(0, 0, 0, 0.1),
     0 4px 0 rgba(0, 0, 0, 0.2),

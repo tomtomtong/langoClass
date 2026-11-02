@@ -13,12 +13,17 @@ let roomBuzzinRecordTimeout = null;
 let roomBuzzinRecordEndsAt = 0;
 let roomBuzzinRecordStartedAt = 0;
 let roomBuzzinSubmitInFlight = false;
+let roomBuzzinRequestTimer = null;
 const ROOM_BUZZIN_MAX_RECORD_MS = 30000;
 const ROOM_BUZZIN_MIN_RECORD_MS = 600;
 const ROOM_BUZZIN_SUBMIT_TIMEOUT_MS = 60000;
 
 function isRoomBuzzinBusy() {
   return roomBuzzinSubmitInFlight || Boolean(roomBuzzinPcmRecorder?.isRecording());
+}
+
+function sameBuzzPlayer(left, right) {
+  return left != null && right != null && String(left) === String(right);
 }
 
 function clearRoomBuzzinRecordTimeout() {
@@ -50,15 +55,15 @@ function hideStudentBuzzinAnswerPrompt() {
 function syncStudentBuzzinSpectatorUi(payload) {
   const playerId = roomParticipant?.userId;
   const phase = payload?.phase || "join";
-  const myBuzz = (payload?.buzzes || []).find((b) => b.playerId === playerId);
-  const myResponse = (payload?.responses || []).find((r) => r.playerId === playerId);
+  const myBuzz = (payload?.buzzes || []).find((b) => sameBuzzPlayer(b.playerId, playerId));
+  const myResponse = (payload?.responses || []).find((r) => sameBuzzPlayer(r.playerId, playerId));
   const currentTurn = payload?.currentTurn || null;
   const firstBuzz = (payload.buzzes || [])[0] || null;
   const isMyAnswerTurn =
-    currentTurn?.playerId === playerId ||
-    (!currentTurn && firstBuzz?.playerId === playerId);
+    sameBuzzPlayer(currentTurn?.playerId, playerId) ||
+    (!currentTurn && sameBuzzPlayer(firstBuzz?.playerId, playerId));
   const announcement = payload?.answerAnnouncement;
-  const isAnnouncedForMe = announcement?.playerId === playerId;
+  const isAnnouncedForMe = sameBuzzPlayer(announcement?.playerId, playerId);
 
   if (phase === "ready" || phase === "join") {
     hideStudentBuzzinWatchingPrompt();
@@ -77,7 +82,7 @@ function syncStudentBuzzinSpectatorUi(payload) {
 
   if (phase === "typing" || phase === "done") {
     const variant =
-      announcement && announcement.playerId !== playerId
+      announcement && !sameBuzzPlayer(announcement.playerId, playerId)
         ? "selected"
         : !myBuzz && (payload?.buzzes || []).length
           ? "buzz"
@@ -99,9 +104,9 @@ function syncStudentBuzzinAnswerPrompt(payload) {
   const announcement = payload?.answerAnnouncement;
   if (!panel) return;
 
-  const hasSubmitted = (payload?.responses || []).some((entry) => entry.playerId === playerId);
+  const hasSubmitted = (payload?.responses || []).some((entry) => sameBuzzPlayer(entry.playerId, playerId));
   const isForMe =
-    announcement?.playerId === playerId &&
+    sameBuzzPlayer(announcement?.playerId, playerId) &&
     payload?.phase === "typing" &&
     !hasSubmitted &&
     !payload?.typingComplete;
@@ -458,7 +463,7 @@ function hideRoomBuzzinJoinTimer() {
 }
 
 function getStudentLatestBuzzinResponse(payload, playerId) {
-  const matches = (payload?.responses || []).filter((entry) => entry.playerId === playerId);
+  const matches = (payload?.responses || []).filter((entry) => sameBuzzPlayer(entry.playerId, playerId));
   return matches.length ? matches[matches.length - 1] : null;
 }
 
@@ -557,13 +562,13 @@ function updateStudentBuzzinTurnUi(payload) {
   const turnStatus = $("#room-buzzin-turn-status");
   const submitted = $("#room-buzzin-submitted");
   const playerId = roomParticipant?.userId;
-  const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
+  const myBuzz = (payload.buzzes || []).find((b) => sameBuzzPlayer(b.playerId, playerId));
   const myResponse = getStudentLatestBuzzinResponse(payload, playerId);
   const currentTurn = payload.currentTurn || null;
   const firstBuzz = (payload.buzzes || [])[0] || null;
   const isMyAnswerTurn =
-    currentTurn?.playerId === playerId ||
-    (!currentTurn && firstBuzz?.playerId === playerId);
+    sameBuzzPlayer(currentTurn?.playerId, playerId) ||
+    (!currentTurn && sameBuzzPlayer(firstBuzz?.playerId, playerId));
   const recordControls = document.querySelector("#room-buzzin-turn .buzzin-record-controls");
 
   if (phase === "ready" || phase === "join") {
@@ -580,7 +585,7 @@ function updateStudentBuzzinTurnUi(payload) {
     return;
   }
 
-  if (payload.pendingRetryPlayerId === playerId) {
+  if (sameBuzzPlayer(payload.pendingRetryPlayerId, playerId)) {
     hideStudentBuzzinWatchingPrompt();
     turnStatus.textContent =
       myResponse?.answerVerdict === "partial"
@@ -593,7 +598,7 @@ function updateStudentBuzzinTurnUi(payload) {
   hideStudentBuzzinRetryChoice();
   if (recordControls) recordControls.hidden = false;
 
-  if (payload.retryActivePlayerId === playerId) {
+  if (sameBuzzPlayer(payload.retryActivePlayerId, playerId)) {
     hideStudentBuzzinWatchingPrompt();
     turnStatus.textContent = uiT("buzzin.tryAgainRecord");
     const recordBtn = $("#btn-room-buzzin-record");
@@ -650,7 +655,7 @@ function updateStudentBuzzinTurnUi(payload) {
   }
 
   if (isMyAnswerTurn) {
-    turnStatus.textContent = payload?.answerAnnouncement?.playerId === playerId
+    turnStatus.textContent = sameBuzzPlayer(payload?.answerAnnouncement?.playerId, playerId)
       ? uiT("buzzin.tapWhenFinished")
       : uiT("buzzin.speakAnswer");
     const recordBtn = $("#btn-room-buzzin-record");
@@ -687,12 +692,12 @@ function updateStudentBuzzinUi(payload) {
 
   const phase = payload.phase || (payload.status === "full" ? "join" : payload.status === "closed" ? "typing" : "join");
   const playerId = roomParticipant?.userId;
-  const myBuzz = (payload.buzzes || []).find((b) => b.playerId === playerId);
+  const myBuzz = (payload.buzzes || []).find((b) => sameBuzzPlayer(b.playerId, playerId));
   const currentTurn = payload.currentTurn || null;
   const firstBuzz = (payload.buzzes || [])[0] || null;
   const isMyAnswerTurn =
-    currentTurn?.playerId === playerId ||
-    (!currentTurn && firstBuzz?.playerId === playerId);
+    sameBuzzPlayer(currentTurn?.playerId, playerId) ||
+    (!currentTurn && sameBuzzPlayer(firstBuzz?.playerId, playerId));
   const joinClosed = phase !== "join" && phase !== "ready";
 
   if (phase === "ready") {
@@ -718,12 +723,12 @@ function updateStudentBuzzinUi(payload) {
   if (myBuzz && isMyAnswerTurn) {
     btn.disabled = true;
     result.hidden = false;
-    result.textContent = payload?.answerAnnouncement?.playerId === playerId
+    result.textContent = sameBuzzPlayer(payload?.answerAnnouncement?.playerId, playerId)
       ? uiT("buzzin.youreUp")
       : uiT("buzzin.youBuzzed");
     result.className = "buzzin-result buzzin-result--selected";
     if (joinClosed) {
-      status.textContent = payload?.answerAnnouncement?.playerId === playerId
+      status.textContent = sameBuzzPlayer(payload?.answerAnnouncement?.playerId, playerId)
         ? uiT("buzzin.listenThenRecord")
         : uiT("buzzin.youreUpRecord");
     } else {
@@ -810,6 +815,51 @@ function resetStudentBuzzinUi() {
   hideRoomBuzzinJoinTimer();
 }
 
+function studentBuzzPayloadFromAck(res) {
+  if (res?.phase || Array.isArray(res?.buzzes)) return res;
+  const playerId = roomParticipant?.userId;
+  const displayName = roomParticipant?.displayName || "You";
+  const mine = { playerId, displayName, rank: res?.rank || 1 };
+  const base = joinLastBuzzinPayload && typeof joinLastBuzzinPayload === "object" ? joinLastBuzzinPayload : {};
+  return {
+    ...base,
+    roundId: res?.roundId ?? base.roundId,
+    phase: "typing",
+    status: "closed",
+    buzzes: [mine],
+    winners: [mine],
+    currentTurn: mine,
+    answerAnnouncement: { playerId, displayName },
+  };
+}
+
+function requestStudentBuzz() {
+  const btn = $("#btn-room-buzz-in");
+  if (!btn || btn.disabled || roomBuzzinRequestTimer) return;
+  btn.disabled = true;
+
+  let settled = false;
+  const settle = (res) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(roomBuzzinRequestTimer);
+    roomBuzzinRequestTimer = null;
+    if (!res?.ok) {
+      btn.disabled = false;
+      const status = $("#room-buzzin-status");
+      if (status) status.textContent = res?.error || uiT("buzzin.buzzError");
+      return;
+    }
+    updateStudentBuzzinUi(studentBuzzPayloadFromAck(res));
+  };
+
+  roomBuzzinRequestTimer = setTimeout(() => {
+    settle({ ok: false, error: uiT("buzzin.buzzError") });
+  }, 8000);
+
+  getRoomSessionSocket().emit("buzz_in", {}, settle);
+}
+
 function ensureRoomBuzzinSocket() {
   const socket = getRoomSessionSocket();
   if (roomBuzzinSocketReady) return socket;
@@ -849,31 +899,21 @@ function ensureRoomBuzzinSocket() {
     updateStudentBuzzinUi(payload);
   });
 
-  $("#btn-room-buzz-in")?.addEventListener("click", () => {
-    const btn = $("#btn-room-buzz-in");
-    if (!btn || btn.disabled) return;
-    btn.disabled = true;
-
-    socket.emit("buzz_in", {}, (res) => {
-      if (!res?.ok) {
-        btn.disabled = false;
-        const status = $("#room-buzzin-status");
-        if (status) status.textContent = res?.error || uiT("buzzin.buzzError");
-        return;
-      }
-
-      const result = $("#room-buzzin-result");
-      const status = $("#room-buzzin-status");
-      if (result) {
-        result.hidden = false;
-        result.textContent = uiT("buzzin.youBuzzed");
-        result.className = "buzzin-result buzzin-result--selected";
-      }
-      if (status) {
-        status.textContent = uiT("buzzin.youBuzzedReady");
+  const buzzBtn = $("#btn-room-buzz-in");
+  if (buzzBtn && buzzBtn.dataset.buzzBound !== "1") {
+    buzzBtn.dataset.buzzBound = "1";
+    buzzBtn.addEventListener("pointerdown", (event) => {
+      if (buzzBtn.disabled) return;
+      try {
+        buzzBtn.setPointerCapture(event.pointerId);
+      } catch {
+        /* pointer capture is optional */
       }
     });
-  });
+    const activateBuzz = () => requestStudentBuzz();
+    buzzBtn.addEventListener("pointerup", activateBuzz);
+    buzzBtn.addEventListener("click", activateBuzz);
+  }
 
   $("#btn-room-buzzin-record")?.addEventListener("click", async () => {
     const recordBtn = $("#btn-room-buzzin-record");
