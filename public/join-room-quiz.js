@@ -927,7 +927,10 @@ function syncStudentBuzzinState(roomId) {
   };
 
   if (socket.connected) requestState();
-  else socket.once("connect", requestState);
+  else {
+    socket.once("connect", requestState);
+    socket.connect(roomId);
+  }
 }
 
 function startStudentBuzzinRound(roomId) {
@@ -1171,7 +1174,10 @@ function tryJoinRoomQuiz(roomId, displayName, userId) {
   };
 
   if (roomQuizSocket.connected) attempt();
-  else roomQuizSocket.once("connect", attempt);
+  else {
+    roomQuizSocket.once("connect", attempt);
+    roomQuizSocket.connect(roomId);
+  }
 
   // After a socket-level reconnect (screen lock, wifi switch), re-run the join
   // attempt loop so the student keeps their quiz seat without a refresh.

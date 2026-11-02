@@ -1,4 +1,7 @@
 // Same event names the classroom used with Socket.IO, over one WebSocket per room.
+// Unlike Socket.IO, io() cannot connect until it knows the room: the first
+// emit with a roomId connects, or call socket.connect(roomId) before waiting
+// for "connect".
 (function () {
   function pinOf(value) {
     const pin = String(value || "").replace(/\D/g, "").slice(0, 6);
@@ -106,6 +109,10 @@
         on(event, fn) {
           add(event, fn, false);
         },
+      },
+      connect(room) {
+        connect(room || roomId);
+        return socket;
       },
       on(event, fn) {
         add(event, fn, false);

@@ -796,6 +796,7 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
   if (socket.connected) attemptJoin();
   else {
     socket.once("connect", attemptJoin);
+    socket.connect(roomId);
     socket.once("connect_error", () => {
       failJoin(joinT("join.connectFail"));
     });
@@ -857,6 +858,7 @@ function initQuizJoin() {
   }
 
   const socket = io({ transports: ["websocket", "polling"] });
+  socket.connect(pin);
   let myPlayerId = null;
   let currentQuestion = null;
   let quizFastMode = false;

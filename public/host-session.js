@@ -29,7 +29,10 @@ function syncHostSessionLocale(locale = currentHostUiLocale()) {
     );
   };
   if (hostSessionSocket.connected) run();
-  else hostSessionSocket.once("connect", run);
+  else {
+    hostSessionSocket.once("connect", run);
+    hostSessionSocket.connect(hostSessionRoomId);
+  }
 }
 
 function getHostSessionSocket() {
@@ -75,6 +78,7 @@ function connectHostSession(roomId) {
       socket.once("connect_error", () =>
         reject(new Error("Could not connect to class server."))
       );
+      socket.connect(hostSessionRoomId);
     }
   });
 }
@@ -91,7 +95,10 @@ function startSessionViaSocket(roomId) {
     };
 
     if (socket.connected) run();
-    else socket.once("connect", run);
+    else {
+      socket.once("connect", run);
+      socket.connect(roomId);
+    }
   });
 }
 
@@ -107,7 +114,10 @@ function selectSessionExerciseViaSocket(roomId, exercise, course) {
     };
 
     if (socket.connected) run();
-    else socket.once("connect", run);
+    else {
+      socket.once("connect", run);
+      socket.connect(roomId);
+    }
   });
 }
 
@@ -123,7 +133,10 @@ function startNextExerciseViaSocket(roomId, exercise, course) {
     };
 
     if (socket.connected) run();
-    else socket.once("connect", run);
+    else {
+      socket.once("connect", run);
+      socket.connect(roomId);
+    }
   });
 }
 

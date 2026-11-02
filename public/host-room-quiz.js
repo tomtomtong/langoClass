@@ -165,6 +165,7 @@ async function hostBuzzinAdvanceQuestion() {
       await new Promise((resolve, reject) => {
         socket.once("connect", resolve);
         socket.once("connect_error", () => reject(new Error("Could not connect to room.")));
+        socket.connect(hostBuzzinRoomId);
       });
     }
 
@@ -667,7 +668,10 @@ function requestHostBuzzinLuckyDrawWinner() {
     };
 
     if (socket.connected) run();
-    else socket.once("connect", run);
+    else {
+      socket.once("connect", run);
+      socket.connect(hostBuzzinRoomId);
+    }
   });
 }
 
@@ -920,7 +924,10 @@ function startHostBuzzinRound(roomId) {
     };
 
     if (socket.connected) void run();
-    else socket.once("connect", () => void run());
+    else {
+      socket.once("connect", () => void run());
+      socket.connect(roomId);
+    }
   });
 }
 
@@ -938,6 +945,7 @@ async function openHostBuzzinJoin() {
     await new Promise((resolve, reject) => {
       socket.once("connect", resolve);
       socket.once("connect_error", () => reject(new Error("Could not connect to room.")));
+      socket.connect(hostBuzzinRoomId);
     });
   }
 
@@ -2166,6 +2174,7 @@ function startHostRoomQuiz(roomId, exercise) {
       socket.once("connect_error", () =>
         reject(new Error("Could not connect to quiz server."))
       );
+      socket.connect(roomId);
     }
   });
 }
