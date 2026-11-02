@@ -26,18 +26,26 @@ async function withFetch(respond, run) {
 }
 
 test("saved settings win over the Worker's variables and keep its bindings", async () => {
-  const { env } = await setup({ OPENROUTER_API_KEY: "env-key", OPENROUTER_GENERATE_MODEL: "env/model" });
-  await putDoc(env, "app-settings", { openrouterApiKey: "saved-key", openrouterGenerateModel: "", gameplayTtsProvider: "elevenlabs" });
+  const { env } = await setup({ OPENROUTER_GENERATE_MODEL: "env/model" });
+  await putDoc(env, "app-settings", { openrouterGenerateModel: "", gameplayTtsProvider: "elevenlabs", publicBaseUrl: "https://x.test" });
   const effective = await withSettings(env);
-  assert.equal(effective.OPENROUTER_API_KEY, "saved-key");
+  assert.equal(effective.PUBLIC_BASE_URL, "https://x.test");
   assert.equal(effective.OPENROUTER_GENERATE_MODEL, "env/model");
   assert.equal(effective.GAMEPLAY_TTS_PROVIDER, "elevenlabs");
   assert.equal(effective.DB, env.DB);
 });
 
+test("keys saved on Node are not used; model calls stay on the router", async () => {
+  const { env } = await setup();
+  await putDoc(env, "app-settings", { openrouterApiKey: "saved-key", inworldApiKey: "saved-inworld" });
+  const effective = await withSettings(env);
+  assert.equal(effective.OPENROUTER_API_KEY, undefined);
+  assert.equal(effective.INWORLD_API_KEY, undefined);
+});
+
 test("config shows masked keys, never the keys themselves", async () => {
-  const { env, call } = await setup();
-  await putDoc(env, "app-settings", { openrouterApiKey: "sk-or-v1-abcdefgh1234", openrouterVisionModel: "x-ai/grok-4.20" });
+  const { env, call } = await setup({ OPENROUTER_API_KEY: "sk-or-v1-abcdefgh1234" });
+  await putDoc(env, "app-settings", { openrouterApiKey: "sk-or-v1-saved9999", openrouterVisionModel: "x-ai/grok-4.20" });
   const response = await call("/api/config");
   const body = await response.json();
   assert.equal(response.status, 200);
@@ -50,6 +58,7 @@ test("config shows masked keys, never the keys themselves", async () => {
   assert.equal(body.ttsRouting.current.voice, "uncle_tommy");
   assert.deepEqual(body.studentDatabase, { studentCount: 0, recordCount: 0 });
   assert.ok(!JSON.stringify(body).includes("abcdefgh"));
+  assert.ok(!JSON.stringify(body).includes("saved9999"));
 });
 
 test("saving settings needs a teacher and keeps the other saved values", async () => {

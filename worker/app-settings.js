@@ -1,6 +1,8 @@
 // Admin settings saved from the Config page (/api/config*). They live in the
 // D1 app-settings document, as data/app-settings.json did on Node, and a saved
-// value wins over the Worker's own variable of the same meaning.
+// value wins over the Worker's own variable of the same meaning. Provider keys
+// saved on Node are not used: model calls go through the newcms router unless
+// the Worker itself has a key secret.
 import { completeText, speak, speechProvider, transcribe } from "./ai.js";
 import { writeLog } from "./app-logs.js";
 import { json, readDoc, readJson, requireTeacher, writeDoc } from "./d1-store.js";
@@ -54,6 +56,8 @@ const DEFAULTS = {
   VIDEO_GENERATOR_API_URL: "https://newcms.lango.ai",
 };
 
+const KEY_FIELDS = new Set(["inworldApiKey", "qwenApiKey", "azureApiKey", "openrouterApiKey"]);
+
 const TEXT_FIELDS = Object.keys(ENV_NAMES).filter(
   (name) => !["publicBaseUrl", "gameplayTtsProvider", "elevenlabsVoiceId", "elevenlabsStability"].includes(name)
 );
@@ -67,6 +71,7 @@ export async function withSettings(env) {
   const settings = await savedSettings(env);
   const overrides = {};
   for (const [name, envName] of Object.entries(ENV_NAMES)) {
+    if (KEY_FIELDS.has(name)) continue;
     const value = settings[name];
     if (value === undefined || value === null || value === "") continue;
     overrides[envName] = String(value);

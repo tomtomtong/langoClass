@@ -104,13 +104,13 @@ and `proxyToOrigin` go away at the end.
    - Still blocked: captions generated from a video, video/long-audio material, PowerPoint and
      `compress-material-video` need ffmpeg (or a pptx reader) in `container/`, and rebuilding the
      container needs Docker, which this Mac does not have. These answer 501/503 at once.
-6. Done (deployed 2026-11-02, ea170dcc): admin routes in the Worker.
+6. Done (deployed 2026-11-02, 4c47a3f0): admin routes in the Worker.
    - `/api/config*` (`worker/app-settings.js`): settings stay in the D1 `app-settings` document, and a
      saved value wins over the Worker variable of the same meaning (`withSettings`, laid over `env` for
-     API requests and inside the room). The OpenRouter key saved there on Node is used again, so
-     LLM and picture/scanned-PDF material call OpenRouter directly; speech recognition stays on Inworld
-     (via the router without an Inworld key) for Cantonese. The classroom
-     voice stays Inworld (via the router without an Inworld key), as on Node.
+     API requests and inside the room). Provider keys saved there on Node are not used: all model calls
+     go through the newcms router unless the Worker has its own key secret. The router has no vision
+     endpoint, so reading pictures and scanned PDFs needs a Worker `OPENROUTER_API_KEY` or a newcms
+     vision endpoint. The classroom voice is Inworld, as on Node.
    - `/api/logs*` (`worker/app-logs.js`): the D1 `app_logs` table from migration 0001, which holds the
      Node logs imported earlier. Admin login uses the Node username/password unless the Worker secrets
      `LOG_ADMIN_USERNAME` / `LOG_ADMIN_PASSWORD` are set; tokens are signed and last 12 hours.
