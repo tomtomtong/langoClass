@@ -172,7 +172,7 @@ function ownCourse(store, courseId, teacherId) {
   return (store.courses || []).find((item) => item.id === courseId && sameId(item.teacherId, teacherId)) || null;
 }
 
-async function updateSection(env, teacherId, courseId, sectionId, field, value) {
+export async function updateSection(env, teacherId, courseId, sectionId, field, value) {
   const store = await readDoc(env, "teacher-courses", { courses: [] });
   const course = ownCourse(store, courseId, teacherId);
   const section = (course?.sections || []).find((item) => item.id === sectionId);

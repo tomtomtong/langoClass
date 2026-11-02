@@ -89,13 +89,17 @@ page without Node.
 classroom.lango.ai is retired. Everything moves into the Worker, and `ORIGIN`
 and `proxyToOrigin` go away at the end.
 
-1. Worker secrets: `OPENROUTER_API_KEY`, `INWORLD_API_KEY` (none set on 2026-11-02).
-2. Done (not yet deployed): `/api/network-urls`, `/api/room-qr.svg` (`worker/join-links.js`);
+1. Worker secrets `OPENROUTER_API_KEY`, `INWORLD_API_KEY` are optional: without them `worker/ai.js`
+   uses the keyless newcms router. Live check on 2026-11-02 (version 94bea993): STT, TTS and LLM all 200.
+2. Done (deployed 2026-11-02): `/api/network-urls`, `/api/room-qr.svg` (`worker/join-links.js`);
    `/uploads/*` is R2 only. `/api/logs/login|logout` is the System Logs admin login, so it moves with step 6.
-3. Done (not yet deployed): `/api/llm|tts|stt` and Buzz In STT use `worker/ai.js` providers only;
+3. Done (deployed 2026-11-02): `/api/llm|tts|stt` and Buzz In STT use `worker/ai.js` providers only;
    question TTS prefetch/get in `worker/question-tts.js`, cached in R2 `question-tts/`.
-   STT needs `INWORLD_API_KEY` or `OPENROUTER_API_KEY`; TTS falls back to the keyless ElevenLabs router.
-4. CMS AI authoring (11 routes, `lib/exercise-generator.js` ~1.5k lines) on OpenRouter.
+   Without keys, STT, TTS and LLM go through the newcms router.
+4. Done (deployed 2026-11-02, d9030cd1; live router check passed): CMS AI authoring, all 11 routes, in `worker/cms-ai.js`. It imports the
+   same `lib/` code; `lib/material-image-refs.js`, `lib/webvtt.js` and `lib/path-tile-prompt.js` were
+   split out of the sharp/ffmpeg files so the Worker can bundle them. Path tiles use the media
+   container's `/image/path-tile`.
 5. Video and media: captions, compression, `extract-material`, video generation
    (MediaContainer).
 6. Admin: `/api/config*` settings in D1, `/api/logs*` in D1 or Workers Logs.

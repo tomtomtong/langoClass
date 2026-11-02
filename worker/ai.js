@@ -47,14 +47,16 @@ export function textModelReady() {
   return true;
 }
 
-export async function completeText(env, messages, maxTokens = 1024, { title = "Lango Classroom" } = {}) {
+// timeoutMs lets long CMS generations outlast the classroom's 40 second limit.
+export async function completeText(env, messages, maxTokens = 1024, { title = "Lango Classroom", model: chosen, timeoutMs } = {}) {
   const key = secret(env, "OPENROUTER_API_KEY");
-  if (!key) return completeTextWithRouter(env, messages);
-  const model = setting(env, "OPENROUTER_GENERATE_MODEL", DEFAULT_GENERATE_MODEL);
+  if (!key) return completeTextWithRouter(env, messages, timeoutMs);
+  const model = String(chosen || "").trim() || setting(env, "OPENROUTER_GENERATE_MODEL", DEFAULT_GENERATE_MODEL);
   const data = await postJson(`${OPENROUTER_API_BASE}/chat/completions`, {
     headers: openRouterHeaders(env, key, title),
     body: { model, messages, max_tokens: maxTokens },
     label: `LLM (${model})`,
+    timeoutMs,
   });
   return messageText(data);
 }
@@ -180,7 +182,7 @@ async function speakWithInworld(env, text, code) {
 
 // The router takes one prompt and an optional system message, so the chat
 // history is written out as a transcript.
-async function completeTextWithRouter(env, messages) {
+async function completeTextWithRouter(env, messages, timeoutMs) {
   const base = routerBase(env);
   const list = Array.isArray(messages) ? messages : [];
   const system = list
@@ -196,6 +198,7 @@ async function completeTextWithRouter(env, messages) {
   const data = await postJson(`${base}/text`, {
     body: { prompt, ...(system ? { system } : {}) },
     label: "LLM (router)",
+    timeoutMs,
   });
   return String(data?.text || "").trim();
 }
@@ -385,19 +388,23 @@ function contentText(content) {
   return "";
 }
 
-async function postJson(url, { headers = {}, body, label }) {
-  const response = await timedFetch(url, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+async function postJson(url, { headers = {}, body, label, timeoutMs }) {
+  const response = await timedFetch(
+    url,
+    {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    timeoutMs
+  );
   const data = await readJson(response);
   if (!response.ok) throw new Error(`${label}: ${errorMessage(data, response.status)}`);
   return data;
 }
 
-function timedFetch(url, init) {
-  return fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+function timedFetch(url, init, timeoutMs = REQUEST_TIMEOUT_MS) {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs || REQUEST_TIMEOUT_MS) });
 }
 
 async function readJson(response) {

@@ -1,5 +1,5 @@
-// Course files in R2. A file the classroom server wrote before R2 existed is
-// read from the server once, the same way serveUpload falls back.
+// Course files in R2. The retired classroom server is no longer asked for
+// files R2 does not have.
 import { contentTypeForKey, uploadKey } from "./uploads.js";
 
 // R2 multipart parts must share one size, except the last.
@@ -21,7 +21,7 @@ export function extensionOf(name) {
   return match ? match[0] : "";
 }
 
-// The file behind an /uploads/ URL: R2 first, then the classroom server.
+// The file behind an /uploads/ URL, or null when R2 does not have it.
 export async function openUpload(env, url, fetchImpl = fetch) {
   const key = uploadKey(url);
   if (!key) return null;
@@ -33,29 +33,7 @@ export async function openUpload(env, url, fetchImpl = fetch) {
       contentType: object.httpMetadata?.contentType || contentTypeForKey(key),
     };
   }
-  const origin = String(env.ORIGIN || "").replace(/\/$/, "");
-  if (!origin) return null;
-  let remote;
-  try {
-    remote = await fetchImpl(`${origin}/${key}`, { headers: { "user-agent": "LangoClass" } });
-  } catch (error) {
-    // An unreachable classroom server counts as a missing file, so one lost
-    // file cannot fail a whole publish, copy, or export.
-    console.error(
-      JSON.stringify({ message: "upload_origin_failed", key, error: error instanceof Error ? error.message : String(error) })
-    );
-    return null;
-  }
-  if (!remote.ok || !remote.body) {
-    await remote.body?.cancel?.();
-    return null;
-  }
-  const length = Number(remote.headers.get("content-length"));
-  return {
-    body: remote.body,
-    size: Number.isFinite(length) && length >= 0 ? length : null,
-    contentType: remote.headers.get("content-type")?.split(";")[0] || contentTypeForKey(key),
-  };
+  return null;
 }
 
 // Copies an /uploads/ file to a new name in folder. A file that cannot be
