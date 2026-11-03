@@ -128,6 +128,183 @@ body.join-page::before {
   letter-spacing: 0.08em;
 }
 
+/* Join card: same frosted purple panel, overhanging logo and chunky button as the host login. */
+.join-page #app:has(#screen-join.active) {
+  display: flex;
+  align-items: safe center;
+  justify-content: center;
+  padding: 0;
+  /* The on-screen keyboard shrinks the viewport: let the card scroll instead of clipping the button. */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.join-page #screen-join.active {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: min(460px, calc(100% - 32px));
+  max-height: none;
+  margin: 96px auto 24px;
+  padding: 100px 28px 28px;
+  box-sizing: border-box;
+  border: 8px solid rgba(255, 255, 255, 0.2);
+  border-radius: 34px;
+  background: linear-gradient(155deg, rgba(162, 89, 255, 0.6) 0%, rgba(255, 107, 107, 0.6) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  overflow: visible;
+}
+
+.join-page #screen-join.active::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: min(230px, 70%);
+  aspect-ratio: 1;
+  background: url("/assets/login/langoclass_logo.svg") center / contain no-repeat;
+  transform: translate(-50%, -40%);
+  pointer-events: none;
+}
+
+@media (max-height: 700px) {
+  .join-page #screen-join.active {
+    gap: 10px;
+    margin-top: 68px;
+    padding: 72px 24px 22px;
+  }
+
+  .join-page #screen-join.active::before {
+    width: min(170px, 60%);
+  }
+
+  .join-page #screen-join h2 {
+    font-size: 1.45rem;
+  }
+
+  .join-page #screen-join .field input {
+    padding: 0.8rem 1.1rem;
+  }
+
+  .join-page #screen-join .btn.primary {
+    min-height: 56px;
+  }
+}
+
+.join-page #screen-join > div:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.join-page #screen-join h2 {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.join-page #screen-join .connection-status {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.join-page #screen-join .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.join-page #screen-join .field span {
+  padding-left: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.join-page #screen-join .field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.95rem 1.3rem;
+  border: 3px solid transparent;
+  border-radius: 22px;
+  background: #fff;
+  color: #4a2d6b;
+  font-size: 1.15rem;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(108, 60, 171, 0.18);
+}
+
+.join-page #screen-join .field input::placeholder {
+  color: #b8babf;
+  font-weight: 600;
+}
+
+.join-page #screen-join .field input:focus {
+  outline: none;
+  border-color: #feca57;
+  box-shadow: 0 0 0 4px rgba(254, 202, 87, 0.35);
+}
+
+.join-page #join-room-code {
+  font-size: 1.7rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-align: center;
+}
+
+.join-page #join-room-code::placeholder {
+  letter-spacing: 0.18em;
+}
+
+.join-page #screen-join .btn.primary {
+  position: relative;
+  min-height: 64px;
+  margin-top: 6px;
+  padding: 0 0 4px;
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: linear-gradient(91.9deg, #b11980 11%, #743c9b 97%);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  box-shadow:
+    0 8px 0 rgba(0, 0, 0, 0.2),
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.join-page #screen-join .btn.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.join-page #screen-join .btn.primary:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.2),
+    inset 0 -2px 2px rgba(0, 0, 0, 0.1);
+}
+
+.join-page #screen-join .error {
+  min-height: 0;
+  margin: 0;
+  text-align: center;
+  font-weight: 800;
+}
+
+.join-page #screen-join .error:empty {
+  display: none;
+}
+
 html:has(body.join-page) {
   width: 100%;
   height: 100%;
