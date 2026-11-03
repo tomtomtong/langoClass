@@ -780,15 +780,23 @@ function groupClassesByLevel(classes) {
 
 /**
  * Shrinks the text until it fits the box the CSS gives the element (a fixed or
- * flex-limited height with overflow hidden). Starts from the CSS font size and
- * does nothing while the element is hidden.
+ * flex-limited height with overflow hidden). Starts from the CSS font size (or
+ * `max` when given, so short text can grow) and does nothing while the element
+ * is hidden.
  */
-function fitTextToBox(el, { min = 13, step = 1 } = {}) {
+function fitTextToBox(el, { min = 13, max = 0, step = 1 } = {}) {
   if (!el) return;
   el.style.fontSize = "";
   let size = parseFloat(getComputedStyle(el).fontSize);
   if (!size) return;
-  const overflows = () => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+  if (max > size) {
+    size = max;
+    el.style.fontSize = `${size}px`;
+  }
+  // With room to grow the element is content-sized (only max-height caps it), so measure against the cap.
+  const cap = max ? parseFloat(getComputedStyle(el).maxHeight) : NaN;
+  const overflows = () =>
+    el.scrollHeight > (Number.isFinite(cap) ? cap : el.clientHeight) + 1 || el.scrollWidth > el.clientWidth + 1;
   while (size > min && overflows()) {
     size -= step;
     el.style.fontSize = `${size}px`;
@@ -796,7 +804,8 @@ function fitTextToBox(el, { min = 13, step = 1 } = {}) {
 }
 
 function fitTextToBoxSoon(...els) {
-  requestAnimationFrame(() => requestAnimationFrame(() => els.forEach((el) => fitTextToBox(el))));
+  const options = els[0] instanceof Element ? undefined : els.shift() || undefined;
+  requestAnimationFrame(() => requestAnimationFrame(() => els.forEach((el) => fitTextToBox(el, options))));
 }
 
 function renderOptions(
