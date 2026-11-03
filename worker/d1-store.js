@@ -22,6 +22,11 @@ function rememberVerified(key) {
   verifiedTeachers.set(key, Date.now() + VERIFIED_TTL_MS);
 }
 
+function cmsUnavailable(status) {
+  console.error(JSON.stringify({ message: "teacher_check_unavailable", status }));
+  return json({ message: "Lango CMS is not responding. Please try again in a moment." }, 503);
+}
+
 export async function requireTeacher(request, env) {
   const dev = await developerAuth(request);
   if (dev) return dev;
@@ -36,10 +41,20 @@ export async function requireTeacher(request, env) {
   const base = String(env.CMS_API_BASE || CMS_BASE_DEFAULT).replace(/\/$/, "");
   const key = `${base}\n${teacherId}\n${token}`;
   if (recentlyVerified(key)) return { token, teacherId };
-  const checked = await fetch(`${base}/api/teachers/${encodeURIComponent(String(teacherId))}/classes`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-  });
-  if (!checked.ok) return json({ message: "Invalid or expired token." }, 401);
+  let checked;
+  try {
+    checked = await fetch(`${base}/api/teachers/${encodeURIComponent(String(teacherId))}/classes`, {
+      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    return cmsUnavailable(null);
+  }
+  // Only a refusal from the CMS means the login is bad; an outage or rate
+  // limit is not the teacher's token expiring.
+  if (!checked.ok) {
+    if (checked.status >= 500 || checked.status === 408 || checked.status === 429) return cmsUnavailable(checked.status);
+    return json({ message: "Invalid or expired token." }, 401);
+  }
   rememberVerified(key);
   return { token, teacherId };
 }
