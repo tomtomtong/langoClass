@@ -43,7 +43,7 @@ const ROOM_USAGE = {
 };
 
 const queue = [];
-const sessionId = `class-${crypto.randomUUID()}`;
+let sessionId = null; // random values are not allowed in global scope; made on first use
 let flushing = null;
 let backoffUntil = 0;
 let localHost = false;
@@ -121,7 +121,7 @@ function record(env, ctx, input) {
     if (!config) return;
     queue.push({
       id: crypto.randomUUID(),
-      session_id: sessionId,
+      session_id: (sessionId ||= `class-${crypto.randomUUID()}`),
       occurred_at: Date.now(),
       environment: config.environment,
       platform: "web",
