@@ -4079,7 +4079,9 @@ app.post("/api/lango/login", async (req, res) => {
     body.school_id = String(school_id).trim();
   }
 
-  const { ok, status, data } = await cmsRequest("POST", "/api/login", { body });
+  // newcms splits logins by role: teachers and admins must use /api/admin/login
+  // (student /api/login rejects staff with 403).
+  const { ok, status, data } = await cmsRequest("POST", "/api/admin/login", { body });
 
   if (!ok) {
     const message = data?.error || data?.message || "Login failed";

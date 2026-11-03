@@ -69,6 +69,7 @@ const state = {
   token: null,
   user: null,
   loginUsername: "",
+  loginSchoolCode: "",
   courses: [],
   communityCourses: [],
   communityLanguages: [],
@@ -1563,6 +1564,7 @@ function loadPrefs() {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data.loginUsername) state.loginUsername = data.loginUsername;
+    if (data.loginSchoolCode) state.loginSchoolCode = data.loginSchoolCode;
     if (data.token && data.user) {
       state.token = data.token;
       state.user = data.user;
@@ -1577,6 +1579,8 @@ function savePrefs() {
   const loginUsername =
     $("#cms-login-username")?.value.trim().toLowerCase() || state.loginUsername || "";
   if (loginUsername) state.loginUsername = loginUsername;
+  const schoolInput = $("#cms-login-school-code");
+  if (schoolInput) state.loginSchoolCode = schoolInput.value.trim();
 
   const existing = localStorage.getItem(STORAGE_KEY);
   let data = {};
@@ -1591,6 +1595,7 @@ function savePrefs() {
     JSON.stringify({
       ...data,
       loginUsername: state.loginUsername,
+      loginSchoolCode: state.loginSchoolCode,
       token: state.token,
       user: state.user,
       dashboardClassId: state.dashboardClassId,
@@ -2830,6 +2835,7 @@ function updateAuthUi() {
 async function handleLogin() {
   const username = $("#cms-login-username").value.trim().toLowerCase();
   const password = $("#cms-login-password").value;
+  const schoolCode = $("#cms-login-school-code")?.value.trim() || "";
   $("#cms-login-error").textContent = "";
 
   if (!username || !password) {
@@ -2842,7 +2848,7 @@ async function handleLogin() {
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
-      body: { login: username, username, password },
+      body: { login: username, username, password, ...(schoolCode ? { school_id: schoolCode } : {}) },
     });
     const token = data.token || data.user?.token;
     if (!token || !data.user?.id) throw new Error("Login succeeded but no token returned.");
@@ -2850,6 +2856,7 @@ async function handleLogin() {
     state.user = { ...data.user, token };
     state.token = token;
     state.loginUsername = username;
+    state.loginSchoolCode = schoolCode;
     savePrefs();
     updateAuthUi();
     await enterHome();
@@ -2858,6 +2865,16 @@ async function handleLogin() {
   } finally {
     btn.disabled = false;
   }
+}
+
+function applyCmsLoginDefaults() {
+  applyTeacherLoginDefaults(
+    $("#cms-login-username"),
+    $("#cms-login-password"),
+    state.loginUsername
+  );
+  const schoolInput = $("#cms-login-school-code");
+  if (schoolInput) schoolInput.value = state.loginSchoolCode || "";
 }
 
 function handleLogout() {
@@ -2871,11 +2888,7 @@ function handleLogout() {
   resetGlobalAgentSession({ clearHistory: true });
   closeGlobalAgent();
   closeCommunityPreview();
-  applyTeacherLoginDefaults(
-    $("#cms-login-username"),
-    $("#cms-login-password"),
-    state.loginUsername
-  );
+  applyCmsLoginDefaults();
   showCmsScreen("login");
 }
 
@@ -11081,11 +11094,7 @@ window.addEventListener("resize", () => {
   if (state.aiWizardActive && state.aiWizardStep === 3) syncAiReviewAgentLayout();
 });
 updateAuthUi();
-applyTeacherLoginDefaults(
-  $("#cms-login-username"),
-  $("#cms-login-password"),
-  state.loginUsername
-);
+applyCmsLoginDefaults();
 
 void (async () => {
   await loadCmsAppContext();
