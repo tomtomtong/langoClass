@@ -930,6 +930,7 @@
 .join-page #screen-room-buzzin .buzzin-turn-area::after,
 .join-page #screen-room-buzzin .buzzin-btn::after,
 .join-page #screen-room-buzzin .buzzin-record-btn::after {
-  content: none;
+  content: none !important;
   display: none !important;
+  pointer-events: none !important;
 }

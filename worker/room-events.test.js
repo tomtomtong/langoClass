@@ -138,8 +138,12 @@ test("buzz_in keeps the first student on that room", () => {
   });
   assert.equal(buzz.ack.ok, true);
   assert.equal(buzz.ack.rank, 1);
+  assert.equal(buzz.ack.phase, "typing");
+  assert.equal(buzz.ack.currentTurn.playerId, "ada");
+  assert.equal(buzz.ack.answerAnnouncement.playerId, "ada");
   assert.equal(buzz.state.buzz.phase, "typing");
   assert.equal(buzz.broadcasts[0].event, "buzzin_join_closed");
+  assert.equal(buzz.broadcasts[0].data.currentTurn.playerId, "ada");
 });
 
 test("the last host socket starts a one-minute grace and pauses the question", () => {

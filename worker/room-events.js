@@ -478,7 +478,7 @@ function buzzIn(state, ctx) {
   markAnswered(round, playerId);
   awardBuzz(state, playerId, participant?.displayName);
   const typing = startTyping(state, ctx.now, ctx.caps);
-  typing.ack = { ok: true, rank, selected: true, roundId: round.roundId };
+  typing.ack = { ok: true, rank, selected: true, ...buzzPayload(round, ctx.now, false) };
   return typing;
 }
 
