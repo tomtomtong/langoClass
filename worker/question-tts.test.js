@@ -88,3 +88,44 @@ test("prefetch needs a teacher login", async () => {
   });
   assert.equal(response.status, 401);
 });
+
+test("a live room reuses the clip another room or the CMS already made", async () => {
+  const { env, call } = await setup();
+  const calls = inworld();
+  const { speakQuestion } = await import("./question-tts.js");
+
+  const first = await speakQuestion(env, "What colour is the sky?", { language: "en" });
+  assert.equal(first.cached, undefined);
+  assert.equal(calls.length, 1);
+
+  const second = await speakQuestion(env, "What colour is the sky?", { language: "en" });
+  assert.equal(second.cached, true);
+  assert.equal(second.audioContent, btoa("ID3-audio"));
+  assert.equal(second.format, "mp3");
+  assert.equal(calls.length, 1);
+
+  const prefetched = await (
+    await call("/api/cms/prefetch-question-tts", { method: "POST", json: { items: [{ text: "Name a farm animal." }], speakLangCode: "en" } })
+  ).json();
+  assert.equal(prefetched.generated, 1);
+  const fromCms = await speakQuestion(env, "Name a farm animal.", { language: "en" });
+  assert.equal(fromCms.cached, true);
+  assert.equal(calls.length, 2);
+});
+
+test("a broken cache does not stop a question being spoken", async () => {
+  const { env } = await setup();
+  const calls = inworld();
+  const { speakQuestion } = await import("./question-tts.js");
+  env.UPLOADS = {
+    get: async () => {
+      throw new Error("R2 down");
+    },
+    put: async () => {
+      throw new Error("R2 down");
+    },
+  };
+  const audio = await speakQuestion(env, "Spell cat.", { language: "en" });
+  assert.equal(audio.audioContent, btoa("ID3-audio"));
+  assert.equal(calls.length, 1);
+});

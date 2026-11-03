@@ -4,6 +4,7 @@ import { completeText, speak, speechReady, textModelReady, transcribe } from "./
 import { withSettings } from "./app-settings.js";
 import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
 import { semesterLeaderboard } from "./d1-api.js";
+import { speakQuestion } from "./question-tts.js";
 import { createRoomState, emptyRoomState, syncRoomRoster } from "./room-state.js";
 import { queueOpenScores } from "./room-scores.js";
 import { saveScoreBatch } from "./score-store.js";
@@ -200,11 +201,12 @@ export class RoomDurableObject extends DurableObject {
       const env = await withSettings(this.env);
       if (job.kind === "question-tts" || job.kind === "buzz-topic" || job.kind === "buzz-announce") {
         const purposes = { "question-tts": "question", "buzz-topic": "topic", "buzz-announce": "announcement" };
-        const speech = await speak(env, job.text, {
-          language: job.language,
-          purpose: purposes[job.kind],
-          variant: job.variant,
-        });
+        const options = { language: job.language, variant: job.variant };
+        // Question lines are the same in every room that plays the quiz, so they are shared through R2.
+        const speech =
+          job.kind === "question-tts"
+            ? await speakQuestion(env, job.text, options)
+            : await speak(env, job.text, { ...options, purpose: purposes[job.kind] });
         return { audioId: this.#saveAudio(speech.audioContent), format: speech.format };
       }
       if (job.kind === "buzz-analyze") {

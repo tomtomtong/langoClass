@@ -71,6 +71,31 @@ async function prefetchOne(env, item, variant) {
   }
 }
 
+// The speech for a question read aloud in a live room. Rooms asking for the same
+// line share one clip in R2, and a clip the CMS already prefetched is reused, so
+// only the first room to ask pays for the speech model. Storage trouble never
+// stops the question: it falls back to making the speech.
+export async function speakQuestion(env, text, { language = "en", variant = "" } = {}) {
+  const item = { text: String(text || "").trim(), speakLangCode: langCode(language), purpose: "question" };
+  let objectKey = null;
+  try {
+    objectKey = `question-tts/${await cacheKeyFor(item, speechProvider(env, variant))}.mp3`;
+    const hit = await env.UPLOADS.get(objectKey);
+    if (hit) return { audioContent: bytesBase64(new Uint8Array(await hit.arrayBuffer())), format: "mp3", cached: true };
+  } catch (error) {
+    console.warn(JSON.stringify({ message: "question_tts_cache_read_failed", error: String(error?.message || error) }));
+  }
+  const audio = await speak(env, item.text, { language: item.speakLangCode, purpose: item.purpose, variant });
+  if (objectKey) {
+    try {
+      await env.UPLOADS.put(objectKey, base64Bytes(audio.audioContent), { httpMetadata: { contentType: "audio/mpeg" } });
+    } catch (error) {
+      console.warn(JSON.stringify({ message: "question_tts_cache_write_failed", error: String(error?.message || error) }));
+    }
+  }
+  return audio;
+}
+
 async function readAudio(request, env, raw) {
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
@@ -107,6 +132,14 @@ function dedupe(items) {
 
 function langCode(value) {
   return String(value || "en").trim().toLowerCase() || "en";
+}
+
+function bytesBase64(bytes) {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
 }
 
 function base64Bytes(value) {
