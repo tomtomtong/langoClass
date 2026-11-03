@@ -265,7 +265,10 @@ function stopHostBuzzinJoinTimer() {
   }
 }
 
-function startHostBuzzinJoinTimer(joinEndsAt) {
+/** Buzz window: the last 5 seconds get a pulse on each tick. */
+const HOST_BUZZIN_URGENT_SECONDS = 5;
+
+function startHostBuzzinJoinTimer(joinEndsAt, joinSeconds) {
   stopHostBuzzinJoinTimer();
   const wrap = $("#host-buzzin-timer-wrap");
   const valueEl = $("#host-buzzin-timer");
@@ -274,13 +277,26 @@ function startHostBuzzinJoinTimer(joinEndsAt) {
     return;
   }
 
+  const motion = window.LangoGsap;
+  let shown = null;
   const tick = () => {
     const remaining = Math.max(0, Math.ceil((joinEndsAt - Date.now()) / 1000));
-    valueEl.textContent = String(remaining);
+    if (remaining !== shown) {
+      const first = shown === null;
+      shown = remaining;
+      valueEl.textContent = String(remaining);
+      if (!first) {
+        motion?.playCountdownTick?.(valueEl, {
+          urgent: remaining > 0 && remaining <= HOST_BUZZIN_URGENT_SECONDS,
+        });
+      }
+    }
     if (remaining <= 0) stopHostBuzzinJoinTimer();
   };
 
   wrap.hidden = false;
+  const totalMs = (Number(joinSeconds) || 20) * 1000;
+  motion?.startCountdownRing?.(wrap, { endsAt: joinEndsAt, totalMs });
   tick();
   hostBuzzinJoinTimer = setInterval(tick, 250);
 }
@@ -288,6 +304,7 @@ function startHostBuzzinJoinTimer(joinEndsAt) {
 function hideHostBuzzinJoinTimer() {
   stopHostBuzzinJoinTimer();
   const wrap = $("#host-buzzin-timer-wrap");
+  window.LangoGsap?.stopCountdownRing?.(wrap);
   if (wrap) wrap.hidden = true;
 }
 
@@ -522,7 +539,7 @@ function updateHostBuzzinUi(payload) {
     showHostBuzzinScreenForPhase(hostBuzzinScreenPhase(payload));
   } else {
     setHostBuzzinPrompt(uiT("buzzin.promptNow"));
-    startHostBuzzinJoinTimer(payload.joinEndsAt);
+    startHostBuzzinJoinTimer(payload.joinEndsAt, payload.joinSeconds);
     showHostBuzzinScreenForPhase("join");
   }
   updateHostBuzzinTurnUi(payload);
@@ -1012,7 +1029,7 @@ function renderHostQuizPreview(data, { transition = true } = {}) {
   $("#host-quiz-preview-title").textContent = uiT("mcq.questionN", { n: data.questionIndex + 1 });
   $("#host-quiz-preview-points").textContent = uiT("mcq.pts", { n: points });
   $("#host-quiz-preview-question-text").textContent = data.text || "";
-  fitTextToBoxSoon($("#host-quiz-preview-question-text"));
+  fitTextToBoxSoon({ max: 64 }, $("#host-quiz-preview-question-text"));
   setQuestionImage(
     $("#host-quiz-preview-image"),
     $("#host-quiz-preview-image-wrap"),
@@ -1050,6 +1067,7 @@ function renderHostQuizSpeaking(data) {
     renderHostQuizQuestion(data, { preparing: true, transition: true });
     clearTimer();
     $("#host-quiz-countdown").textContent = "…";
+    window.LangoGsap?.resetCountdownRing?.($("#host-quiz-countdown")?.closest(".host-mcq-countdown"));
     $("#host-quiz-answered-count").textContent = uiT("buzzin.uncleReading");
     return;
   }
@@ -1108,14 +1126,29 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
     optionLabels: hostMcqOptionLabels(),
     kahootGrid: isHkElderlyVariant(),
   });
-  fitTextToBoxSoon($("#host-quiz-question-text"), ...document.querySelectorAll("#host-quiz-options .option"));
+  // Regular MC has room to spare, so short questions grow; fast mode keeps its own sizing.
+  fitTextToBoxSoon(isFastMode ? undefined : { max: 64 }, $("#host-quiz-question-text"));
+  fitTextToBoxSoon(...document.querySelectorAll("#host-quiz-options .option"));
   $("#host-quiz-answered-count").textContent = preparing
     ? uiT("mcq.startingShortly")
     : isFastMode
       ? uiT("fast.quickInProgress")
       : uiT("mcq.studentsAnswering");
-  startDeadlineTimer(data.endsAt, data.timeLimit || 5, (remaining) => {
-    $("#host-quiz-countdown").textContent = String(Math.max(0, remaining));
+  const countdownEl = $("#host-quiz-countdown");
+  const countdownRing = countdownEl?.closest(".host-mcq-countdown");
+  const countdownSeconds = data.timeLimit || 5;
+  window.LangoGsap?.startCountdownRing?.(countdownRing, {
+    endsAt: Number(data.endsAt) || Date.now() + countdownSeconds * 1000,
+    totalMs: countdownSeconds * 1000,
+  });
+  let countdownShown = null;
+  startDeadlineTimer(data.endsAt, countdownSeconds, (remaining) => {
+    const value = Math.max(0, remaining);
+    countdownEl.textContent = String(value);
+    if (countdownShown !== null) {
+      window.LangoGsap?.playCountdownTick?.(countdownEl, { urgent: value > 0 && value <= 3 });
+    }
+    countdownShown = value;
   });
 }
 

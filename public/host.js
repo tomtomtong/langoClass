@@ -2886,6 +2886,7 @@ function stopWaitingTimer() {
     clearInterval(waitingTimerInterval);
     waitingTimerInterval = null;
   }
+  window.LangoGsap?.stopCountdownRing?.(document.querySelector("#screen-waiting .waiting-timer-ring"));
 }
 
 function formatWaitingTimer(seconds) {
@@ -2894,17 +2895,37 @@ function formatWaitingTimer(seconds) {
   return `${String(mins).padStart(2, "0")} : ${String(secs).padStart(2, "0")}`;
 }
 
+/** Lobby countdown: the last 10 seconds get a pulse on each tick. */
+const WAITING_TIMER_URGENT_SECONDS = 10;
+
 function startWaitingTimer() {
   stopWaitingTimer();
-  let remaining = WAITING_TIMER_SECONDS;
+  const endsAt = Date.now() + WAITING_TIMER_SECONDS * 1000;
+  let shown = WAITING_TIMER_SECONDS;
   const timerEl = $("#waiting-timer-value");
-  if (timerEl) timerEl.textContent = formatWaitingTimer(remaining);
+  if (timerEl) timerEl.textContent = formatWaitingTimer(shown);
 
+  const motion = window.LangoGsap;
+  motion?.startCountdownRing?.(document.querySelector("#screen-waiting .waiting-timer-ring"), {
+    endsAt,
+    totalMs: WAITING_TIMER_SECONDS * 1000,
+    stepped: true,
+  });
+
+  // Wall-clock based so a throttled background tab cannot fall behind the ring.
   waitingTimerInterval = setInterval(() => {
-    remaining = Math.max(0, remaining - 1);
-    if (timerEl) timerEl.textContent = formatWaitingTimer(remaining);
+    const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+    if (remaining !== shown) {
+      shown = remaining;
+      if (timerEl) {
+        timerEl.textContent = formatWaitingTimer(remaining);
+        motion?.playCountdownTick?.(timerEl, {
+          urgent: remaining > 0 && remaining <= WAITING_TIMER_URGENT_SECONDS,
+        });
+      }
+    }
     if (remaining <= 0) stopWaitingTimer();
-  }, 1000);
+  }, 250);
 }
 
 function normalizePersonName(name) {

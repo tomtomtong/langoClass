@@ -329,12 +329,89 @@
       scale: 1,
       autoAlpha: 1,
       duration: 0.42,
-      ease: "back.out(1.8)",
+      ease: "back.out(1.4)",
       force3D: true,
       onComplete: () => {
         gsap.set(timerWrap, { clearProps: "transform,opacity,visibility" });
       },
     });
+  }
+
+  /**
+   * Countdown digit changed: the new value drops in from above.
+   * `urgent` (final seconds) adds a small scale pulse so the last beats read at a distance.
+   */
+  function playCountdownTick(el, { urgent = false } = {}) {
+    if (!el || prefersReducedMotion()) return null;
+    gsap.killTweensOf(el);
+    gsap.set(el, { transformOrigin: "50% 60%", force3D: true });
+    return gsap.fromTo(
+      el,
+      { yPercent: -22, scale: urgent ? 1.14 : 1, autoAlpha: 0.25 },
+      {
+        yPercent: 0,
+        scale: 1,
+        autoAlpha: 1,
+        duration: urgent ? 0.42 : 0.34,
+        ease: "expo.out",
+        clearProps: "transform,opacity,visibility",
+      }
+    );
+  }
+
+  const countdownRingTweens = new WeakMap();
+
+  function stopCountdownRing(el) {
+    const tween = countdownRingTweens.get(el);
+    if (tween) {
+      tween.kill();
+      countdownRingTweens.delete(el);
+    }
+  }
+
+  function setRingProgress(el, value) {
+    el.style.setProperty("--cd-p", String(Math.round(value * 10000) / 10000));
+  }
+
+  function resetCountdownRing(el) {
+    if (!el) return;
+    stopCountdownRing(el);
+    setRingProgress(el, 1);
+  }
+
+  /**
+   * Drain a countdown ring (CSS `--cd-p`: 1 = full, 0 = empty) to its deadline.
+   * Derived from `endsAt`, so calling it again for the same deadline resumes in place.
+   * `stepped` (or reduced motion) moves it once per second instead of every frame.
+   * The tween runs on a proxy object, so killTweensOf(el) elsewhere cannot stop it.
+   */
+  function startCountdownRing(el, { endsAt, totalMs, stepped = false } = {}) {
+    if (!el) return null;
+    stopCountdownRing(el);
+    const total = Math.max(1, Number(totalMs) || 0);
+    const remainingMs = Math.max(0, (Number(endsAt) || 0) - Date.now());
+    const fraction = Math.min(1, remainingMs / total);
+    setRingProgress(el, fraction);
+    if (remainingMs <= 0) return null;
+
+    const seconds = remainingMs / 1000;
+    const proxy = { p: fraction };
+    const tween = gsap.to(proxy, {
+      p: 0,
+      duration: seconds,
+      ease:
+        stepped || prefersReducedMotion() ? `steps(${Math.max(1, Math.round(seconds))})` : "none",
+      onUpdate: () => {
+        // GSAP's lag smoothing slows the tween after a stalled frame or a hidden tab;
+        // a countdown must stay on wall-clock time, so snap back when it drifts.
+        const expected = Math.min(1, 1 - Math.max(0, endsAt - Date.now()) / remainingMs);
+        if (Math.abs(expected - tween.progress()) * seconds > 0.2) tween.progress(expected);
+        setRingProgress(el, proxy.p);
+      },
+      onComplete: () => setRingProgress(el, 0),
+    });
+    countdownRingTweens.set(el, tween);
+    return tween;
   }
 
   /**
@@ -423,7 +500,7 @@
 
       if (card) {
         tl.to(card, { scale: 1.045, y: -6, duration: 0.16, ease: "power2.out" }, 0.18);
-        tl.to(card, { scale: 1, y: 0, duration: 0.34, ease: "elastic.out(1, 0.55)" }, 0.34);
+        tl.to(card, { scale: 1, y: 0, duration: 0.36, ease: "expo.out" }, 0.34);
       }
 
       tl.add(fireBurst, Math.max(0, Number(burstAt) || 0.28));
@@ -440,8 +517,9 @@
     const title = screen.querySelector(".waiting-page-title");
     const code = screen.querySelector(".waiting-room-code-card");
     const timer = screen.querySelector(".waiting-timer");
+    const ring = screen.querySelector(".waiting-timer-ring");
     const footer = screen.querySelector(".waiting-footer-dock");
-    const targets = [title, code, timer, wizard, panel, footer].filter(Boolean);
+    const targets = [title, code, timer, ring, wizard, panel, footer].filter(Boolean);
 
     if (prefersReducedMotion() || !targets.length) {
       screen.classList.add("is-gsap-entered");
@@ -451,12 +529,27 @@
     if (waitingEnterTl) waitingEnterTl.kill();
     gsap.killTweensOf(targets);
 
-    gsap.set(targets, { y: 22, autoAlpha: 0 });
+    const rtl = document.documentElement.getAttribute("dir") === "rtl";
+
+    // Tommy and the ring live inside .waiting-timer; the wrapper only reveals them,
+    // so the motion is not applied twice to the same pixels.
+    gsap.set([code, footer], { y: 22, autoAlpha: 0 });
     if (title) gsap.set(title, { y: -12, autoAlpha: 0 });
-    if (timer) gsap.set(timer, { scale: 0.92, transformOrigin: "30% 50%" });
+    if (timer) gsap.set(timer, { autoAlpha: 0 });
+    if (ring) gsap.set(ring, { scale: 0.86, transformOrigin: "50% 50%" });
+    if (wizard) {
+      gsap.set(wizard, {
+        x: rtl ? 56 : -56,
+        y: 28,
+        rotation: rtl ? 4 : -4,
+        autoAlpha: 0,
+        transformOrigin: "50% 100%",
+      });
+    }
+    if (panel) gsap.set(panel, { x: rtl ? -48 : 48, autoAlpha: 0 });
 
     waitingEnterTl = gsap.timeline({
-      defaults: { ease: "power3.out", force3D: true },
+      defaults: { ease: "expo.out", force3D: true },
       onComplete: () => {
         screen.classList.add("is-gsap-entered");
         gsap.set(targets, { clearProps: "transform,opacity,visibility" });
@@ -467,12 +560,20 @@
       },
     });
 
-    if (title) waitingEnterTl.to(title, { y: 0, autoAlpha: 1, duration: 0.45 }, 0);
-    if (code) waitingEnterTl.to(code, { y: 0, autoAlpha: 1, duration: 0.5 }, 0.06);
-    if (timer) waitingEnterTl.to(timer, { y: 0, autoAlpha: 1, scale: 1, duration: 0.62, ease: "back.out(1.2)" }, 0.1);
-    if (wizard) waitingEnterTl.to(wizard, { y: 0, autoAlpha: 1, duration: 0.7 }, 0.16);
-    if (panel) waitingEnterTl.to(panel, { y: 0, autoAlpha: 1, duration: 0.62 }, 0.18);
-    if (footer) waitingEnterTl.to(footer, { y: 0, autoAlpha: 1, duration: 0.48 }, 0.28);
+    if (title) waitingEnterTl.to(title, { y: 0, autoAlpha: 1, duration: 0.5 }, 0);
+    if (code) waitingEnterTl.to(code, { y: 0, autoAlpha: 1, duration: 0.55 }, 0.06);
+    if (timer) waitingEnterTl.to(timer, { autoAlpha: 1, duration: 0.2, ease: "none" }, 0.1);
+    if (ring) waitingEnterTl.to(ring, { scale: 1, duration: 0.7, ease: "back.out(1.25)" }, 0.1);
+    // Focal moment: Uncle Tommy steps in beside the countdown he is hosting.
+    if (wizard) {
+      waitingEnterTl.to(
+        wizard,
+        { x: 0, y: 0, rotation: 0, autoAlpha: 1, duration: 0.8, ease: "power4.out" },
+        0.22
+      );
+    }
+    if (panel) waitingEnterTl.to(panel, { x: 0, autoAlpha: 1, duration: 0.7 }, 0.2);
+    if (footer) waitingEnterTl.to(footer, { y: 0, autoAlpha: 1, duration: 0.5 }, 0.32);
 
     return waitingEnterTl;
   }
@@ -918,56 +1019,72 @@
       defaults: { force3D: true },
       onComplete: () => {
         gsap.set(tiles, { clearProps: "transform,opacity,visibility" });
+        joinTiles.forEach((tile) => {
+          const avatar = tile.querySelector(".waiting-student-avatar");
+          if (avatar) gsap.set(avatar, { clearProps: "boxShadow,transform,transformOrigin,transition" });
+        });
         waitingStudentsTl = null;
       },
     });
 
     if (otherTiles.length && newlyJoined.length === 0) {
-      // First paint / full refresh: soft stagger in.
-      gsap.set(otherTiles, { y: 12, autoAlpha: 0, scale: 0.92 });
+      // First paint / full refresh: rows fill in left→right, top→bottom.
+      // Total stagger is capped so a full class (30+) does not make the host wait.
+      gsap.set(otherTiles, { y: 14, autoAlpha: 0 });
       waitingStudentsTl.to(
         otherTiles,
         {
           y: 0,
           autoAlpha: 1,
-          scale: 1,
-          duration: 0.34,
-          stagger: { each: 0.02, from: "start" },
-          ease: "power2.out",
+          duration: 0.42,
+          stagger: { amount: Math.min(0.45, otherTiles.length * 0.03), from: "start" },
+          ease: "expo.out",
         },
         0
       );
     }
 
     if (joinTiles.length) {
-      gsap.set(joinTiles, { scale: 0.72, autoAlpha: 0.2, y: 10 });
+      // A student arriving is the event the host is watching for: the tile rises,
+      // the avatar settles in with a touch of overshoot, and one ring ripples out.
+      const avatars = joinTiles
+        .map((tile) => tile.querySelector(".waiting-student-avatar"))
+        .filter(Boolean);
+
+      gsap.set(joinTiles, { autoAlpha: 0, y: 16 });
+      if (avatars.length) {
+        // The avatar has a CSS transition on transform/box-shadow that would lag the tween.
+        avatars.forEach((avatar) => {
+          avatar.style.transition = "none";
+        });
+        gsap.set(avatars, { scale: 0.7, transformOrigin: "50% 50%" });
+      }
+
       waitingStudentsTl.to(
         joinTiles,
-        {
-          scale: 1,
-          autoAlpha: 1,
-          y: 0,
-          duration: 0.48,
-          stagger: 0.05,
-          ease: "back.out(1.7)",
-        },
+        { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.06, ease: "expo.out" },
         0
       );
-
-      joinTiles.forEach((tile, index) => {
-        const avatar = tile.querySelector(".waiting-student-avatar");
-        if (!avatar) return;
-        waitingStudentsTl.fromTo(
-          avatar,
-          { boxShadow: "0 0 0 0 rgba(45,212,191,0.0)" },
-          {
-            boxShadow: "0 0 0 10px rgba(45,212,191,0.0)",
-            duration: 0.55,
-            ease: "power1.out",
-          },
-          0.05 + index * 0.05
+      if (avatars.length) {
+        waitingStudentsTl.to(
+          avatars,
+          { scale: 1, duration: 0.55, stagger: 0.06, ease: "back.out(1.6)" },
+          0.04
         );
-      });
+        waitingStudentsTl.fromTo(
+          avatars,
+          { boxShadow: "0 0 0 0 rgba(45,212,191,0.55)" },
+          {
+            boxShadow: "0 0 0 16px rgba(45,212,191,0)",
+            duration: 0.7,
+            stagger: 0.06,
+            ease: "power2.out",
+            // The avatar's own resting shadow lives in CSS; hand it back.
+            clearProps: "boxShadow,transform,transformOrigin,transition",
+          },
+          0.12
+        );
+      }
     }
 
     return waitingStudentsTl;
@@ -1592,6 +1709,10 @@
     playBuzzinEmptyEnter,
     playBuzzinStartEffect,
     playBuzzinTimerPop,
+    playCountdownTick,
+    startCountdownRing,
+    stopCountdownRing,
+    resetCountdownRing,
     playWaitingEnter,
     playLeaderboardReveal,
     playPlayerLeaderboardEnter,

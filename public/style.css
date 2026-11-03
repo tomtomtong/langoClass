@@ -13844,16 +13844,6 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
   }
 }
 
-@keyframes waiting-timer-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.015);
-  }
-}
-
 @keyframes waiting-watch-tick {
   0%,
   100% {
@@ -14005,7 +13995,6 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
     0 0 0 10px rgba(254, 202, 87, 0.22),
     0 22px 48px rgba(193, 112, 18, 0.22),
     inset 0 0 28px rgba(255, 255, 255, 0.82);
-  animation: waiting-timer-breathe 4.8s ease-in-out infinite;
 }
 
 #app.lango-host .waiting-timer-ring::before {
@@ -14564,7 +14553,6 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
 @media (prefers-reduced-motion: reduce) {
   #app.lango-host .waiting-bg,
   #app.lango-host .waiting-page-title,
-  #app.lango-host .waiting-timer-ring,
   #app.lango-host .waiting-timer-watch,
   #app.lango-host .waiting-wizard,
   #app.lango-host .waiting-students-panel {
@@ -16648,4 +16636,54 @@ textarea.cms-autogrow {
 .host-quiz-results-question,
 .player-mcq-question {
   white-space: pre-line;
+}
+
+/* Countdown rings: the coloured band empties as time runs out.
+   --cd-p (1 → 0) is driven by LangoGsap.startCountdownRing; 1 = full band. */
+#app.lango-host .waiting-timer-ring,
+#app.lango-host .host-buzzin-countdown,
+#app.lango-host .host-mcq-countdown {
+  --cd-band: 15px;
+  --cd-track: #f7e6bd;
+}
+
+#app.lango-host .waiting-timer-ring {
+  --cd-band: 22px;
+}
+
+#app.lango-host .waiting-timer-ring::after,
+#app.lango-host .host-buzzin-countdown::after,
+#app.lango-host .host-mcq-countdown::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--cd-band) * -1);
+  z-index: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent calc(var(--cd-p, 1) * 360deg),
+    var(--cd-track) 0
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--cd-band)), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--cd-band)), #000 0);
+  pointer-events: none;
+}
+
+#app.lango-host .host-buzzin-countdown,
+#app.lango-host .host-mcq-countdown {
+  position: relative;
+}
+
+#app.lango-host .host-mcq-countdown {
+  position: absolute;
+}
+
+#app.lango-host .waiting-timer-watch {
+  z-index: 2;
+}
+
+#app.lango-host .host-buzzin-countdown span,
+#app.lango-host .host-mcq-countdown span {
+  position: relative;
+  z-index: 1;
 }
