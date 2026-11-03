@@ -255,6 +255,7 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
+  pointer-events: auto;
 }
 .cms-global-agent-panel[hidden] {
   display: none !important;
