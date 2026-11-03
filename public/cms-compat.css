@@ -1631,6 +1631,39 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
   background: #f8f5fb;
 }
 
+#app-shell #cms-ai-wizard .cms-ai-type-move {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-move-btn {
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--purple);
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-move-btn:hover:not(:disabled) {
+  border-color: rgba(103, 57, 135, 0.45);
+  background: #f3eef8;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-move-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-type-order-hint {
+  margin: -0.4rem 0 0.85rem;
+}
+
 /* Section exercises playlist — reference screen-playlist (full-screen takeover) */
 #app-shell #screen-cms-edit.is-playlist-open > .editor-head,
 #app-shell #screen-cms-edit.is-playlist-open > .tabs,

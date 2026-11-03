@@ -4631,6 +4631,50 @@ function syncCustomTypeCountInputs(prefix = "cms-ai") {
   syncAiTemplateCards();
 }
 
+function aiTypeOrderRows() {
+  return [...document.querySelectorAll("#cms-ai-custom-settings .cms-ai-type-row[data-type]")];
+}
+
+// Custom mix chip order (left to right) decides where each type sits in a section.
+function getAiTypeOrder() {
+  const order = aiTypeOrderRows().map((row) => row.dataset.type);
+  return order.length ? order : [...AI_CUSTOM_TYPE_KEYS];
+}
+
+function sortExercisesByAiTypeOrder(exercises) {
+  if (state.aiTemplate !== "custom") return exercises;
+  const order = getAiTypeOrder();
+  const rank = (type) => {
+    const index = order.indexOf(type);
+    return index === -1 ? order.length : index;
+  };
+  return exercises
+    .map((exercise, index) => ({ exercise, index }))
+    .sort((a, b) => rank(a.exercise?.type) - rank(b.exercise?.type) || a.index - b.index)
+    .map(({ exercise }) => exercise);
+}
+
+function syncAiTypeMoveButtons() {
+  const rows = aiTypeOrderRows();
+  rows.forEach((row, index) => {
+    const earlier = row.querySelector('[data-move="-1"]');
+    const later = row.querySelector('[data-move="1"]');
+    if (earlier) earlier.disabled = index === 0;
+    if (later) later.disabled = index === rows.length - 1;
+  });
+}
+
+function moveAiTypeRow(row, delta) {
+  const rows = aiTypeOrderRows();
+  const index = rows.indexOf(row);
+  const target = rows[index + delta];
+  if (index === -1 || !target) return false;
+  if (delta < 0) target.before(row);
+  else target.after(row);
+  syncAiTypeMoveButtons();
+  return true;
+}
+
 function aiTemplateTypeCounts(templateId) {
   if (templateId === "custom") {
     if (state.aiTemplate === "custom") return getAiTypeCounts("cms-ai");
@@ -5585,7 +5629,8 @@ function getAiTypeCounts(prefix = "cms-ai") {
   const hasPerTypeInputs = !!$(`#${prefix}-count-mcquiz`);
   const types = {};
   if (hasPerTypeInputs) {
-    for (const key of AI_CUSTOM_TYPE_KEYS) {
+    const keys = prefix === "cms-ai" ? getAiTypeOrder() : AI_CUSTOM_TYPE_KEYS;
+    for (const key of keys) {
       if ($(`#${prefix}-type-${key}`)?.checked) types[key] = readAiTypeCount(prefix, key);
     }
   } else {
@@ -5860,7 +5905,7 @@ async function generateCourseFromPlan(options = {}) {
 
       results.push({
         ...entry,
-        exercises,
+        exercises: sortExercisesByAiTypeOrder(exercises),
         ok: entry.ok || exercises.length > 0,
       });
     }
@@ -7281,6 +7326,7 @@ async function generateAiExercises(options = {}) {
     if (settings.speakLangCode) {
       exercises = exercises.map((exercise) => ({ ...exercise, speakLangCode: settings.speakLangCode }));
     }
+    exercises = sortExercisesByAiTypeOrder(exercises);
 
     state.aiDraftExercises = exercises;
     resetAiReviewAgent();
@@ -10775,6 +10821,19 @@ $("#cms-ai-wizard")?.addEventListener("change", (event) => {
     }
   }
 });
+$("#cms-ai-custom-settings")?.addEventListener("click", (event) => {
+  const moveBtn = event.target.closest(".cms-ai-type-move-btn");
+  if (!moveBtn) return;
+  event.preventDefault();
+  const row = moveBtn.closest(".cms-ai-type-row");
+  if (!row || !moveAiTypeRow(row, Number(moveBtn.dataset.move) || 0)) return;
+  syncAiWizardCopy();
+  syncAiPlanCardFormatLabels();
+  disarmAiPlanGenerate();
+  syncAiPlanGenerateUi();
+  syncAiTemplateCards();
+});
+syncAiTypeMoveButtons();
 $("#cms-ai-wizard")?.addEventListener("click", (event) => {
   const thumb = event.target.closest(".cms-ai-asset-thumb");
   if (thumb) {
