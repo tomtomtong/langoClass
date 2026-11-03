@@ -842,6 +842,27 @@ h2 {
   color: #ff6b6b;
 }
 
+.room-connection-banner {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--yellow);
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.room-connection-banner[hidden] {
+  display: none;
+}
+
 .player-list-wrap h3 {
   font-size: 1rem;
   color: var(--muted);

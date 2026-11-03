@@ -421,9 +421,31 @@ function renderPlayerFastMcResult({
   });
 }
 
+function setRoomConnectionBanner(show) {
+  let banner = $("#room-connection-banner");
+  if (!banner && !show) return;
+  if (!banner) {
+    banner = document.createElement("p");
+    banner.id = "room-connection-banner";
+    banner.className = "room-connection-banner";
+    banner.setAttribute("role", "status");
+    banner.setAttribute("aria-live", "polite");
+    document.body.appendChild(banner);
+  }
+  banner.textContent = joinT("join.reconnecting");
+  banner.hidden = !show;
+}
+
 function getRoomSessionSocket() {
   if (!roomSessionSocket) {
     roomSessionSocket = io({ transports: ["websocket", "polling"] });
+
+    // Only a seated student needs telling; before that the join screen shows
+    // its own status.
+    roomSessionSocket.on("disconnect", () => {
+      if (roomParticipant) setRoomConnectionBanner(true);
+    });
+    roomSessionSocket.on("connect", () => setRoomConnectionBanner(false));
 
     roomSessionSocket.on("session_locale", ({ uiLocale }) => {
       if (uiLocale) applyJoinUiLocale(uiLocale);
@@ -743,6 +765,11 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
         userId: studentId,
       },
       (data) => {
+        if (data?.errorCode === "disconnected") {
+          // The socket died mid-join; it reconnects on its own, so try again.
+          socket.once("connect", attemptJoin);
+          return;
+        }
         if (!data?.ok) {
           const closed = isClosedRoomJoinError(data);
           const statusKey =
