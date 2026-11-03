@@ -3,6 +3,25 @@ import { developerAuth } from "./dev-account.js";
 
 const CMS_BASE_DEFAULT = "https://newcms.lango.ai";
 
+// Tokens the Lango CMS accepted recently, so one page load that makes several
+// API calls checks the token once. Only successes are kept.
+const VERIFIED_TTL_MS = 60_000;
+const VERIFIED_MAX = 500;
+const verifiedTeachers = new Map();
+
+function recentlyVerified(key) {
+  const expires = verifiedTeachers.get(key);
+  if (expires == null) return false;
+  if (expires > Date.now()) return true;
+  verifiedTeachers.delete(key);
+  return false;
+}
+
+function rememberVerified(key) {
+  if (verifiedTeachers.size >= VERIFIED_MAX) verifiedTeachers.delete(verifiedTeachers.keys().next().value);
+  verifiedTeachers.set(key, Date.now() + VERIFIED_TTL_MS);
+}
+
 export async function requireTeacher(request, env) {
   const dev = await developerAuth(request);
   if (dev) return dev;
@@ -15,10 +34,13 @@ export async function requireTeacher(request, env) {
   const numeric = Number(text);
   const teacherId = Number.isInteger(numeric) && numeric > 0 ? numeric : text;
   const base = String(env.CMS_API_BASE || CMS_BASE_DEFAULT).replace(/\/$/, "");
+  const key = `${base}\n${teacherId}\n${token}`;
+  if (recentlyVerified(key)) return { token, teacherId };
   const checked = await fetch(`${base}/api/teachers/${encodeURIComponent(String(teacherId))}/classes`, {
     headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
   });
   if (!checked.ok) return json({ message: "Invalid or expired token." }, 401);
+  rememberVerified(key);
   return { token, teacherId };
 }
 

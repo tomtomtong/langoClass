@@ -3349,7 +3349,12 @@ function renderInsightsAssignedCourses(courses) {
   });
 }
 
-async function loadDashboardProgress() {
+function fetchDashboardProgress(classId) {
+  return api(`/api/cms/dashboard/progress?classId=${encodeURIComponent(classId)}`);
+}
+
+// `pending` is a progress request already started for the selected class.
+async function loadDashboardProgress(pending) {
   $("#cms-dashboard-error").textContent = "";
   if (!state.dashboardClassId) {
     state.dashboardCourses = [];
@@ -3357,7 +3362,7 @@ async function loadDashboardProgress() {
     return;
   }
 
-  const data = await api(`/api/cms/dashboard/progress?classId=${encodeURIComponent(state.dashboardClassId)}`);
+  const data = await (pending || fetchDashboardProgress(state.dashboardClassId));
   state.dashboardCourses = data.courses || [];
   renderInsightsSessions(state.dashboardCourses);
 }
@@ -3419,10 +3424,14 @@ async function enterDashboard() {
   if ($("#cms-dashboard-assigned-block")) $("#cms-dashboard-assigned-block").hidden = true;
   if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
 
+  // The saved class is known before the class list arrives, so fetch its
+  // progress at the same time instead of after.
+  const pendingProgress = state.dashboardClassId ? fetchDashboardProgress(state.dashboardClassId) : null;
+  pendingProgress?.catch(() => {});
   try {
     await loadClasses();
     renderDashboardClassPicker();
-    await loadDashboardProgress();
+    await loadDashboardProgress(pendingProgress);
   } catch (err) {
     $("#class-sessions").innerHTML = "";
     if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
