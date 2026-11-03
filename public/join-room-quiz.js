@@ -96,6 +96,7 @@ function syncStudentBuzzinSpectatorUi(payload) {
 
 function syncStudentBuzzinAnswerPrompt(payload) {
   const panel = $("#room-buzzin-answer-prompt");
+  const labelEl = $("#room-buzzin-answer-prompt-label");
   const topicEl = $("#room-buzzin-answer-prompt-topic");
   const nameEl = $("#room-buzzin-answer-prompt-name");
   const turnStatus = $("#room-buzzin-turn-status");
@@ -110,21 +111,29 @@ function syncStudentBuzzinAnswerPrompt(payload) {
     payload?.phase === "typing" &&
     !hasSubmitted &&
     !payload?.typingComplete;
+  const isRetryForMe =
+    sameBuzzPlayer(payload?.retryActivePlayerId, playerId) &&
+    payload?.phase === "typing" &&
+    !payload?.typingComplete;
 
-  if (!isForMe) {
+  if (!isForMe && !isRetryForMe) {
     hideStudentBuzzinAnswerPrompt();
     return;
   }
 
   const topic = String(payload?.topic || "").trim();
   if (topicEl) topicEl.textContent = topic || uiT("buzzin.listenTeacher");
+  if (labelEl) labelEl.textContent = uiT(isRetryForMe ? "buzzin.retryPromptLabel" : "buzzin.uncleSays");
   if (nameEl) {
-    nameEl.textContent = uiT("buzzin.nameYoureUp", { name: announcement.displayName || "You" });
+    nameEl.textContent = isRetryForMe
+      ? uiT("buzzin.retryPromptName", { name: roomParticipant?.displayName || announcement?.displayName || "You" })
+      : uiT("buzzin.nameYoureUp", { name: announcement.displayName || "You" });
   }
-  if (turnStatus) {
+  if (turnStatus && !isRetryForMe) {
     turnStatus.textContent = uiT("buzzin.tapWhenFinished");
   }
 
+  panel.classList.toggle("is-retry", isRetryForMe);
   panel.hidden = false;
   screen?.classList.add("has-answer-prompt");
 }

@@ -535,6 +535,7 @@ function renderHostBuzzinFeedbackChat(container, {
   feedbackVisible = true,
   correctAnswer = "",
   correctAnswerRevealed = false,
+  retryNotice = "",
 } = {}) {
   if (!container) return;
 
@@ -582,6 +583,14 @@ function renderHostBuzzinFeedbackChat(container, {
       isLatest,
     });
   });
+
+  const retryNoticeText = String(retryNotice || "").trim();
+  if (retryNoticeText && pastResponses.length) {
+    conversationHtml += `<div class="host-buzzin-chat-row host-buzzin-chat-row--teacher host-buzzin-chat-row--enter">
+      ${buzzinTeacherAvatarHtml()}
+      <div class="host-buzzin-chat-bubble host-buzzin-chat-bubble--retry-notice"><p>${escapeHtml(retryNoticeText)}</p></div>
+    </div>`;
+  }
 
   if (activePendingTurn && (!pastResponses.length || pendingTurn)) {
     conversationHtml += renderHostBuzzinStudentAnswerRow({

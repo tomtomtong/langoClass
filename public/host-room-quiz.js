@@ -417,6 +417,13 @@ function updateHostBuzzinTurnUi(payload) {
     });
   }
 
+  const retryStudentName = (chatStudent || selectedStudent)?.displayName || "Student";
+  const retryNotice = payload.retryActivePlayerId
+    ? uiT("buzzin.retryNotice", { name: retryStudentName })
+    : payload.pendingRetryPlayerId
+      ? uiT("buzzin.waitingRetryChoice", { name: retryStudentName })
+      : "";
+
   const renderBuzzinChat = (overrides = {}) => {
     renderHostBuzzinFeedbackChat(chatEl, {
       topic: payload.topic,
@@ -428,6 +435,7 @@ function updateHostBuzzinTurnUi(payload) {
       feedbackVisible,
       correctAnswer: getHostBuzzinCorrectAnswerForReveal(payload),
       correctAnswerRevealed: hostBuzzinCorrectAnswerRevealed,
+      retryNotice,
       animate: {
         topic: animate.topic,
         answer: animate.answer,
@@ -706,7 +714,6 @@ async function playHostBuzzinAnswerAnnouncement({ winner, announcementAudio, ann
   const winnerName = winner?.displayName || "Student";
   if (turnStatus) {
     turnStatus.textContent = uiT("buzzin.callingOn", { name: winnerName });
-    turnStatus.classList.remove("visually-hidden");
   }
 
   hostBuzzinTopicSpeaking = true;
@@ -750,12 +757,14 @@ async function maybePlayHostBuzzinAnswerAnnouncement(payload) {
   );
 }
 
-async function playHostBuzzinLuckyDraw(winner) {
+// Spins as soon as it is called; the winner may still be on its way from the
+// server (the ack waits on the announcement TTS), so the reveal waits on both.
+async function playHostBuzzinLuckyDraw(drawPromise) {
   const modal = $("#host-buzzin-lucky-draw");
   const wheel = $("#host-buzzin-lucky-draw-wheel");
   const avatar = $("#host-buzzin-lucky-draw-avatar");
   const nameEl = $("#host-buzzin-lucky-draw-name");
-  if (!modal || !wheel || !avatar || !nameEl || !winner) return;
+  if (!modal || !wheel || !avatar || !nameEl) return drawPromise;
 
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
   const spinMs = reduceMotion ? 0 : 2400;
@@ -768,7 +777,13 @@ async function playHostBuzzinLuckyDraw(winner) {
   wheel.classList.add("is-spinning");
   startHostBuzzinLuckyDrawScramble(nameEl);
 
-  if (spinMs > 0) await waitHostBuzzin(spinMs);
+  const [result] = await Promise.all([drawPromise, spinMs > 0 ? waitHostBuzzin(spinMs) : null]);
+  const winner = result?.winner;
+  if (!winner) {
+    stopHostBuzzinLuckyDrawScramble();
+    resetHostBuzzinLuckyDrawUi();
+    return null;
+  }
 
   stopHostBuzzinLuckyDrawScramble();
   modal.classList.remove("is-spinning");
@@ -782,6 +797,7 @@ async function playHostBuzzinLuckyDraw(winner) {
   await waitHostBuzzin(revealHoldMs);
 
   resetHostBuzzinLuckyDrawUi();
+  return result;
 }
 
 async function openHostBuzzinLuckyDraw() {
@@ -794,11 +810,10 @@ async function openHostBuzzinLuckyDraw() {
   });
 
   try {
-    const result = await requestHostBuzzinLuckyDrawWinner();
+    const result = await playHostBuzzinLuckyDraw(requestHostBuzzinLuckyDrawWinner());
     const winner = result?.winner;
     if (!winner) return;
 
-    await playHostBuzzinLuckyDraw(winner);
     applyHostBuzzinLuckyStar(winner);
 
     if (result?.payload) {
