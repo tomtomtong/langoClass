@@ -646,6 +646,19 @@ async function initStudentIdJoin() {
       keepUrlStudentId: studentId,
     });
   } catch (err) {
+    // A refresh after joining by room code + nickname lands here too: the
+    // rewritten URL carries the session's web_ id, which isn't on any roster.
+    // Rejoin the room this browser was last seated in instead.
+    const stored = loadStoredParticipant();
+    if (stored?.roomId && stored.userId === studentId) {
+      roomParticipant = stored;
+      wireLeaveRoomButton();
+      await doJoinRoom(stored.roomId, stored.displayName || urlNickname, {
+        userId: studentId,
+        keepUrlStudentId: studentId,
+      });
+      return;
+    }
     showRoomJoinPanels({ showNameForm: false });
     $("#join-room-status").textContent = "";
     $("#join-room-error").textContent = err.message;
@@ -805,17 +818,22 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
   // Auto-rejoin after temporary disconnects (screen lock, wifi switch, etc).
   // Identity survives via url token + localStorage, so re-sending join_session
   // with the same userId restores the seat without a manual refresh.
+  // Registered once per socket: doJoinRoom can run again (rejoin from the
+  // ended screen) on the same socket.
+  if (socket.rejoinOnReconnect) return;
+  socket.rejoinOnReconnect = true;
   socket.on("reconnect", () => {
-    if (!roomParticipant && !resolveStudentUserId(activeRoom, stored)) return;
-    const rejoinName = resolveDisplayName(activeRoom, stored) || displayName;
-    if (!rejoinName) return;
+    // Use the seat the server last gave us, so a nickname join keeps its
+    // web_ id instead of colliding with itself ("Name already taken").
+    const seat = roomParticipant;
+    if (!seat?.roomId || !seat.displayName) return;
     try {
       socket.emit(
         "join_session",
         {
-          roomId: activeRoom,
-          displayName: rejoinName,
-          userId: resolveStudentUserId(activeRoom, stored),
+          roomId: seat.roomId,
+          displayName: seat.displayName,
+          userId: seat.userId,
         },
         (data) => {
           if (data?.ok) {
