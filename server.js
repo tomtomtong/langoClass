@@ -2748,7 +2748,10 @@ function startQuestion(game) {
   game.questionStartedAt = null;
   game.previewEndsAt = null;
 
-  if (game.fastMode) {
+  // Uncle Tommy reads every question when speech is available; answers open
+  // when the host's playback ends. A plain MC quiz without speech keeps the
+  // silent read preview.
+  if (game.fastMode || isGameplayTtsAvailable()) {
     game.status = "speaking";
     const question = game.quiz.questions[nextIndex];
     io.to(game.pin).emit("question_speaking", questionSpeakingPayload(game, question));
