@@ -8,6 +8,7 @@ import { serveUpload, uploadKey } from "./uploads.js";
 import { handleMaterialApi } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
+import { logRuntime, noteHost, observeApi } from "./lango-log.js";
 
 export { RoomDurableObject } from "./room.js";
 export { MediaContainer } from "./media-container.js";
@@ -19,7 +20,7 @@ const PAGE_REDIRECTS = new Map([
   ["/hk/", "/hk/host.html"],
 ]);
 
-export default {
+const app = {
   async fetch(request, env, ctx) {
     const incoming = new URL(request.url);
     if (request.method === "GET" || request.method === "HEAD") {
@@ -143,6 +144,25 @@ export default {
     }
 
     return unservedApi(request, incoming);
+  },
+};
+
+// Reports API failures and host actions to log.lango.ai around the handlers above.
+export default {
+  async fetch(request, env, ctx) {
+    const incoming = new URL(request.url);
+    noteHost(incoming.hostname);
+    if (!isApiPath(incoming.pathname)) return app.fetch(request, env, ctx);
+    const started = Date.now();
+    let response;
+    try {
+      response = await app.fetch(request, env, ctx);
+    } catch (error) {
+      logRuntime(env, ctx, "unhandled_error", error);
+      throw error;
+    }
+    observeApi(env, ctx, request, incoming.pathname, response.status, Date.now() - started);
+    return response;
   },
 };
 

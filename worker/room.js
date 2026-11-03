@@ -8,6 +8,7 @@ import { speakQuestion } from "./question-tts.js";
 import { createRoomState, emptyRoomState, syncRoomRoster } from "./room-state.js";
 import { queueOpenScores } from "./room-scores.js";
 import { saveScoreBatch } from "./score-store.js";
+import { logRuntime, noteHost, roomEventUsage } from "./lango-log.js";
 
 const SCORE_RETRY_MS = 60 * 1000;
 // A SQLite row in a Durable Object holds at most 2 MB; longer recordings are
@@ -75,6 +76,7 @@ export class RoomDurableObject extends DurableObject {
   }
 
   async fetch(request) {
+    noteHost(new URL(request.url).hostname);
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Expected websocket", { status: 426 });
     }
@@ -126,6 +128,7 @@ export class RoomDurableObject extends DurableObject {
     }
 
     const result = applyRoomEvent(state, incoming, ctx());
+    roomEventUsage(this.env, this.ctx, incoming.event, result.ack);
     if (result.state) this.#write(result.state);
     if (result.attachment) {
       ws.serializeAttachment({ ...attachment, ...result.attachment });
@@ -232,6 +235,7 @@ export class RoomDurableObject extends DurableObject {
       }
     } catch (error) {
       logJobError(job, error);
+      logRuntime(this.env, this.ctx, `job_${String(job.kind).replace(/[^a-z0-9]+/g, "_")}_failed`, error);
       return { ok: false, error: error instanceof Error ? error.message : "Model request failed." };
     }
     return {};
@@ -345,6 +349,7 @@ export class RoomDurableObject extends DurableObject {
           })
         );
       } catch (error) {
+        logRuntime(this.env, this.ctx, "scores_save_failed", error);
         console.error(
           JSON.stringify({
             message: "scores_save_failed",
