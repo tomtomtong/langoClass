@@ -1007,6 +1007,11 @@ function renderHostQuizPreview(data, { transition = true } = {}) {
   const previewScreenEl = $("#screen-host-quiz-preview");
   previewScreenEl?.classList.add("is-read-phase");
   const fillEl = $("#host-quiz-preview-progress");
+  // While Uncle Tommy reads there is no deadline: answers open when he finishes.
+  if (data.speaking) {
+    resetMcqReadProgress(fillEl);
+    return;
+  }
   const startPreviewBar = (phase) => {
     animateMcqReadProgress(fillEl, data.previewEndsAt, previewSeconds, { drain: true });
   };

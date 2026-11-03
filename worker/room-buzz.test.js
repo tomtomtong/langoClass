@@ -190,6 +190,33 @@ function fastQuiz(caps = SPEECH) {
   return applyRoomTimer(started.state, started.timer.at, caps);
 }
 
+test("a plain MC quiz question is read aloud too, and answers open when the host finishes", () => {
+  let state = createRoomState({ roomId: "123456", teacherId: 835, classItem: { id: 62 }, now: 1000 });
+  state.session.participants = [{ userId: "ada", displayName: "Ada", online: true, joinedAt: 1 }];
+  state = applyRoomEvent(state, {
+    event: "create_room_game",
+    data: { quiz: { title: "MC", questions: [{ text: "2+2", options: ["3", "4"], correctIndex: 1 }] } },
+  }, { socketId: "host-1", role: null, now: 2000, pick: () => 0, caps: SPEECH }).state;
+  const speaking = host(state, "start_room_game", {}, 2000);
+  assert.equal(speaking.state.game.status, "speaking");
+  const frame = speaking.broadcasts.find((item) => item.event === "question_speaking");
+  assert.equal(frame.data.fastMode, false);
+  assert.equal(speaking.jobs[0].kind, "question-tts");
+  const tts = applyRoomJob(speaking.state, speaking.jobs[0], { audioId: "m1", format: "mp3" }, 4000);
+  assert.equal(tts.broadcasts[0].event, "question_tts");
+  const opened = host(tts.state, "question_tts_done", { questionIndex: 0 }, 6000);
+  assert.equal(opened.state.game.status, "question");
+
+  const noSpeech = { speech: false, text: true };
+  let quiet = createRoomState({ roomId: "123456", teacherId: 835, classItem: { id: 62 }, now: 1000 });
+  quiet = applyRoomEvent(quiet, {
+    event: "create_room_game",
+    data: { quiz: { title: "MC", questions: [{ text: "2+2", options: ["3", "4"], correctIndex: 1 }] } },
+  }, { socketId: "host-1", role: null, now: 2000, pick: () => 0, caps: noSpeech }).state;
+  const preview = host(quiet, "start_room_game", {}, 2000, noSpeech);
+  assert.equal(preview.state.game.status, "preview");
+});
+
 test("a fast quiz question is read aloud on the host before answers open", () => {
   const speaking = fastQuiz();
   assert.equal(speaking.state.game.status, "speaking");
