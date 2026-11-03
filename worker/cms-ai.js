@@ -4,6 +4,7 @@
 // The prompt and parsing code is shared with Node through lib/; the Worker
 // supplies the model call (worker/ai.js) and keeps files in R2.
 import exerciseGenerator from "../lib/exercise-generator.js";
+import characters from "../lib/characters.js";
 import cmsAssistant from "../lib/cms-assistant.js";
 import coursePlan from "../lib/course-plan.js";
 import exerciseImport from "../lib/exercise-import.js";
@@ -325,7 +326,7 @@ async function generateQuestionImage({ env, auth, body }) {
   const prompt = String(body?.prompt || "").trim();
   if (!prompt) return json({ message: "prompt is required." }, 400);
   try {
-    const image = await routerImage(env, prompt);
+    const image = await characterImage(env, (character) => characters.withCharacter(prompt, character));
     return json({ url: await saveQuestionImage(env, image, auth.teacherId) });
   } catch (error) {
     return failure("question_image_generate", error, 502);
@@ -338,17 +339,19 @@ async function generateSectionBanner({ env, auth, body }) {
   if (!sectionTitle && !sectionContent) {
     return json({ message: "Add a section title or exercises before generating a path tile." }, 400);
   }
-  const prompt = pathTilePrompt.buildPathTileImagePrompt(sectionTitle || "Language lesson", {
-    courseName: String(body?.courseName || "").trim(),
-    sectionContent,
-  });
+  const buildPrompt = (character) =>
+    pathTilePrompt.buildPathTileImagePrompt(sectionTitle || "Language lesson", {
+      courseName: String(body?.courseName || "").trim(),
+      sectionContent,
+      character,
+    });
   const courseId = body?.courseId != null ? Number(body.courseId) : null;
   const sectionId = body?.sectionId != null ? Number(body.sectionId) : null;
   if (courseId && sectionId && !(await ownsCourse(env, courseId, auth.teacherId))) {
     return json({ message: "Course not found." }, 404);
   }
   try {
-    const image = decodeImage(await routerImage(env, prompt));
+    const image = decodeImage(await characterImage(env, buildPrompt));
     const tile = await pathTile(env, image.bytes);
     const owner = String(auth.teacherId || "upload").replace(/\W/g, "") || "upload";
     const coursePart = courseId != null ? `course-${courseId}-` : "";
@@ -430,7 +433,7 @@ async function suggestCourseDetails({ env, auth, body }) {
   if (!sections.length) return json({ message: "Add a section with exercises first." }, 400);
   const courseName = String(body?.courseName || "").trim().slice(0, 120);
   const outline = sections.map((section, index) => `Section ${index + 1}: ${section.title}\n${section.content}`).join("\n\n");
-  const wantsText = need.description || need.level || need.objectives;
+  const wantsText = need.name || need.description || need.level || need.objectives;
 
   const text = wantsText
     ? (async () => {
@@ -439,8 +442,9 @@ async function suggestCourseDetails({ env, auth, body }) {
             role: "system",
             content:
               "You fill in a language course's details for its teacher. Return ONLY valid JSON: " +
-              '{"description":"...","level":"...","objectives":["..."]}. ' +
-              "description: one or two sentences, under 300 characters, saying what students practise. " +
+              '{"name":"...","description":"...","level":"...","objectives":["..."]}. ' +
+              "name: a short, catchy course title of 2 to 6 words, under 40 characters, with no quotes or trailing punctuation. " +
+              "description: ONE short sentence, under 120 characters (under 60 for Chinese), saying what students practise. No lists, no second sentence. " +
               'level: a short school level or band such as "P3" or "Beginner", under 20 characters. ' +
               "objectives: 3 to 5 short learning objectives, each starting with a verb. " +
               "Write in the same language as the course content.",
@@ -464,7 +468,8 @@ async function suggestCourseDetails({ env, auth, body }) {
   }
   const details = textResult.status === "fulfilled" ? textResult.value : {};
   const result = {};
-  if (need.description && String(details.description || "").trim()) result.description = String(details.description).trim().slice(0, 500);
+  if (need.name && String(details.name || "").trim()) result.name = String(details.name).trim().replace(/^["'“”‘’]+|["'“”‘’。.]+$/g, "").slice(0, 60);
+  if (need.description && String(details.description || "").trim()) result.description = String(details.description).trim().slice(0, 200);
   if (need.level && String(details.level || "").trim()) result.level = String(details.level).trim().slice(0, 40);
   if (need.objectives && Array.isArray(details.objectives)) {
     const objectives = details.objectives.map((line) => String(line || "").trim()).filter(Boolean).slice(0, 8);
@@ -496,17 +501,58 @@ async function finalizeExerciseImages(env, exercises, { imageAssets, teacherId, 
     apiKey: WORKER_KEY,
     model,
     routerBaseUrl: cmsBase(env),
-    generateImage: async (_base, prompt) => ({ image: await routerImage(env, prompt) }),
+    generateImage: async (_base, prompt) => ({
+      image: await characterImage(env, (character) => characters.withCharacter(prompt, character)),
+    }),
     saveGeneratedImage: (image) => saveQuestionImage(env, image, teacherId),
   });
   return { exercises: auto.exercises, autoImageStats: auto.stats };
 }
 
 async function routerImage(env, prompt) {
-  const response = await fetch(`${cmsBase(env)}/api/router/image`, {
+  return postImage(env, "/api/router/image", { prompt });
+}
+
+// Draws with one of the Lango characters: the router's inworld-image endpoint
+// takes the character as a reference picture, which /api/router/image cannot.
+// buildPrompt gets the chosen character, or null when there is none to send,
+// and then the plain image router answers as before.
+async function characterImage(env, buildPrompt) {
+  const character = characters.pickCharacter();
+  try {
+    const referenceImage = await characterReference(env, character);
+    if (referenceImage) {
+      return await postImage(env, "/api/router/inworld-image", {
+        prompt: buildPrompt(character),
+        imageSize: "1024x1024",
+        n: 1,
+        referenceImage,
+      });
+    }
+  } catch (error) {
+    console.error(JSON.stringify({ message: "character_image_failed", character: character.id, error: error instanceof Error ? error.message : String(error) }));
+  }
+  return routerImage(env, buildPrompt(null));
+}
+
+// A data URL of the character's picture from the static assets, or the name
+// the router knows the character by.
+async function characterReference(env, character) {
+  if (character.reference) return character.reference;
+  if (!env?.ASSETS) return null;
+  const response = await env.ASSETS.fetch(new Request(`https://assets.local${character.file}`));
+  if (!response.ok) throw new Error(`character image ${character.file} returned ${response.status}`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  return `data:image/png;base64,${btoa(binary)}`;
+}
+
+async function postImage(env, path, body) {
+  const response = await fetch(`${cmsBase(env)}${path}`, {
     method: "POST",
     headers: { accept: "application/json", "content-type": "application/json" },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(GENERATE_TIMEOUT_MS),
   });
   const text = await response.text();

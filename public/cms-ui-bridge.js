@@ -93,22 +93,22 @@
     const map = new Map();
     const classes = window.state?.classes || [];
     if (typeof api !== "function" || !classes.length) return map;
-    await Promise.all(
-      classes.map(async (cl) => {
-        try {
-          const data = await api(`/api/cms/dashboard/progress?classId=${encodeURIComponent(cl.id)}`);
-          for (const row of data.courses || []) {
-            const id = Number(row.courseId);
-            const prev = map.get(id);
-            if (!prev || (row.percent || 0) > (prev.percent || 0)) {
-              map.set(id, { ...row, classId: cl.id });
-            }
+    try {
+      // One request for every class: each class used to read all the courses again.
+      const ids = classes.map((cl) => encodeURIComponent(cl.id)).join(",");
+      const data = await api(`/api/cms/dashboard/progress?classIds=${ids}`);
+      for (const entry of data.classes || []) {
+        for (const row of entry.courses || []) {
+          const id = Number(row.courseId);
+          const prev = map.get(id);
+          if (!prev || (row.percent || 0) > (prev.percent || 0)) {
+            map.set(id, { ...row, classId: entry.classId });
           }
-        } catch {
-          /* optional */
         }
-      })
-    );
+      }
+    } catch {
+      /* optional */
+    }
     window.state.homeCourseProgress = map;
     return map;
   }

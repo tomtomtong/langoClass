@@ -4,15 +4,18 @@ import { handleStoreApi } from "./d1-api.js";
 import { api, developerToken, memoryD1, memoryR2, putDoc } from "./test-env.js";
 
 const realFetch = globalThis.fetch;
+const realRandom = Math.random;
 test.afterEach(() => {
   globalThis.fetch = realFetch;
+  Math.random = realRandom;
 });
 
 const CMS = "https://cms.test";
 const PNG = "data:image/png;base64,iVBORw0KGgo=";
 
 async function setup(extra = {}) {
-  const env = { DB: memoryD1(), UPLOADS: memoryR2(), CMS_API_BASE: CMS, ORIGIN: "https://classroom.lango.ai", ...extra };
+  const assets = { fetch: async () => new Response(Uint8Array.from([137, 80, 78, 71])) };
+  const env = { DB: memoryD1(), UPLOADS: memoryR2(), ASSETS: assets, CMS_API_BASE: CMS, ORIGIN: "https://classroom.lango.ai", ...extra };
   const token = await developerToken(handleStoreApi, env);
   return { env, call: api(handleStoreApi, env, token) };
 }
@@ -27,6 +30,7 @@ function router(reply) {
     calls.push({ url: target, body });
     if (target === `${CMS}/api/router/text`) return Response.json({ text: await reply(body, calls.length) });
     if (target === `${CMS}/api/router/image`) return Response.json({ image: PNG });
+    if (target === `${CMS}/api/router/inworld-image`) return Response.json({ image: PNG });
     throw new Error(`Unexpected fetch ${target}`);
   };
   return calls;
@@ -129,6 +133,53 @@ test("a generated path tile becomes the section banner", async () => {
   assert.equal(body.section.banner, body.url);
   assert.match(calls[0].body.prompt, /Lesson theme: "Fruit"/);
   assert.ok(await env.UPLOADS.head(body.url.slice(1)));
+});
+
+test("a path tile is drawn with a Lango character as the reference image", async () => {
+  const { call } = await setup();
+  const calls = router(() => "");
+  const response = await call("/api/cms/section-banner/generate", { method: "POST", json: { sectionTitle: "Fruit", courseName: "Food" } });
+  assert.equal(response.status, 200);
+  const image = calls.filter((entry) => entry.url.endsWith("-image"));
+  assert.equal(image.length, 1);
+  assert.equal(image[0].url, `${CMS}/api/router/inworld-image`);
+  assert.match(image[0].body.referenceImage, /^(uncle-tommy|data:image\/png;base64,)/);
+  assert.match(image[0].body.prompt, /the one in the reference image/);
+  assert.doesNotMatch(image[0].body.prompt, /Do NOT include any human characters/);
+});
+
+test("a question image is drawn with a Lango character as the reference image", async () => {
+  const { call } = await setup();
+  const calls = router(() => "");
+  const response = await call("/api/cms/question-image/generate", { method: "POST", json: { prompt: "a red apple" } });
+  assert.equal(response.status, 200);
+  assert.equal(calls[0].url, `${CMS}/api/router/inworld-image`);
+  assert.match(calls[0].body.prompt, /^a red apple /);
+  assert.match(calls[0].body.prompt, /the one in the reference image/);
+  assert.ok(calls[0].body.referenceImage);
+});
+
+test("images are still made, without a character, when the character router fails", async () => {
+  Math.random = () => 0; // Dan
+  const { call } = await setup();
+  const calls = router(() => "");
+  const plain = globalThis.fetch;
+  globalThis.fetch = async (url, init) =>
+    String(url).endsWith("/inworld-image") ? new Response(JSON.stringify({ error: "down" }), { status: 500 }) : plain(url, init);
+  const response = await call("/api/cms/question-image/generate", { method: "POST", json: { prompt: "a red apple" } });
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls.map((entry) => entry.url), [`${CMS}/api/router/image`]);
+  assert.equal(calls[0].body.prompt, "a red apple");
+});
+
+test("without the static assets the plain image router is used", async () => {
+  Math.random = () => 0; // Dan
+  const { call } = await setup({ ASSETS: undefined });
+  const calls = router(() => "");
+  const response = await call("/api/cms/section-banner/generate", { method: "POST", json: { sectionTitle: "Fruit" } });
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls.map((entry) => entry.url), [`${CMS}/api/router/image`]);
+  assert.match(calls.at(-1).body.prompt, /Do NOT include any human characters/);
 });
 
 test("captions in R2 are translated into a new caption file", async () => {
@@ -281,7 +332,7 @@ test("auto question pictures are generated a few at a time, not one by one", asy
         : JSON.stringify(four);
       return Response.json({ text });
     }
-    if (target === `${CMS}/api/router/image`) {
+    if (target === `${CMS}/api/router/inworld-image`) {
       running += 1;
       most = Math.max(most, running);
       await new Promise((resolve) => setTimeout(resolve, 20));
@@ -308,7 +359,7 @@ function revisionRouter(reply) {
       ? JSON.stringify({ generations: [{ key: "0:0", generateConfidence: 0.9, imagePrompt: "A cat" }] })
       : reply
   );
-  return () => calls.filter((entry) => entry.url.endsWith("/image")).length;
+  return () => calls.filter((entry) => /image$/.test(entry.url)).length;
 }
 
 test("a revision draws question pictures only when the teacher asks for them", async () => {
@@ -366,6 +417,30 @@ test("empty course details are suggested from the sections, with a cover picture
   assert.match(body.details.banner, /^\/uploads\/courses\/course-ai-/);
   assert.ok(await env.UPLOADS.get(body.details.banner.slice(1)));
   assert.ok(calls.some((entry) => entry.url.endsWith("/api/router/text") && JSON.stringify(entry.body).includes("At the market")));
+});
+
+test("an untitled course gets a short name and a one-sentence description", async () => {
+  const { call } = await setup();
+  const calls = router(() => JSON.stringify({ name: "\"Fruit Fun at the Market\"", description: "Students name fruit.", level: "P3", objectives: ["Name fruit"] }));
+  const response = await call("/api/cms/course-details/suggest", {
+    method: "POST",
+    json: { courseName: "", sections: [{ title: "At the market", content: "Three apples" }], need: { name: true, description: true } },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.details.name, "Fruit Fun at the Market");
+  const system = JSON.stringify(calls.find((entry) => entry.url.endsWith("/api/router/text")).body);
+  assert.match(system, /ONE short sentence/);
+});
+
+test("a long description from the model is cut short", async () => {
+  const { call } = await setup();
+  router(() => JSON.stringify({ description: "x".repeat(400) }));
+  const response = await call("/api/cms/course-details/suggest", {
+    method: "POST",
+    json: { sections: [{ title: "A", content: "b" }], need: { description: true } },
+  });
+  assert.equal((await response.json()).details.description.length, 200);
 });
 
 test("course details need at least one section", async () => {

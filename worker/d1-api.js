@@ -250,23 +250,45 @@ async function listScores(request, env, url) {
 
 // Each course a class can see with how far the class got, as server.js
 // /api/cms/dashboard/progress builds it. Started courses sort first.
+const MAX_PROGRESS_CLASSES = 50;
+
+// One class (?classId=) or several at once (?classIds=1,2,3). The CMS course
+// list asks for all of a teacher's classes: reading the course and progress
+// documents once beats once per class.
 async function dashboardProgress(request, env, url) {
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
+  const usable = (id) => id != null && !(typeof id === "number" && id <= 0);
+  const many = url.searchParams.get("classIds");
+  if (many != null) {
+    const classIds = [...new Set(many.split(",").map(classIdOf))].filter(usable).slice(0, MAX_PROGRESS_CLASSES);
+    if (!classIds.length) return json({ message: "classIds query parameter is required." }, 400);
+    const shared = await progressDocs(env);
+    const classes = await Promise.all(classIds.map(async (classId) => ({ classId, courses: await classProgress(env, auth, classId, shared) })));
+    return json({ classes });
+  }
   const classId = classIdOf(url.searchParams.get("classId"));
-  if (classId == null || (typeof classId === "number" && classId <= 0)) return json({ message: "classId query parameter is required." }, 400);
+  if (!usable(classId)) return json({ message: "classId query parameter is required." }, 400);
+  return json({ classId, courses: await classProgress(env, auth, classId, await progressDocs(env)) });
+}
 
-  const [store, progressStore, { classRecords }] = await Promise.all([
+async function progressDocs(env) {
+  const [store, progressStore, legacyScores] = await Promise.all([
     readDoc(env, "teacher-courses", { courses: [] }),
     readDoc(env, "host-progress", { records: [] }),
-    classScores(env, auth.teacherId, classId),
+    readDoc(env, "student-scores", { students: {}, records: [] }),
   ]);
+  return { store, progressStore, legacyScores };
+}
+
+async function classProgress(env, auth, classId, { store, progressStore, legacyScores }) {
+  const { classRecords } = await classScores(env, auth.teacherId, classId, legacyScores);
   const progressByCourse = new Map(
     (progressStore.records || [])
       .filter((record) => sameId(record.teacherId, auth.teacherId) && sameId(record.classId, classId))
       .map((record) => [Number(record.courseId), record])
   );
-  const courses = (store.courses || [])
+  return (store.courses || [])
     .filter((course) => sameId(course.teacherId, auth.teacherId) && courseMatchesClass(course, classId))
     .map((course) => {
       const progress = presentProgress(progressByCourse.get(Number(course.id)), auth.teacherId, classId, course.id);
@@ -280,7 +302,6 @@ async function dashboardProgress(request, env, url) {
       if (aTime !== bTime) return bTime - aTime;
       return String(a.name).localeCompare(String(b.name));
     });
-  return json({ classId, courses });
 }
 
 function courseProgress(course, progress, scores) {
@@ -344,8 +365,8 @@ function engagementInsights(scores) {
 }
 
 // A class's score records from both stores and each student's running total.
-async function classScores(env, teacherId, classId) {
-  const legacy = await readDoc(env, "student-scores", { students: {}, records: [] });
+async function classScores(env, teacherId, classId, preloaded) {
+  const legacy = preloaded || (await readDoc(env, "student-scores", { students: {}, records: [] }));
   const classRecords = mergeScoreRecords(
     (legacy.records || []).filter((record) => sameId(record.teacherId, teacherId) && sameId(record.classId, classId)),
     await readScoreRecords(env.DB, teacherId, classId)

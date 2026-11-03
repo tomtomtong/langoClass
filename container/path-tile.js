@@ -119,10 +119,44 @@ function matchesTargetColor(data, index, target, threshold) {
   return colorDistance(r, g, b, target.r, target.g, target.b) <= threshold * 3;
 }
 
-function desaturateBackdropFringe(data) {
+// Marks pixels within `radius` px of a cleared pixel. Backdrop-coloured pixels
+// elsewhere are real artwork (white sleeves, pink hair, grey elephants).
+function nearClearMask(data, width, height, radius) {
+  let mask = new Uint8Array(width * height);
+  for (let i = 0; i < mask.length; i += 1) if (data[i * 4 + 3] < 12) mask[i] = 1;
+  for (let pass = 0; pass < radius; pass += 1) {
+    const next = Uint8Array.from(mask);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = y * width + x;
+        if (mask[index]) continue;
+        if (
+          (x > 0 && mask[index - 1]) ||
+          (x < width - 1 && mask[index + 1]) ||
+          (y > 0 && mask[index - width]) ||
+          (y < height - 1 && mask[index + width])
+        ) {
+          next[index] = 1;
+        }
+      }
+    }
+    mask = next;
+  }
+  return mask;
+}
+
+function desaturateBackdropFringe(data, width, height) {
   const next = Buffer.from(data);
+  const near = nearClearMask(data, width, height, 3);
   for (let i = 0; i < next.length; i += 4) {
     if (next[i + 3] < 12) continue;
+    if (!near[i / 4]) {
+      // Pure chroma key the flood fill could not reach (a gap in a gate, between legs).
+      if (colorDistance(next[i], next[i + 1], next[i + 2], CHROMA_KEY.r, CHROMA_KEY.g, CHROMA_KEY.b) <= CHROMA_THRESHOLD * 2) {
+        next[i + 3] = 0;
+      }
+      continue;
+    }
     const r = next[i];
     const g = next[i + 1];
     const b = next[i + 2];
@@ -183,7 +217,7 @@ async function removeEdgeConnectedBackground(buffer, target, threshold) {
     push(x - 1, y + 1);
   }
 
-  let keyed = desaturateBackdropFringe(data);
+  let keyed = desaturateBackdropFringe(data, width, height);
 
   const erodeFringe = (src) => {
     const out = Buffer.from(src);

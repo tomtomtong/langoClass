@@ -4111,6 +4111,8 @@ async function unshareCommunityListing(listingId) {
   }
 }
 
+let courseListLoadId = 0;
+
 async function enterCourseList() {
   state.cmsEditorMode = "edit";
   showCmsScreen("list");
@@ -4123,15 +4125,27 @@ async function enterCourseList() {
     grid.innerHTML = `<p class="hint">Loading courses…</p>`;
   }
 
+  const loadId = ++courseListLoadId;
   try {
-    await loadClasses();
-    const data = await api("/api/cms/courses");
+    // The class list and the courses do not depend on each other. Progress is
+    // one request per class and reads every course again, so the list is shown
+    // first and the progress tabs fill in when it arrives.
+    const [, data] = await Promise.all([loadClasses(), api("/api/cms/courses")]);
     state.courses = data.courses || [];
-    if (typeof window.loadHomeCourseProgressMap === "function") {
-      state.homeCourseProgress = await window.loadHomeCourseProgressMap();
-    }
     renderCourseList();
     $("#cms-list-status").textContent = "";
+    if (typeof window.loadHomeCourseProgressMap === "function") {
+      void window
+        .loadHomeCourseProgressMap()
+        .then((map) => {
+          if (loadId !== courseListLoadId) return;
+          state.homeCourseProgress = map;
+          renderCourseList();
+        })
+        .catch(() => {
+          /* progress only drives the Completed / In progress tabs */
+        });
+    }
   } catch (err) {
     if (grid) grid.innerHTML = "";
     $("#cms-list-status").textContent = "";
@@ -8534,7 +8548,9 @@ function emptyCourseDetailFields() {
     const input = $(selector);
     return String(input ? input.value : fallback ?? "").trim();
   };
+  const name = value("#course-name", course.name);
   return {
+    name: !name || name === "New course",
     description: !value("#course-description", course.description),
     level: !value("#course-level", course.level),
     objectives: !value("#course-objectives", (course.objectives || []).join("\n")),
@@ -8568,14 +8584,14 @@ async function maybeAutoFillCourseDetails() {
       const minutes = estimateCourseHostMinutes();
       if (minutes) patch.estimatedMinutes = minutes;
     }
-    if (need.description || need.level || need.objectives || need.banner) {
+    if (need.name || need.description || need.level || need.objectives || need.banner) {
       const data = await api("/api/cms/course-details/suggest", {
         method: "POST",
         body: {
-          courseName: state.editingCourse?.name || $("#course-name")?.value || "",
+          courseName: need.name ? "" : state.editingCourse?.name || $("#course-name")?.value || "",
           langCode: state.editingCourse?.langCode || "en",
           sections,
-          need: { description: need.description, level: need.level, objectives: need.objectives, banner: need.banner },
+          need: { name: need.name, description: need.description, level: need.level, objectives: need.objectives, banner: need.banner },
         },
       });
       Object.assign(patch, data?.details || {});
@@ -8593,6 +8609,7 @@ async function maybeAutoFillCourseDetails() {
     if (state.editingCourse?.id !== courseId) return;
     state.editingCourse = { ...state.editingCourse, ...saved.course };
     const course = state.editingCourse;
+    if (patch.name != null && $("#course-name")) $("#course-name").value = course.name || "";
     if (patch.description != null && $("#course-description")) $("#course-description").value = course.description || "";
     if (patch.level != null && $("#course-level")) $("#course-level").value = course.level || "";
     if (patch.objectives != null && $("#course-objectives")) $("#course-objectives").value = (course.objectives || []).join("\n");
@@ -8603,6 +8620,7 @@ async function maybeAutoFillCourseDetails() {
     }
     syncCourseEditorChrome();
     const labels = {
+      name: "name",
       description: "description",
       level: "level",
       objectives: "objectives",

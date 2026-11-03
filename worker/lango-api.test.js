@@ -184,6 +184,33 @@ test("dashboard progress shows started courses first with their completion", asy
   assert.equal(body.courses[1].engagementScore, null);
 });
 
+test("dashboard progress for several classes matches asking for each one", async () => {
+  const store = env();
+  const token = await developerToken(handleStoreApi, store);
+  await putDoc(store, "teacher-courses", {
+    courses: [
+      { id: -1, teacherId: 835, name: "Animals", classIds: [62, 579], sections: [{ id: "s1", order: 0, title: "Farm", exercises: [{ id: 1, order: 0, title: "Cow" }] }] },
+      { id: -2, teacherId: 835, name: "Only 579", classIds: [579], sections: [] },
+      { id: -3, teacherId: 999, name: "Someone else", classIds: [62], sections: [] },
+    ],
+  });
+  await putDoc(store, "host-progress", {
+    records: [{ teacherId: 835, classId: 579, courseId: -1, completedExerciseIds: [1], visitedSectionIds: ["s1"], lastSectionId: "s1", lastExerciseId: 1 }],
+  });
+  const call = api(handleStoreApi, store, token);
+  const many = await (await call("/api/cms/dashboard/progress?classIds=62,579,0,62")).json();
+  assert.deepEqual(many.classes.map((entry) => entry.classId), [62, 579]);
+  for (const entry of many.classes) {
+    const single = await (await call(`/api/cms/dashboard/progress?classId=${entry.classId}`)).json();
+    // A course nobody has started is stamped with the time of the request.
+    const stable = (courses) => courses.map(({ updatedAt: _updatedAt, ...rest }) => rest);
+    assert.deepEqual(stable(entry.courses), stable(single.courses));
+  }
+  assert.deepEqual(many.classes[0].courses.map((course) => course.name), ["Animals"]);
+  assert.equal(many.classes[1].courses[0].status, "completed");
+  assert.equal((await call("/api/cms/dashboard/progress?classIds=0,")).status, 400);
+});
+
 test("dashboard progress needs a class id", async () => {
   const store = env();
   const token = await developerToken(handleStoreApi, store);
