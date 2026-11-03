@@ -1814,6 +1814,16 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
 #app-shell #cms-exercises-view .cms-ex-drag-label {
   margin: 0;
   white-space: nowrap;
+  cursor: grab;
+  user-select: none;
+}
+
+#app-shell #cms-exercises-view .cms-ex-drag-label:active {
+  cursor: grabbing;
+}
+
+#app-shell #cms-exercises-view .cms-exercise-card.dragging {
+  opacity: 0.55;
 }
 
 #app-shell #cms-exercises-view .cms-drag-handle {
@@ -2276,4 +2286,99 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
   #app-shell #cms-tab-sections .cms-section-aside .btn {
     flex: 1 1 8rem;
   }
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-bg {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-bg .hint {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-gen-progress-bg[hidden] {
+  display: none;
+}
+
+/* Generations that carry on while the teacher works elsewhere. */
+.cms-ai-job-tray {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(320px, calc(100vw - 2rem));
+}
+
+.cms-ai-job {
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--line, #e3dcea);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(60, 30, 90, 0.18);
+}
+
+.cms-ai-job.is-error {
+  border-color: #e4a0a0;
+}
+
+.cms-ai-job p {
+  margin: 0;
+}
+
+.cms-ai-job-where {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft, #6b5b7a);
+}
+
+.cms-ai-job-label {
+  margin-top: 0.15rem;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--ink, #2a1b3a);
+}
+
+.cms-ai-job-track {
+  height: 8px;
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  background: var(--wash, #eee7f3);
+  overflow: hidden;
+}
+
+.cms-ai-job-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--purple, #6a3d8f) 0%, #9b6bb8 100%);
+  transition: width 0.35s ease;
+}
+
+.cms-ai-job.is-done .cms-ai-job-bar {
+  background: var(--ok, #2e9e5b);
+}
+
+.cms-ai-job.is-error .cms-ai-job-bar {
+  background: #d46a6a;
+}
+
+.cms-ai-job-note {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft, #6b5b7a);
+}
+
+.cms-ai-job-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
 }

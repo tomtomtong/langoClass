@@ -100,10 +100,10 @@ html.uncle-tommy-is-speaking .uncle-tommy-sprite--avatar .uncle-tommy-sprite__fi
 
 #app.lango-host .waiting-timer .waiting-wizard.uncle-tommy-sprite {
   position: absolute;
-  left: -145px;
-  top: 168px;
+  left: -165px;
+  top: 120px;
   bottom: auto;
-  width: 300px;
+  width: 270px;
   height: auto;
   max-width: none;
   z-index: 2;

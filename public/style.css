@@ -4386,7 +4386,8 @@ body:has(#screen-host-quiz-question.active) {
   left: 0;
   top: 0;
   width: 800px;
-  min-height: 278px;
+  height: 298px;
+  overflow: hidden;
   padding: 12px 24px 16px;
   box-sizing: border-box;
   display: flex;
@@ -4417,8 +4418,15 @@ body:has(#screen-host-quiz-question.active) {
     0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
+/* A long question gets the room left between the points and the correct
+   answer; fitTextToBox() shrinks the text until it fits. */
 .host-mcq-result-question,
 #app.lango-host #screen-host-quiz-results .host-quiz-results-question {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   margin: 0;
   color: #a82472;
   font-family: "Nunito", sans-serif;
@@ -4433,8 +4441,10 @@ body:has(#screen-host-quiz-question.active) {
 
 .host-mcq-result-correct {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 16px;
+  max-width: 100%;
 }
 
 .host-mcq-result-check {
@@ -4454,6 +4464,10 @@ body:has(#screen-host-quiz-question.active) {
 }
 
 .host-mcq-result-correct p {
+  min-width: 0;
+  max-height: 72px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   margin: 0;
   color: #5b2a6e;
   font-family: "Nunito", sans-serif;
@@ -4558,11 +4572,15 @@ body:has(#screen-host-quiz-question.active) {
   text-shadow: 1px 2px 0 rgba(255, 255, 255, 0.75);
 }
 
+/* Sized in em so fitTextToBox() can shrink the whole legend when answers are long. */
 .host-mcq-legend {
   width: 450px;
+  max-height: 196px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 11.5px;
+  font-size: 22px;
 }
 
 .host-mcq-legend-item {
@@ -4580,15 +4598,18 @@ body:has(#screen-host-quiz-question.active) {
   gap: 14px;
   color: #4a2b5c;
   font-family: "Nunito", sans-serif;
-  font-size: 22px;
+  font-size: 1em;
   font-weight: 800;
   line-height: 1.28;
   text-shadow: none;
+  overflow-wrap: anywhere;
 }
 
 .host-mcq-legend-letter {
+  flex: 0 0 auto;
   color: #b11980;
   font-weight: 900;
+  white-space: nowrap;
 }
 
 .host-mcq-legend-item:nth-child(1) .host-mcq-legend-letter { color: #c02888; }
@@ -4620,7 +4641,7 @@ body:has(#screen-host-quiz-question.active) {
   flex: 0 0 auto;
   color: #e8890c;
   font-family: "Nunito", sans-serif;
-  font-size: 20px;
+  font-size: 0.91em;
   font-weight: 800;
   line-height: 1.3;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -4628,7 +4649,7 @@ body:has(#screen-host-quiz-question.active) {
 }
 
 .host-mcq-legend-item strong span {
-  font-size: 16px;
+  font-size: 0.8em;
 }
 
 .host-mcq-correct-board {
@@ -13919,8 +13940,8 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
 
 #app.lango-host .waiting-room-qr {
   display: block;
-  width: 108px;
-  height: 108px;
+  width: 196px;
+  height: 196px;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 4px 12px rgba(234, 88, 12, 0.12);
@@ -13928,14 +13949,14 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
 
 #app.lango-host .waiting-room-qr-label {
   margin: 0;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #9a3412;
   text-align: center;
   line-height: 1.2;
-  max-width: 108px;
+  max-width: 196px;
 }
 
 #app.lango-host .waiting-room-code-label {
@@ -13958,10 +13979,10 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
 }
 
 #app.lango-host .waiting-timer {
-  left: 190px;
-  top: 334px;
-  width: 745px;
-  height: 640px;
+  left: 200px;
+  top: 410px;
+  width: 650px;
+  height: 540px;
   transform: none;
   z-index: 4;
 }
@@ -13970,10 +13991,10 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
   position: absolute;
   left: 0;
   top: 0;
-  width: 560px;
-  height: 560px;
-  padding: 28px;
-  gap: 18px;
+  width: 470px;
+  height: 470px;
+  padding: 24px;
+  gap: 14px;
   border: 0;
   border-radius: 999px;
   background:
@@ -13997,10 +14018,10 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
 }
 
 #app.lango-host .waiting-timer-watch {
-  width: 210px;
-  height: 210px;
-  right: -28px;
-  top: -96px;
+  width: 150px;
+  height: 150px;
+  right: -20px;
+  top: -52px;
   transform: rotate(-7deg);
   transform-origin: 50% 65%;
   filter:
@@ -14315,6 +14336,7 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
   border: 4px solid rgba(148, 163, 184, 0.45);
   border-radius: 50%;
   flex-shrink: 0;
+  overflow: visible;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14344,8 +14366,9 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
 
 #app.lango-host .waiting-student-presence {
   position: absolute;
-  right: 4px;
-  bottom: 6px;
+  z-index: 2;
+  right: calc(var(--waiting-avatar-size, 112px) * 0.036 - 4px);
+  bottom: calc(var(--waiting-avatar-size, 112px) * 0.036 - 4px);
   width: calc(var(--waiting-avatar-size, 112px) * 0.22);
   height: calc(var(--waiting-avatar-size, 112px) * 0.22);
   border: 3px solid #fff;
@@ -16577,4 +16600,52 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
   #app.lango-host .host-leaderboard__next {
     transition: none;
   }
+}
+
+/* Long questions and options: bound each text box, then fitTextToBox() shrinks
+   the text to fit instead of pushing the options behind the footer buttons. */
+#app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-question {
+  max-height: 190px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+#app.lango-host #screen-host-quiz-question:not(.fast-mode).has-image .host-mcq-question {
+  max-height: 90px;
+}
+
+#app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-options .option {
+  max-height: 84px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+#app.lango-host #screen-host-quiz-preview .host-mcq-preview-question {
+  max-height: 250px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+#app.lango-host #screen-host-quiz-preview.has-image .host-mcq-preview-question {
+  max-height: 90px;
+}
+
+textarea.cms-autogrow {
+  display: block;
+  box-sizing: border-box;
+  min-height: 2.4rem;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Questions can hold line breaks (a stem with sentences on separate lines). */
+.host-mcq-question,
+.host-mcq-preview-question,
+.host-mcq-result-question,
+.host-quiz-results-question,
+.player-mcq-question {
+  white-space: pre-line;
 }

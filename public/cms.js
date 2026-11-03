@@ -813,6 +813,8 @@ function resetAiGenProgress() {
     wrap.hidden = true;
     wrap.classList.remove("is-complete");
   }
+  const bgOption = $("#cms-ai-gen-progress-bg");
+  if (bgOption) bgOption.hidden = true;
 }
 
 function startAiGenProgressTicker(from, to, durationMs = 60000) {
@@ -2281,6 +2283,32 @@ function positionGlobalSelectionAddButton(selection) {
   btn.style.left = `${Math.max(8, rect.left + rect.width / 2 - 48)}px`;
   btn.hidden = false;
 }
+
+// Question and option text boxes grow with what is typed, so a long question
+// is all visible instead of cut off at the edge of a one-line field.
+function growCmsTextarea(el) {
+  if (!el || !el.scrollHeight) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
+}
+
+function growCmsTextareas(root = document) {
+  root.querySelectorAll?.("textarea.cms-autogrow").forEach(growCmsTextarea);
+}
+
+document.addEventListener("input", (event) => {
+  if (event.target instanceof HTMLTextAreaElement && event.target.classList.contains("cms-autogrow")) {
+    growCmsTextarea(event.target);
+  }
+});
+
+new MutationObserver((records) => {
+  const added = records.some((record) => [...record.addedNodes].some((node) => node.nodeType === 1));
+  if (added) requestAnimationFrame(() => growCmsTextareas());
+}).observe(document.body, { childList: true, subtree: true });
+
+// Fields inside tabs or cards that were hidden when they were drawn have no height yet.
+document.addEventListener("click", () => requestAnimationFrame(() => growCmsTextareas()), true);
 
 function isGlobalAgentSelectableField(field) {
   if (!(field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement)) return false;
@@ -4702,14 +4730,20 @@ function aiTemplateTypeCounts(templateId) {
   }, {});
 }
 
+// The same per-question and per-exercise timings as the section estimate shown
+// after generating (exercise-utils.js), so a template promises what the section
+// then shows. A count is questions (or prompts) of that type, not exercises.
 function estimateAiTemplateMinutes(counts) {
-  return (
-    (counts.mcquiz || 0) * 5 +
-    (counts.fastmcquiz || 0) * 3 +
-    (counts.buzzin || 0) * 4 +
-    (counts.video || 0) * 8 +
-    4
-  );
+  const questions = (n) => Array.from({ length: n }, () => ({ title: "q", options: [{ text: "a" }, { text: "b" }] }));
+  const exercises = [];
+  for (const key of AI_CUSTOM_TYPE_KEYS) {
+    const n = counts[key] || 0;
+    if (!n) continue;
+    if (key === "buzzin") exercises.push({ type: "buzzin", items: Array.from({ length: n }, () => ({ topic: "t" })) });
+    else if (key === "video") for (let i = 0; i < n; i += 1) exercises.push({ type: "video", items: [{}] });
+    else exercises.push({ type: key, items: questions(n) });
+  }
+  return Math.max(1, Math.round(estimateSectionDurationSeconds(exercises) / 60));
 }
 
 function aiTemplateChipLabels(counts) {
@@ -4738,12 +4772,12 @@ function syncAiTemplateCards() {
       chips.removeAttribute("aria-hidden");
     }
     if (meta) {
-      const total = Object.values(counts).reduce((sum, count) => sum + (count || 0), 0);
-      const minutes = estimateAiTemplateMinutes(counts);
-      meta.textContent = `${cmsT("cms.ai.templateExerciseCount", { n: total })} · ${cmsT(
-        "cms.ai.templateEstTime",
-        { n: minutes }
-      )}`;
+      const questions = (counts.mcquiz || 0) + (counts.fastmcquiz || 0) + (counts.buzzin || 0);
+      const parts = [];
+      if (questions) parts.push(cmsT("cms.ai.templateQuestionCount", { n: questions }));
+      if (counts.video) parts.push(cmsT("cms.ai.templateVideoCount", { n: counts.video }));
+      parts.push(cmsT("cms.ai.templateEstTime", { n: estimateAiTemplateMinutes(counts) }));
+      meta.textContent = parts.join(" · ");
       meta.removeAttribute("aria-hidden");
     }
   });
@@ -6791,7 +6825,7 @@ function renderAiQuestionBlock(type, item, questionNumber, flatIndex, included =
       (opt, optIndex) => `
         <div class="cms-ai-option-row">
           <input type="radio" name="cms-ai-correct-${flatIndex}" ${opt.isCorrect ? "checked" : ""} aria-label="Correct option" />
-          <input type="text" class="cms-ai-opt-text" value="${escapeHtml(opt.text || "")}" placeholder="Option ${optIndex + 1}" />
+          <textarea class="cms-ai-opt-text cms-autogrow" rows="1" placeholder="Option ${optIndex + 1}">${escapeHtml(opt.text || "")}</textarea>
         </div>`
     )
     .join("");
@@ -6799,7 +6833,7 @@ function renderAiQuestionBlock(type, item, questionNumber, flatIndex, included =
   return `
     <div class="cms-ai-item-block cms-ai-quiz-block" data-item-type="${escapeHtml(blockType)}" data-flat-index="${flatIndex}" data-question-number="${questionNumber}">
       ${head}
-      <input type="text" class="cms-ai-item-input cms-ai-item-question" data-field="title" value="${escapeHtml(item.title || "")}" placeholder="Question text" />
+      <textarea class="cms-ai-item-input cms-ai-item-question cms-autogrow" data-field="title" rows="1" placeholder="Question text">${escapeHtml(item.title || "")}</textarea>
       ${renderAiQuestionImageField(item)}
       <label class="cms-ai-field field cms-ai-time-field">
         <span>Time (sec)</span>
@@ -7150,7 +7184,285 @@ async function extractAiMaterial(options = {}) {
   }
 }
 
-async function createAiVideoExercise(script, { onUpdate, onLog } = {}) {
+// ---- Generation that keeps running while the teacher works elsewhere ----
+// A job is one section's generation. It reports into the wizard's progress card
+// until "Keep working while this runs" detaches it; after that it reports into
+// the tray at the bottom right and keeps its result for Review.
+function reportAiJob(job, pct, label, options = {}) {
+  job.pct = pct;
+  if (label !== undefined) job.label = label;
+  if (options.detail !== undefined) job.detail = options.detail;
+  if (job.detached) renderAiJobTray();
+  else setAiGenProgress(pct, label, options);
+}
+
+function startAiJobTicker(job, from, to, durationMs) {
+  job.ticker = { from, to, durationMs, startedAt: Date.now() };
+  if (job.detached) return;
+  startAiGenEtaCountdown(durationMs);
+  startAiGenProgressTicker(from, to, durationMs);
+}
+
+function stopAiJobTicker(job) {
+  job.ticker = null;
+  if (job.detached) return;
+  stopAiGenProgressTicker();
+  stopAiGenEtaTicker();
+}
+
+function createAiJob(details) {
+  if (!state.aiJobs) state.aiJobs = [];
+  const section = state.sections[state.editingSectionIndex];
+  const job = {
+    id: `ai-job-${Date.now()}-${Math.floor(Math.random() * 1e4)}`,
+    courseId: state.editingCourse?.id ?? null,
+    courseName: state.editingCourse?.name || "",
+    sectionIndex: state.editingSectionIndex,
+    sectionId: section?.id ?? null,
+    sectionTitle: section?.title?.trim() || "",
+    detached: false,
+    status: "running",
+    pct: 0,
+    label: "",
+    detail: "",
+    ticker: null,
+    startedAt: Date.now(),
+    result: null,
+    error: "",
+    ...details,
+  };
+  state.aiJobs.push(job);
+  state.aiActiveJob = job;
+  const bgOption = $("#cms-ai-gen-progress-bg");
+  if (bgOption) bgOption.hidden = false;
+  return job;
+}
+
+function finishAiJob(job, patch) {
+  Object.assign(job, patch, { ticker: null, finishedAt: Date.now() });
+  if (state.aiActiveJob === job) state.aiActiveJob = null;
+  const bgOption = $("#cms-ai-gen-progress-bg");
+  if (bgOption && !job.detached) bgOption.hidden = true;
+  renderAiJobTray();
+}
+
+function runAiGenerationInBackground() {
+  const job = state.aiActiveJob;
+  if (!job || job.detached || job.status !== "running") return;
+  job.detached = true;
+  state.aiActiveJob = null;
+  stopAiGenProgressTicker();
+  stopAiGenEtaTicker();
+  setAiWizardBusy(false);
+  resetAiGeneratePanel({ openChooser: true });
+  renderAiJobTray();
+  showCmsToast("Generating in the background. Follow it at the bottom right.", { variant: "info" });
+}
+
+function aiJobDisplayPct(job) {
+  if (job.status !== "running") return job.status === "done" ? 100 : job.pct || 0;
+  if (!job.ticker) return job.pct || 0;
+  const t = Math.min(1, (Date.now() - job.ticker.startedAt) / job.ticker.durationMs);
+  return Math.max(job.pct || 0, job.ticker.from + (job.ticker.to - job.ticker.from) * t);
+}
+
+let aiJobTrayTimer = null;
+
+function renderAiJobTray() {
+  const jobs = (state.aiJobs || []).filter((job) => job.detached);
+  let tray = $("#cms-ai-job-tray");
+  if (!jobs.length) {
+    tray?.remove();
+    clearInterval(aiJobTrayTimer);
+    aiJobTrayTimer = null;
+    return;
+  }
+  if (!tray) {
+    tray = document.createElement("div");
+    tray.id = "cms-ai-job-tray";
+    tray.className = "cms-ai-job-tray";
+    tray.setAttribute("aria-live", "polite");
+    document.body.appendChild(tray);
+    tray.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-job-action]");
+      if (!button) return;
+      const job = (state.aiJobs || []).find((entry) => entry.id === button.dataset.jobId);
+      if (!job) return;
+      if (button.dataset.jobAction === "dismiss") {
+        state.aiJobs = state.aiJobs.filter((entry) => entry !== job);
+        renderAiJobTray();
+      } else if (button.dataset.jobAction === "review") {
+        void openAiJobResult(job);
+      }
+    });
+  }
+  tray.innerHTML = jobs
+    .map((job) => {
+      const where = [job.courseName, job.sectionTitle].filter(Boolean).join(" · ") || "New section";
+      const pct = Math.round(aiJobDisplayPct(job));
+      const running = job.status === "running";
+      const headline = running
+        ? job.label || "Generating…"
+        : job.status === "done"
+          ? `Ready · ${job.result?.exercises?.length || 0} exercise(s)`
+          : "Generation failed";
+      const note = running
+        ? `Elapsed ${formatElapsed(Date.now() - job.startedAt)}`
+        : job.status === "error"
+          ? job.error
+          : "";
+      const actions = running
+        ? ""
+        : `<div class="cms-ai-job-actions">${
+            job.status === "done"
+              ? `<button type="button" class="btn primary small" data-job-action="review" data-job-id="${escapeHtml(job.id)}">Review</button>`
+              : ""
+          }<button type="button" class="btn ghost small" data-job-action="dismiss" data-job-id="${escapeHtml(job.id)}">Dismiss</button></div>`;
+      return `<section class="cms-ai-job is-${job.status}">
+        <p class="cms-ai-job-where">${escapeHtml(where)}</p>
+        <p class="cms-ai-job-label">${escapeHtml(headline)}</p>
+        <div class="cms-ai-job-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="cms-ai-job-bar" style="width:${pct}%"></div></div>
+        ${note ? `<p class="cms-ai-job-note">${escapeHtml(note)}</p>` : ""}
+        ${actions}
+      </section>`;
+    })
+    .join("");
+  if (!aiJobTrayTimer) aiJobTrayTimer = setInterval(renderAiJobTray, 1000);
+  if (!jobs.some((job) => job.status === "running")) {
+    clearInterval(aiJobTrayTimer);
+    aiJobTrayTimer = null;
+  }
+}
+
+// Takes the teacher back to the section the job was started from, at the review step.
+async function openAiJobResult(job) {
+  if (!job.result) return;
+  if (
+    state.aiWizardActive &&
+    (state.aiDraftExercises?.length || state.aiMaterialText) &&
+    !confirm("Close the generation you have open and review this one instead?")
+  ) {
+    return;
+  }
+  const onEditScreen = Boolean(document.querySelector("#screen-cms-edit.active"));
+  if (!(onEditScreen && state.editingCourse?.id === job.courseId)) {
+    await openCourseEditor(job.courseId);
+    if (state.editingCourse?.id !== job.courseId) return;
+  }
+  switchTab("sections");
+  let index = job.sectionId != null ? state.sections.findIndex((section) => section.id === job.sectionId) : -1;
+  if (index < 0 && job.sectionId == null && state.sections[job.sectionIndex]?.title?.trim() === job.sectionTitle) {
+    index = job.sectionIndex;
+  }
+  if (index < 0) {
+    index = ensureBlankSectionIndex();
+    renderSectionEditors();
+  }
+  openSectionExercises(index, { ai: true, skipMetaSync: true });
+
+  state.aiMaterialText = job.material;
+  state.aiMaterialAssets = job.imageAssets || [];
+  state.aiDraftExercises = job.result.exercises;
+  if (AI_TEMPLATES[job.settings.template]) applyAiTemplate(job.settings.template);
+  resetAiReviewAgent();
+  renderAiPreview(state.aiDraftExercises);
+  renderMaterialAssetLibrary();
+  showAiGenSummary(job.result.summary);
+  setAiWizardStep(3);
+  state.aiJobs = (state.aiJobs || []).filter((entry) => entry !== job);
+  renderAiJobTray();
+  if (state.cmsTtsAvailable && job.result.exercises.length) {
+    state.aiQuestionTts = {};
+    void prefetchExerciseQuestionTts(state.aiDraftExercises, job.settings.speakLangCode, {
+      statusEl: $("#cms-ai-generate-status"),
+      useDraftKeys: true,
+      silent: true,
+    });
+  }
+}
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("#btn-cms-ai-run-background")) runAiGenerationInBackground();
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if ((state.aiJobs || []).some((job) => job.status === "running")) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
+// Where a video job is, in words and as a share of the bar. Phases with no
+// count of their own creep forward while they last, so the bar keeps moving.
+function aiVideoPhase(job) {
+  const status = String(job?.status || "").toLowerCase();
+  const done = Number(job?.segmentsDone) || 0;
+  const total = Number(job?.segmentCount) || 0;
+  const part = total > 0 ? Math.min(1, done / total) : null;
+  switch (status) {
+    case "queued":
+      return { at: 0.02, room: 0.02, creepSec: 60, label: "Waiting for a free video renderer…", detail: "Other videos are being made. Yours starts by itself." };
+    case "planning":
+      return { at: 0.05, room: 0.1, creepSec: 40, label: "Writing the lesson plan…", detail: "Uncle Tommy is planning the scenes." };
+    case "voicing":
+      return part == null
+        ? { at: 0.15, room: 0.05, creepSec: 20, label: "Recording the voice…", detail: "Uncle Tommy is reading the script aloud." }
+        : { at: 0.15 + 0.3 * part, room: 0, creepSec: 1, label: `Recording the voice (${done} of ${total})…`, detail: "Uncle Tommy is reading the script aloud." };
+    case "rendering":
+      return part == null
+        ? { at: 0.45, room: 0.1, creepSec: 60, label: "Rendering the video…", detail: "This is the slowest step." }
+        : { at: 0.45 + 0.5 * part, room: 0, creepSec: 1, label: `Rendering the video (${Math.round(part * 100)}%)…`, detail: "This is the slowest step." };
+    case "saving":
+      return { at: 0.96, room: 0.03, creepSec: 10, label: "Saving the video…", detail: "Almost there." };
+    case "completed":
+      return { at: 1, room: 0, creepSec: 1, label: "Video ready", detail: "" };
+    default:
+      return { at: 0.03, room: 0.02, creepSec: 20, label: "Starting the video…", detail: "" };
+  }
+}
+
+function formatElapsed(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+// Drives the generation bar from `start` to `end` percent while one video is
+// made, with the phase in words and the time so far so it never looks stuck.
+function startAiVideoProgress({ aiJob, start, end, prefix = "" }) {
+  const startedAt = Date.now();
+  let job = null;
+  let status = "";
+  let phaseSince = startedAt;
+  let shown = start;
+  const render = () => {
+    const phase = aiVideoPhase(job);
+    const creep = phase.room * (1 - Math.exp(-(Date.now() - phaseSince) / (phase.creepSec * 1000)));
+    const pct = Math.max(shown, start + (end - start) * Math.min(1, phase.at + creep));
+    shown = pct;
+    reportAiJob(aiJob, pct, `${prefix}${phase.label}`, {
+      detail: phase.detail ? `${phase.detail} Keep this page open until it finishes.` : "",
+      eta: `Elapsed ${formatElapsed(Date.now() - startedAt)} · videos usually take a few minutes`,
+    });
+  };
+  const timer = setInterval(render, 1000);
+  render();
+  return {
+    update(next) {
+      job = next;
+      const nextStatus = String(next?.status || "").toLowerCase();
+      if (nextStatus !== status) {
+        status = nextStatus;
+        phaseSince = Date.now();
+      }
+      render();
+    },
+    stop() {
+      clearInterval(timer);
+    },
+  };
+}
+
+async function createAiVideoExercise(script, { onUpdate, onLog, sectionTitle = "Lesson", quiet = () => false } = {}) {
   const trimmed = String(script || "").trim();
   if (!trimmed) {
     throw new Error("Prepare or paste a script first.");
@@ -7158,7 +7470,7 @@ async function createAiVideoExercise(script, { onUpdate, onLog } = {}) {
 
   const renderLog = (logs) => {
     const videoLog = $("#cms-ai-video-log");
-    if (!videoLog) return;
+    if (!videoLog || quiet()) return;
     const lines = Array.isArray(logs) ? logs.filter(Boolean) : [];
     if (!lines.length) {
       videoLog.hidden = true;
@@ -7188,8 +7500,6 @@ async function createAiVideoExercise(script, { onUpdate, onLog } = {}) {
     throw new Error("Video job completed, but no video URL was returned.");
   }
 
-  const section = state.sections[state.editingSectionIndex];
-  const sectionTitle = section?.title?.trim() || "Lesson";
   return {
     type: "video",
     title: `${sectionTitle} video`,
@@ -7210,6 +7520,7 @@ async function generateAiExercises(options = {}) {
   const wantsVideo = aiWantsVideo();
   const settings = getAiGenerationSettings();
   const manageBusy = options.manageBusy !== false;
+  let job = null;
 
   errorEl.textContent = "";
   if (manageBusy) setAiWizardBusy(true);
@@ -7261,16 +7572,27 @@ async function generateAiExercises(options = {}) {
           ? "Applying your prompt, then generating exercises…"
           : "Generating exercises…";
     const genDurationMs = estimateExerciseGenerationMs(material, llmTypes);
-    setAiGenProgress(45, generatingLabel, {
+    // Everything the run needs is read now: once it is detached the wizard is reset.
+    job = createAiJob({
+      material,
+      settings,
+      imageAssets: [...(state.aiMaterialAssets || [])],
+    });
+    const instructions = getAiInstructions();
+    const videoCount = getAiTypeCounts().video || 1;
+    const sectionTitle = job.sectionTitle || "Lesson";
+    const foreground = () => !job.detached;
+    reportAiJob(job, 45, generatingLabel, {
       detail: describeExerciseGenerationDetail(material, llmTypes),
     });
-    startAiGenEtaCountdown(genDurationMs);
-    startAiGenProgressTicker(45, 88, genDurationMs);
+    // With a video the exercises only get the first part of the bar: the video takes minutes.
+    const hasLlmTypes = Object.keys(llmTypes).length > 0;
+    const exerciseEnd = wantsVideo ? 62 : 88;
+    if (hasLlmTypes) startAiJobTicker(job, 45, exerciseEnd, genDurationMs);
 
     let exercises = [];
 
-    if (Object.keys(llmTypes).length) {
-      const instructions = getAiInstructions();
+    if (hasLlmTypes) {
       const data = await api("/api/cms/generate-exercises", {
         method: "POST",
         body: {
@@ -7279,20 +7601,19 @@ async function generateAiExercises(options = {}) {
           difficulty: settings.difficulty,
           types: llmTypes,
           instructions: instructions || undefined,
-          imageAssets: state.aiMaterialAssets?.length ? state.aiMaterialAssets : undefined,
+          imageAssets: job.imageAssets.length ? job.imageAssets : undefined,
         },
       });
       exercises = data.exercises || [];
-      exercises = autoApplyMaterialImagesToExercises(exercises, state.aiMaterialAssets);
+      exercises = autoApplyMaterialImagesToExercises(exercises, job.imageAssets);
       const stats = data.stats || {};
       const autoImageStats = data.autoImageStats || {};
-      stopAiGenProgressTicker();
-      stopAiGenEtaTicker();
-      setAiGenProgress(90, "Finishing…", {
+      stopAiJobTicker(job);
+      reportAiJob(job, wantsVideo ? 64 : 90, "Finishing…", {
         detail: `Generated ${stats.generated || exercises.length} item(s). Attaching images and preparing preview.`,
         eta: "",
       });
-      if (!options.silentStatus) {
+      if (!options.silentStatus && foreground()) {
         if (autoImageStats.generated > 0) {
           statusEl.textContent = `Generated exercises with ${autoImageStats.generated} auto image${
             autoImageStats.generated === 1 ? "" : "s"
@@ -7304,33 +7625,26 @@ async function generateAiExercises(options = {}) {
     }
 
     if (wantsVideo) {
-      const videoCount = getAiTypeCounts().video || 1;
-      const section = state.sections[state.editingSectionIndex];
-      const sectionTitle = section?.title?.trim() || "Lesson";
+      const videoFrom = hasLlmTypes ? 64 : 45;
+      const videoTo = 95;
       for (let i = 0; i < videoCount; i++) {
-        const videoLabel =
-          videoCount > 1
-            ? `Generating video ${i + 1} of ${videoCount}…`
-            : "Generating video…";
-        setAiGenProgress(90 + Math.round(((i + 1) / videoCount) * 8), videoLabel);
-        if (!options.silentStatus) {
-          statusEl.textContent =
-            videoCount > 1
-              ? `Generating video ${i + 1} of ${videoCount}… this can take a few minutes.`
-              : "Generating video… this can take a few minutes.";
-        }
-        const videoExercise = await createAiVideoExercise(material, {
-          onUpdate: (data) => {
-            if (data.status) {
-              const prefix = videoCount > 1 ? `Video ${i + 1}/${videoCount}: ` : "Video: ";
-              statusEl.textContent = `${prefix}${data.status}${
-                data.segmentsDone && data.segmentCount
-                  ? ` (${data.segmentsDone}/${data.segmentCount})`
-                  : ""
-              }`;
-            }
-          },
+        const slice = (videoTo - videoFrom) / videoCount;
+        const videoProgress = startAiVideoProgress({
+          aiJob: job,
+          start: videoFrom + slice * i,
+          end: videoFrom + slice * (i + 1),
+          prefix: videoCount > 1 ? `Video ${i + 1} of ${videoCount}: ` : "",
         });
+        let videoExercise;
+        try {
+          videoExercise = await createAiVideoExercise(material, {
+            sectionTitle,
+            quiet: () => job.detached,
+            onUpdate: (data) => videoProgress.update(data),
+          });
+        } finally {
+          videoProgress.stop();
+        }
         if (videoCount > 1) videoExercise.title = `${sectionTitle} video ${i + 1}`;
         if (settings.speakLangCode) videoExercise.speakLangCode = settings.speakLangCode;
         exercises.push(videoExercise);
@@ -7342,6 +7656,23 @@ async function generateAiExercises(options = {}) {
     }
     exercises = sortExercisesByAiTypeOrder(exercises);
 
+    if (job.detached) {
+      // The wizard has moved on: keep the result for Review instead of drawing it.
+      finishAiJob(job, {
+        status: "done",
+        result: { exercises, summary: buildAiGenSummaryFromExercises(exercises) },
+      });
+      showCmsToast(
+        exercises.length
+          ? `Generation finished for ${job.sectionTitle || "your section"}. Open Review at the bottom right.`
+          : "Generation finished but nothing was generated.",
+        { variant: exercises.length ? "success" : "info", durationMs: 8000 }
+      );
+      return false;
+    }
+
+    finishAiJob(job, { status: "done", result: null });
+    state.aiJobs = (state.aiJobs || []).filter((entry) => entry !== job);
     state.aiDraftExercises = exercises;
     resetAiReviewAgent();
     renderAiPreview(state.aiDraftExercises);
@@ -7349,7 +7680,7 @@ async function generateAiExercises(options = {}) {
     stopAiGenProgressTicker();
     stopAiGenEtaTicker();
     if (state.cmsTtsAvailable && exercises.length) {
-      setAiGenProgress(92, "Generating speech previews…", {
+      setAiGenProgress(wantsVideo ? 96 : 92, "Generating speech previews…", {
         detail: "Creating voice audio for each question.",
       });
       state.aiQuestionTts = {};
@@ -7373,6 +7704,15 @@ async function generateAiExercises(options = {}) {
     showAiGenSummary(buildAiGenSummaryFromExercises(exercises));
     return exercises.length > 0;
   } catch (err) {
+    if (job?.detached) {
+      finishAiJob(job, { status: "error", error: err.message });
+      showCmsToast(`Generation failed: ${err.message}`, { variant: "error", durationMs: 8000 });
+      return false;
+    }
+    if (job) {
+      finishAiJob(job, { status: "error", error: err.message });
+      state.aiJobs = (state.aiJobs || []).filter((entry) => entry !== job);
+    }
     stopAiGenProgressTicker();
     stopAiGenEtaTicker();
     resetAiGenProgress();
@@ -7381,7 +7721,7 @@ async function generateAiExercises(options = {}) {
     setCmsError(errorEl, err.message);
     return false;
   } finally {
-    if (manageBusy) setAiWizardBusy(false);
+    if (manageBusy && !job?.detached) setAiWizardBusy(false);
   }
 }
 
@@ -8926,7 +9266,7 @@ function renderMcQuizBody(container, exercise) {
             <span>Q${qIdx + 1}</span>
             <button type="button" class="cms-icon-btn cms-remove-question" data-q="${qIdx}">×</button>
           </div>
-          <input type="text" class="cms-q-text" data-q="${qIdx}" value="${escapeHtml(item.title || "")}" placeholder="Question text" />
+          <textarea class="cms-q-text cms-autogrow" data-q="${qIdx}" rows="1" placeholder="Question text">${escapeHtml(item.title || "")}</textarea>
           ${renderQuestionImageFieldMarkup(item.image)}
           <div class="cms-options-list" data-q="${qIdx}">
             <div class="cms-options-head">
@@ -8938,7 +9278,7 @@ function renderMcQuizBody(container, exercise) {
               .map(
                 (opt, oIdx) => `<label class="cms-option-row">
                   <input type="radio" name="${radioGroupPrefix}-${qIdx}" data-q="${qIdx}" data-o="${oIdx}" ${opt.isCorrect ? "checked" : ""} aria-label="Mark option ${oIdx + 1} as correct" />
-                  <input type="text" class="cms-opt-text" data-q="${qIdx}" data-o="${oIdx}" value="${escapeHtml(opt.text || "")}" placeholder="Option ${oIdx + 1}" />
+                  <textarea class="cms-opt-text cms-autogrow" data-q="${qIdx}" data-o="${oIdx}" rows="1" placeholder="Option ${oIdx + 1}">${escapeHtml(opt.text || "")}</textarea>
                   ${(item.options || []).length > 2 ? `<button type="button" class="cms-icon-btn cms-remove-option" data-q="${qIdx}" data-o="${oIdx}" aria-label="Remove option">×</button>` : ""}
                 </label>`
               )
@@ -9150,8 +9490,19 @@ async function pollVideoGenerationJob(jobId, { onUpdate } = {}) {
   const timeoutMs = 60 * 60 * 1000;
   const pollMs = 5000;
 
+  // A dropped request or two must not abandon a video that is still being made.
+  let failedPolls = 0;
   while (Date.now() - started < timeoutMs) {
-    const data = await api(`/api/video/${encodeURIComponent(jobId)}`);
+    let data;
+    try {
+      data = await api(`/api/video/${encodeURIComponent(jobId)}`);
+      failedPolls = 0;
+    } catch (error) {
+      failedPolls += 1;
+      if (failedPolls >= 6) throw error;
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+      continue;
+    }
     if (typeof onUpdate === "function") onUpdate(data);
 
     const status = String(data.status || "").toLowerCase();
@@ -10299,14 +10650,16 @@ function reorderSectionsFromDom(container) {
 
 function setupExerciseDrag(card, container) {
   card.draggable = false;
-  const handle = card.querySelector(".cms-drag-handle");
-  handle?.addEventListener("pointerdown", () => {
-    card.draggable = true;
-    const stop = () => {
-      if (!card.classList.contains("dragging")) card.draggable = false;
-      window.removeEventListener("pointerup", stop);
-    };
-    window.addEventListener("pointerup", stop);
+  // The grip icon is hidden in the exercise list; the "Drag" label is what shows.
+  card.querySelectorAll(".cms-drag-handle, .cms-ex-drag-label").forEach((handle) => {
+    handle.addEventListener("pointerdown", () => {
+      card.draggable = true;
+      const stop = () => {
+        if (!card.classList.contains("dragging")) card.draggable = false;
+        window.removeEventListener("pointerup", stop);
+      };
+      window.addEventListener("pointerup", stop);
+    });
   });
 
   card.addEventListener("dragstart", (e) => {

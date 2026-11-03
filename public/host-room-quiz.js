@@ -1012,6 +1012,7 @@ function renderHostQuizPreview(data, { transition = true } = {}) {
   $("#host-quiz-preview-title").textContent = uiT("mcq.questionN", { n: data.questionIndex + 1 });
   $("#host-quiz-preview-points").textContent = uiT("mcq.pts", { n: points });
   $("#host-quiz-preview-question-text").textContent = data.text || "";
+  fitTextToBoxSoon($("#host-quiz-preview-question-text"));
   setQuestionImage(
     $("#host-quiz-preview-image"),
     $("#host-quiz-preview-image-wrap"),
@@ -1107,6 +1108,7 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
     optionLabels: hostMcqOptionLabels(),
     kahootGrid: isHkElderlyVariant(),
   });
+  fitTextToBoxSoon($("#host-quiz-question-text"), ...document.querySelectorAll("#host-quiz-options .option"));
   $("#host-quiz-answered-count").textContent = preparing
     ? uiT("mcq.startingShortly")
     : isFastMode
@@ -1161,6 +1163,16 @@ function renderHostResultDistribution(question, answerCounts, correctIndex) {
       </div>`;
     })
     .join("");
+}
+
+// Long questions and answers shrink to fit their cards instead of running into
+// the card below or behind the footer buttons.
+function fitHostResultText() {
+  fitTextToBoxSoon(
+    $("#host-quiz-results-question-text"),
+    $("#host-quiz-results-correct-answer"),
+    $("#host-quiz-results-legend")
+  );
 }
 
 function initialsForName(name) {
@@ -1365,6 +1377,7 @@ function setupHostRoomQuizSocket(socket) {
     }
     $("#host-quiz-results-bars").innerHTML = "";
     renderHostResultDistribution(q, answerCounts, correctIndex);
+    fitHostResultText();
     renderCorrectResponders(results);
     renderLeaderboard($("#host-quiz-leaderboard"), leaderboard);
     const isLast = q && q.questionIndex + 1 >= q.totalQuestions;

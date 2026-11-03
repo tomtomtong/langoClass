@@ -778,6 +778,27 @@ function groupClassesByLevel(classes) {
     }));
 }
 
+/**
+ * Shrinks the text until it fits the box the CSS gives the element (a fixed or
+ * flex-limited height with overflow hidden). Starts from the CSS font size and
+ * does nothing while the element is hidden.
+ */
+function fitTextToBox(el, { min = 13, step = 1 } = {}) {
+  if (!el) return;
+  el.style.fontSize = "";
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  if (!size) return;
+  const overflows = () => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+  while (size > min && overflows()) {
+    size -= step;
+    el.style.fontSize = `${size}px`;
+  }
+}
+
+function fitTextToBoxSoon(...els) {
+  requestAnimationFrame(() => requestAnimationFrame(() => els.forEach((el) => fitTextToBox(el))));
+}
+
 function renderOptions(
   container,
   options,

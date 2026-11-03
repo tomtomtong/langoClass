@@ -3245,7 +3245,7 @@ function syncHostOnlineCountVisibility(screenId = getActiveHostScreenId()) {
   }
 }
 
-function updateWaitingStudentCount(connected, totalOverride, { onlineTotal } = {}) {
+function updateWaitingStudentCount(connected, totalOverride, { onlineTotal, guestTotal } = {}) {
   const currentEl = $("#waiting-connected-count");
   const totalEl = $("#waiting-total-target");
   const dockCurrentEl = $("#host-online-connected");
@@ -3269,7 +3269,8 @@ function updateWaitingStudentCount(connected, totalOverride, { onlineTotal } = {
   const guestCount = Math.max(0, online - rosterJoined);
 
   const connectedText = String(online);
-  const totalText = String(rosterTotal);
+  // Guests (e.g. joined by QR code) aren't on the roster but still count toward the total.
+  const totalText = String(rosterTotal + Math.max(guestCount, Number(guestTotal) || 0));
 
   if (currentEl) currentEl.textContent = connectedText;
   if (totalEl) totalEl.textContent = totalText;
@@ -3391,9 +3392,13 @@ function renderParticipants(participants, { announceJoins = false } = {}) {
 
   if (roster.length) {
     const { rosterRows, guests } = partitionParticipantsByRoster(participants, roster);
-    const rosterJoined = rosterRows.filter((row) => row.participant).length;
+    const isOnline = (participant) => participant?.online !== false;
+    const rosterJoined = rosterRows.filter((row) => isOnline(row.participant) && row.participant).length;
     displaySlots = roster.length + guests.length;
-    updateWaitingStudentCount(rosterJoined, roster.length, { onlineTotal: participants.length });
+    updateWaitingStudentCount(rosterJoined, roster.length, {
+      onlineTotal: participants.filter(isOnline).length,
+      guestTotal: guests.length,
+    });
 
     const rosterMarkup = rosterRows
       .map(({ student, participant }) => {
@@ -3430,12 +3435,12 @@ function renderParticipants(participants, { announceJoins = false } = {}) {
 
     list.innerHTML = rosterMarkup + guestMarkup;
   } else {
-    const connected = participants.length;
-    const total = Math.max(state.waitingTotalTarget || 0, connected, 1);
+    const connected = participants.filter((p) => p?.online !== false).length;
+    const total = Math.max(state.waitingTotalTarget || 0, participants.length, 1);
     const pendingCount = Math.max(0, total - connected);
     displaySlots = total;
 
-    updateWaitingStudentCount(connected);
+    updateWaitingStudentCount(connected, Math.max(state.waitingTotalTarget || 0, participants.length));
 
     const connectedMarkup = participants
       .map((p) => {
