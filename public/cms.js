@@ -2202,6 +2202,35 @@ function buildGlobalAgentRequest(rawRequest) {
   return `Regarding this selected text:\n"${quoted}"\n\n${message}`;
 }
 
+// The teacher's message joins the chat as soon as it is sent; the reply, or
+// the error marked failed, follows when the request finishes.
+function pushGlobalAgentTurn(role, content, extra = {}) {
+  state.globalAgentHistory = [...(state.globalAgentHistory || []), { role, content, ...extra }].slice(-8);
+  renderGlobalAgent();
+}
+
+function sendGlobalAgentTurn(content) {
+  const input = $("#cms-global-agent-input");
+  if (input) input.value = "";
+  pushGlobalAgentTurn("user", content);
+}
+
+function globalAgentHistoryForApi() {
+  return (state.globalAgentHistory || [])
+    .filter((turn) => !turn.failed)
+    .map(({ role, content }) => ({ role, content }))
+    .slice(-8);
+}
+
+// Undo drops the turns of the revision it reverts, even after a failed send.
+function dropLastRevisionTurns() {
+  const history = state.globalAgentHistory || [];
+  const index = history.findLastIndex((turn) => turn.undoable);
+  if (index < 0) return;
+  const start = index > 0 && history[index - 1].role === "user" ? index - 1 : index;
+  state.globalAgentHistory = [...history.slice(0, start), ...history.slice(index + 1)];
+}
+
 function setGlobalAgentSelection(text, questionNumber) {
   const next = String(text || "").trim();
   if (!next) return;
@@ -2486,6 +2515,10 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
   const settings = getAiGenerationSettings();
   const snapshot = cloneAiDraft(draftExercises);
   if (errorEl) setCmsError(errorEl, "");
+  const history = globalAgentHistoryForApi();
+  sendGlobalAgentTurn(
+    String(rawRequest || "").trim() || (state.globalAgentSelection ? "Revise selected text" : revision)
+  );
   state.globalAgentBusy = true;
   syncGlobalAgentBusy();
   try {
@@ -2498,7 +2531,7 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
         instructions: getAiInstructions() || undefined,
         revision,
         exercises: draftExercises,
-        history: (state.globalAgentHistory || []).slice(-8),
+        history,
         imageAssets: state.aiMaterialAssets?.length ? state.aiMaterialAssets : undefined,
         questionNumber: state.globalAgentSelectionQuestion || undefined,
       },
@@ -2514,22 +2547,11 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
       invalidateAiReviewQuestionTtsByNumber(data.stats.questionNumber);
     }
     onApplied(next, data, convertIntent);
-    state.globalAgentHistory = [
-      ...(state.globalAgentHistory || []),
-      {
-        role: "user",
-        content:
-          String(rawRequest || "").trim() ||
-          (state.globalAgentSelection ? "Revise selected text" : revision),
-      },
-      { role: "assistant", content: data.summary || "Updated the exercises." },
-    ].slice(-8);
-    const input = $("#cms-global-agent-input");
-    if (input) input.value = "";
+    pushGlobalAgentTurn("assistant", data.summary || "Updated the exercises.", { undoable: true });
     clearGlobalAgentSelection();
-    renderGlobalAgent();
     return true;
   } catch (err) {
+    pushGlobalAgentTurn("assistant", String(err?.message || "Revision failed."), { failed: true });
     if (errorEl) setCmsError(errorEl, err.message);
     if (statusEl && getGlobalAgentMode() === "ai-review") statusEl.textContent = "";
     return false;
@@ -2621,6 +2643,8 @@ async function applyGlobalAgentMessage(rawRequest) {
     return false;
   }
 
+  const history = globalAgentHistoryForApi();
+  sendGlobalAgentTurn(message);
   state.globalAgentBusy = true;
   syncGlobalAgentBusy();
   try {
@@ -2628,28 +2652,16 @@ async function applyGlobalAgentMessage(rawRequest) {
       method: "POST",
       body: {
         message,
-        history: (state.globalAgentHistory || []).slice(-8),
+        history,
         context: getGlobalAgentContext(),
       },
     });
-    state.globalAgentHistory = [
-      ...(state.globalAgentHistory || []),
-      { role: "user", content: message },
-      { role: "assistant", content: data.reply || "Done." },
-    ].slice(-8);
-    const input = $("#cms-global-agent-input");
-    if (input) input.value = "";
+    pushGlobalAgentTurn("assistant", data.reply || "Done.");
     clearGlobalAgentSelection();
-    renderGlobalAgent();
     return true;
   } catch (err) {
     const errText = String(err?.message || "Assistant request failed.");
-    state.globalAgentHistory = [
-      ...(state.globalAgentHistory || []),
-      { role: "user", content: message },
-      { role: "assistant", content: errText },
-    ].slice(-8);
-    renderGlobalAgent();
+    pushGlobalAgentTurn("assistant", errText, { failed: true });
     const errEl =
       getActiveCmsScreenId() === "dashboard"
         ? $("#cms-dashboard-error")
@@ -2676,9 +2688,7 @@ function undoGlobalAgentRevision() {
   if (!snapshot) return;
   if (mode === "ai-review") {
     state.aiDraftExercises = snapshot;
-    if ((state.globalAgentHistory || []).length >= 2) {
-      state.globalAgentHistory = state.globalAgentHistory.slice(0, -2);
-    }
+    dropLastRevisionTurns();
     renderAiPreview(state.aiDraftExercises);
     showAiGenSummary(buildAiGenSummaryFromExercises(snapshot));
     renderGlobalAgent();
@@ -2703,9 +2713,7 @@ function undoGlobalAgentRevision() {
     const typeSelect = card.querySelector(".cms-exercise-type-select");
     if (typeSelect && snapshot.type) typeSelect.value = snapshot.type;
     renderExerciseBody(card, snapshot);
-    if ((state.globalAgentHistory || []).length >= 2) {
-      state.globalAgentHistory = state.globalAgentHistory.slice(0, -2);
-    }
+    dropLastRevisionTurns();
     renderGlobalAgent();
     updateExercisesViewDurationEstimate();
     markCmsDirty();
