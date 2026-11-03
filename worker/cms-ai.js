@@ -133,11 +133,17 @@ async function reviseExercises({ env, auth, body }) {
       },
       modelCall(env)
     );
+    // A reply to a question leaves the draft exactly as it was.
+    if (result.revisionMode === "reply" && !asksForPictures(revision)) {
+      return json({ ok: true, exercises: result.exercises, summary: result.summary, model: result.model, revisionMode: "reply" });
+    }
+    // New pictures take 10-40 seconds each, so a revision only draws them
+    // when the teacher asks for pictures.
     const finalized = await finalizeExerciseImages(env, result.exercises, {
       imageAssets,
       teacherId: auth.teacherId,
       model,
-      autoGenerateImages: body?.autoGenerateImages,
+      autoGenerateImages: body?.autoGenerateImages ?? asksForPictures(revision),
     });
     return json({
       ok: true,
@@ -151,6 +157,10 @@ async function reviseExercises({ env, auth, body }) {
   } catch (error) {
     return failure("revise_exercises", error);
   }
+}
+
+function asksForPictures(revision) {
+  return /\b(pictures?|images?|photos?|illustrat\w*|drawings?)\b|圖|相片|插畫/i.test(revision);
 }
 
 async function assistant({ env, body }) {

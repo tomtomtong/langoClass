@@ -301,6 +301,46 @@ test("auto question pictures are generated a few at a time, not one by one", asy
   assert.equal(most, 4);
 });
 
+// The model offers a picture for every question; only a picture request uses it.
+function revisionRouter(reply) {
+  const calls = router((body) =>
+    JSON.stringify(body).includes("benefit from a simple illustration")
+      ? JSON.stringify({ generations: [{ key: "0:0", generateConfidence: 0.9, imagePrompt: "A cat" }] })
+      : reply
+  );
+  return () => calls.filter((entry) => entry.url.endsWith("/image")).length;
+}
+
+test("a revision draws question pictures only when the teacher asks for them", async () => {
+  const { call } = await setup();
+  const imageCalls = revisionRouter(JSON.stringify({ changed: true, summary: "Done.", ...draft }));
+  const revise = (revision) =>
+    call("/api/cms/revise-exercises", { method: "POST", json: { material: "Cats say meow.", revision, exercises: draft.exercises } });
+
+  const plain = await (await revise("Make question 1 harder.")).json();
+  assert.equal(plain.exercises[0].items[0].image ?? null, null);
+  assert.equal(imageCalls(), 0);
+
+  const pictured = await (await revise("Add a picture to question 1.")).json();
+  assert.match(pictured.exercises[0].items[0].image, /^\/uploads\/questions\//);
+  assert.equal(imageCalls(), 1);
+});
+
+test("a question to the exercise assistant is answered and leaves the draft alone", async () => {
+  const { call } = await setup();
+  const imageCalls = revisionRouter(JSON.stringify({ changed: false, summary: "I can add, edit or translate questions." }));
+  const response = await call("/api/cms/revise-exercises", {
+    method: "POST",
+    json: { material: "Cats say meow.", revision: "can u help me?", exercises: draft.exercises },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.equal(body.revisionMode, "reply");
+  assert.equal(body.summary, "I can add, edit or translate questions.");
+  assert.deepEqual(body.exercises, draft.exercises);
+  assert.equal(imageCalls(), 0);
+});
+
 test("empty course details are suggested from the sections, with a cover picture", async () => {
   const { env, call } = await setup();
   const calls = router(() =>

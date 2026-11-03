@@ -2536,6 +2536,10 @@ async function applyGlobalRevisionMessage(rawRequest, { draftExercises, onApplie
         questionNumber: state.globalAgentSelectionQuestion || undefined,
       },
     });
+    if (data.revisionMode === "reply") {
+      pushGlobalAgentTurn("assistant", data.summary);
+      return true;
+    }
     let next = data.exercises || [];
     if (!next.length) throw new Error("The assistant returned no questions.");
     const convertIntent = parseAiConvertIntent(revision, state.globalAgentSelectionQuestion);
