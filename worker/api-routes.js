@@ -62,6 +62,7 @@ export const API_ROUTES = [
   { method: "POST", path: "/api/cms/compress-material-video" },
   { method: "POST", path: "/api/cms/extract-material" },
   { method: "POST", path: "/api/cms/prefetch-question-tts" },
+  { method: "POST", path: "/api/cms/slide-audio" },
   { method: "GET", path: "/api/cms/question-tts/:cacheKey" },
   { method: "POST", path: "/api/cms/generate-exercises" },
   { method: "POST", path: "/api/cms/revise-exercises" },

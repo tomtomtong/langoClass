@@ -6,7 +6,7 @@ import { contentTypeForKey, uploadKey } from "./uploads.js";
 export const PART_BYTES = 10 * 1024 * 1024;
 
 // Folders whose files belong to one course and may be deleted with it.
-const OWNED_FOLDERS = new Set(["courses", "sections", "questions", "captions", "videos", "material"]);
+const OWNED_FOLDERS = new Set(["courses", "sections", "questions", "captions", "videos", "material", "slides"]);
 
 export function uploadUrl(folder, filename) {
   return `/uploads/${folder}/${filename}`;

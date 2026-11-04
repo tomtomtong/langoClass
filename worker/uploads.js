@@ -9,6 +9,7 @@ const FOLDERS = new Set([
   "material",
   "community",
   "lectures",
+  "slides",
 ]);
 
 const CONTENT_TYPES = {

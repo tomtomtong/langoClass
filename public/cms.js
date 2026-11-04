@@ -145,6 +145,7 @@ function friendlyCourseError(err) {
   const raw = String(err?.message ?? err ?? "");
   console.warn("Course wizard error:", raw);
   if (/youtube/i.test(raw)) return cmsT("wiz.err.youtube");
+  if (/speech|tts|voice/i.test(raw) && /not configured/i.test(raw)) return cmsT("wiz.err.voiceNotReady");
   if (/no sections with material/i.test(raw)) return cmsT("wiz.needSection");
   if (/material text is required|paste text, upload/i.test(raw)) return cmsT("wiz.needMaterial");
   if (/openrouter|inworld|api key/i.test(raw) && /not configured|missing|configure|invalid/i.test(raw)) {
@@ -4811,6 +4812,7 @@ function collectExerciseFromCard(card) {
     subTitle: card.querySelector('[data-field="subTitle"]')?.value.trim() || "",
     order,
     items,
+    ...(body?._collectMeta ? body._collectMeta() : {}),
   };
 }
 
@@ -7211,7 +7213,11 @@ function readAiSlidesExerciseFromDom(card, previous) {
     subTitle: exerciseSubTitleForType("slides"),
     included: Boolean(card.querySelector(".cms-ai-select")?.checked),
     items,
-    ...(typeof previousExercise?.narrate === "boolean" ? { narrate: previousExercise.narrate } : {}),
+    ...(body?._collectMeta
+      ? body._collectMeta()
+      : typeof previousExercise?.narrate === "boolean"
+        ? { narrate: previousExercise.narrate }
+        : {}),
     ...(previousExercise?.speakLangCode ? { speakLangCode: previousExercise.speakLangCode } : {}),
     _courseGroup: previousExercise?._courseGroup,
     _courseKey: previousExercise?._courseKey,
@@ -10599,11 +10605,81 @@ function renderSlidesBody(container, exercise) {
   });
   const items = (exercise.items?.length ? exercise.items : defaultExercise("slides").items).map(clean);
 
-  container.innerHTML = `<div class="cms-questions-list cms-slides-list"></div>
+  container.innerHTML = `<div class="cms-slides-voice">
+      <label class="cms-slides-voice-toggle">
+        <input type="checkbox" class="cms-slides-narrate" />
+        <span>${escapeHtml(cmsT("wiz.slides.voice.toggle"))}</span>
+      </label>
+      <button type="button" class="btn secondary small cms-slides-make-voice" hidden>${escapeHtml(cmsT("wiz.slides.voice.make"))}</button>
+      <p class="hint cms-slides-voice-status" aria-live="polite"></p>
+    </div>
+    <div class="cms-questions-list cms-slides-list"></div>
     <button type="button" class="btn secondary small cms-add-slide">${escapeHtml(cmsT("wiz.slides.add"))}</button>
     <p class="hint">${escapeHtml(cmsT("wiz.slides.hint"))}</p>`;
 
   const list = container.querySelector(".cms-slides-list");
+  const narrateBox = container.querySelector(".cms-slides-narrate");
+  const makeVoiceBtn = container.querySelector(".cms-slides-make-voice");
+  const voiceStatus = container.querySelector(".cms-slides-voice-status");
+  // true: read aloud; false: silent although clips exist; undefined: never chosen.
+  let narrate = typeof exercise.narrate === "boolean" ? exercise.narrate : undefined;
+  const hasAnyAudio = () => items.some((item) => item.audioUrl);
+  const narrateOn = () => narrate === true || (narrate !== false && hasAnyAudio());
+  const speechText = (item) => item.notes || [item.title, ...item.bullets].filter(Boolean).join(". ");
+
+  function syncVoiceUi() {
+    narrateBox.checked = narrateOn();
+    makeVoiceBtn.hidden = !narrateBox.checked;
+  }
+
+  async function makeVoice() {
+    syncFromDom();
+    const todo = items
+      .map((item, key) => ({ key, text: speechText(item), item }))
+      .filter((entry) => !entry.item.audioUrl && entry.text);
+    voiceStatus.classList.remove("error");
+    if (!todo.length) {
+      voiceStatus.textContent = items.some((item) => speechText(item))
+        ? cmsT("wiz.slides.voice.upToDate")
+        : cmsT("wiz.slides.voice.noText");
+      return;
+    }
+    makeVoiceBtn.disabled = true;
+    voiceStatus.textContent = cmsT("wiz.slides.voice.making");
+    try {
+      const data = await api("/api/cms/slide-audio", {
+        method: "POST",
+        body: {
+          speakLangCode: normalizeCmsSpeakLangCode(exercise.speakLangCode || getAiSpeakLangCode()),
+          items: todo.map(({ key, text }) => ({ key, text })),
+        },
+      });
+      let made = 0;
+      for (const result of data.results || []) {
+        if (result.ok && result.url && items[Number(result.key)]) {
+          items[Number(result.key)].audioUrl = result.url;
+          made += 1;
+        }
+      }
+      if (!made) throw new Error((data.results || []).find((r) => r.error)?.error || "Speech failed.");
+      voiceStatus.textContent = cmsT("wiz.slides.voice.done", { slides: cmsCount("wiz.n.slides", made) });
+    } catch (err) {
+      voiceStatus.classList.add("error");
+      voiceStatus.textContent = friendlyCourseError(err);
+    } finally {
+      makeVoiceBtn.disabled = false;
+      syncVoiceUi();
+    }
+  }
+
+  narrateBox.addEventListener("change", () => {
+    syncFromDom();
+    narrate = narrateBox.checked;
+    syncVoiceUi();
+    voiceStatus.textContent = narrate ? cmsT("wiz.slides.voice.help") : "";
+    if (narrate && items.some((item) => !item.audioUrl && speechText(item))) void makeVoice();
+  });
+  makeVoiceBtn.addEventListener("click", () => void makeVoice());
 
   function syncFromDom() {
     list.querySelectorAll(".cms-slide-block").forEach((block, idx) => {
@@ -10716,6 +10792,12 @@ function renderSlidesBody(container, exercise) {
     renderSlides();
   });
 
+  // Exercise-level settings the card needs saved with the slides.
+  container._collectMeta = () => {
+    if (narrateBox.checked) return { narrate: true };
+    return hasAnyAudio() ? { narrate: false } : {};
+  };
+
   container._collectItems = () => {
     syncFromDom();
     return items
@@ -10733,6 +10815,8 @@ function renderSlidesBody(container, exercise) {
   };
 
   renderSlides();
+  syncVoiceUi();
+  if (narrateBox.checked) voiceStatus.textContent = cmsT("wiz.slides.voice.help");
 }
 
 function renderBuzzinBody(container, exercise) {

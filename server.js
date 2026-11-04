@@ -5642,6 +5642,46 @@ app.post("/api/cms/prefetch-question-tts", async (req, res) => {
   });
 });
 
+app.post("/api/cms/slide-audio", async (req, res) => {
+  const auth = await requireCmsAuth(req, res);
+  if (!auth) return;
+
+  if (!isGameplayTtsAvailable()) {
+    return res.status(400).json({ message: "Speech TTS is not configured for this app variant." });
+  }
+
+  const defaultSpeakLangCode = cmsQuestionTts.normalizeSpeakLangCode(req.body?.speakLangCode);
+  const items = (Array.isArray(req.body?.items) ? req.body.items : [])
+    .map((raw, index) => ({
+      key: String(raw?.key ?? index),
+      text: String(raw?.text || "").trim().slice(0, 1200),
+      speakLangCode: cmsQuestionTts.normalizeSpeakLangCode(raw?.speakLangCode || defaultSpeakLangCode),
+    }))
+    .filter((item) => item.text)
+    .slice(0, 30);
+  if (!items.length) {
+    return res.status(400).json({ message: "There is no slide text to read aloud." });
+  }
+
+  fs.mkdirSync(paths.uploadsSlidesDir, { recursive: true });
+  const results = [];
+  for (const item of items) {
+    try {
+      const tts = await resolveGameplayTts(item.text, item.speakLangCode, "question");
+      const filename = `slide-${Date.now()}-${randomBytes(4).toString("hex")}.mp3`;
+      fs.writeFileSync(path.join(paths.uploadsSlidesDir, filename), Buffer.from(tts.audioContent, "base64"));
+      results.push({ key: item.key, ok: true, url: `/uploads/slides/${filename}` });
+    } catch (err) {
+      results.push({ key: item.key, ok: false, error: err.message || "Speech failed." });
+    }
+  }
+  return res.json({
+    results,
+    generated: results.filter((entry) => entry.ok).length,
+    failed: results.filter((entry) => !entry.ok).length,
+  });
+});
+
 app.get("/api/cms/question-tts/:cacheKey", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;

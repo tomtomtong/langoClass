@@ -259,6 +259,16 @@
     "cms.ai.count.slides": "How many slides",
     "cms.ai.templateSlidesCount": "{n} slides",
     "wiz.card.t.slides": "{n} slides",
+    "wiz.slides.voice.toggle": "Read the slides aloud",
+    "wiz.slides.voice.make": "Make the voice",
+    "wiz.slides.voice.making": "Making the voice… this can take a minute.",
+    "wiz.slides.voice.done": "The voice is ready for {slides}.",
+    "wiz.slides.voice.upToDate": "Every slide already has its voice.",
+    "wiz.slides.voice.help": "The voice reads each slide's note, or its title and points when there is no note. After you change a slide, make the voice again.",
+    "wiz.slides.voice.noText": "Add some text to a slide first.",
+    "wiz.n.slides": "{n} slides",
+    "wiz.n.slides.one": "1 slide",
+    "wiz.err.voiceNotReady": "The voice feature is not switched on yet. Please ask your Lango contact to finish the setup.",
   };
 
   const ZH_TW = {
@@ -501,6 +511,16 @@
     "cms.ai.count.slides": "簡報頁數",
     "cms.ai.templateSlidesCount": "{n} 頁簡報",
     "wiz.card.t.slides": "{n} 頁簡報",
+    "wiz.slides.voice.toggle": "朗讀簡報",
+    "wiz.slides.voice.make": "製作配音",
+    "wiz.slides.voice.making": "正在製作配音…可能需要一分鐘。",
+    "wiz.slides.voice.done": "已為 {slides}製作配音。",
+    "wiz.slides.voice.upToDate": "每一頁都已經有配音。",
+    "wiz.slides.voice.help": "配音會朗讀每頁的提示；沒有提示時，會朗讀標題和重點。修改某一頁後，請重新製作配音。",
+    "wiz.slides.voice.noText": "請先在簡報頁面加入文字。",
+    "wiz.n.slides": "{n} 頁",
+    "wiz.n.slides.one": "1 頁",
+    "wiz.err.voiceNotReady": "配音功能還沒有開啟。請聯絡你的 Lango 負責人完成設定。",
   };
 
   i18n.addMessagesAll({ en: EN, "zh-TW": ZH_TW });

@@ -126,6 +126,7 @@ test("friendlyCourseError turns raw failures into what-to-do-next messages", () 
     ["YouTube links cannot be read here. Upload the video file.", "wiz.err.youtube"],
     ["The course plan has no sections with material.", "wiz.needSection"],
     ["Material text is required.", "wiz.needMaterial"],
+    ["Speech TTS is not configured for this app variant.", "wiz.err.voiceNotReady"],
     ["Please log in again.", "wiz.err.signedOut"],
     ["Video is too large (max 100 MB).", "wiz.err.tooLarge"],
     ["TypeError: Failed to fetch", "wiz.err.network"],

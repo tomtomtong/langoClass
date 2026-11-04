@@ -3046,3 +3046,41 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
   font-weight: 700;
   color: var(--ink);
 }
+
+/* Slides editor: the "read aloud" switch and its button. */
+.cms-slides-voice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.cms-slides-voice-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cms-slides-voice-toggle input {
+  width: 1.3rem;
+  height: 1.3rem;
+  accent-color: var(--purple);
+}
+
+.cms-slides-voice-status {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.cms-slides-voice-status:empty {
+  display: none;
+}
+
+.cms-slides-voice-status.error {
+  color: #b92d4f;
+  font-weight: 700;
+}

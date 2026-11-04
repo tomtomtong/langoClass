@@ -6,6 +6,7 @@ import { handleCourseTransferApi } from "./course-transfer.js";
 import { cmsAppContext } from "./cms-context.js";
 import { handleLangoApi } from "./lango-api.js";
 import { handleQuestionTtsApi } from "./question-tts.js";
+import { handleSlideAudioApi } from "./slide-audio.js";
 import { handleCmsAiApi } from "./cms-ai.js";
 import { handleCaptionsApi } from "./captions.js";
 import { readScoreRecords } from "./score-store.js";
@@ -68,7 +69,7 @@ export async function handleStoreApi(request, env, url) {
   if (method === "GET" && pathname === "/api/cms/dashboard/progress") {
     return dashboardProgress(request, env, url);
   }
-  return (await handleQuestionTtsApi(request, env, url)) || (await handleCmsAiApi(request, env, url)) || (await handleCaptionsApi(request, env, url)) || (await handleCommunityApi(request, env, url)) || (await handleCourseMediaApi(request, env, url)) || (await handleCourseTransferApi(request, env, url));
+  return (await handleQuestionTtsApi(request, env, url)) || (await handleSlideAudioApi(request, env, url)) || (await handleCmsAiApi(request, env, url)) || (await handleCaptionsApi(request, env, url)) || (await handleCommunityApi(request, env, url)) || (await handleCourseMediaApi(request, env, url)) || (await handleCourseTransferApi(request, env, url));
 }
 
 async function listCourses(request, env, url) {

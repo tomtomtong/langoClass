@@ -82,6 +82,8 @@
     let audio = null;
     let ended = false;
     let destroyed = false;
+    let advanceTimer = 0;
+    const autoAdvance = options.autoAdvance !== false;
 
     const dotEls = slides.map((_, i) => {
       const dot = el("button", "lsp-dot");
@@ -92,7 +94,13 @@
       return dot;
     });
 
+    function cancelAdvance() {
+      clearTimeout(advanceTimer);
+      advanceTimer = 0;
+    }
+
     function stopAudio() {
+      cancelAdvance();
       if (!audio) return;
       audio.pause();
       audio.removeAttribute("src");
@@ -104,8 +112,20 @@
       stopAudio();
       const url = narrate ? resolve(slide.audioUrl) : "";
       if (!url) return;
-      audio = new Audio(url);
-      audio.play().catch(() => {
+      const clip = new Audio(url);
+      audio = clip;
+      // With a voice, the deck turns the page by itself after a short pause. Any
+      // press of Next, Back or a dot cancels it, and the teacher stays in charge.
+      if (autoAdvance) {
+        clip.addEventListener("ended", () => {
+          if (destroyed || audio !== clip) return;
+          cancelAdvance();
+          advanceTimer = setTimeout(() => {
+            if (!destroyed && audio === clip) forward();
+          }, 1500);
+        });
+      }
+      clip.play().catch(() => {
         /* The browser may block autoplay; the teacher can press Next. */
       });
     }
@@ -137,6 +157,7 @@
     }
 
     function go(target) {
+      cancelAdvance();
       const next = Math.max(0, Math.min(slides.length - 1, target));
       const changed = next !== index;
       index = next;
@@ -148,6 +169,7 @@
     }
 
     function forward() {
+      cancelAdvance();
       const slide = slides[index];
       if (!slide) return;
       if (shown < slide.bullets.length) {
@@ -171,6 +193,7 @@
     }
 
     function back() {
+      cancelAdvance();
       const slide = slides[index];
       if (shown > 0 && !(narrate && slide?.audioUrl)) {
         shown -= 1;
