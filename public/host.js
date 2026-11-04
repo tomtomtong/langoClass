@@ -1288,16 +1288,24 @@ function resolveHostNextAction() {
   return null;
 }
 
+// Start on the last exercise of a finished section moves on to the next section, but
+// only when one is unlocked. Otherwise it replays the exercise, so the host is never
+// left with a Start button that only redraws the same list.
+function shouldStartSkipToNextSection() {
+  return (
+    Boolean(state.selectedExercise) &&
+    isHostSectionComplete(state.selectedSection) &&
+    shouldAdvanceToNextSection(state.selectedExercise, state.selectedSection)
+  );
+}
+
 function updateSectionStartButtonLabel() {
   const startBtn = $("#btn-start-session");
   const startLabel = startBtn?.querySelector(".host-btn-label") || startBtn;
   if (!startLabel) return;
-  const isLast =
-    state.selectedExercise &&
-    isLastExerciseInSection(state.selectedExercise, state.selectedSection);
   startLabel.textContent = isSectionIntroExercise(state.selectedExercise)
     ? hostT("intro.play")
-    : isLast
+    : shouldStartSkipToNextSection()
       ? hostT("quiz.nextExercise")
       : hostT("section.startExercise");
 }
@@ -3726,10 +3734,7 @@ async function launchHostExercise(exercise, {
 async function handleStartSession() {
   if (!state.selectedExercise || !state.activeRoomId) return;
 
-  if (
-    isLastExerciseInSection(state.selectedExercise, state.selectedSection) &&
-    isHostSectionComplete(state.selectedSection)
-  ) {
+  if (shouldStartSkipToNextSection()) {
     playPageNextSound();
     await returnHostToJourney();
     return;
