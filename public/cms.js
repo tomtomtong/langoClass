@@ -8835,6 +8835,14 @@ function findSectionCardByIndex(sectionIndex) {
   return document.querySelector(`.cms-section-card[data-section-index="${sectionIndex}"]`);
 }
 
+// Tiles being generated, so a list drawn again meanwhile still shows the spinner,
+// and the finished tile lands on the card that is on screen then.
+const pathTileInFlight = new Set();
+
+function pathTileKey(section, sectionIndex) {
+  return section?.id != null ? `id:${section.id}` : `new:${sectionIndex}`;
+}
+
 async function maybeAutoGenerateSectionPathTile(sectionIndex, options = {}) {
   const sectionCard = options.sectionCard || findSectionCardByIndex(sectionIndex);
   const section = getSectionSnapshotForPathTile(sectionIndex, sectionCard);
@@ -8848,8 +8856,17 @@ async function maybeAutoGenerateSectionPathTile(sectionIndex, options = {}) {
   const sectionContent = summarizeSectionContent(refreshed);
   const statusEl = sectionCard?.querySelector(".cms-section-banner-status");
 
+  const key = pathTileKey(section, sectionIndex);
+  pathTileInFlight.add(key);
   if (sectionCard) setSectionBannerLoading(sectionCard, true, cmsT("cms.sections.generatingTile"));
   if (statusEl && !options.silent) statusEl.textContent = cmsT("cms.sections.generatingTile");
+
+  // The list may have been drawn again, or the sections reordered, while this ran.
+  const liveIndex = () => {
+    if (section.id == null) return sectionIndex;
+    const index = state.sections.findIndex((entry) => entry.id === section.id);
+    return index >= 0 ? index : sectionIndex;
+  };
 
   try {
     const data = await generateSectionBannerFile({
@@ -8859,11 +8876,14 @@ async function maybeAutoGenerateSectionPathTile(sectionIndex, options = {}) {
       sectionId: section.id ?? undefined,
     });
     const url = data?.url || "";
-    if (sectionCard) {
-      applySectionBannerToCard(sectionCard, sectionIndex, url);
-      if (statusEl) statusEl.textContent = cmsT("cms.sections.tileGenerated");
-    } else {
-      section.banner = url;
+    const index = liveIndex();
+    const liveCard = findSectionCardByIndex(index);
+    if (liveCard) {
+      applySectionBannerToCard(liveCard, index, url);
+      const liveStatus = liveCard.querySelector(".cms-section-banner-status");
+      if (liveStatus) liveStatus.textContent = cmsT("cms.sections.tileGenerated");
+    } else if (state.sections[index]) {
+      state.sections[index].banner = url;
     }
     markCmsDirty();
     return url;
@@ -8874,7 +8894,10 @@ async function maybeAutoGenerateSectionPathTile(sectionIndex, options = {}) {
     }
     return null;
   } finally {
-    if (sectionCard) setSectionBannerLoading(sectionCard, false);
+    pathTileInFlight.delete(key);
+    const liveCard = findSectionCardByIndex(liveIndex());
+    if (liveCard) setSectionBannerLoading(liveCard, false);
+    if (sectionCard && sectionCard !== liveCard) setSectionBannerLoading(sectionCard, false);
   }
 }
 
@@ -10413,6 +10436,10 @@ function renderSectionEditors() {
     sectionCard.querySelector(".cms-section-order").addEventListener("change", applySectionOrderFromDom);
     sectionCard.querySelector(".cms-section-banner-value").value = section.banner || "";
     updateSectionBannerPreview(sectionCard, section.banner || "");
+    // A tile still being drawn keeps its spinner when the list is drawn again.
+    if (pathTileInFlight.has(pathTileKey(section, sectionIndex))) {
+      setSectionBannerLoading(sectionCard, true, cmsT("cms.sections.generatingTile"));
+    }
     updateSectionIntroVideoPreview(sectionCard, section.introVideoUrl || "");
 
     sectionCard.querySelector(".cms-section-intro-upload")?.addEventListener("click", () => {
