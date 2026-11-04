@@ -2945,6 +2945,14 @@ function handleLogout() {
   state.editingCourse = null;
   state.cmsEditorMode = "edit";
   state.sections = [];
+  // Drop cached screen data so the next teacher never sees this teacher's data.
+  state.courses = [];
+  state.coursesLoaded = false;
+  state.classes = [];
+  state.communityLoaded = false;
+  state.dashboardCourses = [];
+  state.dashboardCoursesClassId = null;
+  state.homeCourseProgress = null;
   savePrefs();
   updateAuthUi();
   resetGlobalAgentSession({ clearHistory: true });
@@ -3412,8 +3420,11 @@ async function loadDashboardProgress(pending) {
     return;
   }
 
-  const data = await (pending || fetchDashboardProgress(state.dashboardClassId));
+  const classId = state.dashboardClassId;
+  const data = await (pending || fetchDashboardProgress(classId));
+  if (String(classId) !== String(state.dashboardClassId)) return; // class changed meanwhile
   state.dashboardCourses = data.courses || [];
+  state.dashboardCoursesClassId = classId;
   renderInsightsSessions(state.dashboardCourses);
 }
 
@@ -3441,6 +3452,7 @@ async function enterHome() {
       loadCommunityCourses(),
     ]);
     state.courses = data.courses || [];
+    state.coursesLoaded = true;
     if (typeof window.renderCmsHomeWidgets === "function") {
       await window.renderCmsHomeWidgets(progressReady);
     }
@@ -3476,13 +3488,22 @@ async function enterDashboard() {
   syncCmsNavScreen("dashboard");
   $("#cms-dashboard-error").textContent = "";
   $("#cms-dashboard-status").textContent = "";
-  $("#class-sessions").innerHTML = `
+  const hasCachedProgress =
+    state.dashboardClassId != null &&
+    String(state.dashboardCoursesClassId) === String(state.dashboardClassId);
+  if (state.classes?.length) renderDashboardClassPicker();
+  if (hasCachedProgress) {
+    // Show the last insights for this class now; the fetch below refreshes them.
+    renderInsightsSessions(state.dashboardCourses || []);
+  } else {
+    $("#class-sessions").innerHTML = `
     <div class="cms-list-loading" aria-hidden="true">
       <div class="cms-skeleton-card"></div>
       <div class="cms-skeleton-card"></div>
     </div>`;
-  if ($("#cms-dashboard-assigned-block")) $("#cms-dashboard-assigned-block").hidden = true;
-  if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
+    if ($("#cms-dashboard-assigned-block")) $("#cms-dashboard-assigned-block").hidden = true;
+    if ($("#progress-assigned")) $("#progress-assigned").innerHTML = "";
+  }
 
   // The saved class is known before the class list arrives, so fetch its
   // progress at the same time instead of after.
@@ -3929,12 +3950,18 @@ async function enterCommunity() {
   if (search && document.activeElement !== search) search.value = state.communityQuery || "";
   if (lang) lang.value = state.communityLang || "all";
   if (sort) sort.value = state.communitySort || "featured";
-  $("#cms-community-list").innerHTML = `
+  if (state.communityLoaded) {
+    // Show the templates we already have now; the fetch below refreshes them.
+    renderCommunityLangOptions();
+    renderCommunityList();
+  } else {
+    $("#cms-community-list").innerHTML = `
     <div class="cms-list-loading" aria-hidden="true">
       <div class="cms-skeleton-card"></div>
       <div class="cms-skeleton-card"></div>
       <div class="cms-skeleton-card"></div>
     </div>`;
+  }
   await loadCommunityCourses();
 }
 
@@ -3947,6 +3974,7 @@ async function loadCommunityCourses() {
     const data = await api(`/api/cms/community/courses?${params.toString()}`);
     state.communityCourses = data.courses || [];
     state.communityLanguages = data.languages || [];
+    state.communityLoaded = true;
     renderCommunityLangOptions();
     renderCommunityList();
     $("#cms-community-error").textContent = "";
@@ -4180,7 +4208,10 @@ async function enterCourseList() {
   $("#cms-list-error").textContent = "";
   $("#cms-list-status").textContent = "";
   const grid = $("#courses-grid");
-  if (grid) {
+  if (state.coursesLoaded) {
+    // Show the courses we already have now; the fetch below refreshes them.
+    renderCourseList();
+  } else if (grid) {
     grid.hidden = false;
     grid.innerHTML = `<p class="hint">Loading courses…</p>`;
   }
@@ -4192,6 +4223,7 @@ async function enterCourseList() {
     // first and the progress tabs fill in when it arrives.
     const [, data] = await Promise.all([loadClasses(), api("/api/cms/courses")]);
     state.courses = data.courses || [];
+    state.coursesLoaded = true;
     renderCourseList();
     $("#cms-list-status").textContent = "";
     if (typeof window.loadHomeCourseProgressMap === "function") {
@@ -4207,7 +4239,7 @@ async function enterCourseList() {
         });
     }
   } catch (err) {
-    if (grid) grid.innerHTML = "";
+    if (grid && !state.coursesLoaded) grid.innerHTML = "";
     $("#cms-list-status").textContent = "";
     $("#cms-list-error").textContent = err.message;
   }
