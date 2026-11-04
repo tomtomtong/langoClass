@@ -578,21 +578,25 @@ function stopHostBuzzinLuckyDrawScramble() {
   }
 }
 
+function getHostBuzzinLuckyDrawNamePool() {
+  const names = getHostBuzzinLuckyDrawCandidates()
+    .map((entry) => entry.displayName)
+    .filter(Boolean);
+  if (names.length < 2 && new URLSearchParams(window.location.search).has("preview")) {
+    names.push("Sophia Patel", "Liam Chen", "Ava Williams", "Emma Smith", "Noah Brown");
+  }
+  return names.length < 2 ? [] : names;
+}
+
 function startHostBuzzinLuckyDrawScramble(nameEl) {
   stopHostBuzzinLuckyDrawScramble();
   if (!nameEl) return;
 
-  const names = getHostBuzzinLuckyDrawCandidates()
-    .map((entry) => entry.displayName)
-    .filter(Boolean);
+  const names = getHostBuzzinLuckyDrawNamePool();
   nameEl.setAttribute("aria-live", "off");
-  if (names.length < 2) {
-    if (new URLSearchParams(window.location.search).has("preview")) {
-      names.push("Sophia Patel", "Liam Chen", "Ava Williams", "Emma Smith", "Noah Brown");
-    } else {
-      nameEl.textContent = "???";
-      return;
-    }
+  if (!names.length) {
+    nameEl.textContent = "???";
+    return;
   }
 
   nameEl.textContent = names[Math.floor(Math.random() * names.length)];
@@ -608,6 +612,7 @@ function resetHostBuzzinLuckyDrawUi() {
   const nameEl = $("#host-buzzin-lucky-draw-name");
 
   stopHostBuzzinLuckyDrawScramble();
+  window.LangoGsap?.stopLuckyDrawSpin?.(wheel);
   if (modal) {
     modal.hidden = true;
     modal.setAttribute("aria-hidden", "true");
@@ -784,14 +789,18 @@ async function playHostBuzzinLuckyDraw(drawPromise) {
   if (!modal || !wheel || !avatar || !nameEl) return drawPromise;
 
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  const spinMs = reduceMotion ? 0 : 2400;
+  const spinMs = reduceMotion ? 0 : 1600;
   const revealHoldMs = reduceMotion ? 600 : 1600;
+  const motion = window.LangoGsap;
+  const pointer = modal.querySelector(".host-buzzin-lucky-draw__pointer");
 
   resetHostBuzzinLuckyDrawUi();
   modal.hidden = false;
   modal.setAttribute("aria-hidden", "false");
   modal.classList.add("is-spinning");
-  wheel.classList.add("is-spinning");
+  // GSAP drives the wheel so it can slow to a stop; the CSS spin is the fallback.
+  const gsapSpin = motion?.startLuckyDrawSpin?.(wheel);
+  if (!gsapSpin) wheel.classList.add("is-spinning");
   startHostBuzzinLuckyDrawScramble(nameEl);
 
   const [result] = await Promise.all([drawPromise, spinMs > 0 ? waitHostBuzzin(spinMs) : null]);
@@ -803,6 +812,16 @@ async function playHostBuzzinLuckyDraw(drawPromise) {
   }
 
   stopHostBuzzinLuckyDrawScramble();
+  if (gsapSpin) {
+    // The wheel slows down and the name changes once per segment passing the pointer.
+    const pool = getHostBuzzinLuckyDrawNamePool();
+    await motion.settleLuckyDrawSpin(wheel, {
+      pointer,
+      onTick: () => {
+        if (pool.length) nameEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+      },
+    });
+  }
   modal.classList.remove("is-spinning");
   modal.classList.add("is-revealed");
   wheel.classList.remove("is-spinning");
@@ -810,6 +829,7 @@ async function playHostBuzzinLuckyDraw(drawPromise) {
   avatar.innerHTML = buzzinLuckyDrawAvatarHtml(winner.displayName);
   nameEl.setAttribute("aria-live", "polite");
   nameEl.textContent = winner.displayName;
+  motion?.playLuckyDrawReveal?.(wheel, pointer);
 
   await waitHostBuzzin(revealHoldMs);
 

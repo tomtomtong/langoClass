@@ -321,6 +321,96 @@
     return burst;
   }
 
+  const luckyDrawSpins = new WeakMap();
+  const LUCKY_DRAW_SEGMENT_DEG = 45;
+
+  function stopLuckyDrawSpin(wheel) {
+    const spin = luckyDrawSpins.get(wheel);
+    if (spin) {
+      spin.kill();
+      luckyDrawSpins.delete(wheel);
+    }
+    if (wheel) {
+      gsap.killTweensOf(wheel);
+      gsap.set(wheel, { clearProps: "transform,boxShadow" });
+      const face = wheel.querySelector(".host-buzzin-lucky-draw__wheel-face");
+      if (face) gsap.set(face, { clearProps: "transform" });
+    }
+  }
+
+  /** Steady fast spin while the winner is still being decided. Null when motion is reduced. */
+  function startLuckyDrawSpin(wheel) {
+    if (!wheel || prefersReducedMotion()) return null;
+    stopLuckyDrawSpin(wheel);
+    gsap.set(wheel, { rotation: 0, transformOrigin: "50% 50%", force3D: true });
+    const spin = gsap.to(wheel, { rotation: "+=360", duration: 0.7, ease: "none", repeat: -1 });
+    luckyDrawSpins.set(wheel, spin);
+    return spin;
+  }
+
+  /**
+   * Slow the wheel to a stop on a segment centre. Each segment edge passing the pointer
+   * flicks it and calls onTick, so the host's name changes follow the wheel's own slowing.
+   */
+  function settleLuckyDrawSpin(wheel, { pointer, onTick, duration = 1.3 } = {}) {
+    const spin = luckyDrawSpins.get(wheel);
+    if (!wheel || !spin) return Promise.resolve();
+    spin.kill();
+    luckyDrawSpins.delete(wheel);
+
+    const from = Number(gsap.getProperty(wheel, "rotation")) || 0;
+    const seg = LUCKY_DRAW_SEGMENT_DEG;
+    const to = Math.round((from + 330 - seg / 2) / seg) * seg + seg / 2;
+    let lastSegment = Math.floor(from / seg);
+
+    return new Promise((resolve) => {
+      gsap.to(wheel, {
+        rotation: to,
+        duration,
+        ease: "power2.out",
+        force3D: true,
+        onUpdate: () => {
+          const current = Math.floor((Number(gsap.getProperty(wheel, "rotation")) || 0) / seg);
+          if (current === lastSegment) return;
+          lastSegment = current;
+          if (pointer) {
+            gsap.fromTo(
+              pointer,
+              { rotation: -22, transformOrigin: "50% 0%" },
+              { rotation: 0, duration: 0.14, ease: "power2.out", overwrite: true }
+            );
+          }
+          onTick?.();
+        },
+        onComplete: resolve,
+      });
+    });
+  }
+
+  /** Winner lands: the wheel swells once and a gold ripple leaves it. */
+  function playLuckyDrawReveal(wheel, pointer) {
+    if (!wheel || prefersReducedMotion()) return null;
+    gsap.killTweensOf(wheel);
+    // The wheel stays at its landing angle; keep the winner's avatar upright inside it.
+    const face = wheel.querySelector(".host-buzzin-lucky-draw__wheel-face");
+    if (face) {
+      gsap.set(face, { rotation: -(Number(gsap.getProperty(wheel, "rotation")) || 0) });
+    }
+    const tl = gsap.timeline({
+      onComplete: () => gsap.set(wheel, { clearProps: "boxShadow" }),
+    });
+    tl.fromTo(wheel, { scale: 1 }, { scale: 1.08, duration: 0.18, ease: "power2.out" }, 0)
+      .to(wheel, { scale: 1, duration: 0.45, ease: "back.out(2)" }, 0.18)
+      .fromTo(
+        wheel,
+        { boxShadow: "0 0 0 0 rgba(254,202,87,0.75)" },
+        { boxShadow: "0 0 0 34px rgba(254,202,87,0)", duration: 0.8, ease: "power2.out" },
+        0
+      );
+    if (pointer) gsap.set(pointer, { clearProps: "transform" });
+    return tl;
+  }
+
   function playBuzzinTimerPop(timerWrap) {
     if (!timerWrap || prefersReducedMotion()) return null;
     gsap.killTweensOf(timerWrap);
@@ -677,6 +767,7 @@
     if (pulse) gsap.set(pulse, { y: 12, autoAlpha: 0, force3D: true });
     if (sheet) gsap.set(sheet, { y: 48, autoAlpha: 0, force3D: true });
     gsap.set(podium, { y: 36, scale: 0.92, autoAlpha: 0, force3D: true });
+    if (podium.length > 1) gsap.set(podium[podium.length - 1], { y: 48, scale: 0.84 });
     gsap.set(ranks, { y: 18, autoAlpha: 0, force3D: true });
     scoreEls.forEach((el) => {
       el.textContent = formatScoreEl(el, 0);
@@ -704,25 +795,35 @@
       leaderboardRevealTl.to(pulse, { y: 0, autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 0.12);
     }
 
+    // Third and second land quickly; the pause before first place is the suspense.
     const podiumStart = tommy || pulse ? 0.35 : 0;
+    let podiumEnd = podiumStart;
     podium.forEach((row, index) => {
-      const at = podiumStart + index * 0.28;
-      leaderboardRevealTl.to(row, { y: 0, scale: 1, autoAlpha: 1, duration: 0.55 }, at);
+      const isWinner = podium.length > 1 && index === podium.length - 1;
+      const at = index === 0 ? podiumStart : podiumEnd + (isWinner ? 0.7 : 0.3);
+      podiumEnd = at;
+      leaderboardRevealTl.to(
+        row,
+        isWinner
+          ? { y: 0, scale: 1, autoAlpha: 1, duration: 0.7, ease: "back.out(1.7)" }
+          : { y: 0, scale: 1, autoAlpha: 1, duration: 0.6, ease: "expo.out" },
+        at
+      );
       leaderboardRevealTl.add(
-        () => playLeaderboardHostSfx(LEADERBOARD_SFX.hostPodium, 0.55),
+        () => playLeaderboardHostSfx(LEADERBOARD_SFX.hostPodium, isWinner ? 0.8 : 0.55),
         at
       );
       const scoreEl = row.querySelector("[data-score-value]");
       if (scoreEl) {
         leaderboardRevealTl.add(
-          () => countUpScore(scoreEl, scoreEl.dataset.scoreValue, 0.5),
+          () => countUpScore(scoreEl, scoreEl.dataset.scoreValue, isWinner ? 0.9 : 0.5),
           at + 0.18
         );
       }
     });
 
     // Phase B — sheet + rest of class
-    const ranksAt = podiumStart + Math.max(0.55, podium.length * 0.28 + 0.12);
+    const ranksAt = podiumEnd + (podium.length ? 0.85 : 0.55);
     if (sheet) {
       leaderboardRevealTl.to(
         sheet,
@@ -1734,6 +1835,10 @@
     playBuzzinEmptyEnter,
     playBuzzinStartEffect,
     playBuzzinTimerPop,
+    startLuckyDrawSpin,
+    settleLuckyDrawSpin,
+    stopLuckyDrawSpin,
+    playLuckyDrawReveal,
     playCountdownTick,
     startCountdownRing,
     stopCountdownRing,
