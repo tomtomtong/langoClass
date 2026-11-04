@@ -1390,7 +1390,7 @@ function wireHomeUploadWorkflow() {
   urlAdd?.addEventListener("click", () => {
     const url = $("#home-upload-url")?.value.trim() || "";
     if (!url) {
-      setHomeUploadStatus("Paste a YouTube or video URL first.", true);
+      setHomeUploadStatus("Paste a direct video link first.", true);
       urlInput?.focus();
       return;
     }

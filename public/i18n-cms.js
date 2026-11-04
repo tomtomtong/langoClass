@@ -311,7 +311,7 @@
       "A file is too large (max 25 MB). Large images are compressed automatically — PDFs, video, and audio must be smaller.",
     "cms.ai.imageCompressFailed":
       "Could not compress {name} enough (need under {maxMb} MB). Try a smaller image.",
-    "cms.ai.youtubeLabel": "YouTube or video URL",
+    "cms.ai.youtubeLabel": "Direct video link (.mp4)",
     "cms.ai.fromMaterial": "Generate from material",
     "cms.ai.wizardCourseTitle": "Build full course",
     "cms.ai.changeApproach": "Change approach",
@@ -362,7 +362,7 @@
     "cms.ai.uploadFile": "Upload file",
     "cms.ai.dropFiles": "Choose or drop files",
     "cms.ai.pasteLink": "Paste video link",
-    "cms.ai.videoUrlPlaceholder": "https://youtube.com/… or direct video URL",
+    "cms.ai.videoUrlPlaceholder": "https://example.com/lesson.mp4",
     "cms.ai.prompt": "Prompt",
     "cms.ai.optional": "optional",
     "cms.ai.promptPlaceholder": "Describe what you want the exercises to focus on…",

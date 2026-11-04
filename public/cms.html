@@ -86,7 +86,7 @@
       <p class="kicker" data-i18n="cms.nav.home">Home</p>
       <div class="home-block home-upload-block paper" id="home-upload-block">
         <h2>Drop materials to start a section</h2>
-        <p class="hint">PDF, Word, Excel, video files, or YouTube links — up to 100 MB total. Add multiple files.</p>
+        <p class="hint">PDF, Word, Excel, or video files — up to 100 MB total. Add multiple files.</p>
         <div class="home-dropzone" id="home-dropzone" tabindex="0" role="button">
           <p class="home-dropzone-title">Drag and drop files here</p>
           <p class="hint">or click to browse</p>
@@ -94,8 +94,8 @@
         <input type="file" id="home-upload-input" multiple hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.mp4,.webm,.mov,video/*,application/pdf" />
         <div class="home-upload-url row">
           <div class="field" style="flex:1;margin-bottom:0">
-            <label for="home-upload-url">YouTube or video URL</label>
-            <input id="home-upload-url" type="url" placeholder="https://www.youtube.com/watch?v=…" />
+            <label for="home-upload-url">Direct video link (.mp4)</label>
+            <input id="home-upload-url" type="url" placeholder="https://example.com/lesson.mp4" />
           </div>
           <button class="btn ghost" type="button" id="home-upload-url-add">Add link</button>
         </div>
@@ -541,8 +541,8 @@
                   <ul class="cms-ai-file-list home-upload-list" id="cms-ai-file-list" hidden></ul>
                   <div class="home-upload-url row cms-ai-link-row">
                     <div class="field cms-ai-link-field">
-                      <label class="field-label" for="cms-ai-video-url" data-i18n="cms.ai.youtubeLabel">YouTube or video URL</label>
-                      <input type="url" id="cms-ai-video-url" class="cms-ai-video-url input" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" spellcheck="false" inputmode="url" />
+                      <label class="field-label" for="cms-ai-video-url" data-i18n="cms.ai.youtubeLabel">Direct video link (.mp4)</label>
+                      <input type="url" id="cms-ai-video-url" class="cms-ai-video-url input" placeholder="https://example.com/lesson.mp4" autocomplete="off" spellcheck="false" inputmode="url" />
                     </div>
                   </div>
                   <p class="hint cms-ai-upload-size" id="cms-ai-upload-size" hidden>0.0 / 100 MB used</p>
