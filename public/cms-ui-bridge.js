@@ -285,11 +285,11 @@
 
   window.loadHomeCourseProgressMap = loadHomeCourseProgressMap;
 
-  window.renderCmsHomeWidgets = async function renderCmsHomeWidgets() {
+  window.renderCmsHomeWidgets = async function renderCmsHomeWidgets(preloadedProgress) {
     const courses = window.state?.courses || [];
     const classes = window.state?.classes || [];
     const community = window.state?.communityCourses || [];
-    const progressMap = await loadHomeCourseProgressMap();
+    const progressMap = await (preloadedProgress || loadHomeCourseProgressMap());
 
     const hello = document.getElementById("home-hello");
     const school = document.getElementById("home-school");

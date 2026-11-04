@@ -3425,13 +3425,23 @@ async function enterHome() {
   if (hello) hello.textContent = name ? `Hi, ${name}` : "Hi";
   if (school) school.textContent = "... · ... · ...";
   try {
-    await loadClasses();
-    const data = await api("/api/cms/courses");
-    state.courses = data.courses || [];
-    await loadCommunityCourses();
+    // Independent requests: fetch in parallel instead of one after another.
     window.state = state;
+    const classesReady = loadClasses();
+    // Progress only needs the class list, so start it as soon as classes arrive.
+    const progressReady =
+      typeof window.loadHomeCourseProgressMap === "function"
+        ? classesReady.then(() => window.loadHomeCourseProgressMap())
+        : null;
+    progressReady?.catch(() => {});
+    const [, data] = await Promise.all([
+      classesReady,
+      api("/api/cms/courses"),
+      loadCommunityCourses(),
+    ]);
+    state.courses = data.courses || [];
     if (typeof window.renderCmsHomeWidgets === "function") {
-      await window.renderCmsHomeWidgets();
+      await window.renderCmsHomeWidgets(progressReady);
     }
     renderHomeUploadCourseSelect();
     renderHomeUploadUi();
