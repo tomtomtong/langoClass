@@ -1093,11 +1093,12 @@ function initQuizJoin() {
       : uiT("mcq.nextComing");
   });
 
-  socket.on("question_results", ({ results, leaderboard }) => {
+  socket.on("question_results", ({ results, leaderboard, correctIndex }) => {
     if (quizFastMode) return;
     clearTimer();
     showScreen("player-results");
     const mine = results.find((r) => r.playerId === myPlayerId);
+    setPlayerMcqResultInfo(currentQuestion, correctIndex);
     renderPlayerMcqResult(mine, leaderboard, myPlayerId);
   });
 

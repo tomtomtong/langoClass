@@ -253,6 +253,7 @@
 
       case "mc-results":
         showPreviewScreen("player-results");
+        setPlayerMcqResultInfo({ text: SAMPLE.question, options: SAMPLE.options }, 0);
         renderPlayerMcqResult(
           { playerId: "me", answerIndex: 0, correct: true, points: 500 },
           SAMPLE.leaderboard.map((row) => row.id === "me" ? { ...row, score: 15356 } : row),
@@ -262,6 +263,7 @@
 
       case "mc-wrong":
         showPreviewScreen("player-results");
+        setPlayerMcqResultInfo({ text: SAMPLE.question, options: SAMPLE.options }, 0);
         renderPlayerMcqResult(
           { playerId: "me", answerIndex: 1, correct: false, points: 0 },
           SAMPLE.leaderboard.map((row) => row.id === "me" ? { ...row, score: 15356 } : row),
