@@ -447,6 +447,45 @@ function placeAiFormatExtras() {
   if (onOutline && mount) mount.appendChild(extras);
   else if (home) home.appendChild(extras);
   placeAiSpeakLangRow();
+  placeAiFocusRow();
+}
+
+// In course mode the "what to focus on" box sits on the material step, folded
+// away; in section mode it stays on the format step.
+function placeAiFocusRow() {
+  const box = document.querySelector(".cms-ai-format-prompt");
+  if (!box) return;
+  const home = $("#cms-ai-focus-format-home");
+  const mount = $("#cms-ai-focus-material-mount");
+  const details = $("#cms-ai-focus-details");
+  const inCourse = state.aiCourseMode && state.aiWizardActive;
+  if (inCourse && mount) mount.appendChild(box);
+  else if (home) home.appendChild(box);
+  if (details) details.hidden = !inCourse;
+}
+
+function aiSpeakLangName() {
+  const code = getAiSpeakLangCode();
+  const locale = window.LangoI18n?.getLocale?.() || "en";
+  if (locale !== "en") {
+    try {
+      const name = new Intl.DisplayNames([locale], { type: "language" }).of(code);
+      if (name && name !== code) return name;
+    } catch {
+      /* fall back to the English label */
+    }
+  }
+  return communityLangLabel(code);
+}
+
+// "Questions will be in English" with the select folded away, so the default
+// (the course language) needs no decision.
+function syncAiLangSummary() {
+  const name = aiSpeakLangName();
+  const summary = $("#cms-ai-lang-summary");
+  if (summary) summary.textContent = cmsT("wiz.lang.summary", { language: name });
+  const note = $("#cms-ai-plan-lang-note");
+  if (note) note.textContent = cmsT("wiz.lang.note", { language: name });
 }
 
 function placeAiSpeakLangRow() {
@@ -454,19 +493,29 @@ function placeAiSpeakLangRow() {
   if (!row) return;
   const formatHome = $("#cms-ai-speak-lang-format-home");
   const materialMount = $("#cms-ai-speak-lang-material-mount");
-  const planMount = $("#cms-ai-speak-lang-plan-mount");
-  const onCourseMaterial = state.aiCourseMode && state.aiWizardActive && state.aiWizardStep === 1;
-  const onCourseOutline = state.aiCourseMode && state.aiWizardActive && state.aiWizardStep === 2;
-  if (onCourseMaterial && materialMount) materialMount.appendChild(row);
-  else if (onCourseOutline && planMount) planMount.appendChild(row);
+  const inCourse = state.aiCourseMode && state.aiWizardActive;
+  if (inCourse && materialMount) materialMount.appendChild(row);
   else if (formatHome) formatHome.appendChild(row);
+  const details = $("#cms-ai-lang-details");
+  if (details) details.hidden = !inCourse;
+  syncAiLangSummary();
+}
+
+function aiPlanMode() {
+  if (state.aiTemplate === AI_AUTO_TEMPLATE) return "auto";
+  if (AI_TEMPLATES[state.aiTemplate]) return "same";
+  return "custom";
 }
 
 function syncAiPlanFormatSelect() {
+  const mode = aiPlanMode();
+  document.querySelectorAll('input[name="cms-ai-plan-mode"]').forEach((radio) => {
+    radio.checked = radio.value === mode;
+  });
   const sel = $("#cms-ai-plan-format-select");
-  if (!sel) return;
-  sel.value =
-    AI_TEMPLATES[state.aiTemplate] || state.aiTemplate === AI_AUTO_TEMPLATE ? state.aiTemplate : "custom";
+  if (sel && AI_TEMPLATES[state.aiTemplate]) sel.value = state.aiTemplate;
+  const same = $("#cms-ai-plan-same");
+  if (same) same.hidden = mode !== "same";
 }
 
 function currentAiFormatLabel() {
@@ -483,20 +532,32 @@ function aiPlanCardTypes(card) {
   }
 }
 
+// "5 questions: 3 multiple choice, 2 speaking", with no jargon and no settings.
+function aiPlainFormatSummary(types) {
+  const entries = Object.entries(types || {}).filter(([, count]) => count > 0);
+  const total = entries.reduce((sum, [type, count]) => (type === "video" ? sum : sum + count), 0);
+  const parts = entries
+    .map(([type, count]) => cmsT(`wiz.card.t.${type}`, { n: count }))
+    .join(cmsT("wiz.card.join"));
+  if (!entries.length) return "—";
+  return total ? cmsT("wiz.card.summary", { total, parts }) : parts;
+}
+
 function syncAiPlanCardFormatLabels() {
   const auto = isAiAutoFormat();
   const settings = getAiGenerationSettings();
-  const label = currentAiFormatLabel();
   document.querySelectorAll(".cms-ai-plan-card").forEach((card) => {
     const labelEl = card.querySelector(".cms-ai-plan-format");
     if (labelEl) {
-      labelEl.textContent = auto
-        ? aiFormatLabel(aiPlanCardTypes(card), settings.difficulty, settings.speakLangCode)
-        : label;
+      labelEl.textContent = aiPlainFormatSummary(auto ? aiPlanCardTypes(card) : settings.types);
     }
     const pick = card.querySelector(".cms-ai-plan-section-format");
-    if (pick) pick.hidden = !auto;
+    const change = card.querySelector(".cms-ai-plan-change");
+    const editing = card.dataset.editing === "1";
+    if (pick) pick.hidden = !auto || !editing;
+    if (change) change.hidden = !auto || editing;
   });
+  syncAiLangSummary();
 }
 
 function syncAiPlanGenerateUi() {
@@ -505,8 +566,13 @@ function syncAiPlanGenerateUi() {
   const previewReady = hasAiPreviewReady();
   if (genBtn) {
     genBtn.hidden = !state.aiCourseMode || state.aiWizardStep !== 2 || previewReady;
-    genBtn.textContent = cmsT("wiz.generateN", { n });
+    genBtn.textContent = cmsT("wiz.makeCourse");
     genBtn.disabled = state.aiWizardBusy || !n;
+  }
+  const note = $("#cms-ai-plan-make-note");
+  if (note) {
+    note.hidden = !state.aiCourseMode || state.aiWizardStep !== 2 || previewReady;
+    note.textContent = cmsT("wiz.confirmText", { n });
   }
   const confirmBtn = $("#btn-cms-ai-confirm-generate");
   if (confirmBtn) {
@@ -575,6 +641,9 @@ function setAiWizardBusy(busy, message) {
   });
   const formatSelect = $("#cms-ai-plan-format-select");
   if (formatSelect) formatSelect.disabled = busy;
+  document.querySelectorAll('input[name="cms-ai-plan-mode"]').forEach((radio) => {
+    radio.disabled = busy;
+  });
   document.querySelectorAll(".cms-ai-step").forEach((btn) => {
     const n = Number(btn.dataset.step);
     btn.disabled = busy ? n !== state.aiWizardStep : n > state.aiWizardMaxStep;
@@ -863,7 +932,7 @@ function updateAiWizardSummary() {
   if (!el) return;
   const section = state.sections[state.editingSectionIndex];
   const parts = [
-    currentAiFormatLabel(),
+    state.aiCourseMode ? "" : currentAiFormatLabel(),
     state.aiCourseMode ? cmsT("cms.ai.summaryFullCourse") : section?.title?.trim() || cmsT("cms.ai.summaryThisSection"),
   ];
   const file = getAiSelectedFiles()[0];
@@ -5918,7 +5987,6 @@ function renderAiCoursePlan() {
     return;
   }
 
-  const formatText = currentAiFormatLabel();
   const plannerName = plan.planner === "llm" ? cmsT("wiz.outline.ai") : cmsT("wiz.outline.headings");
   const attr = (value) => escapeHtml(value).replace(/"/g, "&quot;");
   meta.innerHTML = `
@@ -5934,9 +6002,7 @@ function renderAiCoursePlan() {
       const auto = isAiAutoFormat();
       const cardTypes = aiPlanSectionTypes(section);
       const choice = aiPlanSectionFormatChoice(cardTypes, section.suggestedTypes || {});
-      const cardFormat = auto
-        ? aiFormatLabel(cardTypes, getAiGenerationSettings().difficulty, getAiGenerationSettings().speakLangCode)
-        : formatText;
+      const cardFormat = aiPlainFormatSummary(auto ? cardTypes : getAiGenerationSettings().types);
       const kindName = section.kind ? cmsT(`wiz.kind.${section.kind}`) : "";
       const pickOptions = [
         [AI_AUTO_TEMPLATE, kindName ? cmsT("wiz.format.autoKind", { kind: kindName }) : cmsT("wiz.format.auto")],
@@ -5954,7 +6020,8 @@ function renderAiCoursePlan() {
         </div>
         <div class="cms-ai-plan-card-format">
           <span class="cms-ai-plan-format">${escapeHtml(cardFormat)}</span>
-          <select class="cms-ai-plan-section-format" aria-label="${attr(cmsT("wiz.format.perSection"))}" ${auto ? "" : "hidden"}>${pickOptions}</select>
+          <button type="button" class="cms-ai-plan-change" ${auto ? "" : "hidden"}>${escapeHtml(cmsT("wiz.card.change"))}</button>
+          <select class="cms-ai-plan-section-format" aria-label="${attr(cmsT("wiz.format.perSection"))}" hidden>${pickOptions}</select>
         </div>
         <input type="text" class="cms-ai-plan-summary" value="${attr(section.summary || "")}" placeholder="${attr(cmsT("wiz.outline.summaryPlaceholder"))}" aria-label="${attr(cmsT("wiz.outline.summaryLabel"))}" />
         <textarea class="cms-ai-textarea cms-ai-plan-excerpt" rows="5" placeholder="${attr(cmsT("wiz.outline.materialPlaceholder"))}" aria-label="${attr(cmsT("wiz.outline.materialLabel"))}">${escapeHtml(section.materialExcerpt || "")}</textarea>
@@ -6176,8 +6243,10 @@ function armAiCourseGenerate() {
     return;
   }
   setCmsError(errorEl, "");
+  // Making questions changes nothing that is saved, so there is no second
+  // "are you sure" click: the note above the button already says so.
   state.aiPlanGenerateArmed = true;
-  syncAiPlanGenerateUi();
+  confirmAiCourseGenerate();
 }
 
 function cancelAiCourseGenerate() {
@@ -11329,6 +11398,7 @@ $("#cms-ai-wizard")?.addEventListener("change", (event) => {
     state.aiSpeakLangCode = getAiSpeakLangCode();
     updateAiWizardSummary();
     syncAiPlanCardFormatLabels();
+    syncAiLangSummary();
     return;
   }
   if (event.target.matches("#cms-ai-type-mcquiz, #cms-ai-type-fastmcquiz, #cms-ai-type-buzzin, #cms-ai-type-video, #cms-ai-count-mcquiz, #cms-ai-count-fastmcquiz, #cms-ai-count-buzzin, #cms-ai-count-video, #cms-ai-difficulty")) {
@@ -11477,9 +11547,25 @@ $("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
     $("#cms-ai-error").textContent = err.message;
   }
 });
+$("#cms-ai-plan-mode")?.addEventListener("change", (event) => {
+  if (!event.target.matches('input[name="cms-ai-plan-mode"]')) return;
+  const mode = event.target.value;
+  if (mode === "auto") applyAiTemplate(AI_AUTO_TEMPLATE);
+  else if (mode === "custom") applyAiTemplate("custom");
+  else applyAiTemplate($("#cms-ai-plan-format-select")?.value || "vocab");
+});
+$("#cms-ai-plan-list")?.addEventListener("click", (event) => {
+  const change = event.target.closest(".cms-ai-plan-change");
+  if (!change) return;
+  const card = change.closest(".cms-ai-plan-card");
+  card.dataset.editing = "1";
+  syncAiPlanCardFormatLabels();
+  card.querySelector(".cms-ai-plan-section-format")?.focus();
+});
 $("#cms-ai-plan-list")?.addEventListener("change", (event) => {
   if (event.target.matches(".cms-ai-plan-section-format")) {
     const card = event.target.closest(".cms-ai-plan-card");
+    card.dataset.editing = "";
     const planned = state.aiCoursePlan?.sections?.[Number(card?.dataset.planIndex)] || {};
     const value = event.target.value;
     if (value === AI_AUTO_TEMPLATE) card.dataset.types = encodeURIComponent(JSON.stringify(planned.suggestedTypes || {}));

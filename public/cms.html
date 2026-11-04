@@ -526,12 +526,7 @@
               <div class="cms-ai-step-body">
               <div class="cms-ai-step-panel" data-step-kind="material">
                 <p class="hint cms-ai-intro" id="cms-ai-material-intro">Add source material for this section.</p>
-                <div id="cms-ai-speak-lang-material-mount" class="cms-ai-speak-lang-mount"></div>
                 <div class="cms-ai-material-layout cms-ai-material-layout-simple">
-                  <div class="field">
-                    <label class="field-label" for="cms-ai-paste" data-i18n="cms.ai.pasteText">Paste text</label>
-                    <textarea id="cms-ai-paste" class="cms-ai-textarea" rows="5" data-i18n-placeholder="cms.ai.pastePlaceholder" placeholder="Copy and paste your text material here…"></textarea>
-                  </div>
                   <label class="home-dropzone wizard-dropzone cms-ai-file-drop" id="cms-ai-file-drop">
                     <input type="file" id="cms-ai-file" hidden multiple accept=".txt,.md,.pdf,.docx,.pptx,.vtt,.mp4,.mov,.m4v,.mkv,.avi,.webm,.mp3,.wav,.m4a,.ogg,.flac,.aac,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,video/*,audio/*,image/*" />
                     <p class="home-dropzone-title" id="cms-ai-file-drop-label" data-i18n="cms.ai.dropPrimary">Drag and drop files here</p>
@@ -539,12 +534,28 @@
                     <span class="hint" id="cms-ai-file-name" hidden></span>
                   </label>
                   <ul class="cms-ai-file-list home-upload-list" id="cms-ai-file-list" hidden></ul>
-                  <div class="home-upload-url row cms-ai-link-row">
-                    <div class="field cms-ai-link-field">
-                      <label class="field-label" for="cms-ai-video-url" data-i18n="cms.ai.youtubeLabel">Direct video link (.mp4)</label>
-                      <input type="url" id="cms-ai-video-url" class="cms-ai-video-url input" placeholder="https://example.com/lesson.mp4" autocomplete="off" spellcheck="false" inputmode="url" />
-                    </div>
+                  <p class="cms-ai-or" data-i18n="wiz.or">or</p>
+                  <div class="field">
+                    <label class="field-label" for="cms-ai-paste" data-i18n="cms.ai.pasteText">Paste text</label>
+                    <textarea id="cms-ai-paste" class="cms-ai-textarea" rows="5" data-i18n-placeholder="cms.ai.pastePlaceholder" placeholder="Copy and paste your text material here…"></textarea>
                   </div>
+                  <details class="cms-ai-more" id="cms-ai-link-details">
+                    <summary data-i18n="wiz.link.summary">Use a video link instead</summary>
+                    <div class="home-upload-url row cms-ai-link-row">
+                      <div class="field cms-ai-link-field">
+                        <label class="field-label" for="cms-ai-video-url" data-i18n="cms.ai.youtubeLabel">Direct video link (.mp4)</label>
+                        <input type="url" id="cms-ai-video-url" class="cms-ai-video-url input" placeholder="https://example.com/lesson.mp4" autocomplete="off" spellcheck="false" inputmode="url" />
+                      </div>
+                    </div>
+                  </details>
+                  <details class="cms-ai-more" id="cms-ai-focus-details" hidden>
+                    <summary data-i18n="wiz.focus.summary">Tell Lango what to focus on (optional)</summary>
+                    <div id="cms-ai-focus-material-mount"></div>
+                  </details>
+                  <details class="cms-ai-more" id="cms-ai-lang-details" hidden>
+                    <summary id="cms-ai-lang-summary"></summary>
+                    <div id="cms-ai-speak-lang-material-mount" class="cms-ai-speak-lang-mount"></div>
+                  </details>
                   <p class="hint cms-ai-upload-size" id="cms-ai-upload-size" hidden>0.0 / 100 MB used</p>
                   <div class="cms-ai-material-card-head cms-ai-material-card-head-compact">
                     <div class="cms-ai-material-state" id="cms-ai-material-state" hidden aria-label="Material status"></div>
@@ -590,9 +601,11 @@
                     <p class="hint cms-ai-template-meta template-card-meta" aria-hidden="true"></p>
                   </button>
                 </div>
+                <div id="cms-ai-focus-format-home">
                 <div class="field cms-ai-format-prompt wizard-prompt-field">
                   <label class="field-label" for="cms-ai-instructions" data-i18n="cms.ai.prompt">Prompt</label>
                   <textarea id="cms-ai-instructions" class="cms-ai-prompt-input" rows="4" data-i18n-placeholder="cms.ai.promptPlaceholder" placeholder="Describe what you want the exercises to focus on…"></textarea>
+                </div>
                 </div>
                 <div id="cms-ai-format-extras-home">
                   <div id="cms-ai-format-extras">
@@ -652,28 +665,39 @@
               <div class="cms-ai-step-panel" data-step-kind="plan" hidden>
                 <p class="hint cms-ai-intro" id="cms-ai-plan-intro">Approve the outline before generating. Uncheck a section to skip it.</p>
                 <div class="cms-ai-plan-format-bar" id="cms-ai-plan-format-bar">
-                  <div class="cms-ai-plan-format-row">
-                    <label class="field cms-ai-field">
-                      <span data-i18n="wiz.format.label">How should each section be made?</span>
-                      <select id="cms-ai-plan-format-select" aria-label="Play format for generated sections">
-                        <option value="auto" data-i18n="wiz.format.auto">Let Lango decide for each section</option>
-                        <option value="vocab" data-i18n="cms.ai.tpl.vocab">Vocab drill</option>
-                        <option value="reading" data-i18n="cms.ai.tpl.reading">Reading check</option>
-                        <option value="speaking" data-i18n="cms.ai.tpl.speaking">Speaking class</option>
-                        <option value="mixed" data-i18n="cms.ai.tpl.mixed">Mixed lesson</option>
-                        <option value="video" data-i18n="cms.ai.tpl.video">Video lesson</option>
-                        <option value="custom" data-i18n="wiz.format.custom">My own mix</option>
-                      </select>
+                  <fieldset class="cms-ai-plan-mode" id="cms-ai-plan-mode">
+                    <legend data-i18n="wiz.format.label">How should each section be made?</legend>
+                    <label class="cms-ai-plan-mode-opt">
+                      <input type="radio" name="cms-ai-plan-mode" value="auto" checked />
+                      <span><strong data-i18n="wiz.mode.auto">Let Lango decide for each section</strong><small data-i18n="wiz.mode.autoHelp">Recommended. Word lists, conversations and reading each get suitable questions.</small></span>
                     </label>
-                    <div id="cms-ai-speak-lang-plan-mount" class="cms-ai-speak-lang-mount"></div>
-                    <p class="hint" id="cms-ai-plan-format-hint">Used when you generate. Changing it does not rebuild the outline.</p>
-                  </div>
+                    <label class="cms-ai-plan-mode-opt">
+                      <input type="radio" name="cms-ai-plan-mode" value="same" />
+                      <span><strong data-i18n="wiz.mode.same">The same for every section</strong><small data-i18n="wiz.mode.sameHelp">Pick one style and use it everywhere.</small></span>
+                    </label>
+                    <label class="cms-ai-plan-mode-opt">
+                      <input type="radio" name="cms-ai-plan-mode" value="custom" />
+                      <span><strong data-i18n="wiz.mode.custom">I will choose the questions</strong><small data-i18n="wiz.mode.customHelp">Pick the question types and how many of each.</small></span>
+                    </label>
+                  </fieldset>
+                  <label class="field cms-ai-field cms-ai-plan-same" id="cms-ai-plan-same" hidden>
+                    <span data-i18n="wiz.mode.styleLabel">Style</span>
+                    <select id="cms-ai-plan-format-select" aria-label="Style for every section">
+                      <option value="vocab" data-i18n="cms.ai.tpl.vocab">Vocab drill</option>
+                      <option value="reading" data-i18n="cms.ai.tpl.reading">Reading check</option>
+                      <option value="speaking" data-i18n="cms.ai.tpl.speaking">Speaking class</option>
+                      <option value="mixed" data-i18n="cms.ai.tpl.mixed">Mixed lesson</option>
+                      <option value="video" data-i18n="cms.ai.tpl.video">Video lesson</option>
+                    </select>
+                  </label>
+                  <p class="hint cms-ai-plan-lang-note" id="cms-ai-plan-lang-note"></p>
                   <div id="cms-ai-plan-format-mount"></div>
                 </div>
                 <div class="cms-ai-plan-meta" id="cms-ai-plan-meta"></div>
                 <div class="cms-ai-plan-list" id="cms-ai-plan-list"></div>
                 <div class="cms-ai-plan-actions" id="cms-ai-plan-actions">
-                  <button type="button" class="btn primary cms-cta" id="btn-cms-ai-generate-course">Generate sections</button>
+                  <p class="hint cms-ai-plan-make-note" id="cms-ai-plan-make-note"></p>
+                  <button type="button" class="btn primary cms-cta" id="btn-cms-ai-generate-course" data-i18n="wiz.makeCourse">Make my course</button>
                   <div class="cms-ai-plan-confirm-row" id="cms-ai-plan-confirm-row" hidden>
                     <p class="cms-ai-plan-confirm" id="cms-ai-plan-confirm"></p>
                     <div class="cms-ai-plan-confirm-btns">

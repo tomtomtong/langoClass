@@ -84,3 +84,21 @@ test("the Auto step labels show up in Chinese for the course wizard", () => {
   assert.equal(lookup("wiz.step.check"), "檢查");
   assert.equal(lookup("wiz.step.finish"), "儲存");
 });
+
+test("nothing in the wizard falls back to English in zh-TW", () => {
+  const start = cmsHtml.indexOf('id="cms-ai-wizard"');
+  const end = cmsHtml.indexOf('id="btn-save-exercises"');
+  const keys = new Set(
+    [...cmsHtml.slice(start, end).matchAll(/data-i18n(?:-placeholder)?="([\w.]+)"/g)].map((m) => m[1])
+  );
+  for (const m of cmsJs.matchAll(/cmsT\("((?:cms\.ai|cms\.type|cms\.batch)\.[\w.]+)"/g)) keys.add(m[1]);
+
+  const english = {};
+  const en = table("en");
+  for (const key of keys) english[key] = en(key);
+  const zh = table("zh-TW");
+  const leftovers = [...keys].filter(
+    (key) => zh(key) === english[key] && /[A-Za-z]{4,}/.test(english[key] || "")
+  );
+  assert.deepEqual(leftovers, [], "these keys have no zh-TW text");
+});
