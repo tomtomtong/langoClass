@@ -473,7 +473,7 @@ function startRoomBuzzinJoinTimer(joinEndsAt) {
   }
 
   const tick = () => {
-    const remaining = Math.max(0, Math.ceil((joinEndsAt - Date.now()) / 1000));
+    const remaining = Math.max(0, Math.ceil((serverTimeToLocal(joinEndsAt) - Date.now()) / 1000));
     valueEl.textContent = String(remaining);
     if (remaining <= 0) stopRoomBuzzinJoinTimer();
   };
@@ -739,6 +739,7 @@ function updateStudentBuzzinUi(payload) {
 
   if (phase === "join") {
     btn.hidden = false;
+    noteServerClock(payload.serverNow);
     startRoomBuzzinJoinTimer(payload.joinEndsAt);
     resetRoomBuzzinTurnUi();
   } else {
@@ -1027,6 +1028,7 @@ function setupRoomPlayerQuiz(socket) {
   });
 
   socket.on("question_preview", (data) => {
+    noteServerClock(data?.serverNow);
     stopRoomStatusPoll();
     if (roomQuizPlayerId) stopRoomQuizJoinRetry();
     roomQuizCurrentQuestion = data;
@@ -1089,6 +1091,7 @@ function setupRoomPlayerQuiz(socket) {
   });
 
   socket.on("question_start", (data) => {
+    noteServerClock(data?.serverNow);
     stopRoomStatusPoll();
     if (roomQuizPlayerId) stopRoomQuizJoinRetry();
     roomQuizCurrentQuestion = data;
@@ -1158,10 +1161,10 @@ function setupRoomPlayerQuiz(socket) {
   socket.on("question_results", ({ results, leaderboard, correctIndex }) => {
     if (roomQuizFastMode) return;
     clearTimer();
+    setPlayerMcqResultInfo(roomQuizCurrentQuestion, correctIndex);
     const seatId = roomQuizSeatId();
     const mine = (results || []).find((r) => r.playerId === seatId);
     if (typeof joinLastMcqResult !== "undefined") {
-    setPlayerMcqResultInfo(roomQuizCurrentQuestion, correctIndex);
       joinLastMcqResult = { mine, leaderboard, playerId: seatId };
     }
     revealStudentScreen("player-results");

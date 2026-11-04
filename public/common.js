@@ -1047,6 +1047,20 @@ function showPlayerMcqAnsweredState(answerIndex) {
   });
 }
 
+// Deadlines arrive as the server's clock; a phone whose own clock is off would
+// otherwise see a question as already over. Payloads carry serverNow, and every
+// deadline is converted to this device's clock through the learned offset.
+let serverClockOffsetMs = 0;
+
+function noteServerClock(serverNow) {
+  const now = Number(serverNow);
+  if (Number.isFinite(now) && now > 0) serverClockOffsetMs = now - Date.now();
+}
+
+function serverTimeToLocal(serverTime) {
+  return Number(serverTime) - serverClockOffsetMs;
+}
+
 function animateMcqReadProgress(fillEl, endsAt, fallbackSeconds = 5, { drain = true } = {}) {
   if (!fillEl) {
     return;
@@ -1057,7 +1071,7 @@ function animateMcqReadProgress(fillEl, endsAt, fallbackSeconds = 5, { drain = t
     track.removeAttribute("hidden");
     track.setAttribute("aria-hidden", "false");
   }
-  const deadline = Number(endsAt) || Date.now() + fallbackSeconds * 1000;
+  const deadline = Number(endsAt) ? serverTimeToLocal(endsAt) : Date.now() + fallbackSeconds * 1000;
   const ms = Math.max(400, deadline - Date.now());
   const previewActive = document.querySelector("#screen-host-quiz-preview")?.classList.contains("active");
   const playerPreview = document.querySelector("#screen-player-question")?.classList.contains("is-previewing");
@@ -1089,7 +1103,7 @@ function resetMcqReadProgress(fillEl) {
 function startDeadlineTimer(endsAt, fallbackSeconds, onTick, onEnd) {
   clearTimer();
   const fallback = Math.max(0, Number(fallbackSeconds) || 0);
-  const deadline = Number(endsAt) || Date.now() + fallback * 1000;
+  const deadline = Number(endsAt) ? serverTimeToLocal(endsAt) : Date.now() + fallback * 1000;
   let lastRemaining = null;
 
   const tick = () => {
