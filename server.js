@@ -109,6 +109,12 @@ const ENV_VIDEO_GENERATOR_API_URL = String(
 ).trim().replace(/\/$/, "");
 const INWORLD_API_BASE = "https://api.inworld.ai";
 const INWORLD_BUZZIN_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
+// English is read in a UK accent; every other language keeps the default voice.
+const INWORLD_UK_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__uncle_tommy_uk";
+
+function inworldGameplayVoiceId(speakLangCode) {
+  return normalizeSpeakLangCode(speakLangCode) === "en" ? INWORLD_UK_TTS_VOICE_ID : INWORLD_BUZZIN_TTS_VOICE_ID;
+}
 const INWORLD_TTS_MODEL_ID = "inworld-tts-1.5-max";
 const QWEN_API_BASE = String(
   process.env.QWEN_API_BASE || "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -2392,7 +2398,7 @@ function getElevenlabsTtsSettings() {
   };
 }
 
-function buildQuestionTtsCacheMeta() {
+function buildQuestionTtsCacheMeta(speakLangCode) {
   if (getGameplayTtsProvider() === "elevenlabs") {
     const settings = getElevenlabsTtsSettings();
     return { provider: "elevenlabs", model: "eleven_multilingual_v2", voice: settings.voiceId, stability: settings.stability };
@@ -2407,7 +2413,7 @@ function buildQuestionTtsCacheMeta() {
   return {
     provider: "inworld",
     model: INWORLD_TTS_MODEL_ID,
-    voice: INWORLD_BUZZIN_TTS_VOICE_ID,
+    voice: inworldGameplayVoiceId(speakLangCode),
   };
 }
 
@@ -2437,7 +2443,7 @@ async function resolveGameplayTts(text, speakLangCode, purpose = "question", opt
     text: speakText,
     speakLangCode,
     purpose,
-    meta: buildQuestionTtsCacheMeta(),
+    meta: buildQuestionTtsCacheMeta(speakLangCode),
   });
   if (!skipCache) {
     const cached = questionTtsCache.loadCachedQuestionTts(cacheKey);
@@ -3353,7 +3359,7 @@ async function synthesizeGameplayTts(text, languageCode, options = {}) {
   return inworldTtsSynthesize(
     getInworldApiKey(),
     text,
-    INWORLD_BUZZIN_TTS_VOICE_ID,
+    inworldGameplayVoiceId(languageCode),
     languageCode,
     {
       speakingRate: gameplayTtsStyle.INWORLD_GAMEPLAY_SPEAKING_RATE,
@@ -5600,7 +5606,7 @@ app.post("/api/cms/prefetch-question-tts", async (req, res) => {
           text: item.text,
           speakLangCode: item.speakLangCode,
           purpose: item.purpose,
-          meta: buildQuestionTtsCacheMeta(),
+          meta: buildQuestionTtsCacheMeta(item.speakLangCode),
         });
         deletedCache = questionTtsCache.deleteCachedQuestionTts(cacheKey);
       }

@@ -32,6 +32,19 @@ test("without an Inworld key, speech goes through the router's Inworld TTS", asy
   assert.deepEqual(audio, { audioContent: "SUQz", format: "mp3" });
 });
 
+test("English speech uses the UK voice and other languages keep the default voice", async () => {
+  const voices = [];
+  globalThis.fetch = async (url, init) => {
+    voices.push(JSON.parse(init.body).voice);
+    return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
+  };
+  const env = { CMS_API_BASE: "https://cms.example" };
+  await speak(env, "Hello Ada", { language: "en-US" });
+  await speak(env, "Hola Ada", { language: "es" });
+  assert.equal(voices[0], "default-zylgts2tamenvybeti3z0w__uncle_tommy_uk");
+  assert.equal(voices[1], "default-zylgts2tamenvybeti3z0w__uncle_tommy");
+});
+
 test("ElevenLabs speech goes through the CMS router", async () => {
   globalThis.fetch = async (url, init) => {
     assert.equal(url, "https://cms.example/api/router/elevenlabs-tts");

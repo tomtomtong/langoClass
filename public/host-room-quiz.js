@@ -1200,7 +1200,7 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
     ? uiT("mcq.startingShortly")
     : isFastMode
       ? uiT("fast.quickInProgress")
-      : uiT("mcq.studentsAnswering");
+      : "";
   const countdownEl = $("#host-quiz-countdown");
   const countdownRing = countdownEl?.closest(".host-mcq-countdown");
   const countdownSeconds = data.timeLimit || 5;

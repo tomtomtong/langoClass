@@ -1155,12 +1155,13 @@ function setupRoomPlayerQuiz(socket) {
       : uiT("mcq.nextComing");
   });
 
-  socket.on("question_results", ({ results, leaderboard }) => {
+  socket.on("question_results", ({ results, leaderboard, correctIndex }) => {
     if (roomQuizFastMode) return;
     clearTimer();
     const seatId = roomQuizSeatId();
     const mine = (results || []).find((r) => r.playerId === seatId);
     if (typeof joinLastMcqResult !== "undefined") {
+    setPlayerMcqResultInfo(roomQuizCurrentQuestion, correctIndex);
       joinLastMcqResult = { mine, leaderboard, playerId: seatId };
     }
     revealStudentScreen("player-results");

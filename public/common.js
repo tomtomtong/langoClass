@@ -927,8 +927,40 @@ function playerMcqQuestionUnanswered() {
   return true;
 }
 
+// The question and correct answer shown on the student's result card. Set from the
+// question_results payload just before rendering; cleared for the local "time's up"
+// card, which appears before the server has revealed the answer.
+let playerMcqResultInfo = null;
+
+function setPlayerMcqResultInfo(question, correctIndex) {
+  const options = Array.isArray(question?.options) ? question.options : [];
+  const correctText = Number.isInteger(correctIndex) ? options[correctIndex] : "";
+  playerMcqResultInfo = question?.text
+    ? {
+        text: String(question.text),
+        label: OPTION_LABELS[correctIndex] || String.fromCharCode(65 + (correctIndex || 0)),
+        correctText: correctText ? String(correctText) : "",
+      }
+    : null;
+}
+
+function renderPlayerMcqResultInfo() {
+  const wrap = $("#player-result-info");
+  if (!wrap) return;
+  const info = playerMcqResultInfo;
+  wrap.hidden = !info;
+  if (!info) return;
+  $("#player-result-question").textContent = info.text;
+  const answerEl = $("#player-result-correct-answer");
+  answerEl.hidden = !info.correctText;
+  if (info.correctText) {
+    answerEl.innerHTML = `<span class="player-mcq-result-correct-label">${escapeHtml(uiT("mcq.correctAnswer"))}</span> <strong>${escapeHtml(info.label)} ${escapeHtml(info.correctText)}</strong>`;
+  }
+}
+
 function showPlayerMcqTimesUpIfUnanswered(playerId, leaderboard = []) {
   if (!playerId || !playerMcqQuestionUnanswered()) return;
+  playerMcqResultInfo = null;
   showScreen("player-results");
   renderPlayerMcqResult(
     { correct: false, points: 0, answerIndex: null },
@@ -985,6 +1017,7 @@ function renderPlayerMcqResult(mine, leaderboard = [], playerId) {
   const totalScore = scoreRow?.score || 0;
   if (score) score.textContent = uiT("mcq.scoreLabel", { n: totalScore });
   if (questionScore) questionScore.textContent = uiT("mcq.scoreLabel", { n: totalScore });
+  renderPlayerMcqResultInfo();
   renderLeaderboard($("#player-leaderboard"), leaderboard, playerId);
 }
 

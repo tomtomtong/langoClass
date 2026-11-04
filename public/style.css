@@ -2066,7 +2066,8 @@ body.join-preview-mode.join-preview-toolbar-open {
   position: relative;
   width: 100%;
   min-height: min(280px, 42vh);
-  padding: 36px 48px 28px;
+  /* Top padding clears the half of the timer ring that hangs into the card. */
+  padding: 64px 48px 28px;
   box-sizing: border-box;
   border: 4px solid #fc7dba;
   border-radius: 40px;
@@ -2684,6 +2685,45 @@ body.join-preview-mode.join-preview-toolbar-open {
     0 6px 8px rgba(0, 0, 0, 0.2);
 }
 
+.player-mcq-result-info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 2px dashed rgba(162, 89, 255, 0.35);
+  font-family: "Nunito", sans-serif;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.player-mcq-result-info[hidden],
+.player-mcq-result-correct[hidden] {
+  display: none;
+}
+
+.player-mcq-result-question {
+  margin: 0;
+  color: #743c9b;
+  font-size: clamp(16px, 4.2vw, 20px);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.player-mcq-result-correct {
+  margin: 0;
+  color: #2f2a3a;
+  font-size: clamp(15px, 4vw, 18px);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.player-mcq-result-correct strong {
+  color: #12a150;
+  font-weight: 900;
+}
+
 .player-mcq-result-encouragement {
   position: relative;
   isolation: isolate;
@@ -2929,7 +2969,7 @@ body.join-preview-mode.join-preview-toolbar-open {
 
   .player-mcq-timer-card {
     min-height: min(220px, 38vh);
-    padding: 28px 40px 22px;
+    padding: 54px 40px 22px;
   }
 
   #screen-player-question .player-mcq-countdown .timer-ring {
@@ -3080,7 +3120,7 @@ body.join-preview-mode.join-preview-toolbar-open {
 
   .player-mcq-timer-card {
     min-height: min(180px, 34vh);
-    padding: 20px 36px 18px;
+    padding: 46px 36px 18px;
     border-radius: 30px;
   }
 
@@ -4865,6 +4905,10 @@ body:has(#screen-host-quiz-question.active) {
 
 .host-mcq-legend-item strong span {
   font-size: 0.8em;
+}
+
+.host-mcq-correct-board[hidden] {
+  display: none;
 }
 
 .host-mcq-correct-board {
@@ -16895,6 +16939,16 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
 
 /* Long questions and options: bound each text box, then fitTextToBox() shrinks
    the text to fit instead of pushing the options behind the footer buttons. */
+/* The Dashboard/Next footer sits bottom-left, so keep the answer grid above it:
+   reserve its height under the content and let the question box give up the space. */
+#app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-container {
+  padding-bottom: 84px;
+}
+
+#app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-question-box {
+  min-height: min(320px, 48vh);
+}
+
 #app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-question {
   max-height: 190px;
   overflow: hidden;

@@ -15,6 +15,12 @@ const DEFAULT_INWORLD_STT_MODEL = "inworld/inworld-stt-1";
 const CAPTION_STT_MODEL = "groq/whisper-large-v3";
 const INWORLD_TTS_MODEL = "inworld-tts-1.5-max";
 const INWORLD_TTS_VOICE = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
+// English is read in a UK accent; INWORLD_TTS_VOICE, when set, overrides both.
+const INWORLD_UK_TTS_VOICE = "default-zylgts2tamenvybeti3z0w__uncle_tommy_uk";
+
+function inworldVoice(env, code) {
+  return setting(env, "INWORLD_TTS_VOICE", code === "en" ? INWORLD_UK_TTS_VOICE : INWORLD_TTS_VOICE);
+}
 const INWORLD_SPEAKING_RATE = 1.12;
 const INWORLD_INSTRUCTION =
   "Speak with warm, happy, excited game-show host energy — smiling, upbeat, and encouraging.";
@@ -161,7 +167,7 @@ async function speakWithInworld(env, text, code) {
     headers: { Authorization: `Basic ${key}` },
     body: {
       text,
-      voiceId: setting(env, "INWORLD_TTS_VOICE", INWORLD_TTS_VOICE),
+      voiceId: inworldVoice(env, code),
       modelId: INWORLD_TTS_MODEL,
       audioConfig: { audioEncoding: "MP3", sampleRateHertz: 24000, speakingRate: INWORLD_SPEAKING_RATE },
       instruction: INWORLD_INSTRUCTION,
@@ -217,7 +223,7 @@ async function speakWithRouter(env, text, code) {
   const data = await postJson(`${base}/tts`, {
     body: {
       text,
-      voice: setting(env, "INWORLD_TTS_VOICE", INWORLD_TTS_VOICE),
+      voice: inworldVoice(env, code),
       model: INWORLD_TTS_MODEL,
       language: BCP47[code] || "en-US",
       audioEncoding: "MP3",
