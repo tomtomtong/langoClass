@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/player-leaderboard.css" />
   <link rel="stylesheet" href="/join-ended.css" />
+  <link rel="stylesheet" href="/open-answer.css" />
   <link rel="stylesheet" href="/hk/elderly.css" />
 </head>
 <body class="join-page hk-elderly">
@@ -332,6 +333,47 @@
         </main>
       </div>
     </section>
+    <section id="screen-room-openanswer" class="screen openanswer-screen" aria-labelledby="room-openanswer-title">
+      <div class="openanswer-stage">
+        <header class="openanswer-header">
+          <h1 class="openanswer-title" id="room-openanswer-title" data-i18n="openAnswer.title">Everyone answers</h1>
+        </header>
+
+        <main class="openanswer-main">
+          <section class="openanswer-card" aria-label="Everyone answers">
+            <p class="openanswer-progress" id="room-openanswer-progress" hidden></p>
+            <img class="openanswer-image" id="room-openanswer-image" alt="" hidden />
+            <h2 class="openanswer-topic" id="room-openanswer-topic"></h2>
+            <p class="openanswer-status" id="room-openanswer-status" aria-live="polite" data-i18n="openAnswer.waitTeacher" data-i18n-dynamic>Get ready — your teacher will open answers soon.</p>
+
+            <div class="openanswer-timer" id="room-openanswer-timer-wrap" hidden>
+              <span id="room-openanswer-timer">30</span>
+            </div>
+
+            <div class="openanswer-record" id="room-openanswer-record-area" hidden>
+              <div class="openanswer-recording-panel" id="room-openanswer-recording-panel" hidden aria-live="polite">
+                <div class="openanswer-waveform" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <span class="openanswer-recording-time" id="room-openanswer-recording-time">00 : 30 s</span>
+              </div>
+              <button class="btn openanswer-record-btn" id="room-openanswer-record-btn" type="button" data-i18n="buzzin.record" data-i18n-dynamic>Record</button>
+              <span class="openanswer-record-status" id="room-openanswer-record-status" hidden></span>
+            </div>
+
+            <div class="openanswer-result" id="room-openanswer-result" hidden aria-live="polite">
+              <p class="openanswer-verdict" id="room-openanswer-verdict"></p>
+              <p class="openanswer-points" id="room-openanswer-points" hidden></p>
+              <p class="openanswer-said-label" data-i18n="openAnswer.youSaid">You said</p>
+              <p class="openanswer-said" id="room-openanswer-said"></p>
+              <p class="openanswer-feedback" id="room-openanswer-feedback" hidden></p>
+              <p class="openanswer-analysis" id="room-openanswer-analysis" hidden></p>
+            </div>
+          </section>
+        </main>
+      </div>
+    </section>
   </div>
 
   <div
@@ -356,6 +398,7 @@
   <script src="/exercise-utils.js"></script>
   <script src="/audio-wav-utils.js"></script>
   <script src="/join-room-quiz.js"></script>
+  <script src="/join-open-answer.js"></script>
   <script src="/join.js"></script>
   <script src="/join-preview.js"></script>
 </body>

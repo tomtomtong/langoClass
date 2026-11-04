@@ -3153,3 +3153,29 @@ body.hk-elderly #app.lango-host .hk-elderly-countdown321__num.is-step {
     animation: none;
   }
 }
+
+/* Everyone Answers: bigger text and touch targets for the elderly variant. */
+body.join-page.hk-elderly .openanswer-record-btn {
+  min-height: 72px;
+  font-size: 1.6rem;
+}
+
+body.join-page.hk-elderly .openanswer-topic {
+  font-size: 1.8rem;
+}
+
+body.join-page.hk-elderly .openanswer-status,
+body.join-page.hk-elderly .openanswer-said,
+body.join-page.hk-elderly .openanswer-feedback {
+  font-size: 1.25rem;
+}
+
+body.hk-elderly #app.lango-host .host-openanswer-prompt,
+body.hk-elderly #app.lango-host .host-openanswer-secondary {
+  min-height: var(--hk-touch);
+}
+
+body.hk-elderly #app.lango-host .host-openanswer-said,
+body.hk-elderly #app.lango-host .host-openanswer-row-head {
+  font-size: 1.25rem;
+}

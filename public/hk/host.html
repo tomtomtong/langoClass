@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/host-fast-result.css" />
   <link rel="stylesheet" href="/host-class.css" />
   <link rel="stylesheet" href="/host-video.css" />
+  <link rel="stylesheet" href="/open-answer.css" />
   <link rel="stylesheet" href="/hk/elderly.css" />
   <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-idle.webp" />
   <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-talk.webp" />
@@ -1043,6 +1044,56 @@
       </footer>
     </section>
 
+    <section id="screen-host-openanswer" class="screen host-openanswer-screen">
+      <img class="host-buzzin-bg" src="/assets/course/courseBG.png" alt="" />
+
+      <div class="host-openanswer-stage">
+        <header class="host-openanswer-header">
+          <h1 class="host-openanswer-title" data-i18n="openAnswer.title">Everyone answers</h1>
+        </header>
+
+        <main class="host-openanswer-main">
+          <section class="host-openanswer-card" aria-label="Everyone answers question">
+            <div class="host-openanswer-card-top">
+              <span class="host-openanswer-progress" id="host-openanswer-progress" hidden></span>
+              <span class="host-openanswer-pts" id="host-openanswer-points">Up to 300 pts</span>
+            </div>
+            <img class="host-openanswer-image" id="host-openanswer-image" alt="" hidden />
+            <h2 class="host-openanswer-topic" id="host-openanswer-topic"></h2>
+            <div class="host-openanswer-countdown" id="host-openanswer-timer-wrap" hidden>
+              <span id="host-openanswer-timer">30</span>
+            </div>
+            <p class="host-openanswer-count" id="host-openanswer-count" aria-live="polite"></p>
+            <p class="host-openanswer-key" id="host-openanswer-answer-key" hidden></p>
+          </section>
+
+          <div class="host-openanswer-actions">
+            <button type="button" class="host-openanswer-prompt" id="host-openanswer-open-btn" disabled data-i18n="openAnswer.openAnswers">Open answers</button>
+            <button type="button" class="host-openanswer-secondary" id="host-openanswer-close-btn" hidden data-i18n="openAnswer.closeAnswers">Close answers</button>
+            <button type="button" class="host-openanswer-secondary" id="host-openanswer-show-answer-btn" hidden data-i18n="buzzin.showAnswer">Show answer</button>
+          </div>
+          <p class="host-openanswer-status hint" id="host-openanswer-status" aria-live="polite"></p>
+
+          <section class="host-openanswer-board" id="host-openanswer-board" aria-label="Student answers" hidden>
+            <ul class="host-openanswer-list" id="host-openanswer-list"></ul>
+          </section>
+        </main>
+      </div>
+
+      <footer class="host-buzzin-footer">
+        <button type="button" class="host-buzzin-footer-btn" id="btn-back-waiting-openanswer">
+          <span class="host-btn-face" aria-hidden="true">
+            <img class="host-btn-icon" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+          </span>
+          <span class="host-btn-label" data-i18n="common.dashboard">Dashboard</span>
+        </button>
+        <button type="button" class="host-buzzin-footer-btn" id="host-openanswer-next-btn" hidden>
+          <span class="host-btn-label" data-i18n="common.next">Next</span>
+          <img class="host-buzzin-footer-icon--next host-btn-icon host-btn-icon--next" src="/assets/class/arrow-left.svg" alt="" width="22" height="22" />
+        </button>
+      </footer>
+    </section>
+
     <section id="screen-host-buzzin-feedback" class="screen host-buzzin-feedback-screen">
       <img class="host-buzzin-bg" src="/assets/course/courseBG.png" alt="" />
 
@@ -1218,6 +1269,7 @@
   <script src="/i18n-hk-elderly.js"></script>
   <script src="/exercise-utils.js"></script>
   <script src="/host-room-quiz.js"></script>
+  <script src="/host-open-answer.js"></script>
   <script src="/host-session.js"></script>
   <script src="/host.js"></script>
   <script src="/host-preview.js"></script>
