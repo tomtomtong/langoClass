@@ -6147,20 +6147,19 @@ async function confirmAiCourseGenerate() {
   resetAiGenProgress();
   setAiGenProgress(0, "Starting…");
   setAiWizardBusy(true, "Starting…");
+  let generated = false;
   try {
     setAiGenProgress(40, "Generating course…");
     startAiGenProgressTicker(40, 88, 120000);
-    const generated = await generateCourseFromPlan({ manageBusy: false, silentStatus: true });
+    generated = await generateCourseFromPlan({ manageBusy: false, silentStatus: true });
     stopAiGenProgressTicker();
-    if (!generated) {
-      resetAiGenProgress();
-      return;
-    }
-    setAiGenProgress(100, "Done");
-    setAiWizardStep(3);
+    if (generated) setAiGenProgress(100, "Done");
+    else resetAiGenProgress();
   } finally {
     setAiWizardBusy(false);
   }
+  // setAiWizardStep ignores changes while busy, so move on only after it is cleared.
+  if (generated) setAiWizardStep(3);
 }
 
 function renderAiCoursePreview(results) {
@@ -7950,17 +7949,16 @@ async function handleAiWizardNext() {
       resetAiGenProgress();
       setAiGenProgress(0, "Building outline…");
       setAiWizardBusy(true, "Building outline…");
+      let analyzed = false;
       try {
-        const analyzed = await analyzeAiCoursePlan({ manageBusy: false, silentStatus: true });
-        if (!analyzed) {
-          resetAiGenProgress();
-          return;
-        }
-        setAiGenProgress(100, "Outline ready");
-        setAiWizardStep(2);
+        analyzed = await analyzeAiCoursePlan({ manageBusy: false, silentStatus: true });
+        if (analyzed) setAiGenProgress(100, "Outline ready");
+        else resetAiGenProgress();
       } finally {
         setAiWizardBusy(false);
       }
+      // setAiWizardStep ignores changes while busy, so move on only after it is cleared.
+      if (analyzed) setAiWizardStep(2);
       return;
     }
     if (!hasAiMaterialSource()) {
