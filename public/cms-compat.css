@@ -1819,6 +1819,135 @@ body.cms-asset-preview-open {
   outline-offset: 2px;
 }
 
+/* Check and save steps. */
+#app-shell #cms-ai-wizard .cms-ai-failed {
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e9c77a;
+  border-radius: var(--radius);
+  background: #fff8e6;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-failed-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-failed-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-failed-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-lead {
+  margin: 0 0 0.9rem;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-row {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-save {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-save input {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  accent-color: var(--purple);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-save strong {
+  display: block;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-save small {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-choice {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0;
+  padding: 0.7rem 0 0 2.2rem;
+  border: 0;
+  border-top: 1px solid var(--line);
+  font-size: 1rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-choice legend {
+  padding: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-choice label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-publish-choice input {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--purple);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-select {
+  width: 1.4rem;
+  height: 1.4rem;
+  accent-color: var(--purple);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-advanced > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-picture {
+  margin-top: 0.75rem;
+}
+
 #app-shell #cms-ai-wizard .cms-ai-wizard-nav {
   display: flex;
   gap: 0.65rem;

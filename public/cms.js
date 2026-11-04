@@ -132,6 +132,13 @@ const state = {
   aiSpeakLangCode: "",
 };
 
+// A count with its noun: "1 section", "3 sections". Chinese has no plural, so
+// it only has the base text.
+function cmsCount(key, n) {
+  const one = `${key}.one`;
+  return n === 1 && cmsT(one) !== one ? cmsT(one, { n }) : cmsT(key, { n });
+}
+
 // Turns a raw failure into "what happened + what to do next" for teachers.
 // The raw text is kept in the console for whoever supports them.
 function friendlyCourseError(err) {
@@ -540,7 +547,7 @@ function aiPlainFormatSummary(types) {
     .map(([type, count]) => cmsT(`wiz.card.t.${type}`, { n: count }))
     .join(cmsT("wiz.card.join"));
   if (!entries.length) return "—";
-  return total ? cmsT("wiz.card.summary", { total, parts }) : parts;
+  return total ? cmsT("wiz.card.summary", { questions: cmsCount("wiz.n.questions", total), parts }) : parts;
 }
 
 function syncAiPlanCardFormatLabels() {
@@ -572,7 +579,7 @@ function syncAiPlanGenerateUi() {
   const note = $("#cms-ai-plan-make-note");
   if (note) {
     note.hidden = !state.aiCourseMode || state.aiWizardStep !== 2 || previewReady;
-    note.textContent = cmsT("wiz.confirmText", { n });
+    note.textContent = cmsT("wiz.confirmText", { sections: cmsCount("wiz.n.sections", n) });
   }
   const confirmBtn = $("#btn-cms-ai-confirm-generate");
   if (confirmBtn) {
@@ -584,7 +591,7 @@ function syncAiPlanGenerateUi() {
     const row = $("#cms-ai-plan-confirm-row");
     if (row) row.hidden = false;
     if (confirmEl) {
-      confirmEl.textContent = cmsT("wiz.confirmText", { n });
+      confirmEl.textContent = cmsT("wiz.confirmText", { sections: cmsCount("wiz.n.sections", n) });
     }
   }
 }
@@ -621,6 +628,18 @@ function setAiUploadStatus(message, { isError = false } = {}) {
     overlayLabel.textContent = message;
   }
 }
+
+// True while there is generated or half-made work that is not saved yet.
+function aiWizardHasUnsavedWork() {
+  if (!state.aiWizardActive) return false;
+  return Boolean(state.aiWizardBusy || hasAiPreviewReady() || (state.aiCourseMode && state.aiCoursePlan));
+}
+
+window.addEventListener("beforeunload", (event) => {
+  if (!aiWizardHasUnsavedWork()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 
 function setAiWizardBusy(busy, message) {
   state.aiWizardBusy = busy;
@@ -1560,7 +1579,10 @@ function buildAiGenSummaryFromCourseResults(results, stats = {}) {
   const exerciseCount = (results || []).reduce((total, entry) => total + (entry.exercises?.length || 0), 0);
   const sections = (results || []).filter((entry) => entry.ok).length;
   const failed = Number(stats.failed) || 0;
-  return `${cmsT("wiz.summary.counts", { exercises: exerciseCount, sections })}${
+  return `${cmsT("wiz.summary.counts", {
+    exercises: cmsCount("wiz.n.exercises", exerciseCount),
+    sections: cmsCount("wiz.n.sections", sections),
+  })}${
     failed ? cmsT("wiz.summary.failed", { n: failed }) : ""
   }`;
 }
@@ -1596,7 +1618,7 @@ function renderAiPreviewGrouped(groups) {
   const container = $("#cms-ai-preview");
   if (!container) return;
   if (!groups?.length) {
-    container.innerHTML = `<div class="cms-empty"><p class="cms-empty-title">No exercises yet</p><p class="cms-empty-copy">Go back and generate from your material.</p></div>`;
+    container.innerHTML = `<div class="cms-empty"><p class="cms-empty-title">${escapeHtml(cmsT("wiz.review.none"))}</p><p class="cms-empty-copy">${escapeHtml(cmsT("wiz.review.noneHelp"))}</p></div>`;
     renderAiPreviewNav([]);
     return;
   }
@@ -1620,17 +1642,18 @@ function renderAiPreviewGrouped(groups) {
       questionOffset += questionCount;
       const count = group.items?.length || 0;
       const groupExercises = (group.items || []).map(({ exercise }) => exercise).filter(Boolean);
-      const durationLabel = formatSectionDuration(estimateSectionDurationSeconds(groupExercises));
+      const groupMinutes = cmsT("wiz.duration", {
+        n: Math.max(1, Math.round(estimateSectionDurationSeconds(groupExercises) / 60)),
+      });
       return `
         <section class="cms-ai-course-preview-group" id="cms-ai-preview-group-${groupIndex}" data-course-group="${groupIndex}" data-course-key="${escapeHtml(group.key || String(groupIndex))}">
-          <button type="button" class="cms-ai-preview-group-toggle" aria-expanded="true" data-group-index="${groupIndex}">
-            <span class="cms-ai-preview-group-title">${escapeHtml(group.title || `Section ${groupIndex + 1}`)}</span>
+          <button type="button" class="cms-ai-preview-group-toggle" aria-expanded="${groupIndex === 0 ? "true" : "false"}" data-group-index="${groupIndex}">
+            <span class="cms-ai-preview-group-title">${escapeHtml(group.title || cmsT("wiz.outline.sectionN", { n: groupIndex + 1 }))}</span>
             <span class="cms-ai-preview-group-meta">
-              <span class="cms-ai-preview-group-count">${count} exercise${count === 1 ? "" : "s"}</span>
-              <span class="cms-ai-preview-group-duration">Est. ${durationLabel}</span>
+              <span class="cms-ai-preview-group-count">${escapeHtml(cmsT("wiz.review.meta", { questions: cmsCount("wiz.n.questions", questionCount), time: groupMinutes }))}</span>
             </span>
           </button>
-          <div class="cms-ai-preview-group-body" data-group-index="${groupIndex}">
+          <div class="cms-ai-preview-group-body" data-group-index="${groupIndex}"${groupIndex === 0 ? "" : " hidden"}>
             ${html}
           </div>
         </section>`;
@@ -5072,6 +5095,7 @@ function resetAiGeneratePanel({ openChooser = true } = {}) {
   state.aiCourseMode = false;
   state.aiCoursePlan = null;
   state.aiCourseResults = [];
+  state.aiCourseFailed = [];
   state.aiGenSummary = null;
   state.aiPublishStagedCount = 0;
   resetAiReviewAgent();
@@ -5810,7 +5834,7 @@ function setAiWizardStep(step) {
       else if (next === 2) {
         nextBtn.hidden = !previewReady;
         nextBtn.textContent = cmsT("cms.ai.nextReview");
-      } else if (next === 3) nextBtn.textContent = cmsT("cms.ai.nextPublish");
+      } else if (next === 3) nextBtn.textContent = cmsT("wiz.next.looksGood");
       else nextBtn.textContent = cmsT("cms.ai.continue");
     } else if (next === 1) {
       nextBtn.textContent = cmsT("cms.ai.continue");
@@ -5827,7 +5851,14 @@ function setAiWizardStep(step) {
   if (next === 1 || next === 2) syncAiWizardCopy();
   if (!state.aiCourseMode && next === 1) syncAiMaterialState();
   if (state.aiCourseMode && next === 1) syncAiMaterialState();
-  if ((next === 2 && prev !== 2 && !state.aiCourseMode) || (next === 1 && prev !== 1 && state.aiCourseMode)) resetAiGenProgress();
+  if (
+    (next === 2 && prev !== 2 && !state.aiCourseMode) ||
+    (next === 1 && prev !== 1 && state.aiCourseMode) ||
+    // The finished "Outline ready" / "All done" bar is not needed on the next step.
+    (state.aiCourseMode && next > prev && next >= 2)
+  ) {
+    resetAiGenProgress();
+  }
   if (next === 2 && state.aiCourseMode && prev !== 2) renderAiCoursePlan();
   if (next === 3) renderAiPreviewStep();
   if (next === 4) {
@@ -6081,8 +6112,8 @@ async function analyzeAiCoursePlan(options = {}) {
     state.aiCoursePlan = data.plan;
     state.aiCourseResults = [];
     renderAiCoursePlan();
-    statusEl.textContent = cmsT("wiz.status.planReady", { n: data.plan.sections.length });
-    showAiGenSummary(cmsT("wiz.planSummary", { n: data.plan.sections.length }));
+    statusEl.textContent = cmsT("wiz.status.planReady", { sections: cmsCount("wiz.n.sections", data.plan.sections.length) });
+    showAiGenSummary(cmsT("wiz.planSummary", { sections: cmsCount("wiz.n.sections", data.plan.sections.length) }));
     return true;
   } catch (err) {
     statusEl.textContent = "";
@@ -6116,17 +6147,106 @@ function resolveAiCoursePlan() {
   };
 }
 
+// One section per request, so the progress is real and a section that fails
+// does not lose the others. A failed section is tried once more on its own.
+async function generateOneCourseSection(plan, section, settings) {
+  const attempt = async () => {
+    try {
+      const data = await api("/api/cms/generate-course-from-plan", {
+        method: "POST",
+        body: {
+          plan: { ...plan, sections: [section] },
+          langCode: settings.langCode,
+          difficulty: settings.difficulty,
+          types: settings.types,
+          template: settings.template,
+          instructions: getAiInstructions() || undefined,
+        },
+      });
+      return (
+        data.results?.[0] || {
+          key: section.key,
+          sectionTitle: section.title,
+          material: section.materialExcerpt,
+          ok: false,
+          exercises: [],
+          message: "No result for this section.",
+        }
+      );
+    } catch (err) {
+      const message = String(err?.message || err);
+      return {
+        key: section.key,
+        sectionTitle: section.title,
+        material: section.materialExcerpt,
+        ok: false,
+        exercises: [],
+        message,
+        // Problems that every section would hit: stop instead of trying them all.
+        fatal:
+          /log in again|unauthori[sz]ed|\b401\b/i.test(message) ||
+          (/openrouter|inworld|api key/i.test(message) && /not configured|missing|configure/i.test(message)),
+      };
+    }
+  };
+  let entry = await attempt();
+  const needsAi = Object.keys(section.types || {}).some((type) => type !== "video");
+  if (needsAi && !entry.fatal && !(entry.ok && entry.exercises?.length)) entry = await attempt();
+  return entry;
+}
+
+async function makeCourseSectionVideos(entry, sectionNumber, settings, statusEl) {
+  const videoCount = Number(entry.videoCount ?? entry.types?.video ?? 0) || 0;
+  const videos = [];
+  if (!entry.ok || videoCount <= 0) return videos;
+  const sectionName = entry.sectionTitle || cmsT("wiz.outline.lesson");
+  for (let v = 0; v < videoCount; v++) {
+    if (statusEl) statusEl.textContent = cmsT("wiz.status.video", { i: sectionNumber, v: v + 1, n: videoCount });
+    try {
+      const videoExercise = await createAiVideoExercise(entry.material || "", {
+        onUpdate: (job) => {
+          if (job.status && statusEl) {
+            statusEl.textContent = cmsT("wiz.status.videoJob", {
+              i: sectionNumber,
+              v: v + 1,
+              n: videoCount,
+              status: job.status,
+            });
+          }
+        },
+      });
+      videoExercise.title =
+        videoCount > 1 ? `${sectionName} ${cmsT("cms.type.video")} ${v + 1}` : `${sectionName} ${cmsT("cms.type.video")}`;
+      videoExercise.included = true;
+      if (settings.speakLangCode) videoExercise.speakLangCode = settings.speakLangCode;
+      videos.push(videoExercise);
+    } catch (videoErr) {
+      entry.message = entry.message ? `${entry.message}; video: ${videoErr.message}` : `video: ${videoErr.message}`;
+    }
+  }
+  return videos;
+}
+
+function courseSectionExercises(entry, videos, settings) {
+  const exercises = (entry.exercises || []).map((exercise) => ({
+    ...exercise,
+    included: true,
+    ...(settings.speakLangCode ? { speakLangCode: settings.speakLangCode } : {}),
+  }));
+  return sortExercisesByAiTypeOrder([...exercises, ...videos]);
+}
+
 async function generateCourseFromPlan(options = {}) {
   const statusEl = $("#cms-ai-generate-status");
   const errorEl = $("#cms-ai-error");
-  const btn = $("#btn-cms-ai-next");
   if (!statusEl || !errorEl) return false;
 
   const settings = getAiGenerationSettings();
   const plan = resolveAiCoursePlan();
   errorEl.textContent = "";
 
-  if (!plan?.sections?.some((section) => section.included)) {
+  const sections = (plan?.sections || []).filter((section) => section.included);
+  if (!sections.length) {
     errorEl.textContent = cmsT("wiz.needSection");
     return false;
   }
@@ -6135,75 +6255,36 @@ async function generateCourseFromPlan(options = {}) {
   if (options.manageBusy !== false) setAiWizardBusy(true, cmsT("wiz.status.generating"));
 
   try {
-    const data = await api("/api/cms/generate-course-from-plan", {
-      method: "POST",
-      body: {
-        plan,
-        langCode: settings.langCode,
-        difficulty: settings.difficulty,
-        types: settings.types,
-        template: settings.template,
-        instructions: getAiInstructions() || undefined,
-      },
-    });
-
-    state.aiCoursePlan = data.plan || plan;
+    state.aiCoursePlan = plan;
     const results = [];
+    const failed = [];
 
-    for (let i = 0; i < (data.results || []).length; i++) {
-      const entry = data.results[i];
-      const sectionProgress = 55 + Math.round(((i + 1) / Math.max(1, data.results.length)) * 35);
-      const sectionLabel = cmsT("wiz.status.sectionOf", {
-        i: i + 1,
-        n: data.results.length,
-        title: entry.sectionTitle || cmsT("wiz.outline.untitled"),
-      });
-      setAiGenProgress(sectionProgress, sectionLabel);
-      if (!options.silentStatus && statusEl) {
-        statusEl.textContent = sectionLabel;
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
+      const title = section.title || cmsT("wiz.outline.untitled");
+      const label = cmsT("wiz.status.sectionOf", { i: i + 1, n: sections.length, title });
+      setAiGenProgress(Math.round(5 + (i / sections.length) * 85), label);
+      if (!options.silentStatus) statusEl.textContent = label;
+
+      const entry = await generateOneCourseSection(plan, section, settings);
+      if (entry.fatal) throw new Error(entry.message);
+      const videos = await makeCourseSectionVideos(entry, i + 1, settings, statusEl);
+      const exercises = courseSectionExercises(entry, videos, settings);
+      const result = { ...entry, planIndex: i, exercises, ok: entry.ok || exercises.length > 0 };
+      results.push(result);
+      if (!(result.ok && exercises.length)) {
+        failed.push({ key: entry.key ?? section.key, title, planIndex: i, section, message: entry.message || "" });
       }
-      const exercises = [...(entry.exercises || [])].map((exercise) => ({
-        ...exercise,
-        included: true,
-        ...(settings.speakLangCode ? { speakLangCode: settings.speakLangCode } : {}),
-      }));
-
-      const videoCount = Number(entry.videoCount ?? entry.types?.video ?? 0) || 0;
-      if (entry.ok && videoCount > 0) {
-        for (let v = 0; v < videoCount; v++) {
-          statusEl.textContent = cmsT("wiz.status.video", { i: i + 1, v: v + 1, n: videoCount });
-          try {
-            const videoExercise = await createAiVideoExercise(entry.material || "", {
-              onUpdate: (job) => {
-                if (job.status) {
-                  statusEl.textContent = cmsT("wiz.status.videoJob", { i: i + 1, v: v + 1, n: videoCount, status: job.status });
-                }
-              },
-            });
-            videoExercise.title =
-              videoCount > 1
-                ? `${entry.sectionTitle || cmsT("wiz.outline.lesson")} ${cmsT("cms.type.video")} ${v + 1}`
-                : `${entry.sectionTitle || cmsT("wiz.outline.lesson")} ${cmsT("cms.type.video")}`;
-            videoExercise.included = true;
-            if (settings.speakLangCode) videoExercise.speakLangCode = settings.speakLangCode;
-            exercises.push(videoExercise);
-          } catch (videoErr) {
-            entry.message = entry.message
-              ? `${entry.message}; video: ${videoErr.message}`
-              : `video: ${videoErr.message}`;
-          }
-        }
-      }
-
-      results.push({
-        ...entry,
-        exercises: sortExercisesByAiTypeOrder(exercises),
-        ok: entry.ok || exercises.length > 0,
-      });
     }
 
     state.aiCourseResults = results;
+    state.aiCourseFailed = failed;
+    if (failed.length === results.length) {
+      setCmsError(errorEl, friendlyCourseError({ message: failed[0]?.message }));
+      return false;
+    }
     renderAiCoursePreview(results);
+    renderAiFailedSections();
     if (state.cmsTtsAvailable) {
       setAiGenProgress(92, cmsT("wiz.progress.speech"), {
         detail: cmsT("wiz.progress.speechDetail"),
@@ -6216,16 +6297,112 @@ async function generateCourseFromPlan(options = {}) {
         silent: true,
       });
     }
-    const stats = data.stats || {};
-    statusEl.textContent = cmsT("wiz.status.done", { ok: stats.succeeded || 0, failed: stats.failed || 0 });
-    showAiGenSummary(buildAiGenSummaryFromCourseResults(results, stats));
-    return results.some((entry) => entry.ok && entry.exercises?.length);
+    statusEl.textContent = cmsT("wiz.status.done", {
+      ok: results.length - failed.length,
+      sections: cmsCount("wiz.n.sections", results.length),
+    });
+    showAiGenSummary(buildAiGenSummaryFromCourseResults(results, { failed: failed.length }));
+    return true;
   } catch (err) {
     statusEl.textContent = "";
     setCmsError(errorEl, friendlyCourseError(err));
     return false;
   } finally {
     if (options.manageBusy !== false) setAiWizardBusy(false);
+  }
+}
+
+// Sections that could not be made, listed on the check step with a way to try
+// them again on their own. What already worked (and any edits) is kept.
+function renderAiFailedSections() {
+  const box = $("#cms-ai-review-failed");
+  if (!box) return;
+  const failed = state.aiCourseFailed || [];
+  box.hidden = !failed.length;
+  if (!failed.length) {
+    box.innerHTML = "";
+    return;
+  }
+  box.innerHTML = `
+    <p class="cms-ai-failed-title">${escapeHtml(cmsT("wiz.failed.title"))}</p>
+    <p class="hint">${escapeHtml(cmsT("wiz.failed.help"))}</p>
+    <ul class="cms-ai-failed-list">
+      ${failed
+        .map(
+          (item) => `<li><span>${escapeHtml(item.title)}</span>
+            <button type="button" class="btn small" data-retry-section="${escapeHtml(String(item.key))}">${escapeHtml(cmsT("wiz.failed.retry"))}</button></li>`
+        )
+        .join("")}
+    </ul>`;
+}
+
+function buildAiGroupedFromFlat(flat) {
+  const groups = new Map();
+  (flat || []).forEach((exercise, index) => {
+    const key = exercise._courseKey ?? `g-${exercise._courseGroup ?? 0}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        title: exercise._sectionTitle || "",
+        order: Number(exercise._courseGroup) || 0,
+        items: [],
+      });
+    }
+    groups.get(key).items.push({ exercise, index });
+  });
+  return [...groups.values()].sort((a, b) => a.order - b.order);
+}
+
+async function retryCourseSection(key) {
+  if (state.aiWizardBusy) return;
+  const item = (state.aiCourseFailed || []).find((entry) => String(entry.key) === String(key));
+  if (!item) return;
+  const errorEl = $("#cms-ai-error");
+  const statusEl = $("#cms-ai-generate-status");
+  setCmsError(errorEl, "");
+  collectAiDraftFromDom();
+  setAiWizardBusy(true, cmsT("wiz.failed.working"));
+  setAiGenProgress(30, cmsT("wiz.failed.working"));
+  try {
+    const settings = getAiGenerationSettings();
+    const entry = await generateOneCourseSection(state.aiCoursePlan, item.section, settings);
+    if (entry.fatal) throw new Error(entry.message);
+    const videos = await makeCourseSectionVideos(entry, item.planIndex + 1, settings, statusEl);
+    const exercises = courseSectionExercises(entry, videos, settings);
+    if (!exercises.length) {
+      item.message = entry.message || "";
+      setCmsError(errorEl, friendlyCourseError({ message: entry.message }));
+      return;
+    }
+    const flat = state.aiDraftExercises || [];
+    exercises.forEach((exercise) =>
+      flat.push({
+        ...exercise,
+        included: true,
+        _courseGroup: item.planIndex,
+        _courseKey: item.key,
+        _sectionTitle: item.title,
+      })
+    );
+    state.aiDraftExercises = flat;
+    state.aiCourseFailed = state.aiCourseFailed.filter((entryItem) => entryItem !== item);
+    const grouped = buildAiGroupedFromFlat(flat);
+    renderAiPreviewGrouped(grouped);
+    renderAiFailedSections();
+    const failedCount = state.aiCourseFailed.length;
+    showAiGenSummary(
+      `${cmsT("wiz.summary.counts", {
+        exercises: cmsCount("wiz.n.exercises", flat.length),
+        sections: cmsCount("wiz.n.sections", grouped.length),
+      })}${
+        failedCount ? cmsT("wiz.summary.failed", { n: failedCount }) : ""
+      }`
+    );
+  } catch (err) {
+    setCmsError(errorEl, friendlyCourseError(err));
+  } finally {
+    resetAiGenProgress();
+    setAiWizardBusy(false);
   }
 }
 
@@ -6277,10 +6454,7 @@ async function confirmAiCourseGenerate() {
   setAiWizardBusy(true, cmsT("wiz.progress.starting"));
   let generated = false;
   try {
-    setAiGenProgress(40, cmsT("wiz.progress.generating"));
-    startAiGenProgressTicker(40, 88, 120000);
     generated = await generateCourseFromPlan({ manageBusy: false, silentStatus: true });
-    stopAiGenProgressTicker();
     if (generated) setAiGenProgress(100, cmsT("wiz.progress.done"));
     else resetAiGenProgress();
   } finally {
@@ -6306,7 +6480,7 @@ function renderAiCoursePreview(results) {
       flat.push({
         ...exercise,
         included: exercise.included !== false,
-        _courseGroup: groupIndex,
+        _courseGroup: entry.planIndex ?? groupIndex,
         _courseKey: entry.key,
         _sectionTitle: entry.sectionTitle,
       });
@@ -6314,7 +6488,7 @@ function renderAiCoursePreview(results) {
     });
     return {
       key: entry.key || String(groupIndex),
-      title: entry.sectionTitle || `Section ${groupIndex + 1}`,
+      title: entry.sectionTitle || cmsT("wiz.outline.sectionN", { n: groupIndex + 1 }),
       items,
     };
   });
@@ -6339,7 +6513,7 @@ function selectedAiCourseGroups() {
     if (!groups.has(key)) {
       groups.set(key, {
         key,
-        sectionTitle: exercise._sectionTitle || `Section ${(exercise._courseGroup ?? 0) + 1}`,
+        sectionTitle: exercise._sectionTitle || cmsT("wiz.outline.sectionN", { n: (exercise._courseGroup ?? 0) + 1 }),
         exercises: [],
       });
     }
@@ -6358,7 +6532,7 @@ async function publishAiCourse() {
   errorEl.textContent = "";
   const groups = selectedAiCourseGroups();
   if (!groups.length) {
-    errorEl.textContent = "Keep at least one exercise before publishing the course.";
+    errorEl.textContent = cmsT("wiz.publish.keepOne");
     return;
   }
 
@@ -6394,7 +6568,7 @@ async function publishAiCourse() {
     });
   });
   if (!applied) {
-    errorEl.textContent = "Choose Create or Add for at least one group.";
+    errorEl.textContent = cmsT("wiz.publish.pickOne");
     return;
   }
 
@@ -6402,13 +6576,11 @@ async function publishAiCourse() {
     errorEl,
     statusEl,
     btn,
-    successMessage: `Published ${applied} exercise(s): ${created} new section(s), ${appended} added to existing, ${skipped} skipped.`,
+    successMessage: cmsT("wiz.publish.saved", { sections: cmsCount("wiz.n.sections", created + appended) }),
   });
   if (!errorEl.textContent) {
-    showCmsToast(
-      `Published ${applied} exercise${applied === 1 ? "" : "s"} — ${created} new section${created === 1 ? "" : "s"}, ${appended} merged, ${skipped} skipped.`
-    );
-    $("#cms-exercises-status").textContent = `Published course: ${applied} exercise(s).`;
+    showCmsToast(cmsT("wiz.publish.saved", { sections: cmsCount("wiz.n.sections", created + appended) }));
+    $("#cms-exercises-status").textContent = cmsT("wiz.publish.saved", { sections: cmsCount("wiz.n.sections", created + appended) });
     void maybeAutoFillCourseDetails();
     state.editingSectionIndex = null;
     state.aiCourseWorkspace = false;
@@ -7248,10 +7420,10 @@ function existingSectionIndexByTitle(title) {
 }
 
 function readAiCoursePublishAction(index, hasMatch) {
+  const include = document.querySelector(`.cms-ai-publish-include[data-publish-index="${index}"]`);
+  if (include && !include.checked) return "skip";
   const checked = document.querySelector(`input[name="cms-ai-publish-dest-${index}"]:checked`);
-  const value = checked?.value || (hasMatch ? "create" : "create");
-  if (value === "append" || value === "skip" || value === "create") return value;
-  return "create";
+  return hasMatch && checked?.value === "append" ? "append" : "create";
 }
 
 function renderAiPublishSummary() {
@@ -7260,36 +7432,41 @@ function renderAiPublishSummary() {
 
   if (state.aiCourseMode) {
     const groups = selectedAiCourseGroups();
-    const itemCount = groups.reduce(
-      (sum, group) => sum + group.exercises.reduce((n, exercise) => n + (exercise.items?.length || 0), 0),
-      0
-    );
+    const countQuestions = (group) =>
+      group.exercises.reduce((n, exercise) => (exercise.type === "video" ? n : n + (exercise.items?.length || 0)), 0);
     if (!groups.length) {
-      summary.innerHTML = `<p>No course exercises selected. Go back to Review and include at least one.</p>`;
+      summary.innerHTML = `<p>${escapeHtml(cmsT("wiz.publish.none"))}</p>`;
       return;
     }
-    const dest = groups
+    const totalQuestions = groups.reduce((sum, group) => sum + countQuestions(group), 0);
+    const rows = groups
       .map((group, index) => {
         const match = existingSectionIndexByTitle(group.sectionTitle);
-        const existing = match >= 0 ? state.sections[match] : null;
-        const existingCount = existing?.exercises?.length || 0;
-        const matchHint =
+        const title = escapeHtml(group.sectionTitle);
+        const choice =
           match >= 0
-            ? `<label><input type="radio" name="cms-ai-publish-dest-${index}" value="append" /> Add ${group.exercises.length} exercise(s) to existing “${escapeHtml(group.sectionTitle)}” (${existingCount} already there)</label>`
+            ? `<fieldset class="cms-ai-publish-choice">
+                <legend>${escapeHtml(cmsT("wiz.publish.exists", { title: group.sectionTitle }))}</legend>
+                <label><input type="radio" name="cms-ai-publish-dest-${index}" value="create" checked /> ${escapeHtml(cmsT("wiz.publish.makeNew"))}</label>
+                <label><input type="radio" name="cms-ai-publish-dest-${index}" value="append" /> ${escapeHtml(cmsT("wiz.publish.addTo"))}</label>
+              </fieldset>`
             : "";
         return `
-          <li class="cms-ai-publish-dest-item">
-            <strong>${escapeHtml(group.sectionTitle)}</strong>
-            <span class="hint">${group.exercises.length} new exercise(s)</span>
-            <label><input type="radio" name="cms-ai-publish-dest-${index}" value="create" checked /> Create a new section</label>
-            ${matchHint}
-            <label><input type="radio" name="cms-ai-publish-dest-${index}" value="skip" /> Skip this group</label>
+          <li class="cms-ai-publish-row">
+            <label class="cms-ai-publish-save">
+              <input type="checkbox" class="cms-ai-publish-include" data-publish-index="${index}" checked />
+              <span><strong>${title}</strong><small>${escapeHtml(cmsCount("wiz.n.questions", countQuestions(group)))}</small></span>
+            </label>
+            ${choice}
           </li>`;
       })
       .join("");
     summary.innerHTML = `
-      <p>${groups.length} generated group(s), ${itemCount} item(s). Choose where each group goes — matching titles no longer merge unless you pick Add.</p>
-      <ul class="cms-ai-publish-dest">${dest}</ul>`;
+      <p class="cms-ai-publish-lead">${escapeHtml(cmsT("wiz.publish.lead", {
+          sections: cmsCount("wiz.n.sections", groups.length),
+          questions: cmsCount("wiz.n.questions", totalQuestions),
+        }))}</p>
+      <ul class="cms-ai-publish-list">${rows}</ul>`;
     return;
   }
 
@@ -9493,12 +9670,16 @@ async function uploadQuestionImageForBlock(block, file, prefix = "cms-q") {
 }
 
 function renderAiQuestionImageField(item) {
-  return `${renderQuestionImageFieldMarkup(item?.image, {
-    prefix: "cms-ai-q",
-    uploadLabel: "Upload Image",
-  })}
-      <button type="button" class="btn secondary small cms-ai-q-pick-asset">Choose from library</button>
-      <p class="hint cms-ai-q-image-library-hint">Extracted images appear above after upload. Click this button, then click a thumbnail.</p>`;
+  const hasImage = Boolean(String(item?.image || "").trim());
+  return `<details class="cms-ai-more cms-ai-picture"${hasImage ? " open" : ""}>
+      <summary>${escapeHtml(cmsT("wiz.picture.summary"))}</summary>
+      <div>${renderQuestionImageFieldMarkup(item?.image, {
+        prefix: "cms-ai-q",
+        uploadLabel: "Upload Image",
+      })}
+      <button type="button" class="btn secondary small cms-ai-q-pick-asset">${escapeHtml(cmsT("wiz.picture.library"))}</button>
+      <p class="hint cms-ai-q-image-library-hint">${escapeHtml(cmsT("wiz.picture.hint"))}</p></div>
+    </details>`;
 }
 
 function renderMcQuizBody(container, exercise) {
@@ -11455,6 +11636,11 @@ $("#cms-ai-wizard")?.addEventListener("click", (event) => {
     const target = Number(stepBtn.dataset.step);
     if (stepBtn.disabled || target > state.aiWizardMaxStep || state.aiWizardBusy) return;
     setAiWizardStep(target);
+    return;
+  }
+  const retry = event.target.closest("[data-retry-section]");
+  if (retry) {
+    retryCourseSection(retry.dataset.retrySection);
     return;
   }
   const groupToggle = event.target.closest(".cms-ai-preview-group-toggle");

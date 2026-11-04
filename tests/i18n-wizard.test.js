@@ -102,3 +102,39 @@ test("nothing in the wizard falls back to English in zh-TW", () => {
   );
   assert.deepEqual(leftovers, [], "these keys have no zh-TW text");
 });
+
+// friendlyCourseError lives in the browser script; run just that function.
+function loadFriendlyCourseError() {
+  const vm = require("node:vm");
+  const start = cmsJs.indexOf("function friendlyCourseError(err) {");
+  const end = cmsJs.indexOf("function formatCmsErrorMessage(message) {");
+  const warnings = [];
+  const context = {
+    console: { warn: (...args) => warnings.push(args.join(" ")) },
+    cmsT: (key) => key,
+  };
+  vm.createContext(context);
+  vm.runInContext(`${cmsJs.slice(start, end)}\nthis.fn = friendlyCourseError;`, context);
+  return { fn: context.fn, warnings };
+}
+
+test("friendlyCourseError turns raw failures into what-to-do-next messages", () => {
+  const { fn, warnings } = loadFriendlyCourseError();
+  const cases = [
+    ["Configure OpenRouter in Config before generating exercises.", "wiz.err.aiNotReady"],
+    ["OpenRouter is not configured. Add an API key in Config.", "wiz.err.aiNotReady"],
+    ["YouTube links cannot be read here. Upload the video file.", "wiz.err.youtube"],
+    ["The course plan has no sections with material.", "wiz.needSection"],
+    ["Material text is required.", "wiz.needMaterial"],
+    ["Please log in again.", "wiz.err.signedOut"],
+    ["Video is too large (max 100 MB).", "wiz.err.tooLarge"],
+    ["TypeError: Failed to fetch", "wiz.err.network"],
+    ["Gateway Timeout 504", "wiz.err.timeout"],
+    ["Something nobody planned for", "wiz.err.generic"],
+  ];
+  for (const [raw, expected] of cases) {
+    assert.equal(fn(new Error(raw)), expected, raw);
+  }
+  assert.equal(fn(undefined), "wiz.err.generic");
+  assert.equal(warnings.length, cases.length + 1, "the raw message is kept in the console");
+});
