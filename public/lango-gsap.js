@@ -1256,11 +1256,24 @@
     );
   }
 
+  let hostUtilityDockEntered = false;
+  let hostUtilityDockItemsShown = new Set();
+
+  /**
+   * The dock is persistent chrome: it enters once, and afterwards only the chips that
+   * just became visible animate. Replaying the whole dock on every screen change
+   * pulls the host's eye (and the buttons they are about to press) around.
+   */
   function playHostUtilityDockEnter() {
     const dock = getHostUtilityDock();
     if (!dock) return null;
 
     const items = getHostUtilityDockItems(dock);
+    const firstEnter = !hostUtilityDockEntered;
+    const fresh = firstEnter ? items : items.filter((item) => !hostUtilityDockItemsShown.has(item));
+    hostUtilityDockItemsShown = new Set(items);
+    hostUtilityDockEntered = true;
+
     if (hostUtilityDockTl) {
       hostUtilityDockTl.kill();
       hostUtilityDockTl = null;
@@ -1272,9 +1285,19 @@
       return null;
     }
 
+    if (!firstEnter && !fresh.length) {
+      gsap.set([dock, ...items], { clearProps: "transform,opacity,visibility" });
+      return null;
+    }
+
     gsap.set(dock, { transformOrigin: "100% 0%", force3D: true });
-    if (items.length) {
-      gsap.set(items, { y: 14, autoAlpha: 0, scale: 0.9, force3D: true });
+    // Items that were already on screen stay put while the new ones arrive.
+    gsap.set(
+      items.filter((item) => !fresh.includes(item)),
+      { clearProps: "transform,opacity,visibility" }
+    );
+    if (fresh.length) {
+      gsap.set(fresh, { y: 14, autoAlpha: 0, scale: 0.9, force3D: true });
     }
 
     hostUtilityDockTl = gsap.timeline({
@@ -1285,16 +1308,18 @@
       },
     });
 
-    hostUtilityDockTl.fromTo(
-      dock,
-      { y: -18, autoAlpha: 0, scale: 0.94 },
-      { y: 0, autoAlpha: 1, scale: 1, duration: 0.42, ease: "power3.out" },
-      0
-    );
+    if (firstEnter) {
+      hostUtilityDockTl.fromTo(
+        dock,
+        { y: -18, autoAlpha: 0, scale: 0.94 },
+        { y: 0, autoAlpha: 1, scale: 1, duration: 0.42, ease: "power3.out" },
+        0
+      );
+    }
 
-    if (items.length) {
+    if (fresh.length) {
       hostUtilityDockTl.to(
-        items,
+        fresh,
         {
           y: 0,
           autoAlpha: 1,
@@ -1303,7 +1328,7 @@
           stagger: 0.055,
           ease: "back.out(1.45)",
         },
-        0.08
+        firstEnter ? 0.08 : 0
       );
     }
 

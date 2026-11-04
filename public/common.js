@@ -273,11 +273,15 @@ function showScreen(id, { transition = true } = {}) {
           covered = true;
           activateScreen(id);
         };
-        const coverTimer = window.setTimeout(cover, 1400);
+        // The host drives the class and changes screens constantly, so its portal is
+        // shorter than the student one.
+        const timing = document.querySelector("#app.lango-host")
+          ? { coveredAt: 0.52, duration: 0.76 }
+          : { coveredAt: 0.92, duration: 1.18 };
+        const coverTimer = window.setTimeout(cover, (timing.duration + 0.25) * 1000);
         try {
           await window.LangoGsap.playScreenTransition(layer, {
-            coveredAt: 0.92,
-            duration: 1.18,
+            ...timing,
             onCovered: cover,
           });
         } finally {
