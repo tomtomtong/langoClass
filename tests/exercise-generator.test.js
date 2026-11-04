@@ -85,4 +85,6 @@ test("generation prompt asks for focus targets and bans trivia and cross-type re
   assert.match(system.content, /incidental details/);
   assert.match(system.content, /no two questions may test the same fact/);
   assert.match(system.content, /never write "in the text"/);
+  assert.match(system.content, /test that language point itself/);
+  assert.match(system.content, /mistake real learners make/);
 });
