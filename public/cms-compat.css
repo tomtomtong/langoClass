@@ -2382,3 +2382,150 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
   gap: 0.4rem;
   margin-top: 0.6rem;
 }
+
+/* ---------------------------------------------------------------------------
+   Motion (DESIGN.md §7): press scale, short fades, ease-out, reduced-motion safe.
+   --------------------------------------------------------------------------- */
+:root {
+  --cms-motion-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Sidebar: a single highlight slides to the active item (lango-gsap.js). */
+.sidebar-nav.has-glider {
+  position: relative;
+}
+.sidebar-nav-glider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: 10px;
+  background: var(--wash);
+  pointer-events: none;
+  visibility: hidden;
+}
+.sidebar-nav.has-glider .nav-link {
+  position: relative;
+  z-index: 1;
+}
+.sidebar-nav.has-glider .nav-link.active {
+  background: transparent;
+}
+
+/* Press feedback on tappable controls. */
+.nav-link,
+.chooser-card,
+.courses-tab,
+.templates-tab,
+.tabs .tab,
+.course-card,
+.community-card {
+  transition: transform 0.12s var(--cms-motion-ease);
+}
+.nav-link:active,
+.chooser-card:active,
+.courses-tab:active,
+.templates-tab:active,
+.tabs .tab:active,
+.course-card:active,
+.community-card:active {
+  transform: scale(0.97);
+}
+
+/* Dialogs: backdrop fades, card rises into place. Close stays instant. */
+@keyframes cms-fade-in {
+  from { opacity: 0; }
+}
+@keyframes cms-dialog-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+.cms-onboarding:not([hidden]) .cms-onboarding-backdrop,
+.cms-confirm:not([hidden]) .cms-confirm-backdrop,
+.cms-community-preview:not([hidden]) .cms-community-preview-backdrop,
+.cms-asset-preview:not([hidden]) .cms-asset-preview-backdrop {
+  animation: cms-fade-in 0.2s ease-out both;
+}
+.cms-onboarding:not([hidden]) .cms-onboarding-card,
+.cms-confirm:not([hidden]) .cms-confirm-card,
+.cms-community-preview:not([hidden]) .cms-community-preview-card,
+.cms-asset-preview:not([hidden]) .cms-asset-preview-dialog {
+  animation: cms-dialog-in 0.26s var(--cms-motion-ease) both;
+}
+
+/* Toast: fixed at the bottom centre, slides up on .is-visible (cms.js). */
+.cms-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 120;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: min(92vw, 480px);
+  padding: 0.7rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 12px 32px rgba(45, 31, 56, 0.22);
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.26s var(--cms-motion-ease);
+}
+.cms-toast[hidden] {
+  display: none;
+}
+.cms-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+@media (max-width: 720px) {
+  /* Clear the "Ask Lango" button, which sits bottom right on phones. */
+  .cms-toast {
+    bottom: 5rem;
+  }
+}
+.cms-toast--success {
+  background: var(--lango-teal, #007f78);
+  color: #fff;
+}
+.cms-toast--error {
+  background: var(--lango-error, #b92d4f);
+  color: #fff;
+}
+
+/* Dropzones answer a file being dragged over them. */
+.home-dropzone {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.2s var(--cms-motion-ease),
+    box-shadow 0.2s var(--cms-motion-ease);
+}
+.home-dropzone.dragover {
+  transform: scale(1.01);
+  box-shadow: 0 10px 26px rgba(116, 60, 155, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link:active,
+  .chooser-card:active,
+  .courses-tab:active,
+  .templates-tab:active,
+  .tabs .tab:active,
+  .course-card:active,
+  .community-card:active,
+  .home-dropzone.dragover {
+    transform: none;
+  }
+  .cms-onboarding:not([hidden]) .cms-onboarding-card,
+  .cms-confirm:not([hidden]) .cms-confirm-card,
+  .cms-community-preview:not([hidden]) .cms-community-preview-card,
+  .cms-asset-preview:not([hidden]) .cms-asset-preview-dialog {
+    animation-name: cms-fade-in;
+  }
+  .cms-toast,
+  .cms-toast.is-visible {
+    transform: translate(-50%, 0);
+  }
+}

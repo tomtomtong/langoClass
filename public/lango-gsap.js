@@ -1506,110 +1506,137 @@
     }
   }
 
+  // CMS motion follows DESIGN.md §7: 200ms fades, 260ms / 55ms list stagger,
+  // ease-out, no continuous or decorative movement.
+  const CMS_EASE = "power4.out";
+  const CMS_LIST_ITEMS =
+    ".course-card, .community-card, .progress-item, .cms-section-card, .cms-exercise-card, .cms-empty";
+  let cmsVisit = 0;
+
   function playCmsScreenEnter(screen) {
     if (!screen) return null;
     killCmsTweens("screen");
-
-    const copy = screen.querySelector(".cms-login-copy");
-    const panel = screen.querySelector(".cms-panel-login");
-    const header = screen.querySelector(".cms-header, .cms-edit-chrome");
-    const actions = screen.querySelector(".cms-header-actions");
-    const secondary = screen.querySelector(
-      ".cms-edit-surface, .cms-tabs, .cms-course-list, .cms-section-list, .cms-exercise-list"
-    );
-    const focusEls = [copy, panel, header, actions, secondary].filter(Boolean);
+    cmsVisit += 1; // a new visit lets lists on this screen reveal again
 
     if (prefersReducedMotion()) {
-      gsap.set(focusEls, { clearProps: "opacity,visibility,transform" });
-      return null;
+      cmsScreenTl = gsap.fromTo(
+        screen,
+        { autoAlpha: 0 },
+        { autoAlpha: 1, duration: 0.15, ease: "none", clearProps: "opacity,visibility" }
+      );
+      return cmsScreenTl;
     }
 
-    cmsScreenTl = gsap.timeline({
-      defaults: { ease: "power3.out", force3D: true },
-      onComplete: () => {
-        gsap.set(focusEls, { clearProps: "opacity,visibility,transform" });
-      },
-    });
-
-    gsap.set(screen, { autoAlpha: 1 });
-
-    if (copy) {
-      cmsScreenTl.fromTo(
-        copy,
-        { autoAlpha: 0, y: 28, scale: 0.98 },
-        { autoAlpha: 1, y: 0, scale: 1, duration: 0.62 },
-        0
-      );
-    }
-    if (panel) {
-      cmsScreenTl.fromTo(
-        panel,
-        { autoAlpha: 0, y: 36, scale: 0.96 },
-        { autoAlpha: 1, y: 0, scale: 1, duration: 0.58 },
-        copy ? 0.1 : 0
-      );
-    }
-    if (header) {
-      cmsScreenTl.fromTo(
-        header,
-        { autoAlpha: 0, y: 22 },
-        { autoAlpha: 1, y: 0, duration: 0.48 },
-        0
-      );
-    }
-    if (actions) {
-      const buttons = actions.querySelectorAll(".btn");
-      if (buttons.length) {
-        cmsScreenTl.fromTo(
-          buttons,
-          { autoAlpha: 0, y: 10, scale: 0.94 },
-          { autoAlpha: 1, y: 0, scale: 1, duration: 0.38, stagger: 0.05, ease: "back.out(1.4)" },
-          0.12
-        );
+    cmsScreenTl = gsap.fromTo(
+      screen,
+      { autoAlpha: 0, y: 8 },
+      {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.22,
+        ease: CMS_EASE,
+        clearProps: "opacity,visibility,transform",
       }
-    }
-    if (secondary && secondary !== header) {
-      cmsScreenTl.fromTo(
-        secondary,
-        { autoAlpha: 0, y: 16 },
-        { autoAlpha: 1, y: 0, duration: 0.42 },
-        0.08
-      );
-    }
-
+    );
     return cmsScreenTl;
   }
 
+  function cmsItemKey(el, index) {
+    return el.dataset.id || el.dataset.sectionIndex || el.dataset.index || `i${index}`;
+  }
+
+  // Lists re-render when cached data is refreshed in the background. Within one
+  // screen visit only items that were not shown before animate in, so a refresh
+  // never replays the whole entrance.
   function playCmsListReveal(container) {
     if (!container) return null;
-    killCmsTweens("list");
+    const items = [...container.querySelectorAll(CMS_LIST_ITEMS)];
+    const keys = items.map(cmsItemKey);
+    const sameVisit = container._cmsRevealVisit === cmsVisit;
+    const seen = sameVisit ? container._cmsRevealKeys || new Set() : new Set();
+    container._cmsRevealVisit = cmsVisit;
+    container._cmsRevealKeys = new Set(keys);
 
-    const items = container.querySelectorAll(
-      ".cms-course-card, .cms-section-card, .cms-exercise-card, .cms-empty"
-    );
-    if (!items.length) return null;
+    const fresh = items.filter((_, i) => !seen.has(keys[i]));
+    if (!fresh.length) return null;
+    if (!sameVisit) killCmsTweens("list");
 
     if (prefersReducedMotion()) {
-      gsap.set(items, { clearProps: "opacity,visibility,transform" });
-      bindCmsCardPhysics(container);
-      return null;
+      return gsap.fromTo(
+        fresh,
+        { autoAlpha: 0 },
+        { autoAlpha: 1, duration: 0.15, ease: "none", clearProps: "opacity,visibility" }
+      );
     }
 
-    gsap.set(items, { autoAlpha: 0, y: 22, scale: 0.96 });
-    cmsListTl = gsap.to(items, {
-      autoAlpha: 1,
-      y: 0,
-      scale: 1,
-      duration: 0.5,
-      stagger: { each: 0.055, from: "start" },
-      ease: "power3.out",
-      force3D: true,
-      onComplete: () => {
-        gsap.set(items, { clearProps: "opacity,visibility,transform" });
-        bindCmsCardPhysics(container);
-      },
-    });
+    cmsListTl = gsap.fromTo(
+      fresh,
+      { autoAlpha: 0, y: 10 },
+      {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.26,
+        // Cap the cascade so long lists finish quickly.
+        stagger: (i) => Math.min(i, 8) * 0.055,
+        ease: CMS_EASE,
+        clearProps: "opacity,visibility,transform",
+      }
+    );
     return cmsListTl;
+  }
+
+  // Sidebar: one highlight that slides to the active item, so switching screens
+  // reads as moving within the same app instead of a hard swap.
+  function initCmsSidebarGlider() {
+    const nav = document.querySelector(".sidebar-nav");
+    if (!nav || nav.querySelector(".sidebar-nav-glider")) return;
+    const glider = document.createElement("span");
+    glider.className = "sidebar-nav-glider";
+    glider.setAttribute("aria-hidden", "true");
+    nav.prepend(glider);
+    nav.classList.add("has-glider");
+
+    let placed = false;
+    let frame = 0;
+    const place = () => {
+      frame = 0;
+      const active = nav.querySelector(".nav-link.active");
+      if (!active || !active.offsetWidth) {
+        gsap.set(glider, { autoAlpha: 0 });
+        placed = false;
+        return;
+      }
+      const target = {
+        x: active.offsetLeft,
+        y: active.offsetTop,
+        width: active.offsetWidth,
+        height: active.offsetHeight,
+        autoAlpha: 1,
+      };
+      if (!placed || prefersReducedMotion()) {
+        gsap.set(glider, target);
+        placed = true;
+        return;
+      }
+      gsap.to(glider, { ...target, duration: 0.3, ease: CMS_EASE, overwrite: "auto" });
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(place);
+    };
+
+    new MutationObserver(schedule).observe(nav, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    // Fires when the app shell is shown after login and on layout changes.
+    if (global.ResizeObserver) {
+      new ResizeObserver(() => {
+        placed = false;
+        schedule();
+      }).observe(nav);
+    }
+    schedule();
   }
 
   function playCmsTabEnter(panel) {
@@ -1804,7 +1831,7 @@
   function initCmsMotion() {
     if (!document.body.classList.contains("cms-light")) return;
     playCmsNavEnter();
-    bindCmsCardPhysics(document);
+    initCmsSidebarGlider();
     layoutCmsTabGlider();
   }
 
