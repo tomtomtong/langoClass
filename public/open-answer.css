@@ -1,0 +1,615 @@
+/* "Everyone Answers": the host board and the student answer screen.
+   Colours follow the Buzz In screens so the two spoken exercises feel related. */
+
+/* ---------- Student ---------- */
+
+.join-page #screen-room-openanswer.openanswer-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+}
+
+.join-page #app:has(#screen-room-openanswer.active) {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.join-page #screen-room-openanswer.openanswer-screen.active {
+  display: block;
+}
+
+.join-page .openanswer-stage {
+  position: absolute;
+  inset: 0;
+  padding: 72px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.join-page .openanswer-header {
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+.join-page .openanswer-title {
+  margin: 0;
+  color: #fff;
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 0.9px;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  -webkit-text-stroke: 4px #d17bea;
+  paint-order: stroke fill;
+  overflow-wrap: anywhere;
+}
+
+.join-page .openanswer-main {
+  width: 100%;
+  flex: 1 0 auto;
+  display: flex;
+  justify-content: center;
+  padding-bottom: 20px;
+}
+
+.join-page .openanswer-card {
+  width: min(100%, 640px);
+  height: fit-content;
+  padding: 28px 24px;
+  border: 8px solid rgba(162, 89, 255, 0.6);
+  border-radius: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 2px 4px 30px #ffb1ed;
+  color: #3b1f55;
+  text-align: center;
+}
+
+.openanswer-progress {
+  margin: 0;
+  color: #743c9b;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.openanswer-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 16px;
+  object-fit: contain;
+}
+
+.openanswer-topic {
+  margin: 0;
+  color: #743c9b;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.openanswer-status {
+  margin: 0;
+  color: #5c3a78;
+  font-size: 17px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.openanswer-timer {
+  width: 88px;
+  height: 88px;
+  border: 8px solid #feca57;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #ff9f43;
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.openanswer-timer[hidden],
+.openanswer-record[hidden],
+.openanswer-result[hidden],
+.openanswer-image[hidden],
+.openanswer-progress[hidden],
+.openanswer-recording-panel[hidden] {
+  display: none !important;
+}
+
+.openanswer-timer.is-urgent {
+  border-color: #ff5c5c;
+  color: #ff5c5c;
+  animation: openAnswerPulse 0.8s ease-in-out infinite;
+}
+
+@keyframes openAnswerPulse {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.openanswer-record {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.openanswer-record-btn {
+  min-width: 220px;
+  min-height: 64px;
+  padding: 12px 36px;
+  border: 0;
+  border-radius: 100px;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  box-shadow: 0 6px 0 #a85c23;
+  color: #fff;
+  font-size: 26px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.openanswer-record-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.openanswer-record-btn.is-recording {
+  background: linear-gradient(180deg, #ff7676 0%, #e63e3e 100%);
+  box-shadow: 0 6px 0 #9c2222;
+}
+
+.openanswer-recording-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.openanswer-waveform {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.openanswer-waveform span {
+  width: 5px;
+  height: 100%;
+  border-radius: 3px;
+  background: #b11980;
+  transform-origin: center;
+  animation: openAnswerWave 0.9s ease-in-out infinite;
+}
+
+.openanswer-waveform span:nth-child(3n) {
+  animation-delay: -0.3s;
+}
+
+.openanswer-waveform span:nth-child(3n + 1) {
+  animation-delay: -0.6s;
+}
+
+@keyframes openAnswerWave {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.openanswer-recording-time {
+  color: #b11980;
+  font-size: 22px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.openanswer-record-status {
+  color: #b11980;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.openanswer-result {
+  width: 100%;
+  padding: 18px;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f4ecfb;
+  text-align: left;
+}
+
+.openanswer-result[data-verdict="correct"] {
+  background: #e3f7e8;
+}
+
+.openanswer-result[data-verdict="partial"] {
+  background: #fff3d6;
+}
+
+.openanswer-result[data-verdict="incorrect"],
+.openanswer-result[data-verdict="error"] {
+  background: #fde8e8;
+}
+
+.openanswer-verdict {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.openanswer-points {
+  margin: 0;
+  color: #c47a00;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.openanswer-said-label {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.openanswer-said,
+.openanswer-feedback,
+.openanswer-analysis {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.openanswer-feedback {
+  color: #743c9b;
+}
+
+.openanswer-analysis {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: pre-line;
+}
+
+/* ---------- Host ---------- */
+
+#app.lango-host .host-openanswer-screen {
+  position: relative;
+  overflow: hidden;
+  background: #f5c842;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+}
+
+body:not(.hk-elderly) #app.lango-host .host-openanswer-screen {
+  background: var(--lango-page);
+  background-image: var(--lango-bg-adventure);
+}
+
+#app.lango-host .host-openanswer-stage {
+  position: absolute;
+  inset: 0;
+  padding: 24px 24px 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+}
+
+#app.lango-host .host-openanswer-title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(32px, 4vw, 50px);
+  font-weight: 900;
+  letter-spacing: 0.9px;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  -webkit-text-stroke: 4px #c866da;
+  paint-order: stroke fill;
+}
+
+#app.lango-host .host-openanswer-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+#app.lango-host .host-openanswer-card {
+  position: relative;
+  width: min(100%, 860px);
+  padding: 28px 36px;
+  border: 4px solid #fc7dba;
+  border-radius: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(92deg, rgba(177, 25, 128, 0.8) 3%, rgba(116, 60, 155, 0.8) 89%);
+  box-shadow:
+    0 0 25px rgba(255, 105, 180, 0.5),
+    inset 0 0 10px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+}
+
+#app.lango-host .host-openanswer-card-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+#app.lango-host .host-openanswer-pts {
+  color: #feca57;
+  margin-left: auto;
+}
+
+#app.lango-host .host-openanswer-topic {
+  margin: 0;
+  width: 100%;
+  color: #fff;
+  font-family: "HK Grotesk", "Nunito", sans-serif;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+#app.lango-host .host-openanswer-image {
+  max-width: min(520px, 72%);
+  max-height: 220px;
+  border-radius: 16px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+#app.lango-host .host-openanswer-countdown {
+  width: 120px;
+  height: 120px;
+  border: 12px solid #feca57;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #ff9f43;
+  font-size: 64px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+#app.lango-host .host-openanswer-countdown.is-urgent {
+  border-color: #ff5c5c;
+  color: #ff5c5c;
+}
+
+#app.lango-host .host-openanswer-countdown[hidden],
+#app.lango-host .host-openanswer-image[hidden],
+#app.lango-host .host-openanswer-progress[hidden],
+#app.lango-host .host-openanswer-key[hidden],
+#app.lango-host .host-openanswer-board[hidden],
+#app.lango-host .host-openanswer-prompt[hidden],
+#app.lango-host .host-openanswer-secondary[hidden],
+#app.lango-host #host-openanswer-next-btn[hidden] {
+  display: none !important;
+}
+
+#app.lango-host .host-openanswer-count {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+#app.lango-host .host-openanswer-count:empty {
+  display: none;
+}
+
+#app.lango-host .host-openanswer-key {
+  margin: 0;
+  padding: 10px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #743c9b;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+
+#app.lango-host .host-openanswer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+#app.lango-host .host-openanswer-prompt {
+  min-width: 340px;
+  min-height: 92px;
+  padding: 16px 40px 22px;
+  border: 6px solid rgba(255, 255, 255, 0.45);
+  border-radius: 80px;
+  background: linear-gradient(180deg, #feca57 0%, #ff9f43 100%);
+  box-shadow:
+    0 12px 0 #a85c23,
+    0 18px 14px rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font-size: 40px;
+  font-weight: 900;
+  text-shadow: 0 4px 0 rgba(174, 92, 25, 0.36);
+  cursor: pointer;
+}
+
+#app.lango-host .host-openanswer-prompt:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+#app.lango-host .host-openanswer-secondary {
+  min-height: 56px;
+  padding: 10px 28px;
+  border: 4px solid rgba(255, 255, 255, 0.6);
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+#app.lango-host .host-openanswer-status {
+  margin: 0;
+  min-height: 1.5rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+#app.lango-host .host-openanswer-board {
+  width: min(100%, 960px);
+  padding: 12px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #3b1f55;
+}
+
+#app.lango-host .host-openanswer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 10px;
+}
+
+#app.lango-host .host-openanswer-row {
+  padding: 10px 12px;
+  border-radius: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #f4ecfb;
+}
+
+#app.lango-host .host-openanswer-row[data-verdict="correct"] {
+  background: #e3f7e8;
+}
+
+#app.lango-host .host-openanswer-row[data-verdict="partial"] {
+  background: #fff3d6;
+}
+
+#app.lango-host .host-openanswer-row[data-verdict="incorrect"],
+#app.lango-host .host-openanswer-row[data-verdict="error"] {
+  background: #fde8e8;
+}
+
+#app.lango-host .host-openanswer-avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--avatar-hue, 280) 60% 45%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+#app.lango-host .host-openanswer-row-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#app.lango-host .host-openanswer-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 16px;
+}
+
+#app.lango-host .host-openanswer-verdict {
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0.75;
+}
+
+#app.lango-host .host-openanswer-points {
+  color: #c47a00;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+#app.lango-host .host-openanswer-said {
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+#app.lango-host .host-openanswer-row-feedback {
+  margin: 0;
+  color: #743c9b;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+#app.lango-host .host-openanswer-play {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: #743c9b;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}

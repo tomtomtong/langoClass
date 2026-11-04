@@ -2346,6 +2346,10 @@ function startHostExercise(roomId, exercise) {
     if (typeof fadeInHostBgm === "function") fadeInHostBgm();
     return showHostBuzzinExercise(exercise, roomId);
   }
+  if (isOpenAnswerExercise(exercise)) {
+    if (typeof fadeInHostBgm === "function") fadeInHostBgm();
+    return showHostOpenAnswerExercise(exercise, roomId);
+  }
   return Promise.reject(new Error(`Unsupported exercise type: ${exercise?.type || "unknown"}`));
 }
 

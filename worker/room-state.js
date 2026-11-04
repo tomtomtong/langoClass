@@ -1,5 +1,5 @@
-// One classroom room: the session, the live game, the buzz-in round, and
-// socket metadata.
+// One classroom room: the session, the live game, the buzz-in and
+// everyone-answers rounds, and socket metadata.
 export function createRoomState({
   roomId,
   teacherId,
@@ -27,12 +27,15 @@ export function createRoomState({
       hostSocketId: null,
       buzzinExerciseId: null,
       buzzinAwardedPlayers: [],
+      openAnswerExerciseId: null,
+      openAnswerPoints: {},
       uiLocale: text(uiLocale || "en").slice(0, 16) || "en",
       createdAt: now,
       startedAt: null,
     },
     game: null,
     buzz: null,
+    open: null,
     sockets: {},
   };
 }
@@ -53,7 +56,7 @@ export function syncRoomRoster(state, classItem) {
 }
 
 export function emptyRoomState() {
-  return { session: null, game: null, buzz: null, sockets: {} };
+  return { session: null, game: null, buzz: null, open: null, sockets: {} };
 }
 
 function studentListOf(classItem) {

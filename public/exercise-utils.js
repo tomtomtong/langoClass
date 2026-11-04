@@ -33,6 +33,10 @@ function isWatchOnlyExercise(exercise) {
   return isVideoExercise(exercise) || isSlidesExercise(exercise);
 }
 
+function isOpenAnswerExercise(exercise) {
+  return normalizeExerciseType(exercise?.type) === "openanswer";
+}
+
 function ensureSingleCorrectOption(options) {
   if (!Array.isArray(options) || !options.length) return [];
   const firstCorrectIdx = options.findIndex((o) => o.isCorrect);
@@ -1100,6 +1104,7 @@ function exerciseMetaLabel(exercise) {
 function joinPreviewLayoutForExercise(exercise) {
   if (isWatchOnlyExercise(exercise)) return "video";
   if (isBuzzinExercise(exercise)) return "buzzin-join";
+  if (isOpenAnswerExercise(exercise)) return "buzzin-turn";
   if (isLiveMcQuizExercise(exercise)) return "mc-question";
   return "mc-question";
 }
@@ -1254,6 +1259,9 @@ const SECTION_TIMING = {
   BUZZIN_JOIN_SECONDS: 20,
   BUZZIN_ANSWER_SECONDS: 45,
   BUZZIN_FEEDBACK_SECONDS: 20,
+  OPENANSWER_INTRO_SECONDS: 10,
+  OPENANSWER_DEFAULT_ANSWER_SECONDS: 30,
+  OPENANSWER_FEEDBACK_SECONDS: 20,
   VIDEO_DEFAULT_SECONDS: 180,
   SLIDE_SECONDS: 25,
   BETWEEN_EXERCISES_SECONDS: 20,
@@ -1308,6 +1316,16 @@ function estimateExerciseDurationSeconds(exercise) {
       SECTION_TIMING.BUZZIN_ANSWER_SECONDS +
       SECTION_TIMING.BUZZIN_FEEDBACK_SECONDS;
     return topics.length * perTopic;
+  }
+
+  if (type === "openanswer") {
+    // Uncle Tommy reads the question, the whole class answers in one window, then the host reviews.
+    return items
+      .filter((item) => String(item?.topic || item?.title || "").trim())
+      .reduce((sum, item) => {
+        const answer = Number(item?.timeLimit) || SECTION_TIMING.OPENANSWER_DEFAULT_ANSWER_SECONDS;
+        return sum + SECTION_TIMING.OPENANSWER_INTRO_SECONDS + answer + SECTION_TIMING.OPENANSWER_FEEDBACK_SECONDS;
+      }, 0);
   }
 
   if (type === "fastmcquiz") {

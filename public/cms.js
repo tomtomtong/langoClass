@@ -3806,11 +3806,11 @@ function collectCmsTtsItemsForAiDraft(exercises, defaultSpeakLangCode) {
       const speakLangCode = normalizeCmsSpeakLangCode(
         exercise?.speakLangCode || defaultSpeakLangCode
       );
-      const text =
-        entry.type === "buzzin"
-          ? String(entry.item?.topic || "").trim()
-          : String(entry.item?.title || "").trim();
-      const purpose = entry.type === "buzzin" ? "topic" : "question";
+      const speaksTopic = entry.type === "buzzin" || entry.type === "openanswer";
+      const text = speaksTopic
+        ? String(entry.item?.topic || "").trim()
+        : String(entry.item?.title || "").trim();
+      const purpose = speaksTopic ? "topic" : "question";
       if (!text) return;
       items.push({
         key: `flat:${questionOffset + index}`,
@@ -3955,11 +3955,9 @@ function collectCmsTtsItemsFromExercises(exercises, defaultSpeakLangCode) {
     const speakLangCode = normalizeCmsSpeakLangCode(exercise.speakLangCode || defaultSpeakLangCode);
     (exercise.items || []).forEach((item, itemIndex) => {
       if (exercise.type === "video" || exercise.type === "slides") return;
-      const text =
-        exercise.type === "buzzin"
-          ? String(item.topic || "").trim()
-          : String(item.title || "").trim();
-      const purpose = exercise.type === "buzzin" ? "topic" : "question";
+      const speaksTopic = exercise.type === "buzzin" || exercise.type === "openanswer";
+      const text = speaksTopic ? String(item.topic || "").trim() : String(item.title || "").trim();
+      const purpose = speaksTopic ? "topic" : "question";
       if (!text) return;
       items.push({
         key: `${exerciseIndex}:${itemIndex}`,
@@ -4785,6 +4783,7 @@ function exerciseTypeShortLabel(type) {
   if (type === "video") return cmsT("cms.type.video");
   if (type === "slides") return cmsT("cms.type.slides");
   if (type === "buzzin") return cmsT("cms.type.buzzin");
+  if (type === "openanswer") return cmsT("cms.type.openanswer");
   if (type === "fastmcquiz") return cmsT("cms.type.fastmcquiz");
   return cmsT("cms.type.mcquiz");
 }
@@ -4912,9 +4911,14 @@ function aiPlanSectionFormatChoice(types, suggested) {
   return preset || "keep";
 }
 
-const AI_CUSTOM_TEMPLATE_COUNTS = { mcquiz: 2, fastmcquiz: 1, buzzin: 1, slides: 0, video: 0 };
+const AI_CUSTOM_TEMPLATE_COUNTS = { mcquiz: 2, fastmcquiz: 1, buzzin: 1, openanswer: 0, slides: 0, video: 0 };
 
-const AI_CUSTOM_TYPE_KEYS = ["mcquiz", "fastmcquiz", "buzzin", "slides", "video"];
+const AI_CUSTOM_TYPE_KEYS = ["mcquiz", "fastmcquiz", "buzzin", "openanswer", "slides", "video"];
+
+// Buzz In and Everyone Answers items are the same shape: a spoken prompt and an expected answer.
+function isTopicExerciseType(type) {
+  return type === "buzzin" || type === "openanswer";
+}
 
 function syncCustomTypeCountInputs(prefix = "cms-ai") {
   for (const key of AI_CUSTOM_TYPE_KEYS) {
@@ -4999,7 +5003,7 @@ function estimateAiTemplateMinutes(counts) {
   for (const key of AI_CUSTOM_TYPE_KEYS) {
     const n = counts[key] || 0;
     if (!n) continue;
-    if (key === "buzzin") exercises.push({ type: "buzzin", items: Array.from({ length: n }, () => ({ topic: "t" })) });
+    if (isTopicExerciseType(key)) exercises.push({ type: key, items: Array.from({ length: n }, () => ({ topic: "t" })) });
     else if (key === "video") for (let i = 0; i < n; i += 1) exercises.push({ type: "video", items: [{}] });
     else if (key === "slides") {
       exercises.push({ type: "slides", items: Array.from({ length: n }, () => ({ title: "s", bullets: ["a"] })) });
@@ -5014,6 +5018,7 @@ function aiTemplateChipLabels(counts) {
     mcquiz: "MC Quiz",
     fastmcquiz: "Lightning round",
     buzzin: "Buzz in Question",
+    openanswer: cmsT("cms.type.openanswer"),
     video: "Video",
     slides: cmsT("cms.type.slides"),
   };
@@ -5036,7 +5041,7 @@ function syncAiTemplateCards() {
       chips.removeAttribute("aria-hidden");
     }
     if (meta) {
-      const questions = (counts.mcquiz || 0) + (counts.fastmcquiz || 0) + (counts.buzzin || 0);
+      const questions = (counts.mcquiz || 0) + (counts.fastmcquiz || 0) + (counts.buzzin || 0) + (counts.openanswer || 0);
       const parts = [];
       if (questions) parts.push(cmsT("cms.ai.templateQuestionCount", { n: questions }));
       if (counts.slides) parts.push(cmsT("cms.ai.templateSlidesCount", { n: counts.slides }));
@@ -5533,13 +5538,14 @@ function cloneAiDraft(exercises) {
 const AI_CONVERT_VERB_PATTERN =
   "(?:make|convert|change|turn|replace|swap|rewrite|switch)";
 const AI_TARGET_TYPE_PATTERN =
-  "(lightning(?:\\s*round)?|fast\\s*mc(?:\\s*quiz)?|fastmcquiz|mc\\s*quiz|mcquiz|buzz\\s*in(?:\\s+question)?|buzzin)";
+  "(lightning(?:\\s*round)?|fast\\s*mc(?:\\s*quiz)?|fastmcquiz|mc\\s*quiz|mcquiz|buzz\\s*in(?:\\s+question)?|buzzin|everyone\\s*answers?|open\\s*answer|openanswer)";
 const AI_TARGET_CONNECTOR_PATTERN = "(?:to|into|with|as|for)";
 
 function resolveAiQuestionTargetType(typeRaw) {
   const normalized = String(typeRaw || "").toLowerCase().replace(/\s+/g, "");
   if (normalized.includes("lightning") || normalized.includes("fast")) return "fastmcquiz";
   if (normalized.includes("buzz")) return "buzzin";
+  if (normalized.includes("everyone") || normalized.includes("openanswer")) return "openanswer";
   return "mcquiz";
 }
 
@@ -5963,6 +5969,7 @@ function getAiTypeCounts(prefix = "cms-ai") {
     if ($(`#${prefix}-type-mcquiz`)?.checked) types.mcquiz = count;
     if ($(`#${prefix}-type-fastmcquiz`)?.checked) types.fastmcquiz = count;
     if ($(`#${prefix}-type-buzzin`)?.checked) types.buzzin = count;
+    if ($(`#${prefix}-type-openanswer`)?.checked) types.openanswer = count;
     if ($(`#${prefix}-type-video`)?.checked) types.video = count;
   }
   return types;
@@ -6532,7 +6539,7 @@ function selectedAiCourseGroups() {
         ? exercise.items.some((item) => item.title || (item.bullets || []).length)
         : exercise.type === "video"
         ? exercise.items.some((item) => item.videoUrl)
-        : exercise.type === "buzzin"
+        : isTopicExerciseType(exercise.type)
           ? exercise.items.some((item) => item.topic)
           : exercise.items.some((item) => item.title && (item.options || []).length >= 2);
     if (!valid) return;
@@ -6677,7 +6684,7 @@ async function extractMaterialRequest({ files, file, pasted, videoUrl, language,
 }
 
 function summarizeAiItem(item, type) {
-  if (type === "buzzin") return String(item?.topic || "").trim();
+  if (isTopicExerciseType(type)) return String(item?.topic || "").trim();
   return String(item?.title || "").trim();
 }
 
@@ -7145,7 +7152,7 @@ function rebuildAiDraftFromFlatQuestions(flatEntries, previousExercises) {
 function readFlatQuestionBlockFromDom(block) {
   const type = block.dataset.itemType || "mcquiz";
   const included = Boolean(block.querySelector(".cms-ai-select")?.checked);
-  if (type === "buzzin") {
+  if (isTopicExerciseType(type)) {
     return {
       type,
       included,
@@ -7263,6 +7270,7 @@ function renderAiAddQuestionRow() {
       <button type="button" class="btn small cms-ai-add-question" data-add-type="mcquiz">Add MC</button>
       <button type="button" class="btn small cms-ai-add-question" data-add-type="fastmcquiz">Add Lightning round</button>
       <button type="button" class="btn small cms-ai-add-question" data-add-type="buzzin">Add Buzz In</button>
+      <button type="button" class="btn small cms-ai-add-question" data-add-type="openanswer">Add Everyone Answers</button>
     </div>`;
 }
 
@@ -7286,9 +7294,9 @@ function renderAiQuestionBlock(type, item, questionNumber, flatIndex, included =
       </div>
     </div>`;
 
-  if (blockType === "buzzin") {
+  if (isTopicExerciseType(blockType)) {
     return `
-      <div class="cms-ai-item-block cms-ai-buzzin-block" data-item-type="buzzin" data-flat-index="${flatIndex}" data-question-number="${questionNumber}">
+      <div class="cms-ai-item-block cms-ai-buzzin-block" data-item-type="${blockType}" data-flat-index="${flatIndex}" data-question-number="${questionNumber}">
         ${head}
         <label class="field cms-ai-field">
           <textarea class="cms-ai-item-input cms-ai-item-textarea" data-field="topic" rows="2" placeholder="What should the student answer aloud?" aria-label="Question">${escapeHtml(item.topic || "")}</textarea>
@@ -8248,7 +8256,7 @@ function selectedAiExercises() {
     if (exercise.included === false) return false;
     if (exercise.type === "slides") return exercise.items.some((item) => item.title || (item.bullets || []).length);
     if (exercise.type === "video") return exercise.items.some((item) => item.videoUrl);
-    if (exercise.type === "buzzin") return exercise.items.some((item) => item.topic);
+    if (isTopicExerciseType(exercise.type)) return exercise.items.some((item) => item.topic);
     return exercise.items.some((item) => item.title && (item.options || []).length >= 2);
   });
 }
@@ -8435,7 +8443,7 @@ function handleAiWizardBack() {
 }
 
 function defaultAiItem(type) {
-  if (type === "buzzin") {
+  if (isTopicExerciseType(type)) {
     return {
       topic: "Talk about this topic using words from the lesson.",
       correctAnswer: "Any clear, relevant spoken answer is acceptable.",
@@ -8529,7 +8537,7 @@ function handleAiPreviewClick(event) {
 
   if (event.target.closest(".cms-ai-add-option")) {
     const type = block.dataset.itemType || "mcquiz";
-    if (type === "buzzin") return;
+    if (isTopicExerciseType(type)) return;
     const rebuilt = state.aiDraftExercises || [];
     const quiz = rebuilt.filter((exercise) => !isSideCardExercise(exercise));
     const videos = rebuilt.filter((exercise) => isSideCardExercise(exercise));
@@ -8848,6 +8856,23 @@ function defaultExercise(type) {
       ],
     };
   }
+  if (type === "openanswer") {
+    return {
+      type: "openanswer",
+      title: cmsT("cms.type.openanswer"),
+      subTitle: cmsT("cms.type.openanswer"),
+      items: [
+        {
+          topic: "What did you eat for breakfast today?",
+          correctAnswer: "Any real food or drink, said in a full sentence.",
+        },
+        {
+          topic: "Say one thing you like to do on the weekend.",
+          correctAnswer: "Any real weekend activity with a clear reason.",
+        },
+      ],
+    };
+  }
   if (type === "fastmcquiz") {
     return {
       type: "fastmcquiz",
@@ -9121,7 +9146,7 @@ function summarizeSectionContent(section) {
     }
 
     for (const item of exercise?.items || []) {
-      if (type === "buzzin") {
+      if (isTopicExerciseType(type)) {
         const topic = String(item?.topic || "").trim();
         if (topic) snippets.push(topic);
         continue;
@@ -9192,7 +9217,7 @@ function suggestSectionTitleFromExercises(exercises, options = {}) {
     const exerciseTitle = normalizeSectionTitleCandidate(exercise?.title);
     if (
       exerciseTitle &&
-      !/^(untitled|mc quiz|fast mc|buzz in|buzzin|video|exercise|generated exercises?)$/i.test(
+      !/^(untitled|mc quiz|fast mc|buzz in|buzzin|everyone answers|video|exercise|generated exercises?)$/i.test(
         exerciseTitle
       )
     ) {
@@ -9201,7 +9226,7 @@ function suggestSectionTitleFromExercises(exercises, options = {}) {
 
     const type = exercise?.type || "mcquiz";
     for (const item of exercise?.items || []) {
-      if (type === "buzzin") {
+      if (isTopicExerciseType(type)) {
         const topic = normalizeSectionTitleCandidate(item?.topic);
         if (topic) candidates.push(topic);
         continue;
@@ -10819,20 +10844,32 @@ function renderSlidesBody(container, exercise) {
   if (narrateBox.checked) voiceStatus.textContent = cmsT("wiz.slides.voice.help");
 }
 
-function renderBuzzinBody(container, exercise) {
-  const items = (exercise.items?.length ? exercise.items : defaultExercise("buzzin").items).map(
+// "Everyone Answers" (openAnswer) is edited like Buzz In, plus how long the
+// whole class gets to answer each question.
+const OPEN_ANSWER_TIME_MIN = 10;
+const OPEN_ANSWER_TIME_MAX = 120;
+const OPEN_ANSWER_TIME_DEFAULT = 30;
+
+function renderBuzzinBody(container, exercise, { openAnswer = false } = {}) {
+  const defaultType = openAnswer ? "openanswer" : "buzzin";
+  const items = (exercise.items?.length ? exercise.items : defaultExercise(defaultType).items).map(
     (item) => ({
       topic: String(item.topic || item.title || "").trim(),
       correctAnswer: String(item.correctAnswer || item.answer || "").trim(),
       sttLanguage: String(item.sttLanguage || "").trim().toLowerCase(),
       image: String(item.image || item.imageUrl || "").trim(),
+      timeLimit: Number(item.timeLimit) || 0,
     })
   );
-  if (!items.length) items.push({ topic: "", correctAnswer: "", sttLanguage: "", image: "" });
+  if (!items.length) items.push({ topic: "", correctAnswer: "", sttLanguage: "", image: "", timeLimit: 0 });
 
   container.innerHTML = `<div class="cms-questions-list cms-buzzin-topics-list"></div>
     <button type="button" class="btn secondary small cms-add-buzzin-topic">+ Add question</button>
-    <p class="hint">Each question needs a topic and correct answer. AI uses the correct answer to judge Correctness.</p>`;
+    <p class="hint">${
+      openAnswer
+        ? "Every student records an answer at the same time. Each question needs a topic and correct answer. AI uses the correct answer to judge each student's Correctness."
+        : "Each question needs a topic and correct answer. AI uses the correct answer to judge Correctness."
+    }</p>`;
 
   const list = container.querySelector(".cms-buzzin-topics-list");
 
@@ -10845,6 +10882,12 @@ function renderBuzzinBody(container, exercise) {
       items[idx].sttLanguage =
         block.querySelector(".cms-buzzin-stt-language")?.value.trim().toLowerCase() || "";
       items[idx].image = block.querySelector(".cms-q-image-value")?.value.trim() || "";
+      if (openAnswer) {
+        const seconds = Math.round(Number(block.querySelector(".cms-openanswer-time")?.value));
+        items[idx].timeLimit = Number.isFinite(seconds) && seconds > 0
+          ? Math.min(OPEN_ANSWER_TIME_MAX, Math.max(OPEN_ANSWER_TIME_MIN, seconds))
+          : 0;
+      }
     });
   }
 
@@ -10876,7 +10919,17 @@ function renderBuzzinBody(container, exercise) {
             <select class="cms-buzzin-stt-language" data-q="${qIdx}">
               ${buzzinSttLanguageOptionsHtml(item.sttLanguage)}
             </select>
-          </label>
+          </label>${
+            openAnswer
+              ? `
+          <label class="field">
+            <span>Answer time (seconds)</span>
+            <input type="number" class="cms-openanswer-time" data-q="${qIdx}" min="${OPEN_ANSWER_TIME_MIN}" max="${OPEN_ANSWER_TIME_MAX}" value="${
+                item.timeLimit || ""
+              }" placeholder="${OPEN_ANSWER_TIME_DEFAULT}" />
+          </label>`
+              : ""
+          }
         </div>`
       )
       .join("");
@@ -10940,6 +10993,7 @@ function renderBuzzinBody(container, exercise) {
       correctAnswer: "",
       sttLanguage: items[items.length - 1]?.sttLanguage || "",
       image: "",
+      timeLimit: items[items.length - 1]?.timeLimit || 0,
     });
     renderTopics();
   });
@@ -10957,6 +11011,7 @@ function renderBuzzinBody(container, exercise) {
           ...(correctAnswer ? { correctAnswer } : {}),
           ...(sttLanguage ? { sttLanguage } : {}),
           ...(item.image ? { image: item.image } : {}),
+          ...(openAnswer && item.timeLimit ? { timeLimit: item.timeLimit } : {}),
         };
       })
       .filter(Boolean)
@@ -10974,6 +11029,7 @@ function renderExerciseBody(card, exercise) {
   if (type === "video") renderVideoBody(body, exercise);
   else if (type === "slides") renderSlidesBody(body, exercise);
   else if (type === "buzzin") renderBuzzinBody(body, exercise);
+  else if (type === "openanswer") renderBuzzinBody(body, exercise, { openAnswer: true });
   else if (type === "fastmcquiz" || type === "mcquiz") renderMcQuizBody(body, exercise);
   else renderMcQuizBody(body, exercise);
 }
@@ -11007,6 +11063,11 @@ function applyExerciseTypeChange(card, newType) {
     exercise.items = defaultExercise("slides").items;
   } else if (newType === "buzzin" && oldType !== "buzzin") {
     exercise.items = defaultExercise("buzzin").items;
+  } else if (newType === "openanswer" && oldType !== "openanswer") {
+    // Buzz In topics carry over; only the per-question timer is new.
+    exercise.items = oldType === "buzzin" && exercise.items?.length
+      ? exercise.items
+      : defaultExercise("openanswer").items;
   }
 
   card.dataset.type = newType;
@@ -11934,8 +11995,8 @@ $("#cms-ai-wizard")?.addEventListener("change", (event) => {
     syncAiLangSummary();
     return;
   }
-  if (event.target.matches("#cms-ai-type-mcquiz, #cms-ai-type-fastmcquiz, #cms-ai-type-buzzin, #cms-ai-type-video, #cms-ai-count-mcquiz, #cms-ai-count-fastmcquiz, #cms-ai-count-buzzin, #cms-ai-count-video, #cms-ai-difficulty")) {
-    if (event.target.matches("#cms-ai-type-mcquiz, #cms-ai-type-fastmcquiz, #cms-ai-type-buzzin, #cms-ai-type-video") && state.aiTemplate !== "custom") {
+  if (event.target.matches("#cms-ai-type-mcquiz, #cms-ai-type-fastmcquiz, #cms-ai-type-buzzin, #cms-ai-type-openanswer, #cms-ai-type-video, #cms-ai-count-mcquiz, #cms-ai-count-fastmcquiz, #cms-ai-count-buzzin, #cms-ai-count-openanswer, #cms-ai-count-video, #cms-ai-difficulty")) {
+    if (event.target.matches("#cms-ai-type-mcquiz, #cms-ai-type-fastmcquiz, #cms-ai-type-buzzin, #cms-ai-type-openanswer, #cms-ai-type-video") && state.aiTemplate !== "custom") {
       state.aiTemplate = "custom";
       document.querySelectorAll(".cms-ai-template").forEach((btn) => {
         btn.classList.toggle("is-selected", btn.dataset.template === "custom");

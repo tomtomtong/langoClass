@@ -111,3 +111,15 @@ test("Auto never suggests slides: they are something a teacher chooses", () => {
     assert.equal(plan.suggestSectionTypes(kind, 5000).slides, undefined);
   }
 });
+
+test("Everyone Answers can be part of a section's mix but Auto never suggests it", () => {
+  const { jobs } = plan.prepareCourseGeneration({
+    plan: { sections: [{ title: "Intro", material: passage, types: { openanswer: 2, mcquiz: 2 } }] },
+    template: "auto",
+  });
+  assert.deepEqual(jobs[0].llmTypes, { openanswer: 2, mcquiz: 2 });
+  assert.equal(plan.formatLabel({ openanswer: 2 }, "medium"), "2 Everyone Answers · Medium");
+  for (const kind of plan.SECTION_KINDS) {
+    assert.equal(plan.suggestSectionTypes(kind, 5000).openanswer, undefined);
+  }
+});

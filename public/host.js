@@ -1566,6 +1566,7 @@ function updatePersistentRoomCode(screenId) {
     "host-buzzin",
     "host-buzzin-feedback",
     "host-buzzin-empty",
+    "host-openanswer",
   ];
   const roomCode = getVisibleRoomCode();
   const shouldShow = Boolean(roomCode && roomScreenIds.includes(screenId));
@@ -1753,6 +1754,7 @@ function getHostChromeCompactScreens() {
     "host-buzzin",
     "host-buzzin-feedback",
     "host-buzzin-empty",
+    "host-openanswer",
   ];
 }
 
@@ -2223,6 +2225,7 @@ function exerciseSubtitle(exercise) {
   if (isVideoExercise(exercise)) return uiT("exercise.videoFallback");
   if (isSlidesExercise(exercise)) return uiT("exercise.slidesFallback");
   if (isBuzzinExercise(exercise)) return uiT("exercise.buzzinFallback");
+  if (isOpenAnswerExercise(exercise)) return uiT("exercise.openAnswerFallback");
   if (isFastMcQuizExercise(exercise)) return uiT("exercise.fastFallback");
   if (isMcQuizExercise(exercise)) {
     const questionCount = (exercise.items || []).length;
@@ -2237,6 +2240,7 @@ function exercisePointsValue(exercise) {
   if (type === "video") return 200;
   if (type === "slides") return 0;
   if (type === "buzzin") return 300;
+  if (type === "openanswer") return 300;
   if (type === "mcquiz") return 300;
   if (type === "fastmcquiz") return 500;
   return 100 * itemCount;
@@ -2294,13 +2298,13 @@ function renderExerciseItem(exercise, index, selectedId, { locked = false, compl
   const statusLabel = locked ? "Locked" : points ? `${points} pts` : "";
   const mcClass = isMcQuizExercise(exercise) ? " exercise-item--mc" : "";
   const videoClass = isWatchOnlyExercise(exercise) ? " exercise-item--video" : "";
-  const buzzinClass = isBuzzinExercise(exercise) ? " exercise-item--buzzin" : "";
+  const buzzinClass = isBuzzinExercise(exercise) || isOpenAnswerExercise(exercise) ? " exercise-item--buzzin" : "";
   const fastMcClass = isFastMcQuizExercise(exercise) ? " exercise-item--fastmc" : "";
   const imageAssignmentClass = isImageAssignmentExercise(exercise) ? " exercise-item--image-assignment" : "";
   const voiceAssignmentClass = isVoiceAssignmentExercise(exercise) ? " exercise-item--voice-assignment" : "";
   const lottiePath = isWatchOnlyExercise(exercise)
     ? "/assets/lottie/video-player.json"
-    : isBuzzinExercise(exercise)
+    : isBuzzinExercise(exercise) || isOpenAnswerExercise(exercise)
       ? "/assets/lottie/buzz_in_logo.json"
       : isFastMcQuizExercise(exercise)
         ? "/assets/lottie/FastMC_logo.json"
@@ -2616,6 +2620,7 @@ function syncHostClassLabel(screenId = getActiveHostScreenId()) {
     "host-buzzin",
     "host-buzzin-feedback",
     "host-buzzin-empty",
+    "host-openanswer",
   ]);
   const shouldShow = Boolean(text) && !hideOn.has(screenId);
   if (!wrap) return;
@@ -3282,6 +3287,7 @@ function getHostOnlineCountScreens() {
     "host-buzzin",
     "host-buzzin-feedback",
     "host-buzzin-empty",
+    "host-openanswer",
   ];
 }
 
@@ -3937,7 +3943,7 @@ document.querySelectorAll("#btn-back-waiting-finished").forEach((btn) =>
   })
 );
 
-document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-buzzin, #btn-back-waiting-buzzin-feedback, #btn-back-waiting-buzzin-empty").forEach((btn) =>
+document.querySelectorAll("#btn-back-waiting-video, #btn-back-waiting-openanswer, #btn-back-waiting-buzzin, #btn-back-waiting-buzzin-feedback, #btn-back-waiting-buzzin-empty").forEach((btn) =>
   btn.addEventListener("click", () => {
     playPageBackSound();
     endExerciseAndReturnToDashboard();

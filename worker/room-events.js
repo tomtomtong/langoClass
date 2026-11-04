@@ -2,11 +2,26 @@ import {
   awardBuzz,
   exerciseKind,
   queueBuzzScores,
+  queueOpenAnswerScores,
   queueOpenScores,
   queueQuizScores,
   queueVideoScores,
 } from "./room-scores.js";
 import { buzzAnnouncement } from "./buzz-feedback.js";
+import { audioRef, clip, done, isHost, languageOf } from "./room-core.js";
+import {
+  applyOpenAnswerJob,
+  closeOpenAnswerEarly,
+  closeOpenAnswerTimer,
+  getOpenAnswer,
+  nextOpenAnswer,
+  openAnswerTimer,
+  openAnswerWindow,
+  startOpenAnswer,
+  submitOpenAnswer,
+} from "./room-open-answer.js";
+
+export { openAnswerSubmitCheck } from "./room-open-answer.js";
 
 const PREVIEW_MS = 5000;
 const BUZZ_JOIN_MS = 20000;
@@ -69,6 +84,18 @@ export function applyRoomEvent(state, message, ctx) {
       return submitBuzzResponse(state, data, ctx);
     case "buzzin_retry_choice":
       return retryChoice(state, data, ctx);
+    case "start_openanswer_round":
+      return startOpenAnswer(state, ctx);
+    case "next_openanswer_question":
+      return nextOpenAnswer(state, ctx);
+    case "open_openanswer_window":
+      return openAnswerWindow(state, ctx);
+    case "close_openanswer_window":
+      return closeOpenAnswerEarly(state, ctx);
+    case "get_openanswer_state":
+      return getOpenAnswer(state, ctx);
+    case "submit_openanswer_response":
+      return submitOpenAnswer(state, data, ctx);
     default:
       return done(state, { ack: { ok: false, error: `Unknown event: ${event || "message"}` } });
   }
@@ -85,6 +112,7 @@ export function applyRoomTimer(state, now, caps = {}) {
   if (timer.kind === "question") return finishQuestion(state, now);
   if (timer.kind === "game-start") return beginQuestion(state, now, caps);
   if (timer.kind === "buzz") return closeBuzz(state, now, caps);
+  if (timer.kind === "open") return closeOpenAnswerTimer(state, now);
   if (timer.kind === "host-grace") return expireHostGrace(state, now);
   return done(state, { clearTimer: true });
 }
@@ -228,6 +256,7 @@ function startNextExercise(state, data, ctx) {
   state.session.status = "start";
   state.game = null;
   state.buzz = null;
+  state.open = null;
   return done(state, {
     ack: { ok: true, roomId: state.session.roomId },
     broadcasts: [
@@ -374,9 +403,11 @@ function endExercise(state, data, ctx) {
   if (kind === "quiz" && state.game) queueQuizScores(state, ctx.now);
   else if (kind === "video") queueVideoScores(state, finished, ctx.now);
   else if (kind === "buzzin") queueBuzzScores(state, finished, ctx.now);
+  else if (kind === "openanswer") queueOpenAnswerScores(state, finished, ctx.now);
   const leaderboard = state.game ? leaderboardOf(state.game) : [];
   state.game = null;
   state.buzz = null;
+  state.open = null;
   state.session.status = "waiting";
   state.session.startedAt = null;
   return done(state, {
@@ -658,6 +689,7 @@ export function applyRoomJob(state, job, outcome, now) {
   if (job.kind === "buzz-topic") return topicSpoken(state, job, outcome, now);
   if (job.kind === "buzz-announce") return announced(state, job, outcome, now);
   if (job.kind === "buzz-analyze") return analyzed(state, job, outcome, now);
+  if (job.kind === "open-topic" || job.kind === "open-analyze") return applyOpenAnswerJob(state, job, outcome, now);
   return done(state);
 }
 
@@ -820,12 +852,6 @@ function canSubmit(round, playerId) {
 function markAnswered(round, playerId) {
   if (!Array.isArray(round.answeredPlayerIds)) round.answeredPlayerIds = [];
   if (!round.answeredPlayerIds.includes(playerId)) round.answeredPlayerIds.push(playerId);
-}
-
-// Audio lives in the room's own table, not in the room state; payloads carry
-// a reference that the Durable Object fills in for host sockets.
-export function audioRef(id) {
-  return `audio:${id}`;
 }
 
 function beginQuestion(state, now, caps = {}) {
@@ -1030,23 +1056,6 @@ function currentQuestionEvents(state) {
   return [{ event: "game_starting", data: { totalQuestions: game.quiz.questions.length, fastMode: !!game.fastMode } }];
 }
 
-function done(state, extra = {}) {
-  if (extra.timer) state && (state.timer = extra.timer);
-  if (extra.clearTimer && state) delete state.timer;
-  return {
-    state,
-    ack: extra.ack,
-    broadcasts: extra.broadcasts || [],
-    direct: extra.direct || [],
-    attachment: extra.attachment || null,
-    timer: extra.timer || null,
-    clearTimer: !!extra.clearTimer,
-    jobs: extra.jobs || [],
-    deferAck: !!extra.deferAck,
-    ackSemester: !!extra.ackSemester,
-  };
-}
-
 function beginHostGrace(state, now) {
   if (state.game && state.timer && state.timer.kind !== "host-grace") {
     state.game.pausedTimer = {
@@ -1082,7 +1091,8 @@ function resumeAfterHostGrace(state, now, extra) {
       timer: { kind: paused.kind, at: now + Math.max(floor, paused.remainingMs) },
     });
   }
-  return done(state, { ...extra, clearTimer: true });
+  const reopen = openAnswerTimer(state, now);
+  return done(state, reopen ? { ...extra, timer: reopen } : { ...extra, clearTimer: true });
 }
 
 function expireHostGrace(state, now) {
@@ -1093,11 +1103,13 @@ function expireHostGrace(state, now) {
     if (paused && paused.remainingMs > 0) {
       return done(state, { timer: { kind: paused.kind, at: Date.now() + paused.remainingMs } });
     }
-    return done(state, { clearTimer: true });
+    const reopen = openAnswerTimer(state, now);
+    return done(state, reopen ? { timer: reopen } : { clearTimer: true });
   }
   queueOpenScores(state, now);
   state.game = null;
   state.buzz = null;
+  state.open = null;
   state.session.status = "ended";
   state.session.hostSocketId = null;
   return done(state, {
@@ -1128,10 +1140,6 @@ function exerciseLabel(exercise) {
 
 function hasHostSocket(state) {
   return Object.values(state.sockets || {}).some((item) => item?.role === "host");
-}
-
-function isHost(ctx) {
-  return ctx.role === "host";
 }
 
 function rememberSocket(state, socketId, meta) {
@@ -1376,13 +1384,4 @@ function roomSpeakLang(state) {
     languageOf(state.session.courseLangCode) ||
     (state.session.variant === "hk-elderly" ? "yue" : "en")
   );
-}
-
-function languageOf(value) {
-  const code = String(value || "").trim().toLowerCase().split(/[-_]/)[0];
-  return /^[a-z]{2,3}$/.test(code) ? code : "";
-}
-
-function clip(value, max) {
-  return String(value || "").trim().slice(0, max);
 }

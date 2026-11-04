@@ -161,6 +161,7 @@ function showClassEnded({ statusKey = "join.endedStatus" } = {}) {
   if (typeof stopRoomStatusPoll === "function") stopRoomStatusPoll();
   if (typeof clearTimer === "function") clearTimer();
   if (typeof resetStudentBuzzinUi === "function") resetStudentBuzzinUi();
+  if (typeof resetStudentOpenAnswerUi === "function") resetStudentOpenAnswerUi();
   teardownJoinSockets();
   clearStoredParticipant();
   roomParticipant = null;
@@ -467,6 +468,7 @@ function getRoomSessionSocket() {
       window.roomFastQuizCompleted = false;
       setJoinWaitingStatus("join.classStarting");
       if (typeof ensureRoomBuzzinSocket === "function") ensureRoomBuzzinSocket();
+      if (typeof ensureStudentOpenAnswerSocket === "function") ensureStudentOpenAnswerSocket();
       if (typeof scheduleStudentMediaPreload === "function") {
         scheduleStudentMediaPreload({ exercise, preloadExercises });
       }
@@ -795,6 +797,7 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
         roomParticipant = participant;
         rememberJoinDisplayName(participant.displayName);
         if (typeof ensureRoomBuzzinSocket === "function") ensureRoomBuzzinSocket();
+      if (typeof ensureStudentOpenAnswerSocket === "function") ensureStudentOpenAnswerSocket();
         clearJoinEndedState();
         setEndedSubmitBusy(false);
 

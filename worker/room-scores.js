@@ -3,12 +3,15 @@
 // writes queued batches and removes them once D1 has them.
 const VIDEO_POINTS = 200;
 const BUZZIN_POINTS = 300;
+// Everyone Answers marks every student, so points follow the verdict.
+const OPEN_ANSWER_POINTS = { correct: 300, partial: 150 };
 
 export function exerciseKind(exercise) {
   const type = String(exercise?.type || "").toLowerCase().replace(/[_\s-]/g, "");
   if (type === "mcquiz" || type === "fastmcquiz") return "quiz";
   if (type === "video") return "video";
   if (type === "buzzin") return "buzzin";
+  if (type === "openanswer") return "openanswer";
   return "";
 }
 
@@ -59,6 +62,41 @@ export function queueBuzzScores(state, exercise, now) {
   return queue(state, batchOf(state, exercise, state.session.courseId, scores, "buzzin"), now);
 }
 
+export function openAnswerPoints(verdict) {
+  if (verdict === "correct") return OPEN_ANSWER_POINTS.correct;
+  if (verdict === "partial") return OPEN_ANSWER_POINTS.partial;
+  return 0;
+}
+
+// Points add up per student across the exercise's questions.
+export function awardOpenAnswer(state, playerId, displayName, points) {
+  if (!state.session.openAnswerPoints || typeof state.session.openAnswerPoints !== "object") {
+    state.session.openAnswerPoints = {};
+  }
+  const entry = state.session.openAnswerPoints[playerId] || { name: displayName || "Student", points: 0 };
+  entry.points += points;
+  if (displayName) entry.name = displayName;
+  state.session.openAnswerPoints[playerId] = entry;
+}
+
+export function queueOpenAnswerScores(state, exercise, now) {
+  if (exerciseKind(exercise) !== "openanswer") return false;
+  const earned = state.session.openAnswerPoints || {};
+  const scores = (state.session.participants || []).map((participant) => ({
+    studentUserId: participant.userId,
+    displayName: participant.displayName || "Student",
+    score: earned[participant.userId]?.points || 0,
+  }));
+  for (const [playerId, entry] of Object.entries(earned)) {
+    if (!scores.some((item) => item.studentUserId === playerId)) {
+      scores.push({ studentUserId: playerId, displayName: entry.name || "Student", score: entry.points });
+    }
+  }
+  state.session.openAnswerExerciseId = null;
+  state.session.openAnswerPoints = {};
+  return queue(state, batchOf(state, exercise, state.session.courseId, scores, "openanswer"), now);
+}
+
 // Points already earned when a room stops without end_room_exercise: the next
 // exercise starts, the host does not come back, or the session ends. Videos
 // are left out, as on Node, because nobody confirmed the video finished.
@@ -69,7 +107,10 @@ export function queueOpenScores(state, now) {
   const buzz = state.session.buzzinExerciseId != null && sameId(state.session.buzzinExerciseId, exercise?.id)
     ? queueBuzzScores(state, exercise, now)
     : false;
-  return quiz || buzz;
+  const open = state.session.openAnswerExerciseId != null && sameId(state.session.openAnswerExerciseId, exercise?.id)
+    ? queueOpenAnswerScores(state, exercise, now)
+    : false;
+  return quiz || buzz || open;
 }
 
 export function awardBuzz(state, playerId, displayName) {

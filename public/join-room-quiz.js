@@ -1320,6 +1320,10 @@ function startRoomExercise(roomId, displayName, userId, exercisePayload) {
   }
   if (isBuzzinExercise(exercise)) {
     showStudentBuzzinExercise(exercisePayload);
+    return;
+  }
+  if (isOpenAnswerExercise(exercise)) {
+    showStudentOpenAnswerExercise(exercisePayload);
   }
 }
 

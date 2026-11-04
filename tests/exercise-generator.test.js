@@ -170,3 +170,70 @@ test("the generation prompt asks for teaching slides, not questions", () => {
   assert.match(system.content, /slides items: \{title, bullets/);
   assert.match(user.content, /slides → "Slides"/);
 });
+
+// ---- Everyone Answers ("openanswer"): same item shape as Buzz In ----
+
+const openAnswerSet = (topics) => ({
+  exercises: [
+    {
+      type: "openanswer",
+      title: "Speak up",
+      items: topics.map((topic) => ({ topic, correctAnswer: "Any real answer in a full sentence." })),
+    },
+  ],
+});
+
+test("the prompt asks for whole-class speaking prompts when openanswer is requested", () => {
+  const [system, user] = buildGenerationPrompt({
+    material: "Food words.",
+    langCode: "en",
+    difficulty: "easy",
+    typeCounts: { openanswer: 2 },
+  });
+  assert.match(system.content, /openanswer/);
+  assert.match(user.content, /2 whole-class speaking prompts \(type "openanswer"\)/);
+  assert.match(user.content, /openanswer → "Everyone Answers"/);
+});
+
+test("openanswer items are kept with a topic and a rubric, and counted on their own", () => {
+  const result = validateGeneratedExercises(
+    openAnswerSet(["What did you eat today?", "Say your favourite fruit."]),
+    { openanswer: 2 }
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.itemCounts.openanswer, 2);
+  assert.equal(result.itemCounts.buzzin, 0);
+  assert.equal(result.exercises[0].type, "openanswer");
+  assert.equal(result.exercises[0].subTitle, "Everyone Answers");
+  assert.equal(result.exercises[0].items[0].topic, "What did you eat today?");
+  assert.match(result.exercises[0].items[0].correctAnswer, /full sentence/);
+});
+
+test("an openanswer item without a rubric gets the default one, and one without a topic is dropped", () => {
+  const result = validateGeneratedExercises(
+    { exercises: [{ type: "openanswer", items: [{ topic: "Say hello." }, { correctAnswer: "no topic" }] }] },
+    { openanswer: 1 }
+  );
+  assert.equal(result.exercises[0].items.length, 1);
+  assert.match(result.exercises[0].items[0].correctAnswer, /acceptable/);
+});
+
+test("the same prompt as Buzz In and Everyone Answers is kept only once", () => {
+  const { exercises, dropped } = dropDuplicateQuestions([
+    { type: "buzzin", items: [{ topic: "Describe your favourite food.", correctAnswer: "a" }] },
+    { type: "openanswer", items: [{ topic: "Describe your favourite food", correctAnswer: "b" }, { topic: "Talk about your pet.", correctAnswer: "c" }] },
+  ]);
+  assert.equal(dropped, 1);
+  assert.equal(exercises[1].items.length, 1);
+});
+
+test("generating openanswer returns the exercise with its own type", async () => {
+  const replies = [JSON.stringify(openAnswerSet(["What did you eat today?", "Say your favourite fruit."]))];
+  const result = await generateExercisesFromMaterial(
+    { material: "Food lesson", langCode: "en", types: { openanswer: 2 }, apiKey: "k" },
+    async () => replies.shift()
+  );
+  assert.equal(result.exercises[0].type, "openanswer");
+  assert.equal(result.stats.itemCounts.openanswer, 2);
+  assert.equal(result.stats.partial, false);
+});

@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed } from "./room-events.js";
+import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed, openAnswerSubmitCheck } from "./room-events.js";
 import { completeText, speak, speechReady, textModelReady, transcribe } from "./ai.js";
 import { withSettings } from "./app-settings.js";
 import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
@@ -62,6 +62,7 @@ export class RoomDurableObject extends DurableObject {
       queueOpenScores(state, Date.now());
       state.game = null;
       state.buzz = null;
+      state.open = null;
       delete state.timer;
       state.session.status = "ended";
       state.closed = true;
@@ -111,8 +112,10 @@ export class RoomDurableObject extends DurableObject {
       caps: this.#caps(state),
     });
 
-    if (incoming.event === "submit_buzzin_response") {
-      const check = buzzSubmitCheck(state, ctx());
+    if (incoming.event === "submit_buzzin_response" || incoming.event === "submit_openanswer_response") {
+      const check = incoming.event === "submit_buzzin_response"
+        ? buzzSubmitCheck(state, ctx())
+        : openAnswerSubmitCheck(state, ctx());
       if (!check.ok) {
         send(ws, { t: "ack", id: incoming.id, data: check });
         return;
@@ -202,8 +205,8 @@ export class RoomDurableObject extends DurableObject {
   async #runJob(job) {
     try {
       const env = await withSettings(this.env);
-      if (job.kind === "question-tts" || job.kind === "buzz-topic" || job.kind === "buzz-announce") {
-        const purposes = { "question-tts": "question", "buzz-topic": "topic", "buzz-announce": "announcement" };
+      if (["question-tts", "buzz-topic", "buzz-announce", "open-topic"].includes(job.kind)) {
+        const purposes = { "question-tts": "question", "buzz-topic": "topic", "buzz-announce": "announcement", "open-topic": "topic" };
         const options = { language: job.language, variant: job.variant };
         // Question lines are the same in every room that plays the quiz, so they are shared through R2.
         const speech =
@@ -212,12 +215,12 @@ export class RoomDurableObject extends DurableObject {
             : await speak(env, job.text, { ...options, purpose: purposes[job.kind] });
         return { audioId: this.#saveAudio(speech.audioContent), format: speech.format };
       }
-      if (job.kind === "buzz-analyze") {
+      if (job.kind === "buzz-analyze" || job.kind === "open-analyze") {
         const reply = await completeText(
           env,
           [{ role: "user", content: buzzFeedbackPrompt(job) }],
           220,
-          { title: "Lango Buzz In" }
+          { title: job.kind === "open-analyze" ? "Lango Everyone Answers" : "Lango Buzz In" }
         );
         const feedback = parseBuzzFeedback(reply, job.studentName);
         if (!job.speech) return { ok: true, ...feedback };
@@ -387,6 +390,8 @@ export class RoomDurableObject extends DurableObject {
       const host = ws.deserializeAttachment()?.role === "host";
       for (const frame of frames) {
         if (frame.hostOnly && !host) continue;
+        // A frame addressed to one student goes to that student alone.
+        if (frame.toPlayer && (host || ws.deserializeAttachment()?.playerId !== frame.toPlayer)) continue;
         let data = host && frame.hostData ? frame.hostData : frame.data;
         if (frame.semester && semester) data = { ...data, semesterLeaderboard: semester };
         send(ws, { t: "event", event: frame.event, data: this.#forSocket(ws, data) });
@@ -453,6 +458,7 @@ function summarize(state) {
     participantCount: Array.isArray(state.session.participants) ? state.session.participants.length : 0,
     hasGame: state.game != null,
     hasBuzz: state.buzz != null,
+    hasOpenAnswer: state.open != null,
     socketCount: state.sockets && typeof state.sockets === "object" ? Object.keys(state.sockets).length : 0,
   };
 }
