@@ -552,7 +552,7 @@
                   <p class="status-msg cms-ai-source-status" id="cms-ai-extract-status" hidden></p>
                   <div id="cms-ai-material-assets" class="cms-ai-material-assets" hidden></div>
                 </div>
-                <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="5" hidden placeholder="Prepared material…"></textarea>
+                <textarea id="cms-ai-material-preview" class="cms-ai-textarea cms-ai-preview-text" rows="5" hidden data-i18n-placeholder="wiz.material.preview" placeholder="Prepared material…"></textarea>
                 <pre id="cms-ai-video-log" class="cms-ai-video-log" hidden aria-live="polite"></pre>
               </div>
 
@@ -654,15 +654,15 @@
                 <div class="cms-ai-plan-format-bar" id="cms-ai-plan-format-bar">
                   <div class="cms-ai-plan-format-row">
                     <label class="field cms-ai-field">
-                      <span>Play format</span>
+                      <span data-i18n="wiz.format.label">How should each section be made?</span>
                       <select id="cms-ai-plan-format-select" aria-label="Play format for generated sections">
-                        <option value="auto">Auto (per section)</option>
-                        <option value="vocab">Vocab drill</option>
-                        <option value="reading">Reading check</option>
-                        <option value="speaking">Speaking class</option>
-                        <option value="mixed">Mixed lesson</option>
-                        <option value="video">Video lesson</option>
-                        <option value="custom">Custom make</option>
+                        <option value="auto" data-i18n="wiz.format.auto">Let Lango decide for each section</option>
+                        <option value="vocab" data-i18n="cms.ai.tpl.vocab">Vocab drill</option>
+                        <option value="reading" data-i18n="cms.ai.tpl.reading">Reading check</option>
+                        <option value="speaking" data-i18n="cms.ai.tpl.speaking">Speaking class</option>
+                        <option value="mixed" data-i18n="cms.ai.tpl.mixed">Mixed lesson</option>
+                        <option value="video" data-i18n="cms.ai.tpl.video">Video lesson</option>
+                        <option value="custom" data-i18n="wiz.format.custom">My own mix</option>
                       </select>
                     </label>
                     <div id="cms-ai-speak-lang-plan-mount" class="cms-ai-speak-lang-mount"></div>
@@ -678,17 +678,17 @@
                     <p class="cms-ai-plan-confirm" id="cms-ai-plan-confirm"></p>
                     <div class="cms-ai-plan-confirm-btns">
                       <button type="button" class="btn primary small" id="btn-cms-ai-confirm-generate">Confirm generate</button>
-                      <button type="button" class="btn secondary small" id="btn-cms-ai-cancel-generate">Not yet</button>
+                      <button type="button" class="btn secondary small" id="btn-cms-ai-cancel-generate" data-i18n="wiz.back">Go back</button>
                     </div>
                   </div>
                 </div>
                 <details class="cms-ai-advanced">
-                  <summary>Advanced: import / export outline JSON</summary>
+                  <summary data-i18n="wiz.advanced.outline">For technical users: import or export the outline</summary>
                   <div class="cms-ai-json-actions">
-                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-plan">Export outline</button>
+                    <button type="button" class="btn secondary small" id="btn-cms-ai-export-plan" data-i18n="wiz.export.outline">Export outline</button>
                     <label class="btn secondary small cms-ai-file-label">
                       <input type="file" id="cms-ai-import-plan" hidden accept=".json,application/json" />
-                      Import outline
+                      <span data-i18n="wiz.import.outline">Import outline</span>
                     </label>
                   </div>
                 </details>
@@ -704,12 +704,12 @@
                     </div>
                     <div id="cms-ai-preview" class="cms-ai-preview-list"></div>
                     <details class="cms-ai-advanced">
-                      <summary>Advanced: import / export exercise JSON</summary>
+                      <summary data-i18n="wiz.advanced.exercises">For technical users: import or export the questions</summary>
                       <div class="cms-ai-json-actions">
-                        <button type="button" class="btn secondary small" id="btn-cms-ai-export-json">Export JSON</button>
+                        <button type="button" class="btn secondary small" id="btn-cms-ai-export-json" data-i18n="wiz.export.questions">Export questions</button>
                         <label class="btn secondary small cms-ai-file-label">
                           <input type="file" id="cms-ai-import-json" hidden accept=".json,application/json" />
-                          Import JSON
+                          <span data-i18n="wiz.import.questions">Import questions</span>
                         </label>
                       </div>
                     </details>
@@ -734,7 +734,7 @@
                   aria-valuemin="0"
                   aria-valuemax="100"
                   aria-valuenow="0"
-                  aria-label="Generation progress"
+                  aria-label="Generation progress" data-i18n="wiz.progress.label" data-i18n-attr="aria-label"
                 >
                   <div class="cms-ai-gen-progress-bar" id="cms-ai-gen-progress-bar"></div>
                 </div>
@@ -743,8 +743,8 @@
                   <p class="cms-ai-gen-progress-eta" id="cms-ai-gen-progress-eta" hidden></p>
                 </div>
                 <div class="cms-ai-gen-progress-bg" id="cms-ai-gen-progress-bg" hidden>
-                  <button type="button" class="btn secondary small" id="btn-cms-ai-run-background">Keep working while this runs</button>
-                  <p class="hint">Generation carries on in the background. Progress shows at the bottom right; open the course, then Review when it is done. Don't refresh or close the page.</p>
+                  <button type="button" class="btn secondary small" id="btn-cms-ai-run-background" data-i18n="wiz.bg.button">Keep working while this runs</button>
+                  <p class="hint" data-i18n="wiz.bg.hint">Making your questions carries on in the background. Progress shows at the bottom right. Please do not refresh or close this page.</p>
                 </div>
               </div>
               <p class="status-msg" id="cms-ai-generate-status"></p>
@@ -1037,6 +1037,7 @@
   <script src="/common.js"></script>
   <script src="/i18n.js"></script>
   <script src="/i18n-cms.js"></script>
+  <script src="/i18n-wizard.js"></script>
   <script src="/exercise-utils.js"></script>
   <script src="/vendor/gsap/gsap.min.js"></script>
   <script src="/vendor/gsap/Flip.min.js"></script>

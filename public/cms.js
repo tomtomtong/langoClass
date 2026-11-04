@@ -40,10 +40,10 @@ function aiSectionStepLabels() {
 
 function aiCourseStepLabels() {
   return [
-    cmsT("cms.ai.step.material"),
-    cmsT("cms.ai.step.outline"),
-    cmsT("cms.ai.step.review"),
-    cmsT("cms.ai.step.publish"),
+    cmsT("wiz.step.material"),
+    cmsT("wiz.step.outline"),
+    cmsT("wiz.step.check"),
+    cmsT("wiz.step.finish"),
   ];
 }
 const AI_SECTION_STEP_KINDS = ["material", "format", "review", "publish"];
@@ -131,6 +131,24 @@ const state = {
   aiQuestionTts: {},
   aiSpeakLangCode: "",
 };
+
+// Turns a raw failure into "what happened + what to do next" for teachers.
+// The raw text is kept in the console for whoever supports them.
+function friendlyCourseError(err) {
+  const raw = String(err?.message ?? err ?? "");
+  console.warn("Course wizard error:", raw);
+  if (/youtube/i.test(raw)) return cmsT("wiz.err.youtube");
+  if (/no sections with material/i.test(raw)) return cmsT("wiz.needSection");
+  if (/material text is required|paste text, upload/i.test(raw)) return cmsT("wiz.needMaterial");
+  if (/openrouter|inworld|api key/i.test(raw) && /not configured|missing|configure|invalid/i.test(raw)) {
+    return cmsT("wiz.err.aiNotReady");
+  }
+  if (/log in again|unauthori[sz]ed|\b401\b|session expired|sign.?in/i.test(raw)) return cmsT("wiz.err.signedOut");
+  if (/too large|max \d+\s*mb|file size|\b413\b/i.test(raw)) return cmsT("wiz.err.tooLarge");
+  if (/failed to fetch|networkerror|network request failed|load failed|offline/i.test(raw)) return cmsT("wiz.err.network");
+  if (/timed? ?out|timeout|deadline|\b50[34]\b|\b524\b/i.test(raw)) return cmsT("wiz.err.timeout");
+  return cmsT("wiz.err.generic");
+}
 
 function formatCmsErrorMessage(message) {
   const msg = String(message || "");
@@ -452,7 +470,7 @@ function syncAiPlanFormatSelect() {
 }
 
 function currentAiFormatLabel() {
-  if (isAiAutoFormat()) return "Auto · per section";
+  if (isAiAutoFormat()) return cmsT("wiz.format.autoLabel");
   const settings = getAiGenerationSettings();
   return aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode);
 }
@@ -487,12 +505,12 @@ function syncAiPlanGenerateUi() {
   const previewReady = hasAiPreviewReady();
   if (genBtn) {
     genBtn.hidden = !state.aiCourseMode || state.aiWizardStep !== 2 || previewReady;
-    genBtn.textContent = `Generate ${n} section${n === 1 ? "" : "s"}`;
+    genBtn.textContent = cmsT("wiz.generateN", { n });
     genBtn.disabled = state.aiWizardBusy || !n;
   }
   const confirmBtn = $("#btn-cms-ai-confirm-generate");
   if (confirmBtn) {
-    confirmBtn.textContent = n ? `Confirm generate ${n} section${n === 1 ? "" : "s"}` : "Confirm generate";
+    confirmBtn.textContent = cmsT("wiz.confirmN", { n });
     confirmBtn.disabled = state.aiWizardBusy || !n;
   }
   if (state.aiPlanGenerateArmed) {
@@ -500,7 +518,7 @@ function syncAiPlanGenerateUi() {
     const row = $("#cms-ai-plan-confirm-row");
     if (row) row.hidden = false;
     if (confirmEl) {
-      confirmEl.textContent = `This will generate questions for ${n} section${n === 1 ? "" : "s"}. Nothing is saved until you publish.`;
+      confirmEl.textContent = cmsT("wiz.confirmText", { n });
     }
   }
 }
@@ -606,9 +624,9 @@ function stopMaterialExtractPhaseTimer() {
 
 function formatAiGenEta(seconds) {
   const value = Math.max(0, Math.ceil(Number(seconds) || 0));
-  if (value <= 0) return "Finishing up…";
-  if (value < 60) return `About ${value}s remaining`;
-  return `About ${Math.ceil(value / 60)} min remaining`;
+  if (value <= 0) return cmsT("wiz.eta.finishing");
+  if (value < 60) return cmsT("wiz.eta.seconds", { n: value });
+  return cmsT("wiz.eta.minutes", { n: Math.ceil(value / 60) });
 }
 
 function estimateExerciseGenerationMs(material = "", llmTypes = {}) {
@@ -674,45 +692,31 @@ function beginMaterialExtractProgress(files, pasted, videoUrl) {
   resetAiGenProgress();
   stopMaterialExtractPhaseTimer();
 
+  const phase = (t, key) => ({
+    t,
+    label: cmsT(`wiz.extract.${key}`),
+    detail: cmsT(`wiz.extract.${key}Detail`),
+  });
   const phases = isPdf
     ? [
-        { t: 0, label: "Uploading PDF…", detail: "Sending your file to the server." },
-        { t: 0.1, label: "Checking text layer…", detail: "Looking for embedded text in the PDF." },
-        {
-          t: 0.18,
-          label: "Running vision OCR…",
-          detail: "Scanned pages are read with AI vision (~5 sec/page).",
-        },
-        { t: 0.55, label: "Extracting figures…", detail: "Finding diagrams and photos in the document." },
-        { t: 0.82, label: "Finalizing material…", detail: "Cleaning and formatting text for generation." },
+        phase(0, "pdf.upload"),
+        phase(0.1, "pdf.text"),
+        phase(0.18, "pdf.ocr"),
+        phase(0.55, "pdf.figures"),
+        phase(0.82, "finalize"),
       ]
     : isVideo
       ? [
-          { t: 0, label: "Uploading video…", detail: "Sending media to the server." },
-          {
-            t: 0.12,
-            label: "Compressing video…",
-            detail: "Large videos are re-encoded to a smaller size for faster processing.",
-          },
-          { t: 0.28, label: "Transcribing speech…", detail: "Speech-to-text can take a few minutes." },
-          { t: 0.78, label: "Finalizing transcript…", detail: "Preparing lesson text." },
+          phase(0, "video.upload"),
+          phase(0.12, "video.compress"),
+          phase(0.28, "video.transcribe"),
+          phase(0.78, "transcript.finalize"),
         ]
       : isAudio
-        ? [
-            { t: 0, label: "Uploading audio…", detail: "Sending file to the server." },
-            { t: 0.25, label: "Transcribing audio…", detail: "Converting speech to text." },
-            { t: 0.8, label: "Finalizing transcript…", detail: "Preparing lesson text." },
-          ]
+        ? [phase(0, "audio.upload"), phase(0.25, "audio.transcribe"), phase(0.8, "transcript.finalize")]
         : pasted && !uploadFiles.length && !videoUrl
-          ? [
-              { t: 0, label: "Processing pasted text…", detail: "Formatting your source material." },
-              { t: 0.6, label: "Finalizing material…", detail: "Preparing text for generation." },
-            ]
-          : [
-              { t: 0, label: "Uploading file…", detail: "Sending document to the server." },
-              { t: 0.3, label: "Extracting text…", detail: "Parsing document content." },
-              { t: 0.75, label: "Finalizing material…", detail: "Preparing text for generation." },
-            ];
+          ? [phase(0, "text.process"), phase(0.6, "finalize")]
+          : [phase(0, "file.upload"), phase(0.3, "file.text"), phase(0.75, "finalize")];
 
   const startedAt = Date.now();
   const applyPhase = (phase) => {
@@ -742,20 +746,17 @@ function finishMaterialExtractProgress(data, { keepForGenerate = false } = {}) {
 
   const extraction = data?.extraction || {};
   const chars = data?.text?.length || state.aiMaterialText?.length || 0;
-  let detail = `${chars.toLocaleString()} characters ready`;
+  let detail = cmsT("wiz.extract.readyChars", { n: chars.toLocaleString() });
   if (extraction.usedVisionOcr) {
-    detail = `Vision OCR read ${extraction.pagesProcessed || "?"} page(s) · ${detail}`;
+    detail = cmsT("wiz.extract.readyOcr", { pages: extraction.pagesProcessed || "?", detail });
   } else if (extraction.methods?.includes("pdf-text")) {
-    detail = `Text layer extracted · ${detail}`;
+    detail = cmsT("wiz.extract.readyText", { detail });
   }
   if (data?.imageAssetCount > 0) {
-    detail += ` · ${data.imageAssetCount} figure(s)`;
-  }
-  if (extraction.durationMs) {
-    detail += ` · ${Math.round(extraction.durationMs / 1000)}s on server`;
+    detail += ` · ${cmsT("wiz.extract.readyFigures", { n: data.imageAssetCount })}`;
   }
 
-  setAiGenProgress(keepForGenerate ? 35 : 100, "Material ready", { detail, eta: "" });
+  setAiGenProgress(keepForGenerate ? 35 : 100, cmsT("wiz.extract.ready"), { detail, eta: "" });
 
 }
 
@@ -900,21 +901,23 @@ function syncAiMaterialState() {
     const name = file.name.length > 22 ? `${file.name.slice(0, 19)}…` : file.name;
     chips.push(`<span class="cms-ai-status-chip is-done">${escapeHtml(name)}</span>`);
   } else if (files.length > 1) {
-    chips.push(`<span class="cms-ai-status-chip is-done">${files.length} files</span>`);
+    chips.push(`<span class="cms-ai-status-chip is-done">${escapeHtml(cmsT("wiz.chip.files", { n: files.length }))}</span>`);
   } else if (pasted) {
-    chips.push('<span class="cms-ai-status-chip is-done">Text</span>');
+    chips.push(`<span class="cms-ai-status-chip is-done">${escapeHtml(cmsT("wiz.chip.text"))}</span>`);
   } else if (videoUrl) {
-    chips.push('<span class="cms-ai-status-chip is-done">URL</span>');
+    chips.push(`<span class="cms-ai-status-chip is-done">${escapeHtml(cmsT("wiz.chip.link"))}</span>`);
   }
   if (prepared) {
     chips.push(
-      `<span class="cms-ai-status-chip is-done">${(state.aiMaterialText || "").length.toLocaleString()} chars</span>`
+      `<span class="cms-ai-status-chip is-done">${escapeHtml(
+        cmsT("wiz.chip.chars", { n: (state.aiMaterialText || "").length.toLocaleString() })
+      )}</span>`
     );
   } else if (hasSource) {
     chips.push(
-      `<span class="cms-ai-status-chip">${
-        state.aiCourseMode ? "Ready to build outline" : "Ready to generate"
-      }</span>`
+      `<span class="cms-ai-status-chip">${escapeHtml(
+        state.aiCourseMode ? cmsT("wiz.chip.readyOutline") : cmsT("wiz.chip.readyGenerate")
+      )}</span>`
     );
   }
 
@@ -1488,7 +1491,9 @@ function buildAiGenSummaryFromCourseResults(results, stats = {}) {
   const exerciseCount = (results || []).reduce((total, entry) => total + (entry.exercises?.length || 0), 0);
   const sections = (results || []).filter((entry) => entry.ok).length;
   const failed = Number(stats.failed) || 0;
-  return `${exerciseCount} exercises · ${sections} section(s)${failed ? ` · ${failed} failed` : ""}`;
+  return `${cmsT("wiz.summary.counts", { exercises: exerciseCount, sections })}${
+    failed ? cmsT("wiz.summary.failed", { n: failed }) : ""
+  }`;
 }
 
 function renderAiPreviewNav(groups) {
@@ -5854,18 +5859,12 @@ function getAiGenerationSettings(prefix = "cms-ai") {
 }
 
 function aiFormatLabel(types, difficulty, speakLangCode) {
-  const names = {
-    mcquiz: "MC Quiz",
-    fastmcquiz: "Lightning round",
-    buzzin: "Buzz in Question",
-    video: "Video",
-  };
   const parts = Object.entries(types || {})
     .filter(([, count]) => count > 0)
-    .map(([type, count]) => `${count} ${names[type] || type}`);
-  if (difficulty) parts.push(String(difficulty)[0].toUpperCase() + String(difficulty).slice(1));
+    .map(([type, count]) => `${count} ${cmsT(`cms.type.${type}`)}`);
+  if (difficulty) parts.push(cmsT(`wiz.diff.${difficulty}`));
   if (speakLangCode) parts.push(communityLangLabel(speakLangCode));
-  return parts.join(" · ") || "No types";
+  return parts.join(" · ") || "—";
 }
 
 function collectAiCoursePlanFromDom() {
@@ -5878,10 +5877,11 @@ function collectAiCoursePlanFromDom() {
     const planned = state.aiCoursePlan.sections?.[Number(card.dataset.planIndex)] || {};
     return {
       key: card.dataset.planKey || String(index),
-      title: card.querySelector(".cms-ai-plan-title")?.value.trim() || `Section ${index + 1}`,
+      title: card.querySelector(".cms-ai-plan-title")?.value.trim() || cmsT("wiz.outline.sectionN", { n: index + 1 }),
       summary: card.querySelector(".cms-ai-plan-summary")?.value.trim() || "",
       materialExcerpt: excerpt,
       kind: planned.kind,
+      warningCode: planned.warningCode,
       suggestedTypes: planned.suggestedTypes,
       types: auto ? aiPlanCardTypes(card) : { ...settings.types },
       difficulty: settings.difficulty,
@@ -5914,17 +5914,16 @@ function renderAiCoursePlan() {
   const plan = state.aiCoursePlan;
   if (!plan?.sections?.length) {
     meta.innerHTML = "";
-    list.innerHTML = `<div class="cms-empty"><p class="cms-empty-title">No outline yet</p><p class="cms-empty-copy">Go back to Material, add a document, then build the outline.</p></div>`;
+    list.innerHTML = `<div class="cms-empty"><p class="cms-empty-title">${escapeHtml(cmsT("wiz.outline.none"))}</p><p class="cms-empty-copy">${escapeHtml(cmsT("wiz.outline.noneHelp"))}</p></div>`;
     return;
   }
 
   const formatText = currentAiFormatLabel();
-  const plannerName =
-    plan.planner === "llm" ? "Outline built by AI" : plan.planner === "headings" || !plan.planner ? "Outline split by headings" : `Outline: ${plan.planner}`;
+  const plannerName = plan.planner === "llm" ? cmsT("wiz.outline.ai") : cmsT("wiz.outline.headings");
   const attr = (value) => escapeHtml(value).replace(/"/g, "&quot;");
   meta.innerHTML = `
     <label class="field cms-ai-field">
-      <span>Course title</span>
+      <span>${escapeHtml(cmsT("wiz.outline.courseTitle"))}</span>
       <input type="text" id="cms-ai-plan-course-title" value="${attr(plan.courseTitle || "")}" />
     </label>
     <p class="cms-ai-plan-stats">${escapeHtml(plannerName)}</p>`;
@@ -5938,28 +5937,30 @@ function renderAiCoursePlan() {
       const cardFormat = auto
         ? aiFormatLabel(cardTypes, getAiGenerationSettings().difficulty, getAiGenerationSettings().speakLangCode)
         : formatText;
+      const kindName = section.kind ? cmsT(`wiz.kind.${section.kind}`) : "";
       const pickOptions = [
-        [AI_AUTO_TEMPLATE, `Auto${section.kind ? ` (${section.kind})` : ""}`],
+        [AI_AUTO_TEMPLATE, kindName ? cmsT("wiz.format.autoKind", { kind: kindName }) : cmsT("wiz.format.auto")],
         ...Object.keys(AI_TEMPLATES).map((id) => [id, aiTemplateName(id)]),
-        ["keep", "Custom"],
+        ["keep", cmsT("wiz.format.custom")],
       ]
         .map(([value, text]) => `<option value="${value}" ${value === choice ? "selected" : ""}>${escapeHtml(text)}</option>`)
         .join("");
+      const warning = section.warningCode ? cmsT(`wiz.warn.${section.warningCode}`) : section.warning || "";
       return `
       <article class="cms-ai-plan-card ${section.included === false ? "is-excluded" : ""}" data-plan-index="${index}" data-plan-key="${escapeHtml(section.key || String(index))}" data-types="${encodeURIComponent(JSON.stringify(cardTypes))}">
         <div class="cms-ai-plan-card-head">
-          <input type="checkbox" class="cms-ai-plan-include" ${section.included === false ? "" : "checked"} aria-label="Include section" />
-          <input type="text" class="cms-ai-plan-title" value="${attr(section.title || "")}" placeholder="Section title" aria-label="Section title" />
+          <input type="checkbox" class="cms-ai-plan-include" ${section.included === false ? "" : "checked"} aria-label="${attr(cmsT("wiz.outline.include"))}" />
+          <input type="text" class="cms-ai-plan-title" value="${attr(section.title || "")}" placeholder="${attr(cmsT("wiz.outline.titlePlaceholder"))}" aria-label="${attr(cmsT("wiz.outline.titleLabel"))}" />
         </div>
         <div class="cms-ai-plan-card-format">
           <span class="cms-ai-plan-format">${escapeHtml(cardFormat)}</span>
-          <select class="cms-ai-plan-section-format" aria-label="Play format for this section" ${auto ? "" : "hidden"}>${pickOptions}</select>
+          <select class="cms-ai-plan-section-format" aria-label="${attr(cmsT("wiz.format.perSection"))}" ${auto ? "" : "hidden"}>${pickOptions}</select>
         </div>
-        <input type="text" class="cms-ai-plan-summary" value="${attr(section.summary || "")}" placeholder="Short summary (optional)" aria-label="Section summary" />
-        <textarea class="cms-ai-textarea cms-ai-plan-excerpt" rows="5" placeholder="Material for this section…" aria-label="Section material">${escapeHtml(section.materialExcerpt || "")}</textarea>
+        <input type="text" class="cms-ai-plan-summary" value="${attr(section.summary || "")}" placeholder="${attr(cmsT("wiz.outline.summaryPlaceholder"))}" aria-label="${attr(cmsT("wiz.outline.summaryLabel"))}" />
+        <textarea class="cms-ai-textarea cms-ai-plan-excerpt" rows="5" placeholder="${attr(cmsT("wiz.outline.materialPlaceholder"))}" aria-label="${attr(cmsT("wiz.outline.materialLabel"))}">${escapeHtml(section.materialExcerpt || "")}</textarea>
         <div class="cms-ai-plan-card-foot">
-          <p class="hint">${chars.toLocaleString()} characters</p>
-          ${section.warning ? `<p class="cms-ai-plan-warning">${escapeHtml(section.warning)}</p>` : ""}
+          <p class="hint">${escapeHtml(cmsT("wiz.outline.chars", { n: chars.toLocaleString() }))}</p>
+          ${warning ? `<p class="cms-ai-plan-warning">${escapeHtml(warning)}</p>` : ""}
         </div>
       </article>`;
     })
@@ -5995,12 +5996,12 @@ async function analyzeAiCoursePlan(options = {}) {
     }
   }
   if (!material) {
-    setCmsError(errorEl, "Add source material first.");
+    setCmsError(errorEl, cmsT("wiz.needMaterial"));
     return false;
   }
 
-  if (!options.silentStatus && statusEl) statusEl.textContent = "Building course plan…";
-  if (options.manageBusy !== false) setAiWizardBusy(true, "Building course plan…");
+  if (!options.silentStatus && statusEl) statusEl.textContent = cmsT("wiz.progress.buildingOutline");
+  if (options.manageBusy !== false) setAiWizardBusy(true, cmsT("wiz.progress.buildingOutline"));
   try {
     const data = await api("/api/cms/analyze-course-material", {
       method: "POST",
@@ -6013,14 +6014,12 @@ async function analyzeAiCoursePlan(options = {}) {
     state.aiCoursePlan = data.plan;
     state.aiCourseResults = [];
     renderAiCoursePlan();
-    statusEl.textContent = data.usedLlm
-      ? `Plan ready (${data.plan.sections.length} section(s)). Choose a play format, then generate.`
-      : `Plan ready from headings (${data.plan.sections.length} section(s)). Choose a play format, then generate.`;
-    showAiGenSummary(`${data.plan.sections.length} section(s) in plan`);
+    statusEl.textContent = cmsT("wiz.status.planReady", { n: data.plan.sections.length });
+    showAiGenSummary(cmsT("wiz.planSummary", { n: data.plan.sections.length }));
     return true;
   } catch (err) {
     statusEl.textContent = "";
-    setCmsError(errorEl, err.message);
+    setCmsError(errorEl, friendlyCourseError(err));
     return false;
   } finally {
     if (options.manageBusy !== false) setAiWizardBusy(false);
@@ -6061,12 +6060,12 @@ async function generateCourseFromPlan(options = {}) {
   errorEl.textContent = "";
 
   if (!plan?.sections?.some((section) => section.included)) {
-    errorEl.textContent = "Include at least one section with material.";
+    errorEl.textContent = cmsT("wiz.needSection");
     return false;
   }
 
-  if (!options.silentStatus && statusEl) statusEl.textContent = "Generating course exercises…";
-  if (options.manageBusy !== false) setAiWizardBusy(true, "Generating course exercises…");
+  if (!options.silentStatus && statusEl) statusEl.textContent = cmsT("wiz.status.generating");
+  if (options.manageBusy !== false) setAiWizardBusy(true, cmsT("wiz.status.generating"));
 
   try {
     const data = await api("/api/cms/generate-course-from-plan", {
@@ -6087,9 +6086,14 @@ async function generateCourseFromPlan(options = {}) {
     for (let i = 0; i < (data.results || []).length; i++) {
       const entry = data.results[i];
       const sectionProgress = 55 + Math.round(((i + 1) / Math.max(1, data.results.length)) * 35);
-      setAiGenProgress(sectionProgress, `Section ${i + 1}/${data.results.length}: ${entry.sectionTitle || "Untitled"}…`);
+      const sectionLabel = cmsT("wiz.status.sectionOf", {
+        i: i + 1,
+        n: data.results.length,
+        title: entry.sectionTitle || cmsT("wiz.outline.untitled"),
+      });
+      setAiGenProgress(sectionProgress, sectionLabel);
       if (!options.silentStatus && statusEl) {
-        statusEl.textContent = `Section ${i + 1}/${data.results.length}: ${entry.sectionTitle || "Untitled"}…`;
+        statusEl.textContent = sectionLabel;
       }
       const exercises = [...(entry.exercises || [])].map((exercise) => ({
         ...exercise,
@@ -6100,19 +6104,19 @@ async function generateCourseFromPlan(options = {}) {
       const videoCount = Number(entry.videoCount ?? entry.types?.video ?? 0) || 0;
       if (entry.ok && videoCount > 0) {
         for (let v = 0; v < videoCount; v++) {
-          statusEl.textContent = `Section ${i + 1}: generating video ${v + 1}/${videoCount}…`;
+          statusEl.textContent = cmsT("wiz.status.video", { i: i + 1, v: v + 1, n: videoCount });
           try {
             const videoExercise = await createAiVideoExercise(entry.material || "", {
               onUpdate: (job) => {
                 if (job.status) {
-                  statusEl.textContent = `Section ${i + 1} video ${v + 1}/${videoCount}: ${job.status}`;
+                  statusEl.textContent = cmsT("wiz.status.videoJob", { i: i + 1, v: v + 1, n: videoCount, status: job.status });
                 }
               },
             });
             videoExercise.title =
               videoCount > 1
-                ? `${entry.sectionTitle || "Lesson"} video ${v + 1}`
-                : `${entry.sectionTitle || "Lesson"} video`;
+                ? `${entry.sectionTitle || cmsT("wiz.outline.lesson")} ${cmsT("cms.type.video")} ${v + 1}`
+                : `${entry.sectionTitle || cmsT("wiz.outline.lesson")} ${cmsT("cms.type.video")}`;
             videoExercise.included = true;
             if (settings.speakLangCode) videoExercise.speakLangCode = settings.speakLangCode;
             exercises.push(videoExercise);
@@ -6134,8 +6138,8 @@ async function generateCourseFromPlan(options = {}) {
     state.aiCourseResults = results;
     renderAiCoursePreview(results);
     if (state.cmsTtsAvailable) {
-      setAiGenProgress(92, "Generating speech previews…", {
-        detail: "Creating voice audio for each question.",
+      setAiGenProgress(92, cmsT("wiz.progress.speech"), {
+        detail: cmsT("wiz.progress.speechDetail"),
         eta: "",
       });
       state.aiQuestionTts = {};
@@ -6146,12 +6150,12 @@ async function generateCourseFromPlan(options = {}) {
       });
     }
     const stats = data.stats || {};
-    statusEl.textContent = `Done: ${stats.succeeded || 0} section(s) generated, ${stats.failed || 0} failed. Review below.`;
+    statusEl.textContent = cmsT("wiz.status.done", { ok: stats.succeeded || 0, failed: stats.failed || 0 });
     showAiGenSummary(buildAiGenSummaryFromCourseResults(results, stats));
     return results.some((entry) => entry.ok && entry.exercises?.length);
   } catch (err) {
     statusEl.textContent = "";
-    setCmsError(errorEl, err.message);
+    setCmsError(errorEl, friendlyCourseError(err));
     return false;
   } finally {
     if (options.manageBusy !== false) setAiWizardBusy(false);
@@ -6163,12 +6167,12 @@ function armAiCourseGenerate() {
   if (state.aiWizardBusy) return;
   const types = getAiTypeCounts();
   if (!isAiAutoFormat() && !Object.keys(types).length) {
-    setCmsError(errorEl, "Pick a play format for the included sections.");
+    setCmsError(errorEl, cmsT("wiz.needFormat"));
     return;
   }
   const planCount = includedAiPlanCount();
   if (!planCount) {
-    setCmsError(errorEl, "Include at least one section with material.");
+    setCmsError(errorEl, cmsT("wiz.needSection"));
     return;
   }
   setCmsError(errorEl, "");
@@ -6190,25 +6194,25 @@ async function confirmAiCourseGenerate() {
   }
   const types = getAiTypeCounts();
   if (!isAiAutoFormat() && !Object.keys(types).length) {
-    setCmsError(errorEl, "Pick a play format for the included sections.");
+    setCmsError(errorEl, cmsT("wiz.needFormat"));
     return;
   }
   const planCount = includedAiPlanCount();
   if (!planCount) {
-    setCmsError(errorEl, "Include at least one section with material.");
+    setCmsError(errorEl, cmsT("wiz.needSection"));
     return;
   }
   disarmAiPlanGenerate();
   resetAiGenProgress();
-  setAiGenProgress(0, "Starting…");
-  setAiWizardBusy(true, "Starting…");
+  setAiGenProgress(0, cmsT("wiz.progress.starting"));
+  setAiWizardBusy(true, cmsT("wiz.progress.starting"));
   let generated = false;
   try {
-    setAiGenProgress(40, "Generating course…");
+    setAiGenProgress(40, cmsT("wiz.progress.generating"));
     startAiGenProgressTicker(40, 88, 120000);
     generated = await generateCourseFromPlan({ manageBusy: false, silentStatus: true });
     stopAiGenProgressTicker();
-    if (generated) setAiGenProgress(100, "Done");
+    if (generated) setAiGenProgress(100, cmsT("wiz.progress.done"));
     else resetAiGenProgress();
   } finally {
     setAiWizardBusy(false);
@@ -7247,7 +7251,7 @@ function syncAiFileNameLabel() {
   renderAiFileList();
   if (!dropLabel) return;
   if (!files.length) {
-    dropLabel.textContent = "Choose or drop files";
+    dropLabel.textContent = cmsT("wiz.file.choose");
     if (meta) {
       meta.hidden = true;
       meta.textContent = "";
@@ -7265,7 +7269,7 @@ function syncAiFileNameLabel() {
       meta.textContent = formatAiFileSize(file.size);
     }
   } else {
-    dropLabel.textContent = `${files.length} files selected`;
+    dropLabel.textContent = cmsT("wiz.file.selected", { n: files.length });
     if (meta) {
       meta.hidden = false;
       const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
@@ -7290,14 +7294,14 @@ async function extractAiMaterial(options = {}) {
     const pasted = $("#cms-ai-paste")?.value.trim();
     const videoUrl = $("#cms-ai-video-url")?.value.trim();
     if (!files.length && !pasted && !videoUrl) {
-      throw new Error("Paste text, upload file(s), or provide a video URL.");
+      throw new Error(cmsT("wiz.needMaterial"));
     }
 
     if (options.showProgress !== false) {
       beginMaterialExtractProgress(files, pasted, videoUrl);
     } else if (statusEl && !options.silentStatus) {
       statusEl.hidden = false;
-      statusEl.textContent = "Preparing material…";
+      statusEl.textContent = cmsT("wiz.material.preparing");
     }
     if (manageBusy) setAiWizardBusy(true);
 
@@ -7324,21 +7328,19 @@ async function extractAiMaterial(options = {}) {
     if (options.showProgress !== false) {
       finishMaterialExtractProgress(data, { keepForGenerate: options.keepForGenerate });
     } else if (statusEl && !options.silentStatus) {
-      const filePrefix = data.fileCount > 1 ? `${data.fileCount} files · ` : "";
+      const filePrefix = data.fileCount > 1 ? cmsT("wiz.extract.filesPrefix", { n: data.fileCount }) : "";
       const assetSuffix =
-        data.imageAssetCount > 0
-          ? ` · ${data.imageAssetCount} figure(s) extracted${data.imageAssetCount > 1 ? " (cropped)" : ""}`
-          : "";
+        data.imageAssetCount > 0 ? cmsT("wiz.extract.figuresExtra", { n: data.imageAssetCount }) : "";
       statusEl.hidden = false;
       statusEl.textContent = data.truncated
-        ? `${filePrefix}Ready (${data.originalLength} chars, truncated for generation).${assetSuffix}`
-        : `${filePrefix}Ready (${state.aiMaterialText.length} chars).${assetSuffix}`;
+        ? cmsT("wiz.extract.statusTruncated", { prefix: filePrefix, n: data.originalLength, extra: assetSuffix })
+        : cmsT("wiz.extract.statusReady", { prefix: filePrefix, n: state.aiMaterialText.length, extra: assetSuffix });
       if (data.source === "video") {
-        statusEl.textContent += data.captionUrl ? " Video transcribed." : " Video uploaded.";
+        statusEl.textContent += data.captionUrl ? cmsT("wiz.extract.videoTranscribed") : cmsT("wiz.extract.videoUploaded");
       } else if (data.source === "audio") {
-        statusEl.textContent += " Audio transcribed.";
+        statusEl.textContent += cmsT("wiz.extract.audioTranscribed");
       } else if (data.source === "image") {
-        statusEl.textContent += " Image converted to markdown.";
+        statusEl.textContent += cmsT("wiz.extract.imageConverted");
       }
     }
     syncAiMaterialState();
@@ -7350,7 +7352,7 @@ async function extractAiMaterial(options = {}) {
       statusEl.textContent = "";
       statusEl.hidden = true;
     }
-    setCmsError(errorEl, err.message);
+    setCmsError(errorEl, friendlyCourseError(err));
     return false;
   } finally {
     if (manageBusy) setAiWizardBusy(false);
@@ -8002,12 +8004,12 @@ async function handleAiWizardNext() {
       }
       setCmsError(errorEl, "");
       resetAiGenProgress();
-      setAiGenProgress(0, "Building outline…");
-      setAiWizardBusy(true, "Building outline…");
+      setAiGenProgress(0, cmsT("wiz.progress.buildingOutline"));
+      setAiWizardBusy(true, cmsT("wiz.progress.buildingOutline"));
       let analyzed = false;
       try {
         analyzed = await analyzeAiCoursePlan({ manageBusy: false, silentStatus: true });
-        if (analyzed) setAiGenProgress(100, "Outline ready");
+        if (analyzed) setAiGenProgress(100, cmsT("wiz.progress.outlineReady"));
         else resetAiGenProgress();
       } finally {
         setAiWizardBusy(false);
@@ -8039,7 +8041,7 @@ async function handleAiWizardNext() {
         setAiWizardStep(3);
         return;
       }
-      setCmsError(errorEl, "Review the outline, then use Generate and Confirm generate.");
+      setCmsError(errorEl, cmsT("wiz.reviewOutlineFirst"));
       return;
     }
     const types = getAiTypeCounts();
