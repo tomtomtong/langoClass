@@ -251,41 +251,35 @@ async function analyzeCourseMaterial({ env, body }) {
 }
 
 async function generateCourseFromPlan({ env, body }) {
-  const format = {
-    template: String(body?.template || "custom").trim() || "custom",
-    types: coursePlan.lockTypes(body?.types),
-    difficulty: coursePlan.lockDifficulty(body?.difficulty),
-  };
-  if (!Object.keys(format.types).length) {
-    return json({ message: "Pick a format with at least one exercise type first." }, 400);
-  }
-  let locked;
+  let prepared;
   try {
-    locked = coursePlan.validateCoursePlan(body?.plan, format);
+    prepared = coursePlan.prepareCourseGeneration({
+      plan: body?.plan,
+      template: body?.template,
+      types: body?.types,
+      difficulty: body?.difficulty,
+    });
   } catch (error) {
     return json({ message: error instanceof Error ? error.message : "Invalid course plan." }, 400);
   }
-  const llmTypes = { ...locked.appliedTypes };
-  delete llmTypes.video;
-  const videoCount = locked.appliedTypes.video || 0;
-  if (!Object.keys(llmTypes).length && !videoCount) {
-    return json({ message: "Pick a format with at least one exercise type first." }, 400);
-  }
+  const { locked, jobs } = prepared;
 
   const results = [];
-  for (const job of coursePlan.jobsFromPlan(locked, format)) {
+  for (const job of jobs) {
     const entry = {
       key: job.key,
       sectionTitle: job.sectionTitle,
       material: job.material,
-      types: { ...locked.appliedTypes },
+      kind: job.kind,
+      types: { ...job.types },
+      videoCount: job.videoCount,
       difficulty: locked.appliedDifficulty,
       ok: false,
       exercises: [],
       stats: null,
       message: "",
     };
-    if (!Object.keys(llmTypes).length) {
+    if (!Object.keys(job.llmTypes).length) {
       entry.ok = true;
       results.push(entry);
       continue;
@@ -296,7 +290,7 @@ async function generateCourseFromPlan({ env, body }) {
           material: job.material,
           langCode: String(body?.langCode || "en").trim(),
           difficulty: locked.appliedDifficulty,
-          types: llmTypes,
+          types: job.llmTypes,
           instructions: String(body?.instructions || "").trim(),
           model: chosenModel(body),
           apiKey: WORKER_KEY,
@@ -317,7 +311,7 @@ async function generateCourseFromPlan({ env, body }) {
     ok: succeeded > 0,
     plan: locked,
     results,
-    videoCount,
+    videoCount: locked.appliedTypes.video || 0,
     stats: { requested: results.length, succeeded, failed: results.length - succeeded },
   });
 }

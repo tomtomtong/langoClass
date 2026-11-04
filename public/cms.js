@@ -335,6 +335,8 @@ function startManualSection() {
 function openAiGeneratePath(mode) {
   state.aiWizardActive = true;
   state.aiCourseMode = mode === "course";
+  if (state.aiCourseMode) applyAiTemplate(AI_AUTO_TEMPLATE);
+  else if (state.aiTemplate === AI_AUTO_TEMPLATE) applyAiTemplate("vocab");
   state.aiPlanGenerateArmed = false;
   state.aiGenSummary = null;
   const wizard = $("#cms-ai-wizard");
@@ -443,18 +445,37 @@ function placeAiSpeakLangRow() {
 function syncAiPlanFormatSelect() {
   const sel = $("#cms-ai-plan-format-select");
   if (!sel) return;
-  sel.value = AI_TEMPLATES[state.aiTemplate] ? state.aiTemplate : "custom";
+  sel.value =
+    AI_TEMPLATES[state.aiTemplate] || state.aiTemplate === AI_AUTO_TEMPLATE ? state.aiTemplate : "custom";
 }
 
 function currentAiFormatLabel() {
+  if (isAiAutoFormat()) return "Auto · per section";
   const settings = getAiGenerationSettings();
   return aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode);
 }
 
+function aiPlanCardTypes(card) {
+  try {
+    return JSON.parse(decodeURIComponent(card.dataset.types || "%7B%7D"));
+  } catch {
+    return {};
+  }
+}
+
 function syncAiPlanCardFormatLabels() {
+  const auto = isAiAutoFormat();
+  const settings = getAiGenerationSettings();
   const label = currentAiFormatLabel();
-  document.querySelectorAll(".cms-ai-plan-format").forEach((el) => {
-    el.textContent = label;
+  document.querySelectorAll(".cms-ai-plan-card").forEach((card) => {
+    const labelEl = card.querySelector(".cms-ai-plan-format");
+    if (labelEl) {
+      labelEl.textContent = auto
+        ? aiFormatLabel(aiPlanCardTypes(card), settings.difficulty, settings.speakLangCode)
+        : label;
+    }
+    const pick = card.querySelector(".cms-ai-plan-section-format");
+    if (pick) pick.hidden = !auto;
   });
 }
 
@@ -4658,6 +4679,35 @@ const AI_TEMPLATES = {
   video: { types: { mcquiz: 2, video: 1 }, difficulty: "medium" },
 };
 
+// Course mode only: each section gets its own mix, picked from what its
+// material looks like (the server suggests it), and the teacher can override it.
+const AI_AUTO_TEMPLATE = "auto";
+
+function isAiAutoFormat() {
+  return state.aiCourseMode && state.aiTemplate === AI_AUTO_TEMPLATE;
+}
+
+function sameAiTypeCounts(a, b) {
+  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  return [...keys].every((key) => (Number(a?.[key]) || 0) === (Number(b?.[key]) || 0));
+}
+
+// What a plan card's mix is right now: the teacher's pick if any, else the suggestion.
+function aiPlanSectionTypes(section) {
+  const own = section?.types || {};
+  return Object.keys(own).length ? { ...own } : { ...(section?.suggestedTypes || {}) };
+}
+
+function aiTemplateName(id) {
+  return cmsT(`cms.ai.tpl.${id}`);
+}
+
+function aiPlanSectionFormatChoice(types, suggested) {
+  if (sameAiTypeCounts(types, suggested)) return AI_AUTO_TEMPLATE;
+  const preset = Object.keys(AI_TEMPLATES).find((id) => sameAiTypeCounts(AI_TEMPLATES[id].types, types));
+  return preset || "keep";
+}
+
 const AI_CUSTOM_TEMPLATE_COUNTS = { mcquiz: 2, fastmcquiz: 1, buzzin: 1, video: 0 };
 
 const AI_CUSTOM_TYPE_KEYS = ["mcquiz", "fastmcquiz", "buzzin", "video"];
@@ -5213,7 +5263,11 @@ function autoApplyMaterialImagesToDraft() {
 }
 
 function applyAiTemplate(templateId) {
-  const id = AI_TEMPLATES[templateId] ? templateId : templateId === "custom" ? "custom" : "vocab";
+  const id = AI_TEMPLATES[templateId]
+    ? templateId
+    : templateId === "custom" || templateId === AI_AUTO_TEMPLATE
+      ? templateId
+      : "vocab";
   state.aiTemplate = id;
   document.querySelectorAll(".cms-ai-template").forEach((btn) => {
     btn.classList.toggle("is-selected", btn.dataset.template === id);
@@ -5697,7 +5751,10 @@ function getAiGenerationSettings(prefix = "cms-ai") {
   return {
     langCode: speakLangCode,
     speakLangCode,
-    difficulty: preset?.difficulty || $(`#${prefix}-difficulty`)?.value || "medium",
+    difficulty:
+      preset?.difficulty ||
+      (prefix === "cms-ai" && isAiAutoFormat() ? "medium" : $(`#${prefix}-difficulty`)?.value) ||
+      "medium",
     types: getAiTypeCounts(prefix),
     template: state.aiTemplate || "custom",
   };
@@ -5722,14 +5779,18 @@ function collectAiCoursePlanFromDom() {
   if (!state.aiCoursePlan) return null;
   const settings = getAiGenerationSettings();
   const cards = [...document.querySelectorAll(".cms-ai-plan-card")];
+  const auto = isAiAutoFormat();
   const sections = cards.map((card, index) => {
     const excerpt = card.querySelector(".cms-ai-plan-excerpt")?.value.trim() || "";
+    const planned = state.aiCoursePlan.sections?.[Number(card.dataset.planIndex)] || {};
     return {
       key: card.dataset.planKey || String(index),
       title: card.querySelector(".cms-ai-plan-title")?.value.trim() || `Section ${index + 1}`,
       summary: card.querySelector(".cms-ai-plan-summary")?.value.trim() || "",
       materialExcerpt: excerpt,
-      types: { ...settings.types },
+      kind: planned.kind,
+      suggestedTypes: planned.suggestedTypes,
+      types: auto ? aiPlanCardTypes(card) : { ...settings.types },
       difficulty: settings.difficulty,
       included: Boolean(card.querySelector(".cms-ai-plan-include")?.checked) && !!excerpt,
       warning: card.querySelector(".cms-ai-plan-warning")?.textContent || "",
@@ -5737,12 +5798,12 @@ function collectAiCoursePlanFromDom() {
   });
   state.aiCoursePlan = {
     ...state.aiCoursePlan,
-    formatSource: "outline",
+    formatSource: auto ? "auto" : "outline",
     appliedTemplate: settings.template,
     appliedTypes: { ...settings.types },
     appliedDifficulty: settings.difficulty,
     appliedSpeakLangCode: settings.speakLangCode,
-    formatLabel: aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
+    formatLabel: currentAiFormatLabel(),
     courseTitle:
       $("#cms-ai-plan-course-title")?.value.trim() ||
       state.aiCoursePlan.courseTitle ||
@@ -5777,12 +5838,26 @@ function renderAiCoursePlan() {
   list.innerHTML = plan.sections
     .map((section, index) => {
       const chars = String(section.materialExcerpt || "").length;
+      const auto = isAiAutoFormat();
+      const cardTypes = aiPlanSectionTypes(section);
+      const choice = aiPlanSectionFormatChoice(cardTypes, section.suggestedTypes || {});
+      const cardFormat = auto
+        ? aiFormatLabel(cardTypes, getAiGenerationSettings().difficulty, getAiGenerationSettings().speakLangCode)
+        : formatText;
+      const pickOptions = [
+        [AI_AUTO_TEMPLATE, `Auto${section.kind ? ` (${section.kind})` : ""}`],
+        ...Object.keys(AI_TEMPLATES).map((id) => [id, aiTemplateName(id)]),
+        ["keep", "Custom"],
+      ]
+        .map(([value, text]) => `<option value="${value}" ${value === choice ? "selected" : ""}>${escapeHtml(text)}</option>`)
+        .join("");
       return `
-      <article class="cms-ai-plan-card ${section.included === false ? "is-excluded" : ""}" data-plan-index="${index}" data-plan-key="${escapeHtml(section.key || String(index))}">
+      <article class="cms-ai-plan-card ${section.included === false ? "is-excluded" : ""}" data-plan-index="${index}" data-plan-key="${escapeHtml(section.key || String(index))}" data-types="${encodeURIComponent(JSON.stringify(cardTypes))}">
         <div class="cms-ai-plan-card-head">
           <input type="checkbox" class="cms-ai-plan-include" ${section.included === false ? "" : "checked"} aria-label="Include section" />
           <input type="text" class="cms-ai-plan-title" value="${escapeHtml(section.title || "")}" placeholder="Section title" />
-          <span class="cms-ai-plan-format">${escapeHtml(formatText)}</span>
+          <span class="cms-ai-plan-format">${escapeHtml(cardFormat)}</span>
+          <select class="cms-ai-plan-section-format" aria-label="Play format for this section" ${auto ? "" : "hidden"}>${pickOptions}</select>
         </div>
         <input type="text" class="cms-ai-plan-summary" value="${escapeHtml(section.summary || "")}" placeholder="Short summary (optional)" />
         <textarea class="cms-ai-textarea cms-ai-plan-excerpt" rows="4" placeholder="Material for this section…">${escapeHtml(section.materialExcerpt || "")}</textarea>
@@ -5867,10 +5942,10 @@ function resolveAiCoursePlan() {
     appliedTypes: { ...settings.types },
     appliedDifficulty: settings.difficulty,
     appliedSpeakLangCode: settings.speakLangCode,
-    formatLabel: aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
+    formatLabel: currentAiFormatLabel(),
     sections: state.aiCoursePlan.sections.map((section) => ({
       ...section,
-      types: { ...settings.types },
+      types: isAiAutoFormat() ? aiPlanSectionTypes(section) : { ...settings.types },
       difficulty: settings.difficulty,
       included: section.included !== false && !!(section.materialExcerpt || section.material || "").trim(),
     })),
@@ -5909,7 +5984,6 @@ async function generateCourseFromPlan(options = {}) {
     });
 
     state.aiCoursePlan = data.plan || plan;
-    const videoCount = Number(data.videoCount) || settings.types.video || 0;
     const results = [];
 
     for (let i = 0; i < (data.results || []).length; i++) {
@@ -5925,6 +5999,7 @@ async function generateCourseFromPlan(options = {}) {
         ...(settings.speakLangCode ? { speakLangCode: settings.speakLangCode } : {}),
       }));
 
+      const videoCount = Number(entry.videoCount ?? entry.types?.video ?? 0) || 0;
       if (entry.ok && videoCount > 0) {
         for (let v = 0; v < videoCount; v++) {
           statusEl.textContent = `Section ${i + 1}: generating video ${v + 1}/${videoCount}…`;
@@ -5989,7 +6064,7 @@ function armAiCourseGenerate() {
   const errorEl = $("#cms-ai-error");
   if (state.aiWizardBusy) return;
   const types = getAiTypeCounts();
-  if (!Object.keys(types).length) {
+  if (!isAiAutoFormat() && !Object.keys(types).length) {
     setCmsError(errorEl, "Pick a play format for the included sections.");
     return;
   }
@@ -6016,7 +6091,7 @@ async function confirmAiCourseGenerate() {
     return;
   }
   const types = getAiTypeCounts();
-  if (!Object.keys(types).length) {
+  if (!isAiAutoFormat() && !Object.keys(types).length) {
     setCmsError(errorEl, "Pick a play format for the included sections.");
     return;
   }
@@ -11277,7 +11352,7 @@ $("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
       appliedTypes: { ...settings.types },
       appliedDifficulty: settings.difficulty,
       appliedSpeakLangCode: settings.speakLangCode,
-      formatLabel: aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
+      formatLabel: currentAiFormatLabel(),
       courseTitle: parsed.courseTitle || "Course",
       planner: parsed.planner || "import",
       notes: parsed.notes || "",
@@ -11286,7 +11361,9 @@ $("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
         title: section.title || `Section ${index + 1}`,
         summary: section.summary || "",
         materialExcerpt: section.materialExcerpt || section.material || "",
-        types: { ...settings.types },
+        kind: section.kind,
+        suggestedTypes: section.suggestedTypes,
+        types: isAiAutoFormat() ? {} : { ...settings.types },
         difficulty: settings.difficulty,
         included: section.included !== false,
         warning: section.warning || "",
@@ -11300,6 +11377,16 @@ $("#cms-ai-import-plan")?.addEventListener("change", async (event) => {
   }
 });
 $("#cms-ai-plan-list")?.addEventListener("change", (event) => {
+  if (event.target.matches(".cms-ai-plan-section-format")) {
+    const card = event.target.closest(".cms-ai-plan-card");
+    const planned = state.aiCoursePlan?.sections?.[Number(card?.dataset.planIndex)] || {};
+    const value = event.target.value;
+    if (value === AI_AUTO_TEMPLATE) card.dataset.types = encodeURIComponent(JSON.stringify(planned.suggestedTypes || {}));
+    else if (AI_TEMPLATES[value]) card.dataset.types = encodeURIComponent(JSON.stringify(AI_TEMPLATES[value].types));
+    syncAiPlanCardFormatLabels();
+    disarmAiPlanGenerate();
+    return;
+  }
   if (event.target.matches(".cms-ai-plan-include, .cms-ai-plan-excerpt")) {
     if (event.target.matches(".cms-ai-plan-include")) {
       const card = event.target.closest(".cms-ai-plan-card");

@@ -6045,39 +6045,26 @@ app.post("/api/cms/generate-course-from-plan", async (req, res) => {
   const auth = await requireCmsAuth(req, res);
   if (!auth) return;
 
-  const format = {
-    template: String(req.body?.template || "custom").trim() || "custom",
-    types: coursePlan.lockTypes(req.body?.types),
-    difficulty: coursePlan.lockDifficulty(req.body?.difficulty),
-  };
-  if (!Object.keys(format.types).length) {
-    return res.status(400).json({ message: "Pick a format with at least one exercise type first." });
-  }
-
-  let locked;
+  let prepared;
   try {
-    locked = coursePlan.validateCoursePlan(req.body?.plan, format);
+    prepared = coursePlan.prepareCourseGeneration({
+      plan: req.body?.plan,
+      template: req.body?.template,
+      types: req.body?.types,
+      difficulty: req.body?.difficulty,
+    });
   } catch (err) {
-    return res.status(400).json({ message: err.message || "Invalid course plan." });
+    return res.status(err.status || 400).json({ message: err.message || "Invalid course plan." });
   }
+  const { locked, jobs } = prepared;
 
-  const llmTypes = { ...locked.appliedTypes };
-  delete llmTypes.video;
-  const videoCount = locked.appliedTypes.video || 0;
-
-  if (!Object.keys(llmTypes).length && !videoCount) {
-    return res.status(400).json({ message: "Pick a format with at least one exercise type first." });
-  }
-
-  if (Object.keys(llmTypes).length && !getOpenRouterApiKey()) {
+  if (jobs.some((job) => Object.keys(job.llmTypes).length) && !getOpenRouterApiKey()) {
     return res.status(400).json({
       message: "Configure OpenRouter in Config before generating exercises.",
     });
   }
 
   const instructions = String(req.body?.instructions || "").trim();
-
-  const jobs = coursePlan.jobsFromPlan(locked, format);
   const results = [];
 
   for (const job of jobs) {
@@ -6085,7 +6072,9 @@ app.post("/api/cms/generate-course-from-plan", async (req, res) => {
       key: job.key,
       sectionTitle: job.sectionTitle,
       material: job.material,
-      types: { ...locked.appliedTypes },
+      kind: job.kind,
+      types: { ...job.types },
+      videoCount: job.videoCount,
       difficulty: locked.appliedDifficulty,
       ok: false,
       exercises: [],
@@ -6093,7 +6082,7 @@ app.post("/api/cms/generate-course-from-plan", async (req, res) => {
       message: "",
     };
 
-    if (!Object.keys(llmTypes).length) {
+    if (!Object.keys(job.llmTypes).length) {
       entry.ok = true;
       results.push(entry);
       continue;
@@ -6105,7 +6094,7 @@ app.post("/api/cms/generate-course-from-plan", async (req, res) => {
           material: job.material,
           langCode: String(req.body?.langCode || "en").trim(),
           difficulty: locked.appliedDifficulty,
-          types: llmTypes,
+          types: job.llmTypes,
           instructions,
           model: String(req.body?.model || getOpenRouterGenerateModel()).trim(),
           apiKey: getOpenRouterApiKey(),
@@ -6127,7 +6116,7 @@ app.post("/api/cms/generate-course-from-plan", async (req, res) => {
     ok: succeeded > 0,
     plan: locked,
     results,
-    videoCount,
+    videoCount: locked.appliedTypes.video || 0,
     stats: {
       requested: jobs.length,
       succeeded,
