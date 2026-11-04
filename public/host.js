@@ -1324,8 +1324,9 @@ function setNextStepButtonLabel(btn, buttonLabel) {
 
 function refreshNextExerciseUi() {
   const action = resolveHostNextAction();
-  const buttonLabel = action?.displayLabel || null;
-
+  // Nothing comes after a section's last exercise when no next section is open, so the
+  // Dashboard button beside it is the only way on; a "Next exercise" there would mislead.
+  const buttonLabel = action?.type === "section-end" ? null : action?.displayLabel || null;
 
   for (const id of [
     "btn-host-quiz-next-exercise",
