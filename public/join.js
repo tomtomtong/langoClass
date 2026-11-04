@@ -978,6 +978,7 @@ function initQuizJoin() {
   });
 
   socket.on("question_preview", (data) => {
+    noteServerClock(data?.serverNow);
     currentQuestion = data;
     if (data?.fastMode != null) quizFastMode = !!data.fastMode;
     clearTimer();
@@ -1034,6 +1035,7 @@ function initQuizJoin() {
   });
 
   socket.on("question_start", (data) => {
+    noteServerClock(data?.serverNow);
     currentQuestion = data;
     if (data?.fastMode != null) quizFastMode = !!data.fastMode;
     clearTimer();
@@ -1096,9 +1098,9 @@ function initQuizJoin() {
   socket.on("question_results", ({ results, leaderboard, correctIndex }) => {
     if (quizFastMode) return;
     clearTimer();
+    setPlayerMcqResultInfo(currentQuestion, correctIndex);
     showScreen("player-results");
     const mine = results.find((r) => r.playerId === myPlayerId);
-    setPlayerMcqResultInfo(currentQuestion, correctIndex);
     renderPlayerMcqResult(mine, leaderboard, myPlayerId);
   });
 

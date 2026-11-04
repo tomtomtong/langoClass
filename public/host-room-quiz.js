@@ -291,7 +291,7 @@ function startHostBuzzinJoinTimer(joinEndsAt, joinSeconds) {
   const motion = window.LangoGsap;
   let shown = null;
   const tick = () => {
-    const remaining = Math.max(0, Math.ceil((joinEndsAt - Date.now()) / 1000));
+    const remaining = Math.max(0, Math.ceil((serverTimeToLocal(joinEndsAt) - Date.now()) / 1000));
     if (remaining !== shown) {
       const first = shown === null;
       shown = remaining;
@@ -310,7 +310,7 @@ function startHostBuzzinJoinTimer(joinEndsAt, joinSeconds) {
     fitHostBuzzinQuestion();
   }
   const totalMs = (Number(joinSeconds) || 20) * 1000;
-  motion?.startCountdownRing?.(wrap, { endsAt: joinEndsAt, totalMs });
+  motion?.startCountdownRing?.(wrap, { endsAt: serverTimeToLocal(joinEndsAt), totalMs });
   tick();
   hostBuzzinJoinTimer = setInterval(tick, 250);
 }
@@ -584,6 +584,7 @@ function updateHostBuzzinUi(payload) {
     showHostBuzzinScreenForPhase(hostBuzzinScreenPhase(payload));
   } else {
     setHostBuzzinPrompt(uiT("buzzin.promptNow"));
+    noteServerClock(payload.serverNow);
     startHostBuzzinJoinTimer(payload.joinEndsAt, payload.joinSeconds);
     showHostBuzzinScreenForPhase("join");
   }
@@ -1205,7 +1206,7 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
   const countdownRing = countdownEl?.closest(".host-mcq-countdown");
   const countdownSeconds = data.timeLimit || 5;
   window.LangoGsap?.startCountdownRing?.(countdownRing, {
-    endsAt: Number(data.endsAt) || Date.now() + countdownSeconds * 1000,
+    endsAt: Number(data.endsAt) ? serverTimeToLocal(data.endsAt) : Date.now() + countdownSeconds * 1000,
     totalMs: countdownSeconds * 1000,
   });
   let countdownShown = null;
@@ -1417,6 +1418,7 @@ function setupHostRoomQuizSocket(socket) {
   });
 
   socket.on("question_preview", (data) => {
+    noteServerClock(data?.serverNow);
     roomQuizFastMode = !!data.fastMode;
     renderHostQuizPreview(data);
   });
@@ -1433,6 +1435,7 @@ function setupHostRoomQuizSocket(socket) {
   });
 
   socket.on("question_start", (data) => {
+    noteServerClock(data?.serverNow);
     roomQuizCurrentQuestion = data;
     hostQuestionTtsToken += 1;
     const fromPreview =
