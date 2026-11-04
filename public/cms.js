@@ -5919,14 +5919,15 @@ function renderAiCoursePlan() {
   }
 
   const formatText = currentAiFormatLabel();
+  const plannerName =
+    plan.planner === "llm" ? "Outline built by AI" : plan.planner === "headings" || !plan.planner ? "Outline split by headings" : `Outline: ${plan.planner}`;
+  const attr = (value) => escapeHtml(value).replace(/"/g, "&quot;");
   meta.innerHTML = `
-    <span><strong>Play format:</strong> ${escapeHtml(formatText)}</span>
-    <span><strong>Planner:</strong> ${escapeHtml(plan.planner || "headings")}</span>
-    <span><strong>Sections:</strong> ${plan.sections.length}</span>
     <label class="field cms-ai-field">
       <span>Course title</span>
-      <input type="text" id="cms-ai-plan-course-title" value="${escapeHtml(plan.courseTitle || "")}" />
-    </label>`;
+      <input type="text" id="cms-ai-plan-course-title" value="${attr(plan.courseTitle || "")}" />
+    </label>
+    <p class="cms-ai-plan-stats">${escapeHtml(plannerName)}</p>`;
 
   list.innerHTML = plan.sections
     .map((section, index) => {
@@ -5948,14 +5949,18 @@ function renderAiCoursePlan() {
       <article class="cms-ai-plan-card ${section.included === false ? "is-excluded" : ""}" data-plan-index="${index}" data-plan-key="${escapeHtml(section.key || String(index))}" data-types="${encodeURIComponent(JSON.stringify(cardTypes))}">
         <div class="cms-ai-plan-card-head">
           <input type="checkbox" class="cms-ai-plan-include" ${section.included === false ? "" : "checked"} aria-label="Include section" />
-          <input type="text" class="cms-ai-plan-title" value="${escapeHtml(section.title || "")}" placeholder="Section title" />
+          <input type="text" class="cms-ai-plan-title" value="${attr(section.title || "")}" placeholder="Section title" aria-label="Section title" />
+        </div>
+        <div class="cms-ai-plan-card-format">
           <span class="cms-ai-plan-format">${escapeHtml(cardFormat)}</span>
           <select class="cms-ai-plan-section-format" aria-label="Play format for this section" ${auto ? "" : "hidden"}>${pickOptions}</select>
         </div>
-        <input type="text" class="cms-ai-plan-summary" value="${escapeHtml(section.summary || "")}" placeholder="Short summary (optional)" />
-        <textarea class="cms-ai-textarea cms-ai-plan-excerpt" rows="4" placeholder="Material for this section…">${escapeHtml(section.materialExcerpt || "")}</textarea>
-        <p class="hint">${chars} characters</p>
-        ${section.warning ? `<p class="cms-ai-plan-warning">${escapeHtml(section.warning)}</p>` : ""}
+        <input type="text" class="cms-ai-plan-summary" value="${attr(section.summary || "")}" placeholder="Short summary (optional)" aria-label="Section summary" />
+        <textarea class="cms-ai-textarea cms-ai-plan-excerpt" rows="5" placeholder="Material for this section…" aria-label="Section material">${escapeHtml(section.materialExcerpt || "")}</textarea>
+        <div class="cms-ai-plan-card-foot">
+          <p class="hint">${chars.toLocaleString()} characters</p>
+          ${section.warning ? `<p class="cms-ai-plan-warning">${escapeHtml(section.warning)}</p>` : ""}
+        </div>
       </article>`;
     })
     .join("");
@@ -8008,7 +8013,10 @@ async function handleAiWizardNext() {
         setAiWizardBusy(false);
       }
       // setAiWizardStep ignores changes while busy, so move on only after it is cleared.
-      if (analyzed) setAiWizardStep(2);
+      if (analyzed) {
+        setAiWizardStep(2);
+        resetAiGenProgress();
+      }
       return;
     }
     if (!hasAiMaterialSource()) {

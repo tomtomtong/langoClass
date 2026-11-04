@@ -1479,6 +1479,198 @@ body.cms-asset-preview-open {
   color: var(--ok);
 }
 
+/* Outline step: format bar, course title, one card per section. */
+#app-shell #cms-ai-wizard .cms-ai-plan-format-bar {
+  margin: 0 0 1.25rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-format-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-format-row > .hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-format-row .field,
+#app-shell #cms-ai-wizard .cms-ai-plan-format-row .cms-ai-speak-lang-row {
+  margin: 0;
+}
+
+/* The intro line above already says this. */
+#app-shell #cms-ai-wizard #cms-ai-plan-format-hint {
+  display: none;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-format-row select {
+  width: 100%;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-meta {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 1.1rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-meta .field {
+  margin: 0;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-meta input {
+  width: 100%;
+  box-sizing: border-box;
+  font-weight: 800;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-stats {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  transition: opacity 0.2s var(--cms-motion-ease, ease);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-card.is-excluded {
+  opacity: 0.55;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-include {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  accent-color: var(--purple);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-title,
+#app-shell #cms-ai-wizard .cms-ai-plan-summary,
+#app-shell #cms-ai-wizard .cms-ai-plan-excerpt {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-summary {
+  font-size: 0.9rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-excerpt {
+  min-height: 7.5rem;
+  resize: vertical;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-card-format {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding-left: 1.9rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-format {
+  flex: 1 1 14rem;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-section-format {
+  flex: 0 1 12rem;
+  min-width: 9rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-card-foot p {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-warning {
+  color: #9a5b00;
+  font-weight: 700;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-actions {
+  margin-top: 1.1rem;
+}
+
+#app-shell #cms-ai-wizard .cms-ai-plan-title:focus-visible,
+#app-shell #cms-ai-wizard .cms-ai-plan-summary:focus-visible,
+#app-shell #cms-ai-wizard .cms-ai-plan-excerpt:focus-visible,
+#app-shell #cms-ai-wizard .cms-ai-plan-section-format:focus-visible,
+#app-shell #cms-ai-wizard .cms-ai-plan-include:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  #app-shell #cms-ai-wizard .cms-ai-plan-card {
+    padding: 0.85rem;
+  }
+
+  #app-shell #cms-ai-wizard .cms-ai-plan-card-format {
+    padding-left: 0;
+  }
+
+  #app-shell #cms-ai-wizard .cms-ai-plan-section-format {
+    flex: 1 1 100%;
+  }
+}
+
 #app-shell #cms-ai-wizard .cms-ai-wizard-nav {
   display: flex;
   gap: 0.65rem;
