@@ -2279,3 +2279,27 @@ p { margin: 0 0 0.75rem; }
 .is-lecture-video .cms-lecture-hint {
   display: block !important;
 }
+
+/* Video exercise preview: a thumbnail-sized player, not the video's own pixel size. */
+.cms-video-preview-wrap {
+  max-width: 480px;
+}
+
+.cms-video-preview {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  max-height: 270px;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #000;
+  border-radius: 12px;
+}
+
+.cms-video-preview[hidden] {
+  display: none;
+}
+
+.cms-lecture-preview {
+  max-width: 480px;
+}
