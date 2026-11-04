@@ -455,10 +455,10 @@ async function suggestCourseDetails({ env, auth, body }) {
       })()
     : Promise.resolve({});
   const cover = need.banner
-    ? routerImage(
+    ? characterImage(
         env,
-        `Wide colourful cover illustration for a children's language course called "${courseName || sections[0].title}" ` +
-          `about ${sections.map((section) => section.title).join(", ")}. Friendly cartoon style, no text or lettering.`
+        (character) => courseCoverPrompt(courseName || sections[0].title, sections.map((section) => section.title), character),
+        { imageSize: COVER_IMAGE_SIZE }
       ).then((image) => saveCourseCover(env, image, auth.teacherId))
     : Promise.resolve(null);
 
@@ -478,6 +478,22 @@ async function suggestCourseDetails({ env, auth, body }) {
   if (coverResult.status === "fulfilled" && coverResult.value) result.banner = coverResult.value;
   if (coverResult.status === "rejected") console.error(JSON.stringify({ message: "course_cover_failed", error: String(coverResult.reason?.message || coverResult.reason) }));
   return json({ ok: true, details: result });
+}
+
+// 16:9, close to the shape covers are shown in (about 2:1, cropped to fit).
+const COVER_IMAGE_SIZE = "1792x1024";
+
+function courseCoverPrompt(name, titles, character) {
+  const subject = `for a children's language course called "${name}" about ${titles.join(", ")}`;
+  if (!character) {
+    return `Wide colourful cover illustration ${subject}. Friendly cartoon style, no text or lettering.`;
+  }
+  return (
+    `Wide landscape cover illustration ${subject}. Friendly polished 3D cartoon style, bright colours. ` +
+    `Put the character on one side of the frame, clearly visible and about two thirds of the picture's height, ` +
+    `with the course's scene filling the rest. ${characters.characterLine(character)} ` +
+    `No other people or mascots. No text or lettering.`
+  );
 }
 
 async function saveCourseCover(env, imageData, ownerId) {
@@ -517,14 +533,14 @@ async function routerImage(env, prompt) {
 // takes the character as a reference picture, which /api/router/image cannot.
 // buildPrompt gets the chosen character, or null when there is none to send,
 // and then the plain image router answers as before.
-async function characterImage(env, buildPrompt) {
+async function characterImage(env, buildPrompt, { imageSize = "1024x1024" } = {}) {
   const character = characters.pickCharacter();
   try {
     const referenceImage = await characterReference(env, character);
     if (referenceImage) {
       return await postImage(env, "/api/router/inworld-image", {
         prompt: buildPrompt(character),
-        imageSize: "1024x1024",
+        imageSize,
         n: 1,
         referenceImage,
       });

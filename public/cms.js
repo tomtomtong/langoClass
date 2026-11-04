@@ -6946,34 +6946,35 @@ function collectAiDraftFromDom() {
   return previous;
 }
 
+// The handle itself is the draggable element and the whole card is the drag
+// picture. Making only the card draggable while a press is on the handle works in
+// Chrome but not reliably in Safari or Firefox, which decide at the press.
+function wireDragHandle(card, selector, { draggingClass, payload, onEnd, all = false }) {
+  const handles = all ? [...card.querySelectorAll(selector)] : [card.querySelector(selector)];
+  handles.filter(Boolean).forEach((handle) => {
+    handle.draggable = true;
+    handle.addEventListener("dragstart", (event) => {
+      event.stopPropagation();
+      card.classList.add(draggingClass);
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", payload());
+      event.dataTransfer.setDragImage(card, 24, 24);
+    });
+    handle.addEventListener("dragend", () => {
+      card.classList.remove(draggingClass);
+      onEnd();
+    });
+  });
+}
+
 function setupAiQuestionDrag(block, container) {
-  block.draggable = false;
-  const handle = block.querySelector(".cms-drag-handle");
-  handle?.addEventListener("pointerdown", () => {
-    block.draggable = true;
-    const stop = () => {
-      if (!block.classList.contains("dragging-ai-question")) block.draggable = false;
-      window.removeEventListener("pointerup", stop);
-    };
-    window.addEventListener("pointerup", stop);
-  });
-
-  block.addEventListener("dragstart", (event) => {
-    if (!block.draggable) {
-      event.preventDefault();
-      return;
-    }
-    event.stopPropagation();
-    block.classList.add("dragging-ai-question");
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", block.dataset.flatIndex || "");
-  });
-
-  block.addEventListener("dragend", () => {
-    block.classList.remove("dragging-ai-question");
-    block.draggable = false;
-    collectAiDraftFromDom();
-    renderAiPreviewStep();
+  wireDragHandle(block, ".cms-drag-handle", {
+    draggingClass: "dragging-ai-question",
+    payload: () => block.dataset.flatIndex || "",
+    onEnd: () => {
+      collectAiDraftFromDom();
+      renderAiPreviewStep();
+    },
   });
 
   block.addEventListener("dragover", (event) => {
@@ -10601,32 +10602,10 @@ function renderExerciseEditors({ skipReveal = false, insertedIndex = null } = {}
 }
 
 function setupSectionDrag(sectionCard, container) {
-  sectionCard.draggable = false;
-  const handle = sectionCard.querySelector(".cms-drag-handle");
-  handle?.addEventListener("pointerdown", () => {
-    sectionCard.draggable = true;
-    const stop = () => {
-      if (!sectionCard.classList.contains("dragging-section")) sectionCard.draggable = false;
-      window.removeEventListener("pointerup", stop);
-    };
-    window.addEventListener("pointerup", stop);
-  });
-
-  sectionCard.addEventListener("dragstart", (e) => {
-    if (e.target.closest(".cms-exercise-card")) return;
-    if (!sectionCard.draggable) {
-      e.preventDefault();
-      return;
-    }
-    sectionCard.classList.add("dragging-section");
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", sectionCard.dataset.sectionIndex);
-  });
-
-  sectionCard.addEventListener("dragend", () => {
-    sectionCard.classList.remove("dragging-section");
-    sectionCard.draggable = false;
-    reorderSectionsFromDom(container);
+  wireDragHandle(sectionCard, ".cms-drag-handle", {
+    draggingClass: "dragging-section",
+    payload: () => sectionCard.dataset.sectionIndex || "",
+    onEnd: () => reorderSectionsFromDom(container),
   });
 
   sectionCard.addEventListener("dragover", (e) => {
@@ -10649,34 +10628,12 @@ function reorderSectionsFromDom(container) {
 }
 
 function setupExerciseDrag(card, container) {
-  card.draggable = false;
   // The grip icon is hidden in the exercise list; the "Drag" label is what shows.
-  card.querySelectorAll(".cms-drag-handle, .cms-ex-drag-label").forEach((handle) => {
-    handle.addEventListener("pointerdown", () => {
-      card.draggable = true;
-      const stop = () => {
-        if (!card.classList.contains("dragging")) card.draggable = false;
-        window.removeEventListener("pointerup", stop);
-      };
-      window.addEventListener("pointerup", stop);
-    });
-  });
-
-  card.addEventListener("dragstart", (e) => {
-    if (!card.draggable) {
-      e.preventDefault();
-      return;
-    }
-    e.stopPropagation();
-    card.classList.add("dragging");
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", card.dataset.exerciseIndex);
-  });
-
-  card.addEventListener("dragend", () => {
-    card.classList.remove("dragging");
-    card.draggable = false;
-    reorderExercisesFromDom(container);
+  wireDragHandle(card, ".cms-drag-handle, .cms-ex-drag-label", {
+    all: true,
+    draggingClass: "dragging",
+    payload: () => card.dataset.exerciseIndex || "",
+    onEnd: () => reorderExercisesFromDom(container),
   });
 
   card.addEventListener("dragover", (e) => {

@@ -443,6 +443,25 @@ test("a long description from the model is cut short", async () => {
   assert.equal((await response.json()).details.description.length, 200);
 });
 
+test("a course cover is drawn wide, with a Lango character as the reference image", async () => {
+  const { call } = await setup();
+  const calls = router(() => JSON.stringify({ description: "Students name fruit." }));
+  const response = await call("/api/cms/course-details/suggest", {
+    method: "POST",
+    json: { courseName: "Fruit Fun", sections: [{ title: "At the market", content: "apples" }], need: { banner: true } },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(body));
+  assert.match(body.details.banner, /^\/uploads\/courses\//);
+  const image = calls.find((entry) => entry.url.endsWith("-image"));
+  assert.equal(image.url, `${CMS}/api/router/inworld-image`);
+  assert.equal(image.body.imageSize, "1792x1024");
+  assert.ok(image.body.referenceImage);
+  assert.match(image.body.prompt, /Fruit Fun/);
+  assert.match(image.body.prompt, /the one in the reference image/);
+  assert.match(image.body.prompt, /No other people or mascots/);
+});
+
 test("course details need at least one section", async () => {
   const { call } = await setup();
   router(() => "{}");
