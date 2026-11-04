@@ -122,16 +122,16 @@
 }
 
 .host-leaderboard__pulse-chip strong {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 900;
   line-height: 1;
 }
 
 .host-leaderboard__pulse-chip span {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1;
-  opacity: 0.72;
+  opacity: 0.85;
 }
 
 .host-leaderboard__stage {
@@ -171,7 +171,7 @@
   border-radius: 18px;
   background: var(--lb-cream);
   color: var(--lb-ink);
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 900;
   line-height: 1.2;
   text-align: center;
@@ -292,33 +292,41 @@
 }
 
 .host-leaderboard__avatar {
-  width: clamp(58px, 6.5vw, 84px);
+  width: 88px;
   aspect-ratio: 1;
-  font-size: clamp(22px, 2.4vw, 32px);
+  font-size: 34px;
+}
+
+.host-leaderboard__podium-row--1 .host-leaderboard__name {
+  font-size: 30px;
 }
 
 .host-leaderboard__podium-row--1 .host-leaderboard__avatar {
-  width: clamp(72px, 7.5vw, 96px);
-  font-size: clamp(26px, 2.8vw, 36px);
+  width: 104px;
+  font-size: 40px;
   box-shadow:
     0 0 0 3px rgba(252, 125, 186, 0.65),
     0 5px 0 rgba(140, 35, 110, 0.26);
 }
 
 .host-leaderboard__name {
-  max-width: 11ch;
+  max-width: 16ch;
   overflow: hidden;
+  padding: 2px 16px 4px;
+  border-radius: 999px;
+  /* Names sit over the blackboard, the wall and the other kids: a plum plate keeps them readable. */
+  background: rgba(91, 24, 72, 0.82);
   color: #fff;
-  font-size: clamp(14px, 1.4vw, 17px);
+  font-size: 26px;
   font-weight: 900;
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 2px 0 rgba(80, 15, 60, 0.35);
+  text-shadow: none;
 }
 
 .host-leaderboard__score-pill {
-  padding: 4px 12px;
+  padding: 4px 16px;
   border-radius: 999px;
   background: rgba(255, 245, 252, 0.94);
   box-shadow: 0 2px 0 rgba(120, 30, 90, 0.14);
@@ -326,7 +334,7 @@
 
 .host-leaderboard__score-pill .host-leaderboard__score {
   color: var(--lb-ink);
-  font-size: clamp(13px, 1.3vw, 15px);
+  font-size: 22px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   text-shadow: none;
@@ -421,9 +429,9 @@
 .host-leaderboard__ranking-row {
   min-height: 58px;
   margin: 0;
-  padding: 8px 12px;
+  padding: 4px 14px;
   display: grid;
-  grid-template-columns: 36px 44px minmax(0, 1fr) auto;
+  grid-template-columns: 44px 52px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   color: var(--lb-ink);
@@ -435,29 +443,29 @@
 }
 
 .host-leaderboard__ranking-rank {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: rgba(177, 25, 128, 0.14);
-  color: rgba(120, 30, 90, 0.75);
-  font-size: 14px;
+  background: rgba(177, 25, 128, 0.16);
+  color: #7a1d61;
+  font-size: 20px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
 
 .host-leaderboard__ranking-avatar {
-  width: 40px;
+  width: 48px;
   aspect-ratio: 1;
   border-width: 3px;
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .host-leaderboard__ranking-name {
   overflow: hidden;
   color: #5b1848;
-  font-size: 17px;
+  font-size: 26px;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -465,8 +473,8 @@
 
 .host-leaderboard__ranking-row > .host-leaderboard__score,
 .host-leaderboard__ranking-row > strong {
-  color: #b11980;
-  font-size: 16px;
+  color: #a01874;
+  font-size: 24px;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
