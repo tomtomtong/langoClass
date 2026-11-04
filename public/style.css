@@ -4617,6 +4617,13 @@ body:has(#screen-host-quiz-question.active) {
   gap: 20px;
 }
 
+/* Question card (800) + gap (20) + correct board (420) fill the 1240px stage exactly, so the
+   cards touched the screen edges. Scale the pair down a little to leave an even margin. */
+#app.lango-host #screen-host-quiz-results .host-mcq-result-main {
+  transform: scale(0.93);
+  transform-origin: center center;
+}
+
 .host-mcq-result-left {
   position: relative;
   width: 800px;
