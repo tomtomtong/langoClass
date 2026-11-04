@@ -1,0 +1,209 @@
+/* Slides exercise player (slides-player.js). Fits whatever box it is mounted in. */
+.lsp {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: #fffdf8;
+  color: #2d1f38;
+  font-family: "Nunito", system-ui, sans-serif;
+}
+
+.lsp-frame {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lsp-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1280px;
+  height: 720px;
+  transform-origin: center center;
+  cursor: pointer;
+}
+
+.lsp-slide {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 40px;
+  height: 100%;
+  padding: 72px 96px 64px;
+  box-sizing: border-box;
+}
+
+.lsp-title {
+  margin: 0;
+  font-size: 68px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: #743c9b;
+  text-wrap: balance;
+}
+
+.lsp-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  min-height: 0;
+}
+
+.lsp-slide.has-image.has-bullets .lsp-body {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+}
+
+.lsp-bullets {
+  display: grid;
+  gap: 26px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lsp-bullet {
+  position: relative;
+  padding-left: 44px;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.25;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.35s cubic-bezier(0.23, 1, 0.32, 1), transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.lsp-bullet::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.5em;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a1268e;
+}
+
+.lsp-bullet.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.lsp-figure {
+  display: none;
+  margin: 0;
+  max-height: 100%;
+}
+
+.lsp-slide.has-image .lsp-figure {
+  display: block;
+}
+
+.lsp-image {
+  display: block;
+  width: 100%;
+  max-height: 440px;
+  object-fit: contain;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(116, 60, 155, 0.18);
+}
+
+.lsp-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border-top: 1px solid #e8dff0;
+  background: #fff;
+}
+
+.lsp-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: #743c9b;
+  color: #fff;
+  cursor: pointer;
+}
+
+.lsp-btn:disabled {
+  background: #d9cde4;
+  cursor: default;
+}
+
+.lsp-btn:focus-visible,
+.lsp-dot:focus-visible {
+  outline: 3px solid #a1268e;
+  outline-offset: 2px;
+}
+
+.lsp-arrow {
+  width: 12px;
+  height: 12px;
+  border-top: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.lsp-arrow-right {
+  transform: translateX(-2px) rotate(45deg);
+}
+
+.lsp-arrow-left {
+  transform: translateX(2px) rotate(-135deg);
+}
+
+.lsp-dots {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.lsp-dot {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #d9cde4;
+  cursor: pointer;
+}
+
+.lsp-dot.is-done {
+  background: #a98bc4;
+}
+
+.lsp-dot.is-current {
+  width: 28px;
+  border-radius: 8px;
+  background: #743c9b;
+}
+
+.lsp-status {
+  flex: none;
+  min-width: 4.5rem;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #6b5a78;
+  text-align: right;
+}
+
+.lsp.is-last .lsp-next {
+  background: #007f78;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lsp-bullet {
+    transition: none;
+    transform: none;
+  }
+}

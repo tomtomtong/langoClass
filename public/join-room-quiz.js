@@ -1314,7 +1314,7 @@ function startRoomExercise(roomId, displayName, userId, exercisePayload) {
     connectRoomQuiz(roomId, displayName, userId);
     return;
   }
-  if (isVideoExercise(exercise)) {
+  if (isWatchOnlyExercise(exercise)) {
     showStudentVideoExercise(exercisePayload);
     return;
   }

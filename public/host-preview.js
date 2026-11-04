@@ -62,6 +62,7 @@
     { id: "leaderboard", label: "Leaderboard — session" },
     { id: "leaderboard-overall", label: "Leaderboard — overall" },
     { id: "video", label: "Video exercise" },
+    { id: "slides", label: "Slides exercise" },
     { id: "buzzin-ready", label: "Buzz In — waiting to start" },
     { id: "buzzin-join", label: "Buzz In — buzz window" },
     { id: "buzzin-responses", label: "Buzz In — answer & feedback" },
@@ -640,6 +641,18 @@
         $("#screen-host-video")?.classList.add("has-subtitle");
         $("#screen-host-video")?.classList.remove("has-video");
         showHostPreviewScreen("host-video", "quiz");
+        break;
+
+      case "slides":
+        showHostSlidesExercise({
+          title: "Greetings",
+          subTitle: previewT("exercise.slidesFallback"),
+          type: "slides",
+          items: [
+            { title: "Say hello", bullets: ["Good morning!", "Hello, how are you?", "Nice to meet you."] },
+            { title: "Say goodbye", bullets: ["See you later.", "Have a nice day."] },
+          ],
+        });
         break;
 
       case "buzzin-ready":

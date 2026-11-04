@@ -24,6 +24,15 @@ function isBuzzinExercise(exercise) {
   return normalizeExerciseType(exercise?.type) === "buzzin";
 }
 
+function isSlidesExercise(exercise) {
+  return normalizeExerciseType(exercise?.type) === "slides";
+}
+
+// Slides are shown on the host screen like a video: no questions, no score.
+function isWatchOnlyExercise(exercise) {
+  return isVideoExercise(exercise) || isSlidesExercise(exercise);
+}
+
 function ensureSingleCorrectOption(options) {
   if (!Array.isArray(options) || !options.length) return [];
   const firstCorrectIdx = options.findIndex((o) => o.isCorrect);
@@ -1089,7 +1098,7 @@ function exerciseMetaLabel(exercise) {
 
 /** Join preview layout id for an exercise type (join.html?preview=1). */
 function joinPreviewLayoutForExercise(exercise) {
-  if (isVideoExercise(exercise)) return "video";
+  if (isWatchOnlyExercise(exercise)) return "video";
   if (isBuzzinExercise(exercise)) return "buzzin-join";
   if (isLiveMcQuizExercise(exercise)) return "mc-question";
   return "mc-question";
@@ -1132,6 +1141,10 @@ function collectExerciseMediaUrls(exercises, { includeVideos = true, videoExerci
       }
     }
     for (const item of exercise.items || []) {
+      if (isSlidesExercise(exercise)) {
+        const audio = String(item.audioUrl || "").trim();
+        if (audio) urls.add(audio);
+      }
       const image = String(item.image || item.imageUrl || "").trim();
       if (image) urls.add(image);
       for (const option of item.options || []) {
@@ -1242,6 +1255,7 @@ const SECTION_TIMING = {
   BUZZIN_ANSWER_SECONDS: 45,
   BUZZIN_FEEDBACK_SECONDS: 20,
   VIDEO_DEFAULT_SECONDS: 180,
+  SLIDE_SECONDS: 25,
   BETWEEN_EXERCISES_SECONDS: 20,
 };
 
@@ -1279,6 +1293,11 @@ function estimateExerciseDurationSeconds(exercise) {
     return Number.isFinite(duration) && duration > 0
       ? duration
       : SECTION_TIMING.VIDEO_DEFAULT_SECONDS;
+  }
+
+  if (type === "slides") {
+    const slides = items.filter((item) => String(item?.title || "").trim() || (item?.bullets || []).length);
+    return slides.length * SECTION_TIMING.SLIDE_SECONDS;
   }
 
   if (type === "buzzin") {

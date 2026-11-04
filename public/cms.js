@@ -3775,7 +3775,7 @@ function cmsSpeakLangOptionsHtml(selectedCode) {
 function flattenAiPreviewGroupItems(groupItems) {
   const flat = [];
   (groupItems || []).forEach(({ exercise }) => {
-    if (!exercise || exercise.type === "video") return;
+    if (!exercise || exercise.type === "video" || exercise.type === "slides") return;
     (exercise.items || []).forEach((item) => {
       flat.push({
         type: exercise.type || "mcquiz",
@@ -3943,7 +3943,7 @@ function collectCmsTtsItemsFromExercises(exercises, defaultSpeakLangCode) {
   (exercises || []).forEach((exercise, exerciseIndex) => {
     const speakLangCode = normalizeCmsSpeakLangCode(exercise.speakLangCode || defaultSpeakLangCode);
     (exercise.items || []).forEach((item, itemIndex) => {
-      if (exercise.type === "video") return;
+      if (exercise.type === "video" || exercise.type === "slides") return;
       const text =
         exercise.type === "buzzin"
           ? String(item.topic || "").trim()
@@ -4772,6 +4772,7 @@ function exerciseSubTitleForType(type) {
 
 function exerciseTypeShortLabel(type) {
   if (type === "video") return cmsT("cms.type.video");
+  if (type === "slides") return cmsT("cms.type.slides");
   if (type === "buzzin") return cmsT("cms.type.buzzin");
   if (type === "fastmcquiz") return cmsT("cms.type.fastmcquiz");
   return cmsT("cms.type.mcquiz");
@@ -8710,6 +8711,21 @@ const DEMO_VIDEO_URL =
   "https://s3.ap-east-1.amazonaws.com/langoappmaterial.uat/serverdev/ExerciseVideos/Story_In_the_sea/video-P1_Final.mp4";
 
 function defaultExercise(type) {
+  if (type === "slides") {
+    return {
+      type: "slides",
+      title: cmsT("cms.type.slides"),
+      subTitle: cmsT("cms.type.slides"),
+      items: [
+        {
+          title: cmsT("wiz.slides.default.title"),
+          bullets: [cmsT("wiz.slides.default.first"), cmsT("wiz.slides.default.second")],
+          image: "",
+          notes: "",
+        },
+      ],
+    };
+  }
   if (type === "video") {
     return {
       type: "video",
@@ -9020,6 +9036,12 @@ function summarizeSectionContent(section) {
         continue;
       }
 
+      if (type === "slides") {
+        const slideTitle = String(item?.title || "").trim();
+        if (slideTitle) snippets.push(slideTitle);
+        continue;
+      }
+
       const question = String(item?.title || item?.question || item?.topic || "").trim();
       if (question) snippets.push(question);
 
@@ -9087,7 +9109,7 @@ function suggestSectionTitleFromExercises(exercises, options = {}) {
         if (topic) candidates.push(topic);
         continue;
       }
-      if (type === "video") {
+      if (type === "video" || type === "slides") {
         const label = normalizeSectionTitleCandidate(item?.title || item?.script);
         if (label) candidates.push(trimSectionTitle(label, 80));
         continue;
@@ -9539,11 +9561,14 @@ function initQuestionImageFields(root = document) {
   });
 }
 
-function renderQuestionImageFieldMarkup(image, { prefix = "cms-q", uploadLabel = "Upload Image" } = {}) {
+function renderQuestionImageFieldMarkup(
+  image,
+  { prefix = "cms-q", uploadLabel = "Upload Image", label = "Question image (optional)" } = {}
+) {
   const imageUrl = String(image || "").trim();
   return `
     <div class="${prefix}-image-field cms-q-image-field">
-      <span class="cms-q-image-label">Question image (optional)</span>
+      <span class="cms-q-image-label">${escapeHtml(label)}</span>
       <div class="${prefix}-image-slot cms-q-image-slot">
         <div class="${prefix}-image-empty cms-q-image-empty cms-media-empty"${imageUrl ? " hidden" : ""}>
           <div class="cms-q-image-empty-art" aria-hidden="true"></div>
@@ -10470,6 +10495,152 @@ function buzzinSttLanguageOptionsHtml(selected = "") {
   `;
 }
 
+const MAX_SLIDES = 30;
+
+// A list of slides: title, one point per line, optional picture, optional note.
+function renderSlidesBody(container, exercise) {
+  const clean = (item) => ({
+    title: String(item?.title || "").trim(),
+    bullets: (Array.isArray(item?.bullets) ? item.bullets : []).map((line) => String(line || "").trim()),
+    image: String(item?.image || item?.imageUrl || "").trim(),
+    notes: String(item?.notes || "").trim(),
+    audioUrl: String(item?.audioUrl || "").trim(),
+  });
+  const items = (exercise.items?.length ? exercise.items : defaultExercise("slides").items).map(clean);
+
+  container.innerHTML = `<div class="cms-questions-list cms-slides-list"></div>
+    <button type="button" class="btn secondary small cms-add-slide">${escapeHtml(cmsT("wiz.slides.add"))}</button>
+    <p class="hint">${escapeHtml(cmsT("wiz.slides.hint"))}</p>`;
+
+  const list = container.querySelector(".cms-slides-list");
+
+  function syncFromDom() {
+    list.querySelectorAll(".cms-slide-block").forEach((block, idx) => {
+      if (!items[idx]) return;
+      const spoken = items[idx];
+      const previous = `${spoken.title}\n${spoken.bullets.join("\n")}\n${spoken.notes}`;
+      spoken.title = block.querySelector(".cms-slide-title")?.value.trim() || "";
+      spoken.bullets = (block.querySelector(".cms-slide-bullets")?.value || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      spoken.image = block.querySelector(".cms-q-image-value")?.value.trim() || "";
+      spoken.notes = block.querySelector(".cms-slide-notes")?.value.trim() || "";
+      // A voice clip made for older text would be wrong now, so it goes.
+      if (spoken.audioUrl && previous !== `${spoken.title}\n${spoken.bullets.join("\n")}\n${spoken.notes}`) {
+        spoken.audioUrl = "";
+      }
+    });
+  }
+
+  function renderSlides() {
+    list.innerHTML = items
+      .map(
+        (item, idx) => `<div class="cms-question-block cms-slide-block" data-q="${idx}">
+          <div class="cms-question-head">
+            <span>${escapeHtml(cmsT("wiz.slides.slideN", { n: idx + 1 }))}</span>
+            <span class="cms-slide-tools">
+              <button type="button" class="cms-icon-btn cms-slide-up" data-q="${idx}" aria-label="${escapeHtml(cmsT("wiz.slides.moveUp"))}"${idx === 0 ? " disabled" : ""}>↑</button>
+              <button type="button" class="cms-icon-btn cms-slide-down" data-q="${idx}" aria-label="${escapeHtml(cmsT("wiz.slides.moveDown"))}"${idx === items.length - 1 ? " disabled" : ""}>↓</button>
+              <button type="button" class="cms-icon-btn cms-remove-slide" data-q="${idx}" aria-label="${escapeHtml(cmsT("wiz.slides.remove"))}"${items.length <= 1 ? " disabled" : ""}>×</button>
+            </span>
+          </div>
+          <label class="field">
+            <span>${escapeHtml(cmsT("wiz.slides.title"))}</span>
+            <input type="text" class="cms-slide-title" value="${escapeHtml(item.title).replace(/"/g, "&quot;")}" />
+          </label>
+          <label class="field">
+            <span>${escapeHtml(cmsT("wiz.slides.bullets"))}</span>
+            <textarea class="cms-slide-bullets" rows="4" placeholder="${escapeHtml(cmsT("wiz.slides.bulletsPlaceholder"))}">${escapeHtml(item.bullets.join("\n"))}</textarea>
+          </label>
+          ${renderQuestionImageFieldMarkup(item.image, { label: cmsT("wiz.slides.picture") })}
+          <label class="field">
+            <span>${escapeHtml(cmsT("wiz.slides.notes"))}</span>
+            <textarea class="cms-slide-notes" rows="2" placeholder="${escapeHtml(cmsT("wiz.slides.notesPlaceholder"))}">${escapeHtml(item.notes)}</textarea>
+          </label>
+        </div>`
+      )
+      .join("");
+
+    const move = (from, to) => {
+      syncFromDom();
+      if (to < 0 || to >= items.length) return;
+      const [moved] = items.splice(from, 1);
+      items.splice(to, 0, moved);
+      renderSlides();
+    };
+    list.querySelectorAll(".cms-slide-up").forEach((btn) =>
+      btn.addEventListener("click", () => move(Number(btn.dataset.q), Number(btn.dataset.q) - 1))
+    );
+    list.querySelectorAll(".cms-slide-down").forEach((btn) =>
+      btn.addEventListener("click", () => move(Number(btn.dataset.q), Number(btn.dataset.q) + 1))
+    );
+    list.querySelectorAll(".cms-remove-slide").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        syncFromDom();
+        if (items.length <= 1) return;
+        items.splice(Number(btn.dataset.q), 1);
+        renderSlides();
+      });
+    });
+
+    list.querySelectorAll(".cms-q-image-remove").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const block = btn.closest(".cms-slide-block");
+        const valueInput = block?.querySelector(".cms-q-image-value");
+        if (valueInput) valueInput.value = "";
+        updateQuestionImagePreview(block, "");
+      });
+    });
+
+    list.querySelectorAll(".cms-q-image-file").forEach((input) => {
+      input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        input.value = "";
+        if (!file) return;
+        try {
+          await uploadQuestionImageForBlock(input.closest(".cms-slide-block"), file);
+        } catch {
+          /* status shown on block */
+        }
+      });
+    });
+
+    list.querySelectorAll(".cms-q-image-generate").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void generateQuestionImageForBlock(btn.closest(".cms-slide-block"), "cms-q");
+      });
+    });
+
+    initQuestionImageFields(list);
+  }
+
+  container.querySelector(".cms-add-slide")?.addEventListener("click", () => {
+    syncFromDom();
+    if (items.length >= MAX_SLIDES) return;
+    items.push({ title: "", bullets: [], image: "", notes: "", audioUrl: "" });
+    renderSlides();
+  });
+
+  container._collectItems = () => {
+    syncFromDom();
+    return items
+      .map((item) => {
+        if (!item.title && !item.bullets.length && !item.image) return null;
+        return {
+          title: item.title,
+          bullets: item.bullets,
+          ...(item.image ? { image: item.image } : {}),
+          ...(item.notes ? { notes: item.notes } : {}),
+          ...(item.audioUrl ? { audioUrl: item.audioUrl } : {}),
+        };
+      })
+      .filter(Boolean);
+  };
+
+  renderSlides();
+}
+
 function renderBuzzinBody(container, exercise) {
   const items = (exercise.items?.length ? exercise.items : defaultExercise("buzzin").items).map(
     (item) => ({
@@ -10623,6 +10794,7 @@ function renderExerciseBody(card, exercise) {
   card.dataset.type = type;
 
   if (type === "video") renderVideoBody(body, exercise);
+  else if (type === "slides") renderSlidesBody(body, exercise);
   else if (type === "buzzin") renderBuzzinBody(body, exercise);
   else if (type === "fastmcquiz" || type === "mcquiz") renderMcQuizBody(body, exercise);
   else renderMcQuizBody(body, exercise);
@@ -10653,6 +10825,8 @@ function applyExerciseTypeChange(card, newType) {
     exercise.items = defaultExercise(newType).items;
   } else if (newType === "video" && oldType !== "video") {
     exercise.items = defaultExercise("video").items;
+  } else if (newType === "slides" && oldType !== "slides") {
+    exercise.items = defaultExercise("slides").items;
   } else if (newType === "buzzin" && oldType !== "buzzin") {
     exercise.items = defaultExercise("buzzin").items;
   }

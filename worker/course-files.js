@@ -160,6 +160,7 @@ export function courseUrls(course) {
       for (const item of exercise.items || []) {
         add(item.image);
         add(item.videoUrl);
+        add(item.audioUrl);
         add(item.captionUrl);
         for (const track of item.captionTracks || []) add(track.url);
       }
@@ -179,6 +180,7 @@ export function rewriteCourseUrls(course, swap) {
       for (const item of exercise.items || []) {
         if (item.image != null) item.image = swap(item.image);
         if (item.videoUrl != null) item.videoUrl = swap(item.videoUrl);
+        if (item.audioUrl != null) item.audioUrl = swap(item.audioUrl);
         if (item.captionUrl != null) item.captionUrl = swap(item.captionUrl);
         for (const track of item.captionTracks || []) {
           if (track.url != null) track.url = swap(track.url);

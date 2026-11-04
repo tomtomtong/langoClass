@@ -2234,6 +2234,46 @@ function showHostLectureExercise(exercise, url) {
   showScreen("host-video");
 }
 
+/** Plays a slides exercise (slides-player.js) in the video frame, like a lecture. */
+function showHostSlidesExercise(exercise) {
+  stopHostLecture();
+  const video = $("#host-video-player");
+  if (video) {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  }
+  clearHostVideoCaptions();
+
+  $("#host-video-title").textContent = exercise.title || uiT("exercise.slidesFallback");
+  $("#host-video-subtitle").textContent = exercise.subTitle || "";
+  const screen = $("#screen-host-video");
+  screen?.classList.toggle("has-subtitle", Boolean(exercise.subTitle));
+  screen?.classList.add("has-video", "is-lecture");
+
+  const holder = $("#host-video-lecture");
+  const el = document.createElement("div");
+  el.className = "host-slides-mount";
+  holder.replaceChildren(el);
+  holder.hidden = false;
+  if (typeof LangoSlidesPlayer === "undefined") {
+    el.textContent = "Slides player failed to load.";
+  } else {
+    hostLectureMountId += 1;
+    hostLecturePlayer = LangoSlidesPlayer.mount(el, exercise, {
+      onEnd: () => {
+        if (typeof fadeInHostBgm === "function") fadeInHostBgm();
+      },
+    });
+  }
+
+  if (typeof refreshNextExerciseUi === "function") refreshNextExerciseUi();
+  const isolate =
+    typeof shouldIsolateHostBgmForMedia !== "function" || shouldIsolateHostBgmForMedia();
+  if (isolate && typeof fadeOutHostBgm === "function") fadeOutHostBgm();
+  showScreen("host-video");
+}
+
 function showHostVideoExercise(exercise) {
   const lectureUrl = lectureUrlFromExercise(exercise);
   if (lectureUrl) {
@@ -2296,6 +2336,10 @@ function startHostExercise(roomId, exercise) {
   }
   if (isVideoExercise(exercise)) {
     showHostVideoExercise(exercise);
+    return Promise.resolve();
+  }
+  if (isSlidesExercise(exercise)) {
+    showHostSlidesExercise(exercise);
     return Promise.resolve();
   }
   if (isBuzzinExercise(exercise)) {

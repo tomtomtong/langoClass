@@ -2221,6 +2221,7 @@ function exerciseSubtitle(exercise) {
   const subtitle = String(exercise?.subTitle || "").trim();
   if (subtitle) return subtitle;
   if (isVideoExercise(exercise)) return uiT("exercise.videoFallback");
+  if (isSlidesExercise(exercise)) return uiT("exercise.slidesFallback");
   if (isBuzzinExercise(exercise)) return uiT("exercise.buzzinFallback");
   if (isFastMcQuizExercise(exercise)) return uiT("exercise.fastFallback");
   if (isMcQuizExercise(exercise)) {
@@ -2234,6 +2235,7 @@ function exercisePointsValue(exercise) {
   const type = normalizeExerciseType(exercise?.type);
   const itemCount = Math.max(1, (exercise?.items || []).length);
   if (type === "video") return 200;
+  if (type === "slides") return 0;
   if (type === "buzzin") return 300;
   if (type === "mcquiz") return 300;
   if (type === "fastmcquiz") return 500;
@@ -2289,14 +2291,14 @@ function renderExerciseItem(exercise, index, selectedId, { locked = false, compl
   const title = exercise.title || `Exercise ${exercise.id}`;
   const subtitle = exerciseSubtitle(exercise);
   const points = exercisePointsValue(exercise);
-  const statusLabel = locked ? "Locked" : `${points} pts`;
+  const statusLabel = locked ? "Locked" : points ? `${points} pts` : "";
   const mcClass = isMcQuizExercise(exercise) ? " exercise-item--mc" : "";
-  const videoClass = isVideoExercise(exercise) ? " exercise-item--video" : "";
+  const videoClass = isWatchOnlyExercise(exercise) ? " exercise-item--video" : "";
   const buzzinClass = isBuzzinExercise(exercise) ? " exercise-item--buzzin" : "";
   const fastMcClass = isFastMcQuizExercise(exercise) ? " exercise-item--fastmc" : "";
   const imageAssignmentClass = isImageAssignmentExercise(exercise) ? " exercise-item--image-assignment" : "";
   const voiceAssignmentClass = isVoiceAssignmentExercise(exercise) ? " exercise-item--voice-assignment" : "";
-  const lottiePath = isVideoExercise(exercise)
+  const lottiePath = isWatchOnlyExercise(exercise)
     ? "/assets/lottie/video-player.json"
     : isBuzzinExercise(exercise)
       ? "/assets/lottie/buzz_in_logo.json"

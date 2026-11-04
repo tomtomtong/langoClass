@@ -237,6 +237,24 @@
     "wiz.n.questions.one": "1 question",
     "wiz.n.exercises": "{n} exercises",
     "wiz.n.exercises.one": "1 exercise",
+
+    // Slides editor
+    "cms.type.slides": "Slides",
+    "wiz.slides.slideN": "Slide {n}",
+    "wiz.slides.title": "Slide title",
+    "wiz.slides.bullets": "Points (one on each line)",
+    "wiz.slides.bulletsPlaceholder": "One point on each line",
+    "wiz.slides.picture": "Picture (optional)",
+    "wiz.slides.notes": "What to say (optional)",
+    "wiz.slides.notesPlaceholder": "A short note for you. It is also what the voice reads if you switch it on.",
+    "wiz.slides.add": "+ Add slide",
+    "wiz.slides.remove": "Remove this slide",
+    "wiz.slides.moveUp": "Move this slide up",
+    "wiz.slides.moveDown": "Move this slide down",
+    "wiz.slides.hint": "Each slide needs a title or at least one point. Students see these slides on the teacher's screen.",
+    "wiz.slides.default.title": "Slide title",
+    "wiz.slides.default.first": "First point",
+    "wiz.slides.default.second": "Second point",
   };
 
   const ZH_TW = {
@@ -458,6 +476,23 @@
     "wiz.n.questions.one": "共 1 題",
     "wiz.n.exercises": "{n} 個練習",
     "wiz.n.exercises.one": "1 個練習",
+
+    "cms.type.slides": "簡報",
+    "wiz.slides.slideN": "第 {n} 頁",
+    "wiz.slides.title": "這一頁的標題",
+    "wiz.slides.bullets": "重點（每行一個）",
+    "wiz.slides.bulletsPlaceholder": "每行寫一個重點",
+    "wiz.slides.picture": "圖片（選填）",
+    "wiz.slides.notes": "想說的話（選填）",
+    "wiz.slides.notesPlaceholder": "給自己的簡短提示。如果開啟配音，也會用這段文字來朗讀。",
+    "wiz.slides.add": "+ 新增一頁",
+    "wiz.slides.remove": "移除這一頁",
+    "wiz.slides.moveUp": "這一頁上移",
+    "wiz.slides.moveDown": "這一頁下移",
+    "wiz.slides.hint": "每一頁需要有標題或至少一個重點。學生會在老師的畫面上看到簡報。",
+    "wiz.slides.default.title": "簡報標題",
+    "wiz.slides.default.first": "第一個重點",
+    "wiz.slides.default.second": "第二個重點",
   };
 
   i18n.addMessagesAll({ en: EN, "zh-TW": ZH_TW });
