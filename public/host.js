@@ -52,7 +52,24 @@ const HOST_BGM_TRACKS = [
   "/assets/bgm/BGM_1.mp3",
   "/assets/bgm/BGM_2.mp3",
 ];
-const HOST_BGM_VOLUME_DEFAULT = 0.3;
+/** Default BGM level; with the 20 LUFS-matched effects below this keeps music ~4 dB under them. */
+const HOST_BGM_VOLUME_DEFAULT = 0.2;
+/**
+ * Loudness trims (measured with ffmpeg ebur128) so every host sound lands near -20 LUFS.
+ * The mp3 files are shared with the player pages, so levelling happens here instead.
+ * Multiplied with the per-call volume and the user's effects slider.
+ */
+const HOST_SOUND_TRIM = {
+  "/assets/soundeffect/login_success.mp3": 0.38,
+  "/assets/soundeffect/login_fail.mp3": 0.37,
+  "/assets/soundeffect/uncletommy_letsgo_1.mp3": 0.39,
+  "/assets/soundeffect/uncletommy_letsgo_2.mp3": 0.6,
+  "/assets/soundeffect/Page_nextbutton.mp3": 0.62,
+};
+/** BGM_2 is mastered ~3.3 dB hotter than BGM_1; trim so tracks do not jump in level. */
+const HOST_BGM_TRACK_TRIM = {
+  "/assets/bgm/BGM_2.mp3": 0.68,
+};
 const HOST_SOUND_EFFECTS_VOLUME_DEFAULT = 1;
 /** Preferred BGM level (also used by other host scripts after ducking). */
 let HOST_BGM_VOLUME = HOST_BGM_VOLUME_DEFAULT;
@@ -63,6 +80,7 @@ let hostBgmAudio = null;
 let hostBgmLastTrack = "";
 let hostBgmStarted = false;
 let hostBgmFadeFrame = null;
+let hostBgmTrim = 1;
 let hostBgmMuted = false;
 let hostSoundEffectsMuted = false;
 let hostSoundMenuOpen = false;
@@ -101,6 +119,10 @@ function waitForLoginScanCycle(startedAt) {
   return new Promise((resolve) => setTimeout(resolve, Math.max(180, remaining)));
 }
 
+function hostSoundTrim(src) {
+  return HOST_SOUND_TRIM[src] ?? 1;
+}
+
 function playHostSound(src, { volume = 1 } = {}) {
   if (!src || hostSoundEffectsMuted) return;
   let audio = hostSoundBank.get(src);
@@ -111,7 +133,7 @@ function playHostSound(src, { volume = 1 } = {}) {
   }
   audio.pause();
   audio.currentTime = 0;
-  audio.volume = clampHostVolume(volume * hostSoundEffectsVolume, 0);
+  audio.volume = clampHostVolume(volume * hostSoundTrim(src) * hostSoundEffectsVolume, 0);
   const playPromise = audio.play();
   if (playPromise?.catch) {
     playPromise.catch(() => {
@@ -127,7 +149,7 @@ function playHostSoundAwait(src, { volume = 1 } = {}) {
       return;
     }
     const audio = new Audio(src);
-    audio.volume = clampHostVolume(volume * hostSoundEffectsVolume, 0);
+    audio.volume = clampHostVolume(volume * hostSoundTrim(src) * hostSoundEffectsVolume, 0);
     const finish = () => resolve();
     audio.addEventListener("ended", finish, { once: true });
     audio.addEventListener("error", finish, { once: true });
@@ -158,6 +180,9 @@ function playNextHostBgm() {
   if (!hostBgmAudio) return;
   const track = pickHostBgmTrack();
   if (!track) return;
+  const nextTrim = HOST_BGM_TRACK_TRIM[track] ?? 1;
+  hostBgmAudio.volume = Math.min(1, (hostBgmAudio.volume / hostBgmTrim) * nextTrim);
+  hostBgmTrim = nextTrim;
   hostBgmAudio.src = track;
   hostBgmAudio.currentTime = 0;
   const playPromise = hostBgmAudio.play();
@@ -172,7 +197,7 @@ function startHostBgm() {
   if (hostBgmMuted || hostBgmStarted) return;
   if (!hostBgmAudio) {
     hostBgmAudio = new Audio();
-    hostBgmAudio.volume = HOST_BGM_VOLUME;
+    hostBgmAudio.volume = HOST_BGM_VOLUME * hostBgmTrim;
     hostBgmAudio.addEventListener("ended", playNextHostBgm);
   }
   hostBgmStarted = true;
@@ -192,7 +217,7 @@ function fadeHostBgmTo(targetVolume, { pauseAtEnd = false } = {}) {
   }
 
   const audio = hostBgmAudio;
-  const target = Math.max(0, Math.min(1, targetVolume));
+  const target = Math.max(0, Math.min(1, targetVolume)) * hostBgmTrim;
   const startVolume = audio.volume;
   const startedAt = performance.now();
 
@@ -263,7 +288,7 @@ function setHostSoundEffectsMuted(muted) {
 
 function applyHostBgmVolumeNow() {
   if (!hostBgmAudio || hostBgmMuted || hostBgmFadeFrame != null) return;
-  hostBgmAudio.volume = HOST_BGM_VOLUME;
+  hostBgmAudio.volume = HOST_BGM_VOLUME * hostBgmTrim;
 }
 
 function setHostBgmVolume(volume, { persist = true } = {}) {
@@ -703,11 +728,11 @@ function playLoginFailSound() {
 }
 
 function playPageNextSound() {
-  playHostSound(HOST_SOUND_EFFECTS.pageNext, { volume: 0.85 });
+  playHostSound(HOST_SOUND_EFFECTS.pageNext);
 }
 
 function playPageBackSound() {
-  playHostSound(HOST_SOUND_EFFECTS.pageBack, { volume: 0.85 });
+  playHostSound(HOST_SOUND_EFFECTS.pageBack);
 }
 
 async function playStartSessionSound() {

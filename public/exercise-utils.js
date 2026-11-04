@@ -773,7 +773,11 @@ let buzzinPlaybackFinish = null;
 let buzzinSpeechBgmDuckDepth = 0;
 let uncleTommySpeakToken = 0;
 const BUZZIN_SPEECH_BGM_VOLUME = 0.06;
-const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 4.5;
+/** Raw TTS sits near -19 LUFS; +5 dB puts Uncle Tommy ~5 dB over the -20 LUFS host effects without clipping. */
+const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 1.8;
+/** Student recordings are raw mic captures; scale them so their peaks land near this level. */
+const BUZZIN_RESPONSE_TARGET_PEAK = 0.5;
+const BUZZIN_RESPONSE_MAX_GAIN = 8;
 
 function getBuzzinSpeechBgmDuckVolume() {
   if (typeof getHostSpeechBgmDuckVolume === "function") {
@@ -869,8 +873,16 @@ function attachBuzzinPlaybackGain(audio, gain = 1) {
     const gainNode = audioContext.createGain();
     audio.volume = 1;
     gainNode.gain.value = normalizedGain;
+    // Brick-wall-ish limiter so boosted speech peaks never clip.
+    const limiter = audioContext.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.1;
     sourceNode.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    gainNode.connect(limiter);
+    limiter.connect(audioContext.destination);
     return {
       setGain(nextGain) {
         const value = Number.isFinite(nextGain) ? Math.max(0, nextGain) : 1;
@@ -880,6 +892,7 @@ function attachBuzzinPlaybackGain(audio, gain = 1) {
         try {
           sourceNode.disconnect();
           gainNode.disconnect();
+          limiter.disconnect();
           if (audioContext.state !== "closed") void audioContext.close();
         } catch {
           /* Ignore teardown errors after playback ends. */
@@ -989,10 +1002,38 @@ function playBuzzinSpokenFeedbackAudio(item) {
   return playUncleTommyTts(item?.analysisAudio, item?.analysisAudioFormat || "mp3");
 }
 
-function playBuzzinResponseRecordingAudio(item) {
-  return playBuzzinBase64Audio(item?.responseAudio, item?.responseAudioFormat || "wav", {
-    duckBgm: true,
-  });
+/** Gain that brings a recording's loudest sample to BUZZIN_RESPONSE_TARGET_PEAK. */
+async function buzzinResponseRecordingGain(base64, format) {
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return 1;
+  let audioContext = null;
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    audioContext = new AudioContextCtor();
+    const decoded = await audioContext.decodeAudioData(bytes.buffer);
+    let peak = 0;
+    for (let c = 0; c < decoded.numberOfChannels; c += 1) {
+      const data = decoded.getChannelData(c);
+      for (let i = 0; i < data.length; i += 1) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) peak = abs;
+      }
+    }
+    if (peak < 0.001) return 1;
+    return Math.max(0.5, Math.min(BUZZIN_RESPONSE_MAX_GAIN, BUZZIN_RESPONSE_TARGET_PEAK / peak));
+  } catch {
+    return 1;
+  } finally {
+    if (audioContext && audioContext.state !== "closed") void audioContext.close();
+  }
+}
+
+async function playBuzzinResponseRecordingAudio(item) {
+  const format = item?.responseAudioFormat || "wav";
+  const gain = item?.responseAudio ? await buzzinResponseRecordingGain(item.responseAudio, format) : 1;
+  return playBuzzinBase64Audio(item?.responseAudio, format, { duckBgm: true, gain });
 }
 
 function playBuzzinHostAnswerReviewSequence(response, { onFeedbackReady } = {}) {
