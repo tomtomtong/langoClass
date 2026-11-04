@@ -224,6 +224,12 @@ function syncExercisesSaveButton() {
   btn.hidden = !hasExercises && !state.exercisesSaveUnlocked;
 }
 
+// Exercises that are not questions (a video, a slide deck): the check step gives
+// each its own card instead of numbering them as questions.
+function isSideCardExercise(exercise) {
+  return exercise?.type === "video" || exercise?.type === "slides";
+}
+
 function aiTypeBadge(type) {
   const label = exerciseTypeShortLabel(type || "mcquiz");
   return `<span class="cms-ai-type-badge cms-ai-type-badge--${escapeHtml(type || "mcquiz")}">${escapeHtml(label)}</span>`;
@@ -542,12 +548,15 @@ function aiPlanCardTypes(card) {
 // "5 questions: 3 multiple choice, 2 speaking", with no jargon and no settings.
 function aiPlainFormatSummary(types) {
   const entries = Object.entries(types || {}).filter(([, count]) => count > 0);
-  const total = entries.reduce((sum, [type, count]) => (type === "video" ? sum : sum + count), 0);
-  const parts = entries
-    .map(([type, count]) => cmsT(`wiz.card.t.${type}`, { n: count }))
-    .join(cmsT("wiz.card.join"));
   if (!entries.length) return "—";
-  return total ? cmsT("wiz.card.summary", { questions: cmsCount("wiz.n.questions", total), parts }) : parts;
+  const join = cmsT("wiz.card.join");
+  const slides = entries.find(([type]) => type === "slides");
+  const rest = entries.filter(([type]) => type !== "slides");
+  const total = rest.reduce((sum, [type, count]) => (type === "video" ? sum : sum + count), 0);
+  const parts = rest.map(([type, count]) => cmsT(`wiz.card.t.${type}`, { n: count })).join(join);
+  const restText = total ? cmsT("wiz.card.summary", { questions: cmsCount("wiz.n.questions", total), parts }) : parts;
+  const slidesText = slides ? cmsT("wiz.card.t.slides", { n: slides[1] }) : "";
+  return [slidesText, restText].filter(Boolean).join(join);
 }
 
 function syncAiPlanCardFormatLabels() {
@@ -1629,7 +1638,7 @@ function renderAiPreviewGrouped(groups) {
     .map((group, groupIndex) => {
       const { html, questionCount } = renderAiReviewGroupContent(group.items || [], questionOffset);
       (group.items || []).forEach(({ exercise, index }) => {
-        const itemCount = exercise?.type === "video" ? 0 : (exercise.items || []).length;
+        const itemCount = isSideCardExercise(exercise) ? 0 : (exercise.items || []).length;
         numberingPlan.push({
           exerciseIndex: index,
           type: exercise?.type,
@@ -1660,6 +1669,7 @@ function renderAiPreviewGrouped(groups) {
     })
     .join("");
   wireAiVideoPreviews();
+  wireAiSlidesCards();
   wireAiQuestionLists();
   initQuestionImageFields(container);
   syncCmsQuestionTtsButtons();
@@ -2723,7 +2733,7 @@ async function applyGlobalAgentMessage(rawRequest) {
   if (mode === "ai-review") {
     collectAiDraftFromDom();
     const draft = state.aiDraftExercises || [];
-    if (!draft.some((exercise) => (exercise.items || []).length && exercise.type !== "video")) {
+    if (!draft.some((exercise) => (exercise.items || []).length && !isSideCardExercise(exercise))) {
       $("#cms-ai-error").textContent = "Generate questions first, then ask the assistant to edit them.";
       return false;
     }
@@ -4868,6 +4878,7 @@ const AI_TEMPLATES = {
   speaking: { types: { fastmcquiz: 1, buzzin: 3 }, difficulty: "medium" },
   mixed: { types: { mcquiz: 2, fastmcquiz: 1, buzzin: 1 }, difficulty: "medium" },
   video: { types: { mcquiz: 2, video: 1 }, difficulty: "medium" },
+  slides: { types: { slides: 5, mcquiz: 3 }, difficulty: "medium" },
 };
 
 // Course mode only: each section gets its own mix, picked from what its
@@ -4899,9 +4910,9 @@ function aiPlanSectionFormatChoice(types, suggested) {
   return preset || "keep";
 }
 
-const AI_CUSTOM_TEMPLATE_COUNTS = { mcquiz: 2, fastmcquiz: 1, buzzin: 1, video: 0 };
+const AI_CUSTOM_TEMPLATE_COUNTS = { mcquiz: 2, fastmcquiz: 1, buzzin: 1, slides: 0, video: 0 };
 
-const AI_CUSTOM_TYPE_KEYS = ["mcquiz", "fastmcquiz", "buzzin", "video"];
+const AI_CUSTOM_TYPE_KEYS = ["mcquiz", "fastmcquiz", "buzzin", "slides", "video"];
 
 function syncCustomTypeCountInputs(prefix = "cms-ai") {
   for (const key of AI_CUSTOM_TYPE_KEYS) {
@@ -4922,6 +4933,12 @@ function aiTypeOrderRows() {
 function getAiTypeOrder() {
   const order = aiTypeOrderRows().map((row) => row.dataset.type);
   return order.length ? order : [...AI_CUSTOM_TYPE_KEYS];
+}
+
+// Teach first, then check: slides lead unless the teacher set their own order.
+function orderSlidesFirst(exercises) {
+  if (state.aiTemplate === "custom") return exercises;
+  return [...exercises].sort((a, b) => Number(b?.type === "slides") - Number(a?.type === "slides"));
 }
 
 function sortExercisesByAiTypeOrder(exercises) {
@@ -4982,6 +4999,9 @@ function estimateAiTemplateMinutes(counts) {
     if (!n) continue;
     if (key === "buzzin") exercises.push({ type: "buzzin", items: Array.from({ length: n }, () => ({ topic: "t" })) });
     else if (key === "video") for (let i = 0; i < n; i += 1) exercises.push({ type: "video", items: [{}] });
+    else if (key === "slides") {
+      exercises.push({ type: "slides", items: Array.from({ length: n }, () => ({ title: "s", bullets: ["a"] })) });
+    }
     else exercises.push({ type: key, items: questions(n) });
   }
   return Math.max(1, Math.round(estimateSectionDurationSeconds(exercises) / 60));
@@ -4993,6 +5013,7 @@ function aiTemplateChipLabels(counts) {
     fastmcquiz: "Lightning round",
     buzzin: "Buzz in Question",
     video: "Video",
+    slides: cmsT("cms.type.slides"),
   };
   return AI_CUSTOM_TYPE_KEYS.filter((key) => (counts[key] || 0) > 0).map(
     (key) => `${names[key]} ${counts[key]}`
@@ -5016,6 +5037,7 @@ function syncAiTemplateCards() {
       const questions = (counts.mcquiz || 0) + (counts.fastmcquiz || 0) + (counts.buzzin || 0);
       const parts = [];
       if (questions) parts.push(cmsT("cms.ai.templateQuestionCount", { n: questions }));
+      if (counts.slides) parts.push(cmsT("cms.ai.templateSlidesCount", { n: counts.slides }));
       if (counts.video) parts.push(cmsT("cms.ai.templateVideoCount", { n: counts.video }));
       parts.push(cmsT("cms.ai.templateEstTime", { n: estimateAiTemplateMinutes(counts) }));
       meta.textContent = parts.join(" · ");
@@ -5482,7 +5504,7 @@ function applyAiTemplate(templateId) {
     const typeEl = $(`#cms-ai-type-${key}`);
     const countEl = $(`#cms-ai-count-${key}`);
     if (typeEl) typeEl.checked = (preset.types[key] || 0) > 0;
-    if (countEl) countEl.value = String(preset.types[key] || (key === "video" ? 1 : 3));
+    if (countEl) countEl.value = String(preset.types[key] || (key === "video" ? 1 : key === "slides" ? 5 : 3));
   }
   if ($("#cms-ai-difficulty")) $("#cms-ai-difficulty").value = preset.difficulty;
   syncCustomTypeCountInputs();
@@ -5614,7 +5636,7 @@ function parseAiConvertIntent(revision, contextQuestionNumber) {
 function flattenDraftExercisesForReplace(exercises) {
   const flat = [];
   (exercises || []).forEach((exercise) => {
-    if (!exercise || exercise.type === "video") return;
+    if (!exercise || isSideCardExercise(exercise)) return;
     const meta = {
       title: exercise.title,
       subTitle: exercise.subTitle,
@@ -5640,8 +5662,8 @@ function applyInPlaceQuestionReplacement(previousExercises, nextExercises, conve
   const targetIdx = questionNumber - 1;
   if (targetIdx < 0) return nextExercises;
 
-  const quizPrevious = (previousExercises || []).filter((exercise) => exercise?.type !== "video");
-  const videos = (nextExercises || []).filter((exercise) => exercise?.type === "video");
+  const quizPrevious = (previousExercises || []).filter((exercise) => !isSideCardExercise(exercise));
+  const videos = (nextExercises || []).filter((exercise) => isSideCardExercise(exercise));
   const nextFlat = flattenDraftExercisesForReplace(nextExercises);
   if (!nextFlat.length || targetIdx >= nextFlat.length) return nextExercises;
 
@@ -6234,7 +6256,7 @@ function courseSectionExercises(entry, videos, settings) {
     included: true,
     ...(settings.speakLangCode ? { speakLangCode: settings.speakLangCode } : {}),
   }));
-  return sortExercisesByAiTypeOrder([...exercises, ...videos]);
+  return orderSlidesFirst(sortExercisesByAiTypeOrder([...exercises, ...videos]));
 }
 
 async function generateCourseFromPlan(options = {}) {
@@ -6504,7 +6526,9 @@ function selectedAiCourseGroups() {
   (state.aiDraftExercises || []).forEach((exercise, index) => {
     if (exercise.included === false) return;
     const valid =
-      exercise.type === "video"
+      exercise.type === "slides"
+        ? exercise.items.some((item) => item.title || (item.bullets || []).length)
+        : exercise.type === "video"
         ? exercise.items.some((item) => item.videoUrl)
         : exercise.type === "buzzin"
           ? exercise.items.some((item) => item.topic)
@@ -6520,6 +6544,9 @@ function selectedAiCourseGroups() {
     }
     const { included: _included, _courseGroup, _courseKey, _sectionTitle, ...rest } = exercise;
     groups.get(key).exercises.push(rest);
+  });
+  groups.forEach((group) => {
+    group.exercises = orderSlidesFirst(group.exercises);
   });
   return [...groups.values()];
 }
@@ -7037,10 +7064,15 @@ function aiDragHandleMarkup(label = "Drag to reorder question") {
 function flattenGroupItemsForReview(groupItems) {
   const flat = [];
   const videos = [];
+  const slides = [];
   (groupItems || []).forEach(({ exercise, index: exerciseIndex }) => {
     if (!exercise) return;
     if (exercise.type === "video") {
       videos.push({ exercise, exerciseIndex });
+      return;
+    }
+    if (exercise.type === "slides") {
+      slides.push({ exercise, exerciseIndex });
       return;
     }
     const meta = {
@@ -7061,7 +7093,7 @@ function flattenGroupItemsForReview(groupItems) {
       });
     });
   });
-  return { flat, videos };
+  return { flat, videos, slides };
 }
 
 function rebuildAiDraftFromFlatQuestions(flatEntries, previousExercises) {
@@ -7081,7 +7113,7 @@ function rebuildAiDraftFromFlatQuestions(flatEntries, previousExercises) {
   }
 
   const priorPool = (Array.isArray(previousExercises) ? previousExercises : []).filter(
-    (exercise) => exercise?.type && exercise.type !== "video"
+    (exercise) => exercise?.type && !isSideCardExercise(exercise)
   );
   const usedPrior = new Set();
 
@@ -7165,6 +7197,28 @@ function readAiVideoExerciseFromDom(card, previous) {
   };
 }
 
+function readAiSlidesExerciseFromDom(card, previous) {
+  const exerciseIndex = Number(card.dataset.aiIndex);
+  const previousExercise = Number.isFinite(exerciseIndex) ? previous?.[exerciseIndex] : null;
+  const body = card.querySelector(".cms-ai-slides-body");
+  const items = body?._collectItems ? body._collectItems() : previousExercise?.items || [];
+  return {
+    type: "slides",
+    title:
+      card.querySelector(".cms-ai-edit-title")?.value.trim() ||
+      previousExercise?.title?.trim() ||
+      exerciseTypeShortLabel("slides"),
+    subTitle: exerciseSubTitleForType("slides"),
+    included: Boolean(card.querySelector(".cms-ai-select")?.checked),
+    items,
+    ...(typeof previousExercise?.narrate === "boolean" ? { narrate: previousExercise.narrate } : {}),
+    ...(previousExercise?.speakLangCode ? { speakLangCode: previousExercise.speakLangCode } : {}),
+    _courseGroup: previousExercise?._courseGroup,
+    _courseKey: previousExercise?._courseKey,
+    _sectionTitle: previousExercise?._sectionTitle,
+  };
+}
+
 function collectAiReviewGroupFromDom(groupEl, previous) {
   const exercises = [];
   const list = groupEl.querySelector(".cms-ai-question-list");
@@ -7190,6 +7244,9 @@ function collectAiReviewGroupFromDom(groupEl, previous) {
   }
   groupEl.querySelectorAll(".cms-ai-edit-card[data-type='video']").forEach((card) => {
     exercises.push(readAiVideoExerciseFromDom(card, previous));
+  });
+  groupEl.querySelectorAll(".cms-ai-edit-card[data-type='slides']").forEach((card) => {
+    exercises.push(readAiSlidesExerciseFromDom(card, previous));
   });
   return exercises;
 }
@@ -7291,8 +7348,35 @@ function renderAiVideoCard(exercise, index) {
     </article>`;
 }
 
+function renderAiSlidesCard(exercise, index) {
+  const included = exercise.included !== false;
+  return `
+    <article class="cms-ai-preview-card cms-ai-edit-card cms-ai-slides-card" data-ai-index="${index}" data-type="slides">
+      <div class="cms-ai-preview-head">
+        <label class="cms-ai-include-toggle">
+          <input type="checkbox" class="cms-ai-select" data-ai-index="${index}" ${included ? "checked" : ""} aria-label="${escapeHtml(cmsT("wiz.outline.include"))}" />
+          <span class="visually-hidden">${escapeHtml(cmsT("wiz.outline.include"))}</span>
+        </label>
+        ${aiTypeBadge("slides")}
+        <div class="cms-ai-preview-meta">
+          <input type="text" class="cms-ai-edit-title" value="${escapeHtml(exercise.title || "").replace(/"/g, "&quot;")}" placeholder="${escapeHtml(cmsT("cms.ex.titlePlaceholder"))}" />
+        </div>
+      </div>
+      <div class="cms-ai-edit-card-body cms-ai-slides-body" data-ai-index="${index}"></div>
+    </article>`;
+}
+
+// The slide editor is the same one used in the exercise editor, mounted into each card.
+function wireAiSlidesCards() {
+  $("#cms-ai-preview")?.querySelectorAll('.cms-ai-edit-card[data-type="slides"]').forEach((card) => {
+    const body = card.querySelector(".cms-ai-slides-body");
+    const exercise = (state.aiDraftExercises || [])[Number(card.dataset.aiIndex)];
+    if (body && exercise) renderSlidesBody(body, exercise);
+  });
+}
+
 function renderAiReviewGroupContent(groupItems, questionOffset = 0) {
-  const { flat, videos } = flattenGroupItemsForReview(groupItems);
+  const { flat, videos, slides } = flattenGroupItemsForReview(groupItems);
   const exerciseIndices = (groupItems || []).map(({ index }) => index).join(",");
   const questions = flat
     .map((entry, index) =>
@@ -7306,10 +7390,13 @@ function renderAiReviewGroupContent(groupItems, questionOffset = 0) {
     )
     .join("");
   const videoCards = videos.map(({ exercise, exerciseIndex }) => renderAiVideoCard(exercise, exerciseIndex)).join("");
+  const slideCards = slides.map(({ exercise, exerciseIndex }) => renderAiSlidesCard(exercise, exerciseIndex)).join("");
+  const hasQuestions = flat.length > 0 || (!videos.length && !slides.length);
   return {
     html: `
+      ${slideCards}
       <div class="cms-ai-question-list" data-exercise-indices="${escapeHtml(exerciseIndices)}">
-        ${questions || `<p class="hint cms-ai-question-empty">No questions yet. Add one below.</p>`}
+        ${questions || (hasQuestions ? `<p class="hint cms-ai-question-empty">No questions yet. Add one below.</p>` : "")}
       </div>
       ${videoCards}
       ${renderAiAddQuestionRow()}`,
@@ -7355,6 +7442,9 @@ function collectAiDraftFromDom() {
     const rebuilt = rebuildAiDraftFromFlatQuestions(flatEntries, groupPrevious);
     container.querySelectorAll(".cms-ai-edit-card[data-type='video']").forEach((card) => {
       rebuilt.push(readAiVideoExerciseFromDom(card, previous));
+    });
+    container.querySelectorAll(".cms-ai-edit-card[data-type='slides']").forEach((card) => {
+      rebuilt.push(readAiSlidesExerciseFromDom(card, previous));
     });
     state.aiDraftExercises = rebuilt;
     return rebuilt;
@@ -7434,7 +7524,7 @@ function renderAiPublishSummary() {
   if (state.aiCourseMode) {
     const groups = selectedAiCourseGroups();
     const countQuestions = (group) =>
-      group.exercises.reduce((n, exercise) => (exercise.type === "video" ? n : n + (exercise.items?.length || 0)), 0);
+      group.exercises.reduce((n, exercise) => (isSideCardExercise(exercise) ? n : n + (exercise.items?.length || 0)), 0);
     if (!groups.length) {
       summary.innerHTML = `<p>${escapeHtml(cmsT("wiz.publish.none"))}</p>`;
       return;
@@ -8148,8 +8238,9 @@ async function generateAiExercises(options = {}) {
 }
 
 function selectedAiExercises() {
-  return collectAiDraftFromDom().filter((exercise) => {
+  return orderSlidesFirst(collectAiDraftFromDom()).filter((exercise) => {
     if (exercise.included === false) return false;
+    if (exercise.type === "slides") return exercise.items.some((item) => item.title || (item.bullets || []).length);
     if (exercise.type === "video") return exercise.items.some((item) => item.videoUrl);
     if (exercise.type === "buzzin") return exercise.items.some((item) => item.topic);
     return exercise.items.some((item) => item.title && (item.options || []).length >= 2);
@@ -8417,8 +8508,8 @@ function handleAiPreviewClick(event) {
   if (event.target.closest(".cms-ai-remove-item")) {
     collectAiDraftFromDom();
     const previous = state.aiDraftExercises || [];
-    const quiz = previous.filter((exercise) => exercise.type !== "video");
-    const videos = previous.filter((exercise) => exercise.type === "video");
+    const quiz = previous.filter((exercise) => !isSideCardExercise(exercise));
+    const videos = previous.filter((exercise) => isSideCardExercise(exercise));
     const { flat } = flattenGroupItemsForReview(quiz.map((exercise, index) => ({ exercise, index })));
     if (flat.length <= 1) {
       setCmsError($("#cms-ai-error"), "Keep at least one question.");
@@ -8434,8 +8525,8 @@ function handleAiPreviewClick(event) {
     const type = block.dataset.itemType || "mcquiz";
     if (type === "buzzin") return;
     const rebuilt = state.aiDraftExercises || [];
-    const quiz = rebuilt.filter((exercise) => exercise.type !== "video");
-    const videos = rebuilt.filter((exercise) => exercise.type === "video");
+    const quiz = rebuilt.filter((exercise) => !isSideCardExercise(exercise));
+    const videos = rebuilt.filter((exercise) => isSideCardExercise(exercise));
     const { flat } = flattenGroupItemsForReview(quiz.map((exercise, index) => ({ exercise, index })));
     const entry = flat[flatIndex];
     if (!entry) return;
@@ -10553,7 +10644,10 @@ function renderSlidesBody(container, exercise) {
             <span>${escapeHtml(cmsT("wiz.slides.bullets"))}</span>
             <textarea class="cms-slide-bullets" rows="4" placeholder="${escapeHtml(cmsT("wiz.slides.bulletsPlaceholder"))}">${escapeHtml(item.bullets.join("\n"))}</textarea>
           </label>
-          ${renderQuestionImageFieldMarkup(item.image, { label: cmsT("wiz.slides.picture") })}
+          <details class="cms-slide-picture"${item.image ? " open" : ""}>
+            <summary>${escapeHtml(cmsT("wiz.slides.picture"))}</summary>
+            ${renderQuestionImageFieldMarkup(item.image, { label: cmsT("wiz.slides.picture") })}
+          </details>
           <label class="field">
             <span>${escapeHtml(cmsT("wiz.slides.notes"))}</span>
             <textarea class="cms-slide-notes" rows="2" placeholder="${escapeHtml(cmsT("wiz.slides.notesPlaceholder"))}">${escapeHtml(item.notes)}</textarea>

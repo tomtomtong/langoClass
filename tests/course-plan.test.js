@@ -95,3 +95,19 @@ test("LLM-provided kind is used, an unknown one falls back to the guess", async 
   assert.equal(result.planner, "llm");
   assert.deepEqual(result.sections.map((s) => s.kind), ["dialogue", "vocab"]);
 });
+
+test("slides can be part of a section's mix and go to the AI, never to the video queue", () => {
+  const { jobs } = plan.prepareCourseGeneration({
+    plan: { sections: [{ title: "Intro", material: passage, types: { slides: 5, mcquiz: 2 } }] },
+    template: "auto",
+  });
+  assert.deepEqual(jobs[0].llmTypes, { slides: 5, mcquiz: 2 });
+  assert.equal(jobs[0].videoCount, 0);
+  assert.equal(plan.formatLabel({ slides: 5 }, "medium"), "5 Slides · Medium");
+});
+
+test("Auto never suggests slides: they are something a teacher chooses", () => {
+  for (const kind of plan.SECTION_KINDS) {
+    assert.equal(plan.suggestSectionTypes(kind, 5000).slides, undefined);
+  }
+});

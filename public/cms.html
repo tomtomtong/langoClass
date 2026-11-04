@@ -596,6 +596,11 @@
                     <div class="cms-ai-template-chips template-card-chips" aria-hidden="true"></div>
                     <p class="hint cms-ai-template-meta template-card-meta" aria-hidden="true"></p>
                   </button>
+                  <button type="button" class="cms-ai-template template-card" data-template="slides" role="listitem">
+                    <strong class="cms-ai-template-name template-card-title" data-i18n="cms.ai.tpl.slides">Slides lesson</strong>
+                    <div class="cms-ai-template-chips template-card-chips" aria-hidden="true"></div>
+                    <p class="hint cms-ai-template-meta template-card-meta" aria-hidden="true"></p>
+                  </button>
                   <button type="button" class="cms-ai-template template-card" data-template="custom" role="listitem">
                     <strong class="cms-ai-template-name template-card-title" data-i18n="cms.ai.tpl.custom">Custom make</strong>
                     <div class="cms-ai-template-chips template-card-chips" aria-hidden="true"></div>
@@ -638,6 +643,12 @@
                       <input type="checkbox" id="cms-ai-type-buzzin" checked />
                       <span class="cms-ai-type-name" data-i18n="cms.type.buzzin">Buzz in Question</span>
                       <input type="number" id="cms-ai-count-buzzin" class="cms-ai-type-count" min="1" max="10" value="1" aria-label="Buzz in Question count" data-i18n="cms.ai.count.buzzin" data-i18n-attr="aria-label" />
+                      <span class="cms-ai-type-move"><button type="button" class="cms-ai-type-move-btn" data-move="-1" aria-label="Move earlier" data-i18n="cms.ai.moveEarlier" data-i18n-attr="aria-label">‹</button><button type="button" class="cms-ai-type-move-btn" data-move="1" aria-label="Move later" data-i18n="cms.ai.moveLater" data-i18n-attr="aria-label">›</button></span>
+                    </label>
+                    <label class="cms-ai-type-row" data-type="slides">
+                      <input type="checkbox" id="cms-ai-type-slides" />
+                      <span class="cms-ai-type-name" data-i18n="cms.type.slides">Slides</span>
+                      <input type="number" id="cms-ai-count-slides" class="cms-ai-type-count" min="1" max="10" value="5" aria-label="How many slides" data-i18n="cms.ai.count.slides" data-i18n-attr="aria-label" disabled />
                       <span class="cms-ai-type-move"><button type="button" class="cms-ai-type-move-btn" data-move="-1" aria-label="Move earlier" data-i18n="cms.ai.moveEarlier" data-i18n-attr="aria-label">‹</button><button type="button" class="cms-ai-type-move-btn" data-move="1" aria-label="Move later" data-i18n="cms.ai.moveLater" data-i18n-attr="aria-label">›</button></span>
                     </label>
                     <label class="cms-ai-type-row" data-type="video">
@@ -689,6 +700,7 @@
                       <option value="speaking" data-i18n="cms.ai.tpl.speaking">Speaking class</option>
                       <option value="mixed" data-i18n="cms.ai.tpl.mixed">Mixed lesson</option>
                       <option value="video" data-i18n="cms.ai.tpl.video">Video lesson</option>
+                      <option value="slides" data-i18n="cms.ai.tpl.slides">Slides lesson</option>
                     </select>
                   </label>
                   <p class="hint cms-ai-plan-lang-note" id="cms-ai-plan-lang-note"></p>

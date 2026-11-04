@@ -3032,3 +3032,17 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
     opacity: 0.5;
   }
 }
+
+/* Slides editor: the picture tools stay folded until needed. */
+.cms-slide-picture {
+  margin: 0.5rem 0;
+}
+
+.cms-slide-picture > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink);
+}

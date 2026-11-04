@@ -255,6 +255,10 @@
     "wiz.slides.default.title": "Slide title",
     "wiz.slides.default.first": "First point",
     "wiz.slides.default.second": "Second point",
+    "cms.ai.tpl.slides": "Slides lesson",
+    "cms.ai.count.slides": "How many slides",
+    "cms.ai.templateSlidesCount": "{n} slides",
+    "wiz.card.t.slides": "{n} slides",
   };
 
   const ZH_TW = {
@@ -493,6 +497,10 @@
     "wiz.slides.default.title": "簡報標題",
     "wiz.slides.default.first": "第一個重點",
     "wiz.slides.default.second": "第二個重點",
+    "cms.ai.tpl.slides": "簡報課",
+    "cms.ai.count.slides": "簡報頁數",
+    "cms.ai.templateSlidesCount": "{n} 頁簡報",
+    "wiz.card.t.slides": "{n} 頁簡報",
   };
 
   i18n.addMessagesAll({ en: EN, "zh-TW": ZH_TW });
