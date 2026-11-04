@@ -346,6 +346,8 @@ function openAiGeneratePath(mode) {
   const changePath = $("#btn-cms-ai-change-path");
   if (changePath) changePath.hidden = false;
   $("#cms-exercises-view")?.classList.add("is-ai-wizard-active");
+  // The wizard sits inside #cms-ai-panel, which stays hidden until this runs.
+  syncAiIdleUi();
   syncAiCourseModeUi();
   setAiWizardStep(1);
   syncAiWizardCopy();
@@ -858,10 +860,9 @@ function startAiGenProgressTicker(from, to, durationMs = 60000) {
 function updateAiWizardSummary() {
   const el = $("#cms-ai-wizard-summary");
   if (!el) return;
-  const settings = getAiGenerationSettings();
   const section = state.sections[state.editingSectionIndex];
   const parts = [
-    aiFormatLabel(settings.types, settings.difficulty, settings.speakLangCode),
+    currentAiFormatLabel(),
     state.aiCourseMode ? cmsT("cms.ai.summaryFullCourse") : section?.title?.trim() || cmsT("cms.ai.summaryThisSection"),
   ];
   const file = getAiSelectedFiles()[0];
