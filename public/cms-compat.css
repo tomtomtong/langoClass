@@ -2529,3 +2529,37 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
     transform: translate(-50%, 0);
   }
 }
+
+/* Course card being opened: immediate acknowledgement while the course loads. */
+.course-card {
+  position: relative;
+}
+.course-card.is-opening {
+  cursor: progress;
+  opacity: 0.78;
+  transition: opacity 0.15s ease-out;
+}
+.course-card.is-opening::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, var(--purple, #743c9b), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: cms-card-opening 0.9s linear infinite;
+}
+@keyframes cms-card-opening {
+  from { background-position: -50% 0; }
+  to { background-position: 150% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .course-card.is-opening::after {
+    animation: none;
+    background: var(--purple, #743c9b);
+    opacity: 0.5;
+  }
+}

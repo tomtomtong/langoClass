@@ -1663,6 +1663,10 @@ async function api(path, options = {}) {
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
   headers["X-Teacher-Id"] = String(state.user?.id || "");
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  // Any write to a course makes prefetched course details stale.
+  if ((options.method || "GET") !== "GET" && path.startsWith("/api/cms/courses")) {
+    clearCoursePrefetch();
+  }
 
   const res = await fetch(path, {
     method: options.method || "GET",
@@ -2948,6 +2952,7 @@ function handleLogout() {
   // Drop cached screen data so the next teacher never sees this teacher's data.
   state.courses = [];
   state.coursesLoaded = false;
+  clearCoursePrefetch();
   state.classes = [];
   state.communityLoaded = false;
   state.dashboardCourses = [];
@@ -4430,7 +4435,21 @@ function renderCourseList() {
     .join("");
 
   grid.querySelectorAll(".course-card").forEach((card) => {
-    const open = () => openCourseEditor(Number(card.dataset.id));
+    const courseId = Number(card.dataset.id);
+    // Hovering or focusing a card is a strong hint it is about to be opened.
+    card.addEventListener("pointerenter", () => prefetchCourse(courseId), { once: true });
+    card.addEventListener("focus", () => prefetchCourse(courseId), { once: true });
+    const open = async () => {
+      if (card.classList.contains("is-opening")) return;
+      card.classList.add("is-opening");
+      card.setAttribute("aria-busy", "true");
+      try {
+        await openCourseEditor(courseId);
+      } finally {
+        card.classList.remove("is-opening");
+        card.removeAttribute("aria-busy");
+      }
+    };
     card.addEventListener("click", (event) => {
       if (event.target.closest("[data-assign-class]")) return;
       open();
@@ -4486,6 +4505,33 @@ function cleanupSectionsAfterAiPublish(publishedSectionIndex) {
   }
 }
 
+// Course details fetched ahead of a click (hover / focus on a course card), so
+// opening the editor usually does not wait on the network. Entries are used
+// once and only while fresh, so the editor never opens on stale content.
+const COURSE_PREFETCH_TTL_MS = 15_000;
+const coursePrefetch = new Map();
+
+function prefetchCourse(courseId) {
+  const key = String(courseId);
+  const entry = coursePrefetch.get(key);
+  if (entry && Date.now() - entry.at < COURSE_PREFETCH_TTL_MS) return;
+  const promise = api(`/api/cms/courses/${courseId}`);
+  promise.catch(() => coursePrefetch.delete(key));
+  coursePrefetch.set(key, { promise, at: Date.now() });
+}
+
+function takeCourseFetch(courseId) {
+  const key = String(courseId);
+  const entry = coursePrefetch.get(key);
+  coursePrefetch.delete(key);
+  if (entry && Date.now() - entry.at < COURSE_PREFETCH_TTL_MS) return entry.promise;
+  return api(`/api/cms/courses/${courseId}`);
+}
+
+function clearCoursePrefetch() {
+  coursePrefetch.clear();
+}
+
 async function openCourseEditor(courseId, options = {}) {
   state.cmsEditorMode = options.mode === "create" ? "create" : "edit";
   $("#cms-details-error").textContent = "";
@@ -4496,8 +4542,12 @@ async function openCourseEditor(courseId, options = {}) {
   $("#cms-exercises-status").textContent = "";
 
   try {
-    await loadClasses();
-    const data = await api(`/api/cms/courses/${courseId}`);
+    // Classes are loaded on Home and the course list; only fetch them here when
+    // missing, and then alongside the course rather than before it.
+    const [, data] = await Promise.all([
+      state.classes?.length ? null : loadClasses(),
+      takeCourseFetch(courseId),
+    ]);
     state.editingCourse = data.course;
     state.editingSectionIndex = null;
     const loaded = sortSectionsByOrder(
