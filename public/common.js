@@ -803,10 +803,34 @@ function fitTextToBox(el, { min = 13, max = 0, step = 1 } = {}) {
   }
 }
 
+// Elements whose screen is still hidden (showScreen() plays a ~1s transition
+// before activating the next screen) can't be measured yet; they are fitted
+// once a screen change makes them visible.
+const pendingTextFits = new Map();
+
 function fitTextToBoxSoon(...els) {
   const options = els[0] instanceof Element ? undefined : els.shift() || undefined;
-  requestAnimationFrame(() => requestAnimationFrame(() => els.forEach((el) => fitTextToBox(el, options))));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() =>
+      els.forEach((el) => {
+        if (!el) return;
+        if (el.getClientRects().length) {
+          pendingTextFits.delete(el);
+          fitTextToBox(el, options);
+        } else {
+          pendingTextFits.set(el, options);
+        }
+      })
+    )
+  );
 }
+
+window.addEventListener("lango:screen-change", () => {
+  if (!pendingTextFits.size) return;
+  const pending = [...pendingTextFits];
+  pendingTextFits.clear();
+  pending.forEach(([el, options]) => fitTextToBoxSoon(options || {}, el));
+});
 
 function renderOptions(
   container,
