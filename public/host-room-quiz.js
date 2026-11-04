@@ -1281,24 +1281,72 @@ function initialsForName(name) {
   return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
 }
 
+// The board's grid area is about 332 x 384 px. Up to nine students keep the roomy 3 x 3
+// layout; more than that, pick the column count that gives every student the largest cell
+// so nobody is cut off, and hide names once cells get too small to read.
+const CORRECT_BOARD_W = 332;
+const CORRECT_BOARD_H = 384;
+const CORRECT_BOARD_MAX = 48;
+
+function correctBoardLayout(count) {
+  if (count <= 9) return { cols: 3, rows: 3, avatar: 80, names: true };
+  let best = null;
+  for (let cols = 3; cols <= 8; cols += 1) {
+    const rows = Math.ceil(count / cols);
+    const cell = Math.min(CORRECT_BOARD_W / cols, CORRECT_BOARD_H / rows);
+    if (!best || cell > best.cell) best = { cols, rows, cell };
+  }
+  return {
+    cols: best.cols,
+    rows: best.rows,
+    avatar: Math.round(Math.min(80, best.cell * 0.66)),
+    names: best.cell >= 60,
+  };
+}
+
 function renderCorrectResponders(results) {
   const container = $("#host-quiz-correct-responders");
   if (!container) return;
-  const correct = (results || []).filter((result) => result.correct).slice(0, 9);
+  const countEl = $("#host-quiz-correct-count");
+  const all = results || [];
+  // Faster correct answers earn more points, so they lead the board.
+  const correct = all
+    .filter((result) => result.correct)
+    .sort((a, b) => (b.points || 0) - (a.points || 0));
+  if (countEl) {
+    countEl.hidden = !all.length;
+    countEl.textContent = `${correct.length} / ${all.length}`;
+  }
   if (!correct.length) {
+    container.className = "host-mcq-correct-grid";
+    container.removeAttribute("style");
     container.innerHTML = `<p class="host-mcq-correct-empty">${uiT("mcq.noCorrectYet")}</p>`;
     return;
   }
 
-  container.innerHTML = correct
-    .map((result, index) => {
-      const name = String(result.name || "Student").trim() || "Student";
-      return `<div class="host-mcq-correct-student" style="--student-i: ${index}">
+  const shown = correct.length > CORRECT_BOARD_MAX ? correct.slice(0, CORRECT_BOARD_MAX - 1) : correct;
+  const extra = correct.length - shown.length;
+  const layout = correctBoardLayout(shown.length + (extra ? 1 : 0));
+  container.className = `host-mcq-correct-grid${layout.names ? "" : " is-compact"}${shown.length > 12 ? " is-crowded" : ""}`;
+  container.style.setProperty("--cols", layout.cols);
+  container.style.setProperty("--rows", layout.rows);
+  container.style.setProperty("--avatar", `${layout.avatar}px`);
+
+  container.innerHTML =
+    shown
+      .map((result, index) => {
+        const name = String(result.name || "Student").trim() || "Student";
+        return `<div class="host-mcq-correct-student" style="--student-i: ${index}" title="${escapeHtml(name)}">
         <div class="host-mcq-correct-avatar">${escapeHtml(initialsForName(name))}</div>
         <p>${escapeHtml(name)}</p>
       </div>`;
-    })
-    .join("");
+      })
+      .join("") +
+    (extra
+      ? `<div class="host-mcq-correct-student" style="--student-i: ${shown.length}">
+        <div class="host-mcq-correct-avatar host-mcq-correct-more">+${extra}</div>
+      </div>`
+      : "");
 }
 
 function renderFastAccuracyLeaderboard(results, totalQuestions = 0) {
