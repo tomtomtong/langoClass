@@ -646,6 +646,24 @@
   }
 }
 
+/* The host is a fixed 1920x1080 stage that is scaled to fit, so a narrow window must not
+   switch the footer to the stacked phone layout above: keep Back left and the tabs centred. */
+#app.lango-host .host-leaderboard__footer {
+  left: 36px;
+  right: 36px;
+  bottom: 28px;
+  grid-template-columns: 1fr auto 1fr;
+  justify-items: normal;
+}
+
+#app.lango-host .host-leaderboard__nav {
+  justify-self: start;
+}
+
+#app.lango-host .host-leaderboard__tabs {
+  justify-self: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .host-leaderboard__next:not([hidden]) {
     animation: none;
