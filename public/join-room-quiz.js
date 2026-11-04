@@ -49,6 +49,14 @@ function hideStudentBuzzinAnswerPrompt() {
   const panel = $("#room-buzzin-answer-prompt");
   const screen = $("#screen-room-buzzin");
   if (panel) panel.hidden = true;
+  if (screen?.classList.contains("has-answer-prompt")) {
+    // The prompt borrowed the card title for the "you're up" line; give it back.
+    const title = $("#room-buzzin-card-title");
+    if (title?.dataset.promptTitle === "1") {
+      title.textContent = uiT("buzzin.recordTitle");
+      delete title.dataset.promptTitle;
+    }
+  }
   screen?.classList.remove("has-answer-prompt");
 }
 
@@ -131,6 +139,16 @@ function syncStudentBuzzinAnswerPrompt(payload) {
   }
   if (turnStatus && !isRetryForMe) {
     turnStatus.textContent = uiT("buzzin.tapWhenFinished");
+  }
+
+  // The card title becomes the hero line ("Eric, you're up!" / "Try again!"),
+  // so the question and one instruction are all that sit between it and Record.
+  const title = $("#room-buzzin-card-title");
+  if (title) {
+    title.textContent = isRetryForMe
+      ? uiT("buzzin.retryPromptLabel")
+      : uiT("buzzin.nameYoureUp", { name: announcement.displayName || "You" });
+    title.dataset.promptTitle = "1";
   }
 
   panel.classList.toggle("is-retry", isRetryForMe);

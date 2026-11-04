@@ -22,6 +22,8 @@ let hostBuzzinJoinTimer = null;
 let hostBuzzinLastResponses = [];
 const hostBuzzinPlayedSpokenFeedbackAudio = new Set();
 const hostBuzzinReviewSequencePlayed = new Set();
+// Responses whose whole review (recording replay + spoken feedback) has finished.
+const hostBuzzinReviewSequenceDone = new Set();
 const hostBuzzinFeedbackVisible = new Set();
 let hostBuzzinActiveExercise = null;
 let hostBuzzinLastPayload = null;
@@ -52,11 +54,13 @@ function resetHostBuzzinFeedbackAnim() {
   hostBuzzinLuckyStar = null;
   hostBuzzinPlayedAnnouncements.clear();
   hostBuzzinReviewSequencePlayed.clear();
+  hostBuzzinReviewSequenceDone.clear();
   hostBuzzinFeedbackVisible.clear();
   hostBuzzinCorrectAnswerRevealed = false;
   setHostBuzzinLeaderboardMode("winner");
   resetHostBuzzinLuckyDrawUi();
   syncHostBuzzinShowAnswerButton(null);
+  syncHostBuzzinNextActions(null);
 }
 
 function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, responses) {
@@ -92,12 +96,19 @@ function hostBuzzinFeedbackAnimateFlags(payload, selectedStudent, currentTurn, r
   return flags;
 }
 
+// A long question shrinks to fit the card instead of pushing the countdown
+// under the Buzz In button. Re-run when the countdown shows or hides.
+function fitHostBuzzinQuestion() {
+  fitTextToBoxSoon({ min: 18 }, $("#host-buzzin-topic"));
+}
+
 function syncHostBuzzinTopic(topic, meta = null) {
   const text = String(topic || "").trim();
   const questionTopic = $("#host-buzzin-topic");
   const feedbackTopic = $("#host-buzzin-feedback-topic");
   if (questionTopic) questionTopic.textContent = text;
   if (feedbackTopic) feedbackTopic.textContent = text;
+  fitHostBuzzinQuestion();
 
   const total = Math.max(1, Number(meta?.totalQuestions) || 1);
   const index = Math.min(Math.max(0, Number(meta?.questionIndex) || 0), total - 1);
@@ -294,7 +305,10 @@ function startHostBuzzinJoinTimer(joinEndsAt, joinSeconds) {
     if (remaining <= 0) stopHostBuzzinJoinTimer();
   };
 
-  wrap.hidden = false;
+  if (wrap.hidden) {
+    wrap.hidden = false;
+    fitHostBuzzinQuestion();
+  }
   const totalMs = (Number(joinSeconds) || 20) * 1000;
   motion?.startCountdownRing?.(wrap, { endsAt: joinEndsAt, totalMs });
   tick();
@@ -305,7 +319,34 @@ function hideHostBuzzinJoinTimer() {
   stopHostBuzzinJoinTimer();
   const wrap = $("#host-buzzin-timer-wrap");
   window.LangoGsap?.stopCountdownRing?.(wrap);
-  if (wrap) wrap.hidden = true;
+  if (wrap && !wrap.hidden) {
+    wrap.hidden = true;
+    fitHostBuzzinQuestion();
+  }
+}
+
+/**
+ * Random / Next question wait in the Real Time panel until the answer is over:
+ * the student has recorded, the analysis is back, and Uncle Tommy has finished
+ * replaying it and speaking the feedback (no retry in progress).
+ */
+function hostBuzzinAnswerFlowComplete(payload) {
+  if (!payload || !hostBuzzinShowFeedbackPhase(payload) || hostBuzzinShowEmptyPhase(payload)) return false;
+  if (hostBuzzinLuckyDrawRunning) return false;
+  if (payload.retryActivePlayerId || payload.pendingRetryPlayerId) return false;
+  if (!buzzinSelectedStudent(payload)) return true;
+  const responses = buzzinResponsesForDisplay(payload);
+  const latest = responses.length ? responses[responses.length - 1] : null;
+  if (!latest) return Boolean(payload.typingComplete);
+  if (latest.analysisStatus === "error") return true;
+  if (latest.analysisStatus !== "done") return false;
+  if (!latest.text) return true;
+  return hostBuzzinReviewSequenceDone.has(buzzinSpokenFeedbackAudioKey(latest));
+}
+
+function syncHostBuzzinNextActions(payload) {
+  const row = $("#host-buzzin-feedback-next-actions");
+  if (row) row.hidden = !hostBuzzinAnswerFlowComplete(payload);
 }
 
 function syncHostBuzzinShowAnswerButton(payload) {
@@ -336,6 +377,7 @@ function revealHostBuzzinCorrectAnswer() {
 function updateHostBuzzinTurnUi(payload) {
   hostBuzzinLastPayload = payload;
   syncHostBuzzinShowAnswerButton(payload);
+  syncHostBuzzinNextActions(payload);
   const turnStatus = $("#host-buzzin-turn-status");
   const chatEl = $("#host-buzzin-feedback-chat");
   const winnerEl = $("#host-buzzin-winner-card");
@@ -478,7 +520,10 @@ function updateHostBuzzinTurnUi(payload) {
           renderBuzzinChat({ feedbackVisible: true, animate: { feedback: true } });
         },
       })
-    );
+    ).then(() => {
+      hostBuzzinReviewSequenceDone.add(responseKey);
+      syncHostBuzzinNextActions(hostBuzzinLastPayload);
+    });
   }
 }
 
@@ -840,6 +885,7 @@ async function playHostBuzzinLuckyDraw(drawPromise) {
 async function openHostBuzzinLuckyDraw() {
   if (hostBuzzinLuckyDrawRunning) return;
   hostBuzzinLuckyDrawRunning = true;
+  syncHostBuzzinNextActions(hostBuzzinLastPayload);
 
   const randomBtns = getHostBuzzinRandomButtons();
   randomBtns.forEach((btn) => {
@@ -866,6 +912,7 @@ async function openHostBuzzinLuckyDraw() {
     getHostBuzzinRandomButtons().forEach((btn) => {
       btn.disabled = false;
     });
+    syncHostBuzzinNextActions(hostBuzzinLastPayload);
   }
 }
 

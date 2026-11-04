@@ -6334,6 +6334,10 @@ body:has(#screen-host-quiz-question.active) {
   flex-direction: column;
   align-items: center;
   gap: 40px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(10px);
 }
@@ -6365,7 +6369,9 @@ body:has(#screen-host-quiz-question.active) {
 .join-page .buzzin-interaction-main {
   width: 100%;
   min-height: 0;
-  flex: 1 0 0;
+  /* Grow past the screen instead of centring the overflow upward over the
+     header; the stage scrolls so the Record button stays reachable. */
+  flex: 1 0 auto;
   padding-bottom: 20px;
   display: flex;
   align-items: center;
@@ -6853,6 +6859,77 @@ body:has(#screen-host-quiz-question.active) {
 
 .join-page #screen-room-buzzin [hidden] {
   display: none !important;
+}
+
+/* Buzz In, one idea per line: the card title is the hero ("Eric, you're up!",
+   "Try again!", "Watch & listen", "Too late!"), the question sits in a soft
+   panel, then one instruction and the action. The answer prompt only repeated
+   the title, question and steps, so it stays hidden; the watching prompt loses
+   its nested-card chrome. */
+.join-page #screen-room-buzzin .buzzin-card-title h2 {
+  text-wrap: balance;
+}
+
+.join-page #screen-room-buzzin .buzzin-topic {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 22px;
+  background: #f4edff;
+  background-clip: border-box;
+  -webkit-background-clip: border-box;
+  color: #4b2a6e;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.38;
+  text-wrap: pretty;
+}
+
+.join-page #screen-room-buzzin.has-answer-prompt .buzzin-result,
+.join-page #screen-room-buzzin .buzzin-answer-prompt,
+.join-page #screen-room-buzzin.has-watching-prompt .buzzin-status,
+.join-page #screen-room-buzzin .buzzin-watching-prompt__label,
+.join-page #screen-room-buzzin .buzzin-watching-prompt__question {
+  display: none !important;
+}
+
+.join-page #screen-room-buzzin .buzzin-watching-prompt {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  text-align: center;
+}
+
+.join-page #screen-room-buzzin .buzzin-watching-prompt__name {
+  margin: 0 0 6px;
+  color: #344356;
+  font-size: 22px;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.join-page #screen-room-buzzin .buzzin-watching-prompt__hint {
+  color: #526579;
+  font-family: "Nunito", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* The one instruction on my turn: quiet, so the Record button carries the weight. */
+.join-page #screen-room-buzzin.has-answer-prompt .buzzin-turn-status {
+  color: #526579;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+
+.join-page #screen-room-buzzin.has-answer-prompt .buzzin-turn-area {
+  gap: 14px;
 }
 
 @media (max-width: 560px) {
@@ -11975,14 +12052,21 @@ html:not(.lango-gsap-ready) #app.lango-host .host-sound-mute-btn:hover {
   text-shadow: 1.667px 1.667px 3.333px rgba(0, 0, 0, 0.3);
 }
 
+/* The card can shrink to its min-height when the screen is short, so a long
+   question gives up room (and fitTextToBox() shrinks its font) instead of
+   pushing the countdown under the Buzz In button. */
 #app.lango-host .host-buzzin-question {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   width: 100%;
   margin: 0;
   color: #fff;
   font-family: "HK Grotesk", "Nunito", sans-serif;
   font-size: 30px;
   font-weight: 700;
-  line-height: 36px;
+  line-height: 1.2;
   text-align: center;
 }
 
@@ -12394,8 +12478,11 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
 
 #app.lango-host .host-buzzin-feedback-chat-actions {
   flex: 0 0 auto;
-  padding-top: 4px;
+  padding-top: 8px;
   border-top: 0.5px solid #e2e1ee;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 #app.lango-host .host-buzzin-show-answer-btn {
@@ -13038,8 +13125,9 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
   background: rgba(255, 255, 255, 0.8);
 }
 
+/* Only Dashboard lives here; Random / Next moved into the Real Time panel. */
 #app.lango-host .host-buzzin-footer--feedback {
-  width: 831px;
+  width: auto;
   gap: 32px;
 }
 
