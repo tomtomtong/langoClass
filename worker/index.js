@@ -8,6 +8,7 @@ import { serveUpload, uploadKey } from "./uploads.js";
 import { handleMaterialApi } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
+import { handleTurnstileConfig, turnstileGate } from "./turnstile.js";
 import { logRuntime, noteHost, observeApi } from "./lango-log.js";
 
 export { RoomDurableObject } from "./room.js";
@@ -86,6 +87,11 @@ const app = {
     }
 
     if (!isApiPath(incoming.pathname)) return new Response("Not found", { status: 404 });
+
+    const turnstileConfig = handleTurnstileConfig(request, env, incoming);
+    if (turnstileConfig) return turnstileConfig;
+    const challenged = await turnstileGate(request, env, incoming);
+    if (challenged) return challenged;
 
     const joinLinks = handleJoinLinks(request, env, incoming);
     if (joinLinks) return joinLinks;

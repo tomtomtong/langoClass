@@ -23,7 +23,9 @@
     "CMS_API_BASE": "https://newcms.lango.ai",
     // Shared Lango log service (Lango 3.0). Remove LOG_INGEST_URL, or set LOG_ENABLED to "false", to stop sending.
     "LOG_INGEST_URL": "https://log.lango.ai/api/ingest",
-    "LOG_ENVIRONMENT": "production"
+    "LOG_ENVIRONMENT": "production",
+    // Turnstile widget site key (public). Also set the secret: wrangler secret put TURNSTILE_SECRET_KEY
+    "TURNSTILE_SITE_KEY": ""
   },
   "containers": [
     {
