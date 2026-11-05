@@ -31,14 +31,21 @@
   }
 
   function show(loggedIn) {
-    $("#screen-login").classList.toggle("active", !loggedIn);
+    const loginScreen = $("#screen-cms-login");
+    loginScreen.classList.toggle("active", !loggedIn);
+    loginScreen.hidden = loggedIn;
     $("#app-shell").hidden = !loggedIn;
     if (!loggedIn) return;
     const u = state.user || {};
     const name = [u.firstName || u.first_name, u.lastName || u.last_name].filter(Boolean).join(" ") || u.username || "Admin";
     $("#admin-label").textContent = name;
-    $("#admin-name").textContent = name;
+    $("#admin-name").textContent = `Hi, ${name}`;
     $("#admin-school").textContent = u.schoolName || u.school_name || (u.school_id ? `School ${u.school_id}` : "");
+  }
+
+  function go(screen) {
+    document.querySelectorAll(".app-main > .screen").forEach((el) => el.classList.toggle("active", el.id === `screen-${screen}`));
+    document.querySelectorAll(".sidebar-nav .nav-link").forEach((el) => el.classList.toggle("active", el.dataset.nav === screen));
   }
 
   function signOut() {
@@ -88,9 +95,15 @@
   }
 
   $("#btn-login").addEventListener("click", login);
-  $("#login-form").addEventListener("keydown", (e) => {
+  $("#signin-form").addEventListener("keydown", (e) => {
     if (e.key === "Enter") login();
   });
   $("#btn-logout").addEventListener("click", signOut);
+  document.addEventListener("click", (e) => {
+    const nav = e.target.closest("[data-nav]");
+    if (!nav) return;
+    e.preventDefault();
+    go(nav.dataset.nav);
+  });
   restore();
 })();
