@@ -9,6 +9,9 @@
   const PONG_WAIT_MS = 8000;
   const RETRY_MIN_MS = 1000;
   const RETRY_MAX_MS = 10000;
+  // iPad Safari on school wifi can leave a handshake pending forever, with no
+  // open, error or close; give up on it and retry.
+  const CONNECT_TIMEOUT_MS = 8000;
 
   function pinOf(value) {
     const pin = String(value || "").replace(/\D/g, "").slice(0, 6);
@@ -21,6 +24,7 @@
     let connected = false;
     let manual = false;
     let reconnectTimer = null;
+    let connectTimer = null;
     let openedOnce = false;
     let retries = 0;
     let heartbeatTimer = null;
@@ -170,6 +174,7 @@
       manual = false;
       roomId = pin;
       clearTimeout(reconnectTimer);
+      clearTimeout(connectTimer);
       if (ws) {
         ws.onopen = ws.onclose = ws.onerror = ws.onmessage = null;
         try { ws.close(); } catch { /* already closed */ }
@@ -182,8 +187,15 @@
       }
       const url = new URL(`/api/room/${pin}/ws`, window.location.href);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-      ws = new WebSocket(url.toString());
+      const opening = new WebSocket(url.toString());
+      ws = opening;
+      connectTimer = setTimeout(() => {
+        if (ws !== opening || opening.readyState !== WebSocket.CONNECTING) return;
+        fire("connect_error", { message: "Could not connect to class server." });
+        dropSocket();
+      }, CONNECT_TIMEOUT_MS);
       ws.onopen = () => {
+        clearTimeout(connectTimer);
         connected = true;
         retries = 0;
         stopHeartbeat();
@@ -198,6 +210,7 @@
         if (!connected) fire("connect_error", { message: "Could not connect to class server." });
       };
       ws.onclose = () => {
+        clearTimeout(connectTimer);
         ws = null;
         handleClosed();
       };
@@ -264,6 +277,7 @@
       disconnect() {
         manual = true;
         clearTimeout(reconnectTimer);
+        clearTimeout(connectTimer);
         stopHeartbeat();
         connected = false;
         if (ws) ws.close();
