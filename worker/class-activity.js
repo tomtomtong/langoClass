@@ -1,7 +1,8 @@
 // Class activity for log.lango.ai: what changed in a room between two saved
 // states (class opened, started or ended, teacher or a student going on or
-// offline), and the live "classes open now" view grouped by school. Students
-// are named by their school student code, never by name.
+// offline), and the live "classes open now" view grouped by school. Logged
+// events name students by school student code only; the live view, which is
+// read on demand and never stored, also gives their names.
 
 // The parts of a room state that activity is read from.
 export function presenceOf(state) {
@@ -72,7 +73,7 @@ export function liveRoom(state) {
     roster_count: (session.studentList || []).length,
     offline: participants
       .filter((item) => item.online === false)
-      .map((item) => ({ student: studentRef(state, item.userId), since: item.offlineSince || null })),
+      .map((item) => ({ student: studentRef(state, item.userId), name: studentName(state, item), since: item.offlineSince || null })),
     course_name: session.courseName || "",
     activity: state.game ? "quiz" : state.buzz ? "buzz_in" : state.open ? "everyone_answers" : "",
     created_at: session.createdAt || null,
@@ -113,6 +114,12 @@ function roomContext(state) {
     online_count: participants.filter((item) => item.online !== false).length,
     roster_count: (session.studentList || []).length,
   };
+}
+
+// The name the student joined with, else the roster's.
+function studentName(state, participant) {
+  const student = (state?.session?.studentList || []).find((item) => String(item?.id) === String(participant.userId));
+  return String(participant.displayName || student?.fullName || "").trim().slice(0, 40);
 }
 
 // The student code a teacher knows (e.g. STU-0604), else the account id.

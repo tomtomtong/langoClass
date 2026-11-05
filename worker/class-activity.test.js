@@ -95,7 +95,7 @@ test("the live view lists open rooms by school with who is offline", () => {
   assert.equal(live.online_count, 1);
   assert.equal(live.teacher_online, false);
   assert.equal(live.log_session_id, "class-room-123456-1000");
-  assert.deepEqual(live.offline, [{ student: "STU-0605", since: 5000 }]);
+  assert.deepEqual(live.offline, [{ student: "STU-0605", name: "Bo Chan", since: 5000 }]);
 
   const other = { ...live, school_id: "0002", room_id: "654321", online_count: 3 };
   const unknown = { ...live, school_id: "", room_id: "111111", online_count: 0 };
