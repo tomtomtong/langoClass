@@ -25,7 +25,7 @@ function assertCmsImageFileWithinLimit(file) {
   }
 }
 
-function cmsCount(n, oneKey, manyKey) {
+function cmsCountOneMany(n, oneKey, manyKey) {
   return cmsT(n === 1 ? oneKey : manyKey, { n });
 }
 
@@ -3280,7 +3280,7 @@ function renderAssignedClasses() {
   if (statusEl) {
     if (assigned.size) {
       statusEl.hidden = false;
-      statusEl.textContent = cmsCount(
+      statusEl.textContent = cmsCountOneMany(
         assigned.size,
         "cms.details.selectedOne",
         "cms.details.selectedMany"
@@ -3468,7 +3468,7 @@ function renderInsightsSessions(courses) {
   const activeCount = courses.filter((course) => course.started).length;
   if (statusEl) {
     statusEl.textContent = activeCount
-      ? cmsCount(activeCount, "cms.dash.activityOne", "cms.dash.activityMany")
+      ? cmsCountOneMany(activeCount, "cms.dash.activityOne", "cms.dash.activityMany")
       : cmsT("cms.dash.noProgress");
   }
 }
@@ -4090,7 +4090,7 @@ async function loadCommunityCourses() {
     renderCommunityList();
     $("#cms-community-error").textContent = "";
     $("#cms-community-status").textContent = state.communityCourses.length
-      ? cmsCount(state.communityCourses.length, "cms.community.publicOne", "cms.community.publicMany")
+      ? cmsCountOneMany(state.communityCourses.length, "cms.community.publicOne", "cms.community.publicMany")
       : "";
   } catch (err) {
     $("#cms-community-list").innerHTML = "";
@@ -4144,7 +4144,7 @@ function renderCommunityList() {
             ${featured}${owner}
             <span class="badge">${escapeHtml(cmsT("cms.community.addedTimes", { n: course.copyCount || 0 }))}</span>
           </div>
-          <p class="hint">${escapeHtml(course.authorName || cmsT("cms.community.teacher"))} · ${escapeHtml(cmsCount(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}</p>
+          <p class="hint">${escapeHtml(course.authorName || cmsT("cms.community.teacher"))} · ${escapeHtml(cmsCountOneMany(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}</p>
           <div class="card-actions">
             <button type="button" class="btn small cms-community-preview-btn">${escapeHtml(cmsT("cms.community.preview"))}</button>
             <button type="button" class="btn small primary cms-community-add-btn"${copied ? " disabled" : ""}>${escapeHtml(copied ? cmsT("cms.community.inLibrary") : cmsT("cms.community.add"))}</button>
@@ -4188,8 +4188,8 @@ async function openCommunityPreview(listingId) {
     $("#cms-community-preview-meta").textContent = [
       course.authorName || cmsT("cms.community.teacher"),
       communityLangLabel(course.langCode),
-      cmsCount(course.sectionCount || 0, "cms.count.sectionOne", "cms.count.sectionMany"),
-      cmsCount(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"),
+      cmsCountOneMany(course.sectionCount || 0, "cms.count.sectionOne", "cms.count.sectionMany"),
+      cmsCountOneMany(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"),
       course.publishedAt ? cmsT("cms.community.sharedOn", { date: formatCommunityDate(course.publishedAt) }) : "",
     ]
       .filter(Boolean)
@@ -4198,7 +4198,7 @@ async function openCommunityPreview(listingId) {
     $("#cms-community-preview-sections").innerHTML = (course.sections || [])
       .map(
         (section) =>
-          `<li><strong>${escapeHtml(section.title || cmsT("cms.community.sectionFallback"))}</strong> — ${escapeHtml(cmsCount(section.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}${
+          `<li><strong>${escapeHtml(section.title || cmsT("cms.community.sectionFallback"))}</strong> — ${escapeHtml(cmsCountOneMany(section.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}${
             section.types?.length ? ` (${escapeHtml(section.types.join(", "))})` : ""
           }</li>`
       )
@@ -11203,7 +11203,7 @@ function fillSectionOutline(sectionCard, section) {
   const exercises = section.exercises || [];
   if (countEl) {
     countEl.textContent = exercises.length
-      ? cmsCount(exercises.length, "cms.count.exerciseOne", "cms.count.exerciseMany")
+      ? cmsCountOneMany(exercises.length, "cms.count.exerciseOne", "cms.count.exerciseMany")
       : cmsT("cms.sections.noExercises");
   }
   if (durationEl) {
@@ -12355,7 +12355,7 @@ function applyCmsUiLanguage() {
     renderCommunityList();
     const status = $("#cms-community-status");
     if (status && state.communityCourses.length) {
-      status.textContent = cmsCount(
+      status.textContent = cmsCountOneMany(
         state.communityCourses.length,
         "cms.community.publicOne",
         "cms.community.publicMany"
