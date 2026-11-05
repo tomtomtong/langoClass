@@ -19,8 +19,6 @@ export const API_ROUTES = [
   { method: "POST", path: "/api/tts" },
   { method: "POST", path: "/api/stt" },
   { method: "POST", path: "/api/lango/login" },
-  { method: "POST", path: "/api/lango/admin/login" },
-  { method: "GET", path: "/api/lango/admin/me" },
   { method: "GET", path: "/api/lango/classList" },
   { method: "GET", path: "/api/lango/classStudents" },
   { method: "GET", path: "/api/cms/app-context" },
