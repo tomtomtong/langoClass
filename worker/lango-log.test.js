@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { afterEach, beforeEach } from "node:test";
-import { flushLogs, logRuntime, logUsage, noteHost, observeApi, roomEventUsage } from "./lango-log.js";
+import { flushLogs, logClassActivity, logRuntime, logUsage, noteHost, observeApi, roomEventUsage } from "./lango-log.js";
 
 const env = { LOG_INGEST_URL: "https://log.example/api/ingest", LOG_ENVIRONMENT: "production" };
 const realFetch = globalThis.fetch;
@@ -124,4 +124,36 @@ test("events batch in twenties and a failed upload never throws", async () => {
   } finally {
     console.error = quiet;
   }
+});
+
+test("class activity goes to the keyed class ingest with its school, never a name", async () => {
+  const entry = {
+    sessionId: "class-room-123456-1000",
+    schoolId: "abgps",
+    teacherId: "835",
+    code: "student_offline",
+    level: "warn",
+    context: { room_id: "123456", class_id: "62", class_name: "5A", student_code: "STU-0604", online_count: 27, roster_count: 29, student_name: "Ada Lam", end_reason: "nope" },
+  };
+  logClassActivity(env, null, [entry]);
+  await flushLogs();
+  assert.equal(uploads.length, 0, "nothing is sent without the class key");
+
+  const keyed = { ...env, CLASS_LOG_API_KEY: "k".repeat(40) };
+  logClassActivity(keyed, null, [entry]);
+  await flushLogs();
+  assert.equal(uploads.length, 1);
+  assert.equal(uploads[0].url, "https://log.example/api/class-ingest");
+  assert.equal(uploads[0].init.headers.authorization, `Bearer ${"k".repeat(40)}`);
+  const [event] = sent();
+  assert.deepEqual(
+    { session_id: event.session_id, school_id: event.school_id, teacher_id: event.teacher_id, category: event.category, code: event.code, level: event.level },
+    { session_id: "class-room-123456-1000", school_id: "abgps", teacher_id: "835", category: "class", code: "student_offline", level: "warn" }
+  );
+  assert.deepEqual(event.context, { source: "class", room_id: "123456", class_id: "62", class_name: "5A", student_code: "STU-0604", online_count: 27, roster_count: 29 });
+
+  noteHost("localhost");
+  logClassActivity(keyed, null, [entry]);
+  await flushLogs();
+  assert.equal(uploads.length, 1, "local dev never reaches the live log");
 });

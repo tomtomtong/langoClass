@@ -5,6 +5,10 @@
 import { normalizeStudentList } from "./classes.js";
 import { requireTeacher } from "./d1-store.js";
 import { claimRoomId, findStudentRoom, indexStudents, removeRoom, roomSummary } from "./room-index.js";
+import { groupBySchool } from "./class-activity.js";
+
+// Rooms older than this were left open by a teacher who never pressed End.
+const LIVE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 export async function handleRoomApi(request, env, url) {
   if (!env.ROOM || !env.DB) return null;
@@ -15,6 +19,7 @@ export async function handleRoomApi(request, env, url) {
   if (method === "PUT" && pathname === "/api/session/roster") return updateRoster(request, env);
   if (method === "POST" && pathname === "/api/session/end") return endSession(request, env);
   if ((method === "GET" || method === "HEAD") && pathname === "/api/join/lookup") return lookupStudent(env, url);
+  if (method === "GET" && pathname === "/api/class-live") return liveClasses(request, env, url);
   return null;
 }
 
@@ -33,6 +38,7 @@ async function startSession(request, env) {
     await env.ROOM.getByName(roomId).open({
       roomId,
       teacherId: auth.teacherId,
+      schoolId: user.school_id ?? user.schoolId ?? "",
       classItem: { ...classItem, studentList },
       course: course ? { id: course.id, name: course.name || course.title || "", langCode: course.langCode || "" } : null,
       exercise: exercise || null,
@@ -104,6 +110,33 @@ async function lookupStudent(env, url) {
     return json({ ok: false, message: "We found a class session but could not identify your student profile." }, 404);
   }
   return json({ ok: true, ...match });
+}
+
+// Classes open now, by school, for log.lango.ai. Its CLASS_LOG_API_KEY is the
+// only credential; ?school_id= narrows to one school.
+async function liveClasses(request, env, url) {
+  const key = String(env.CLASS_LOG_API_KEY || "").trim();
+  if (!key) return json({ message: "Live classes are not configured." }, 503);
+  const header = request.headers.get("authorization") || "";
+  if (!header.startsWith("Bearer ") || !(await sameKey(header.slice(7).trim(), key))) {
+    return json({ message: "Invalid API key." }, 401);
+  }
+  const school = String(url.searchParams.get("school_id") || "").trim();
+  const { results } = await env.DB.prepare("SELECT room_id FROM open_rooms WHERE created_at >= ? ORDER BY created_at DESC LIMIT 200")
+    .bind(Date.now() - LIVE_MAX_AGE_MS)
+    .all();
+  const rooms = (await Promise.all((results || []).map((row) => env.ROOM.getByName(row.room_id).live().catch(() => null))))
+    .filter((room) => room && (!school || room.school_id === school));
+  return json({ at: new Date().toISOString(), schools: groupBySchool(rooms) });
+}
+
+// Compares digests so the time taken does not depend on where keys differ.
+async function sameKey(a, b) {
+  const digest = async (text) => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+  const [left, right] = await Promise.all([digest(a), digest(b)]);
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) diff |= left[index] ^ right[index];
+  return diff === 0;
 }
 
 async function ownRoom(env, roomId, auth, message) {

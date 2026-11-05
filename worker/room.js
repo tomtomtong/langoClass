@@ -8,7 +8,8 @@ import { speakQuestion } from "./question-tts.js";
 import { createRoomState, emptyRoomState, syncRoomRoster } from "./room-state.js";
 import { queueOpenScores } from "./room-scores.js";
 import { saveScoreBatch } from "./score-store.js";
-import { logRuntime, noteHost, roomEventUsage } from "./lango-log.js";
+import { logClassActivity, logRuntime, noteHost, roomEventUsage } from "./lango-log.js";
+import { activityEntries, liveRoom, presenceOf } from "./class-activity.js";
 
 const SCORE_RETRY_MS = 60 * 1000;
 // A SQLite row in a Durable Object holds at most 2 MB; longer recordings are
@@ -16,6 +17,9 @@ const SCORE_RETRY_MS = 60 * 1000;
 const AUDIO_MAX_CHARS = 1_900_000;
 
 export class RoomDurableObject extends DurableObject {
+  // Last saved presence (class-activity.js); undefined until first read.
+  #presence = undefined;
+
   constructor(ctx, env) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
@@ -74,6 +78,11 @@ export class RoomDurableObject extends DurableObject {
 
   read() {
     return summarize(this.#read());
+  }
+
+  // This room in log.lango.ai's live classes view; null once it has ended.
+  live() {
+    return liveRoom(this.#read());
   }
 
   async fetch(request) {
@@ -417,7 +426,21 @@ export class RoomDurableObject extends DurableObject {
     }
   }
 
+  // Sent in the background to log.lango.ai; never holds up or breaks the class.
+  #logActivity(before, after, state) {
+    try {
+      logClassActivity(this.env, this.ctx, activityEntries(before, after, state));
+    } catch {
+      /* logging must never break a room */
+    }
+  }
+
   #write(state) {
+    // After hibernation the last presence is read back from the saved row.
+    const before = this.#presence !== undefined ? this.#presence : presenceOf(this.#read());
+    const after = presenceOf(state);
+    this.#presence = after;
+    this.#logActivity(before, after, state);
     const body = JSON.stringify(state || emptyRoomState());
     this.ctx.storage.sql.exec(
       "INSERT INTO room (id, body, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at",

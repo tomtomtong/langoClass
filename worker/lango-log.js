@@ -1,7 +1,9 @@
 // Sends diagnostics and feature use to the shared Lango log service
 // (https://log.lango.ai/api/ingest) so class.lango.ai problems show beside the
-// Lango 3.0 app's. That service accepts only a fixed allowlist, so events carry
-// codes and numbers, never room codes, names, messages or request bodies.
+// Lango 3.0 app's. That service accepts only a fixed allowlist: anonymous
+// diagnostics carry codes and numbers, never room codes, names, messages or
+// request bodies. Class room activity (logClassActivity) goes to the keyed
+// /api/class-ingest with its school, room, class and student codes, never names.
 // Best effort: a failure here never touches a request or a live class.
 import { matchApiRoute } from "./api-routes.js";
 import pkg from "../package.json" with { type: "json" };
@@ -42,10 +44,12 @@ const ROOM_USAGE = {
   start_buzzin_round: "class_buzzin_start",
 };
 
-const queue = [];
+// Anonymous diagnostics go to /api/ingest. Class room activity goes to the
+// keyed /api/class-ingest, which alone may name a school (class-activity.js).
+const channel = () => ({ queue: [], flushing: null, backoffUntil: 0 });
+const anonymous = channel();
+const classroom = channel();
 let sessionId = null; // random values are not allowed in global scope; made on first use
-let flushing = null;
-let backoffUntil = 0;
 let localHost = false;
 
 // `wrangler dev` runs on localhost; those runs must not reach the live log.
@@ -100,7 +104,68 @@ function errorName(error) {
 function settings(env) {
   const url = String(env?.LOG_INGEST_URL || "").trim();
   if (!url || localHost || String(env?.LOG_ENABLED || "").toLowerCase() === "false") return null;
-  return { url, environment: String(env?.LOG_ENVIRONMENT || "").toLowerCase() === "uat" ? "uat" : "production" };
+  return { url, headers: {}, environment: String(env?.LOG_ENVIRONMENT || "").toLowerCase() === "uat" ? "uat" : "production" };
+}
+
+function classSettings(env) {
+  const base = settings(env);
+  const key = String(env?.CLASS_LOG_API_KEY || "").trim();
+  if (!base || !key) return null;
+  const url = String(env?.CLASS_LOG_INGEST_URL || "").trim() || base.url.replace(/\/api\/ingest$/, "/api/class-ingest");
+  return { ...base, url, headers: { authorization: `Bearer ${key}` } };
+}
+
+// Room activity from class-activity.js: who is in which class at which
+// school. Students are named by student code only.
+export function logClassActivity(env, ctx, entries) {
+  try {
+    const config = classSettings(env);
+    if (!config || !entries?.length) return;
+    for (const entry of entries) {
+      classroom.queue.push({
+        ...baseEvent(config),
+        session_id: entry.sessionId,
+        level: entry.level,
+        category: "class",
+        code: entry.code,
+        context: cleanClass(entry.context),
+        school_id: entry.schoolId || "",
+        teacher_id: entry.teacherId || "",
+      });
+    }
+    send(classroom, config, ctx, entries.some((entry) => entry.level === "error"));
+  } catch {
+    // Diagnostics must never break a room.
+  }
+}
+
+function cleanClass(context) {
+  const out = { source: "class" };
+  for (const [key, value] of Object.entries(context || {})) {
+    if (key === "room_id" && /^\d{6}$/.test(value)) out[key] = value;
+    else if ((key === "class_id" || key === "student_code") && /^[\w.-]{1,100}$/.test(String(value ?? ""))) out[key] = String(value);
+    else if (key === "class_name" && typeof value === "string" && /^[^\u0000-\u001f\u007f<>]{1,40}$/.test(value.trim())) out[key] = value.trim();
+    else if ((key === "online_count" || key === "roster_count") && Number.isFinite(value) && value >= 0) out[key] = Math.round(value);
+    else if (key === "end_reason" && (value === "teacher" || value === "teacher_offline")) out[key] = value;
+  }
+  return out;
+}
+
+function baseEvent(config) {
+  return {
+    id: crypto.randomUUID(),
+    occurred_at: Date.now(),
+    environment: config.environment,
+    platform: "web",
+    app_version: `class-${pkg.version}`.replace(/[^\w.+-]/g, "_").slice(0, 40),
+  };
+}
+
+function send(target, config, ctx, urgent) {
+  if (target.queue.length > QUEUE_MAX) target.queue.splice(0, target.queue.length - QUEUE_MAX);
+  if (!target.flushing) target.flushing = flush(target, config, urgent ? 0 : FLUSH_DELAY_MS).finally(() => (target.flushing = null));
+  // Every caller extends its own request's life so the upload can finish.
+  ctx?.waitUntil?.(target.flushing);
 }
 
 function clean(context) {
@@ -119,42 +184,37 @@ function record(env, ctx, input) {
   try {
     const config = settings(env);
     if (!config) return;
-    queue.push({
-      id: crypto.randomUUID(),
+    anonymous.queue.push({
+      ...baseEvent(config),
       session_id: (sessionId ||= `class-${crypto.randomUUID()}`),
-      occurred_at: Date.now(),
-      environment: config.environment,
-      platform: "web",
-      app_version: `class-${pkg.version}`.replace(/[^\w.+-]/g, "_").slice(0, 40),
       level: input.level,
       category: input.category,
       code: input.code,
       context: clean(input.context),
     });
-    if (queue.length > QUEUE_MAX) queue.splice(0, queue.length - QUEUE_MAX);
-    if (!flushing) flushing = flush(config, input.level === "error" ? 0 : FLUSH_DELAY_MS).finally(() => (flushing = null));
-    // Every caller extends its own request's life so the upload can finish.
-    ctx?.waitUntil?.(flushing);
+    send(anonymous, config, ctx, input.level === "error");
   } catch {
     // Diagnostics must never break a request.
   }
 }
 
 // Settles when the queue is empty or a send fails. Exported for tests.
-export function flushLogs() {
-  return flushing || Promise.resolve();
+export async function flushLogs() {
+  await Promise.all([anonymous.flushing, classroom.flushing]);
 }
 
-async function flush(config, delayMs) {
+async function flush(target, config, delayMs) {
+  const { queue } = target;
   // Even for errors, wait one tick so events raised together share a batch.
   await new Promise((resolve) => setTimeout(resolve, delayMs));
-  while (queue.length && Date.now() >= backoffUntil) {
+  while (queue.length && Date.now() >= target.backoffUntil) {
     const batch = queue.splice(0, BATCH_MAX);
     try {
-      // No Authorization header: the events are anonymous, like a guest's.
+      // Diagnostics carry no Authorization (anonymous, like a guest's); class
+      // activity carries the shared class key and nothing else.
       const response = await fetch(config.url, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...config.headers },
         body: JSON.stringify({ events: batch }),
         signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       });
@@ -169,12 +229,12 @@ async function flush(config, delayMs) {
       const missed = batch.filter((event) => !accepted.has(event.id));
       if (missed.length) {
         queue.unshift(...missed);
-        backoffUntil = Date.now() + BACKOFF_MS;
+        target.backoffUntil = Date.now() + BACKOFF_MS;
       }
     } catch (error) {
       queue.unshift(...batch);
       if (queue.length > QUEUE_MAX) queue.splice(QUEUE_MAX);
-      backoffUntil = Date.now() + BACKOFF_MS;
+      target.backoffUntil = Date.now() + BACKOFF_MS;
       console.error(JSON.stringify({ message: "lango_log_failed", error: error instanceof Error ? error.message : String(error) }));
     }
   }

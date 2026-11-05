@@ -3,6 +3,7 @@
 export function createRoomState({
   roomId,
   teacherId,
+  schoolId,
   classItem,
   course,
   exercise,
@@ -15,6 +16,7 @@ export function createRoomState({
     session: {
       roomId,
       teacherId: teacherId ?? null,
+      schoolId: text(schoolId).slice(0, 64),
       classId,
       className,
       courseId: course?.id ?? null,

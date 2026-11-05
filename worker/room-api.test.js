@@ -14,6 +14,7 @@ function memoryRooms() {
       return {
         async open(input) {
           rooms.set(roomId, {
+            schoolId: input.schoolId,
             teacherId: input.teacherId,
             className: input.classItem?.name || "",
             status: "waiting",
@@ -30,6 +31,11 @@ function memoryRooms() {
           if (!room) return { ok: false };
           room.studentList = classItem.studentList;
           return { ok: true, studentCount: room.studentList.length };
+        },
+        async live() {
+          const room = rooms.get(roomId);
+          if (!room || room.status === "ended") return null;
+          return { school_id: room.schoolId || "", room_id: roomId, class_name: room.className, online_count: 0, created_at: 1 };
         },
         async close() {
           const room = rooms.get(roomId);
@@ -152,4 +158,28 @@ test("a room code still in use is never handed out twice; an ended one is reused
   const reused = await claimRoomId(env, { teacherId: 835, classId: 63, className: "5B", random: () => 0.5 });
   assert.equal(reused, "550000");
   assert.equal(env.DB.raw.prepare("SELECT class_id FROM open_rooms WHERE room_id = ?").get("550000").class_id, "63");
+});
+
+test("log.lango.ai reads open classes by school with its key, and nobody else can", async () => {
+  const { env, call } = await setup();
+  const opened = {};
+  for (const [school, name] of [["abgps", "5A"], ["abgps", "5B"], ["0002", "Demo"]]) {
+    const started = await call("/api/session/start", { method: "POST", json: { class: { ...CLASS_5A, name }, user: { id: 835, school_id: school } } });
+    opened[name] = (await started.json()).roomId;
+  }
+  await call("/api/session/end", { method: "POST", json: { roomId: opened["5B"] } });
+  const live = (authorization, query = "") => {
+    const url = new URL(`/api/class-live${query}`, "https://class.lango.ai");
+    return handleRoomApi(new Request(url, { headers: authorization ? { authorization } : {} }), env, url);
+  };
+  assert.equal((await live("Bearer some-key")).status, 503, "no key configured");
+  env.CLASS_LOG_API_KEY = "k".repeat(40);
+  assert.equal((await live()).status, 401);
+  assert.equal((await live("Bearer wrong")).status, 401);
+  assert.equal((await call("/api/class-live")).status, 401, "a teacher login is not the key");
+
+  const all = await (await live(`Bearer ${"k".repeat(40)}`)).json();
+  assert.deepEqual(all.schools.map((school) => [school.school_id, school.rooms.map((room) => room.class_name)]), [["0002", ["Demo"]], ["abgps", ["5A"]]]);
+  const one = await (await live(`Bearer ${"k".repeat(40)}`, "?school_id=abgps")).json();
+  assert.deepEqual(one.schools.map((school) => school.school_id), ["abgps"]);
 });
