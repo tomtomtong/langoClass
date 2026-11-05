@@ -1,70 +1,101 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-cms-theme="light" data-cms-text-size="lg">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
-  <title>LangoClass · Admin</title>
+  <title>LangoClassRoom · Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/log.css" />
-  <link rel="stylesheet" href="/admin.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/cms.css" />
+  <link rel="stylesheet" href="/cms-compat.css" />
+  <script>
+    document.documentElement.dataset.cmsTheme = "light";
+    document.documentElement.dataset.cmsTextSize = "lg";
+  </script>
 </head>
-<body>
-  <section id="screen-login" class="screen active" aria-label="Admin sign in">
-    <form class="login-card" id="login-form" onsubmit="return false">
-      <img class="login-logo" src="/assets/login/langoclass_logo.svg" alt="Lango Classroom" />
+<body class="cms-light">
+  <section id="screen-cms-login" class="signin-wrap screen active">
+    <form class="paper signin-card" id="signin-form" onsubmit="return false">
+      <img class="signin-logo" src="/assets/login/langoclass_logo.svg" alt="Lango Classroom" />
       <p class="kicker">School admin</p>
-      <h1>Admin access</h1>
-      <p class="hint">For school administrators. Teachers sign in at the <a href="/cms.html">Course CMS</a>.</p>
-      <label class="field">
-        <span>Username</span>
+      <h1>Manage your school.</h1>
+      <h2>Sign in</h2>
+      <div class="field">
+        <label for="login-username">Username or email</label>
         <input id="login-username" type="text" autocomplete="username" />
-      </label>
-      <label class="field">
-        <span>Password</span>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
         <input id="login-password" type="password" autocomplete="current-password" />
-      </label>
+      </div>
       <p class="error" id="login-error" role="alert"></p>
       <button class="btn primary" type="button" id="btn-login">Login</button>
+      <p class="hint" style="text-align:center;margin-top:0.9rem">Teachers sign in at the <a href="/cms.html" style="color:var(--purple);font-weight:700">Course CMS</a>.</p>
     </form>
   </section>
 
   <div id="app-shell" class="app-shell" hidden>
-    <header class="topbar">
-      <div class="brand">
-        <img src="/assets/login/langoclass_logo.svg" alt="" width="36" height="36" />
-        <div>
-          <strong>Admin</strong>
-          <span id="admin-label">Admin</span>
-        </div>
+    <aside class="sidebar">
+      <a class="brand sidebar-brand" href="#" data-nav="overview">
+        <img class="brand-logo" src="/assets/login/langoclass_logo.svg" alt="Lango Classroom" />
+        <span class="brand-sub">Admin</span>
+      </a>
+      <nav class="sidebar-nav">
+        <p class="kicker sidebar-kicker">Main</p>
+        <button class="nav-link cms-link-nav active" type="button" data-nav="overview">Overview</button>
+        <button class="nav-link cms-link-nav" type="button" data-nav="schools">Schools</button>
+        <button class="nav-link cms-link-nav" type="button" data-nav="teachers">Teachers</button>
+        <button class="nav-link cms-link-nav" type="button" data-nav="assignments">Course assignment</button>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="teacher-chip" id="admin-label">Admin</span>
+        <button class="btn ghost small sidebar-logout" type="button" id="btn-logout">Log out</button>
       </div>
-      <div class="topbar-actions">
-        <a class="btn ghost" href="/cms.html">Course CMS</a>
-        <button class="btn ghost" type="button" id="btn-logout">Log out</button>
-      </div>
-    </header>
+    </aside>
 
-    <main class="admin-main">
-      <section class="admin-card">
-        <p class="kicker">Signed in</p>
-        <h2 id="admin-name">Admin</h2>
-        <p class="hint" id="admin-school"></p>
-      </section>
-      <section class="admin-card">
-        <p class="kicker">Schools</p>
-        <p class="empty">Not connected yet.</p>
-      </section>
-      <section class="admin-card">
-        <p class="kicker">Teachers</p>
-        <p class="empty">Not connected yet.</p>
-      </section>
-      <section class="admin-card">
-        <p class="kicker">Course assignment</p>
-        <p class="empty">Not connected yet.</p>
-      </section>
-    </main>
+    <div class="app-content">
+      <header class="topbar topbar-tools">
+        <div class="topbar-tools">
+          <a class="btn ghost small" href="/cms.html">Course CMS</a>
+        </div>
+      </header>
+
+      <main class="app-main cms-app">
+        <section id="screen-overview" class="screen active">
+          <p class="kicker">Overview</p>
+          <div class="home-hero">
+            <div>
+              <h1 id="admin-name">Hi</h1>
+              <p class="hint" id="admin-school"></p>
+            </div>
+          </div>
+          <div class="dash-grid" id="admin-stats">
+            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Schools</div></article>
+            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Teachers</div></article>
+            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Classes</div></article>
+            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Courses assigned</div></article>
+          </div>
+        </section>
+
+        <section id="screen-schools" class="screen">
+          <div class="screen-head"><div><h2>Schools</h2><p class="hint">Every school you manage.</p></div></div>
+          <div class="paper"><p class="empty">Not connected yet.</p></div>
+        </section>
+
+        <section id="screen-teachers" class="screen">
+          <div class="screen-head"><div><h2>Teachers</h2><p class="hint">Teacher accounts, their classes and activity.</p></div></div>
+          <div class="paper"><p class="empty">Not connected yet.</p></div>
+        </section>
+
+        <section id="screen-assignments" class="screen">
+          <div class="screen-head"><div><h2>Course assignment</h2><p class="hint">Give courses to schools, teachers and classes.</p></div></div>
+          <div class="paper"><p class="empty">Not connected yet.</p></div>
+        </section>
+      </main>
+    </div>
   </div>
 
   <script src="/turnstile.js"></script>
