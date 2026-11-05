@@ -80,11 +80,73 @@ function resetStudentOpenAnswerUi() {
   renderStudentOpenAnswer();
 }
 
+// The marking model sends three lines like "✅ Correctness (70): Mostly right".
+// They are shown as labelled scores; text that does not fit the pattern is
+// shown as it came.
+const OPEN_ANSWER_SCORE_LABELS = {
+  correctness: "openAnswer.scoreCorrectness",
+  completeness: "openAnswer.scoreCompleteness",
+  fluency: "openAnswer.scoreFluency",
+};
+
+function parseOpenAnswerScores(analysis) {
+  const rows = [];
+  for (const line of String(analysis || "").split("\n")) {
+    const match = line.match(/([A-Za-z]+)\s*[(（]\s*(\d{1,3})\s*[)）]\s*[:：]\s*(.*)$/);
+    if (!match || !OPEN_ANSWER_SCORE_LABELS[match[1].toLowerCase()]) continue;
+    const note = match[3].trim();
+    // "Fluency (0): Not assessed" means no score, not a score of zero.
+    const unscored = Number(match[2]) === 0 && /not assessed|未能評估|未能评估/i.test(note);
+    rows.push({
+      metric: match[1].toLowerCase(),
+      key: OPEN_ANSWER_SCORE_LABELS[match[1].toLowerCase()],
+      score: unscored ? null : Math.min(100, Number(match[2])),
+      note,
+    });
+  }
+  return rows;
+}
+
+function renderOpenAnswerScores(list, rows) {
+  list.replaceChildren(
+    ...rows.map((row) => {
+      const item = document.createElement("li");
+      item.className = "openanswer-score";
+      item.dataset.metric = row.metric;
+      const label = document.createElement("span");
+      label.className = "openanswer-score-label";
+      label.textContent = uiT(row.key);
+      const value = document.createElement("span");
+      value.className = "openanswer-score-value";
+      value.textContent = row.score == null ? "—" : String(row.score);
+      item.append(label, value);
+      if (row.score != null) {
+        const bar = document.createElement("span");
+        bar.className = "openanswer-score-bar";
+        bar.setAttribute("role", "img");
+        bar.setAttribute("aria-label", `${uiT(row.key)} ${row.score}/100`);
+        const fill = document.createElement("span");
+        fill.style.width = `${row.score}%`;
+        bar.append(fill);
+        item.append(bar);
+      }
+      if (row.note) {
+        const note = document.createElement("span");
+        note.className = "openanswer-score-note";
+        note.textContent = row.note;
+        item.append(note);
+      }
+      return item;
+    })
+  );
+}
+
 function showStudentOpenAnswerResult(mine) {
   const box = openAnswerEl("result");
   if (!box) return;
   const done = mine && mine.analysisStatus !== "pending";
   box.hidden = !mine;
+  box.closest(".openanswer-card")?.classList.toggle("has-result", Boolean(mine));
   if (!mine) return;
   box.dataset.verdict = done ? mine.answerVerdict || (mine.analysisStatus === "error" ? "error" : "none") : "pending";
   const verdictKey = {
@@ -106,9 +168,16 @@ function showStudentOpenAnswerResult(mine) {
   const feedback = openAnswerEl("feedback");
   feedback.hidden = !(done && mine.spokenFeedback);
   feedback.textContent = mine.spokenFeedback || "";
+
+  const marked = done && mine.analysisStatus === "done" && mine.analysis;
+  const rows = marked ? parseOpenAnswerScores(mine.analysis) : [];
+  const scores = openAnswerEl("scores");
+  scores.hidden = !rows.length;
+  if (rows.length) renderOpenAnswerScores(scores, rows);
+  else scores.replaceChildren();
   const analysis = openAnswerEl("analysis");
-  analysis.hidden = !(done && mine.analysisStatus === "done" && mine.analysis);
-  analysis.textContent = mine.analysis || "";
+  analysis.hidden = !(marked && !rows.length);
+  analysis.textContent = marked && !rows.length ? mine.analysis : "";
 }
 
 function renderStudentOpenAnswer() {

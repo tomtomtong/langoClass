@@ -239,69 +239,206 @@
 }
 
 .openanswer-result {
+  --result-bg: #f4ecfb;
+  --result-ink: #743c9b;
   width: 100%;
-  padding: 18px;
+  padding: 18px 18px 16px;
   border-radius: 24px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: #f4ecfb;
+  gap: 12px;
+  background: var(--result-bg);
   text-align: left;
 }
 
+/* Kids play this, so every outcome is a bright, friendly colour: mint for
+   right, sunshine for nearly, sky blue for "have another go". Nothing red. */
 .openanswer-result[data-verdict="correct"] {
-  background: #e3f7e8;
+  --result-bg: #c9f7e8;
+  --result-ink: #00806f;
 }
 
 .openanswer-result[data-verdict="partial"] {
-  background: #fff3d6;
+  --result-bg: #fff0b3;
+  --result-ink: #9a5a00;
 }
 
 .openanswer-result[data-verdict="incorrect"],
 .openanswer-result[data-verdict="error"] {
-  background: #fde8e8;
+  --result-bg: #dcebff;
+  --result-ink: #2d5fa8;
+}
+
+.openanswer-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .openanswer-verdict {
   margin: 0;
-  font-size: 26px;
+  color: var(--result-ink);
+  font-size: 22px;
   font-weight: 900;
+  line-height: 1.1;
+}
+
+.openanswer-result[data-verdict="pending"] .openanswer-verdict {
+  font-size: 20px;
+  animation: openAnswerChecking 1.4s ease-in-out infinite;
+}
+
+@keyframes openAnswerChecking {
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .openanswer-points {
+  flex: 0 0 auto;
   margin: 0;
-  color: #c47a00;
-  font-size: 20px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #feca57;
+  color: #5c3600;
+  font-size: 16px;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.openanswer-feedback {
+  margin: 0;
+  color: #3b1f55;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.openanswer-scores {
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 2px dotted rgba(59, 31, 85, 0.18);
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.openanswer-score {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  align-items: baseline;
+}
+
+.openanswer-score[data-metric="correctness"] {
+  --metric: #19b88e;
+}
+
+.openanswer-score[data-metric="completeness"] {
+  --metric: #3b9be8;
+}
+
+.openanswer-score[data-metric="fluency"] {
+  --metric: #f2a516;
+}
+
+.openanswer-score-label {
+  color: #3b1f55;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.openanswer-score-value {
+  color: var(--result-ink);
+  font-size: 15px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.openanswer-score-note {
+  grid-column: 1 / -1;
+  color: #5c3a78;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.openanswer-score-bar {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.75);
+  overflow: hidden;
+}
+
+.openanswer-score-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--metric, var(--result-ink));
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .openanswer-said-label {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
+  color: #5c3a78;
   font-size: 13px;
   font-weight: 800;
-  letter-spacing: 0.6px;
-  opacity: 0.7;
-  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
-.openanswer-said,
-.openanswer-feedback,
-.openanswer-analysis {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
+.openanswer-said {
+  margin: -6px 0 0;
+  color: #3b1f55;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-.openanswer-feedback {
-  color: #743c9b;
+.openanswer-analysis {
+  margin: 0;
+  color: #5c3a78;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: pre-line;
 }
 
-.openanswer-analysis {
+.openanswer-score[hidden],
+.openanswer-scores[hidden],
+.openanswer-feedback[hidden],
+.openanswer-points[hidden],
+.openanswer-analysis[hidden] {
+  display: none !important;
+}
+
+/* Once the answer is marked the result is the point: the question shrinks to
+   context and the waiting line moves under the result as a quiet footer. */
+.openanswer-card.has-result .openanswer-topic {
+  font-size: 18px;
+  color: #5c3a78;
+}
+
+.openanswer-card.has-result .openanswer-status {
+  order: 9;
+  color: #6f5a85;
   font-size: 15px;
-  font-weight: 600;
-  white-space: pre-line;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .openanswer-result[data-verdict="pending"] .openanswer-verdict,
+  .openanswer-timer.is-urgent,
+  .openanswer-waveform span {
+    animation: none;
+  }
+
+  .openanswer-score-bar > span {
+    transition: none;
+  }
 }
 
 /* ---------- Host ---------- */
