@@ -242,47 +242,6 @@
       .join("");
   }
 
-  function renderAdminBlock(inProgress, completed, teacherName, classes, coursesLoaded) {
-    const block = document.getElementById("home-admin-block");
-    if (!block) return;
-    block.hidden = false;
-    renderDashStats(document.getElementById("admin-stats"), [
-      { label: "Active teachers", value: "..." },
-      { label: "Hosts this week", value: "..." },
-      { label: "Students reached", value: "..." },
-      { label: "Avg. engagement", value: "..." },
-      {
-        label: "In progress",
-        value: coursesLoaded ? inProgress.length : "...",
-      },
-      {
-        label: "Completed",
-        value: coursesLoaded ? completed.length : "...",
-      },
-    ]);
-    const tbody = document.querySelector("#admin-teachers tbody");
-    if (!tbody) return;
-    const classNames = (classes || []).map((c) => c.name).filter(Boolean);
-    const hasTeacherRow = teacherName || classNames.length;
-    if (!hasTeacherRow) {
-      tbody.innerHTML = `<tr>
-        <td><strong>...</strong></td>
-        <td>...</td>
-        <td>...</td>
-        <td>...</td>
-        <td>...</td>
-      </tr>`;
-      return;
-    }
-    tbody.innerHTML = `<tr>
-      <td><strong>${escapeHtml(teacherName || "...")}</strong></td>
-      <td>${escapeHtml(classNames.length ? classNames.join(", ") : "...")}</td>
-      <td>...</td>
-      <td>...</td>
-      <td>${coursesLoaded ? statDisplay(inProgress.length) : "..."}</td>
-    </tr>`;
-  }
-
   window.loadHomeCourseProgressMap = loadHomeCourseProgressMap;
 
   window.renderCmsHomeWidgets = async function renderCmsHomeWidgets(preloadedProgress) {
@@ -300,7 +259,6 @@
     const inProgress = courses.filter((c) => !isCourseComplete(c, progressMap));
     const completed = courses.filter((c) => isCourseComplete(c, progressMap));
 
-    renderAdminBlock(inProgress, completed, teacherName, classes, true);
 
     const todayEl = document.getElementById("home-today");
     if (todayEl) todayEl.innerHTML = "";
