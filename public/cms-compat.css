@@ -1215,7 +1215,7 @@ body.cms-asset-preview-open {
 }
 
 #app-shell #cms-ai-wizard {
-  max-width: 760px;
+  max-width: none; /* use the whole screen */
   text-align: left;
 }
 
@@ -2142,7 +2142,7 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
 
 #app-shell #screen-cms-edit.is-playlist-open > #cms-tab-sections {
   display: block !important;
-  max-width: 760px;
+  max-width: none; /* use the whole screen */
 }
 
 #app-shell #screen-cms-edit.is-playlist-open > #cms-tab-sections > :not(#cms-exercises-view) {
@@ -2154,7 +2154,7 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
 }
 
 #app-shell #cms-exercises-view.cms-playlist-view {
-  max-width: 760px;
+  max-width: none; /* use the whole screen */
   text-align: left;
 }
 
