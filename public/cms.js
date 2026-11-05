@@ -42,7 +42,7 @@ function aiCourseStepLabels() {
   return [
     cmsT("wiz.step.material"),
     cmsT("wiz.step.outline"),
-    cmsT("wiz.step.check"),
+    cmsT("wiz.step.checkSave"),
     cmsT("wiz.step.finish"),
   ];
 }
@@ -144,10 +144,30 @@ function cmsCount(key, n) {
 function friendlyCourseError(err) {
   const raw = String(err?.message ?? err ?? "");
   console.warn("Course wizard error:", raw);
+  return matchFriendlyCourseError(raw) || cmsT("wiz.err.generic");
+}
+
+// The Stop button cancels whatever the wizard is waiting for.
+function isAbortError(err) {
+  return err?.name === "AbortError";
+}
+
+function startAiAbortable() {
+  state.aiAbort = new AbortController();
+  return state.aiAbort.signal;
+}
+
+// The plain-language text for a known failure, or "" when it is not recognised.
+// Order matters: the more specific messages come before the broad ones.
+function matchFriendlyCourseError(raw) {
   if (/youtube/i.test(raw)) return cmsT("wiz.err.youtube");
   if (/speech|tts|voice/i.test(raw) && /not configured/i.test(raw)) return cmsT("wiz.err.voiceNotReady");
   if (/no sections with material/i.test(raw)) return cmsT("wiz.needSection");
   if (/material text is required|paste text, upload/i.test(raw)) return cmsT("wiz.needMaterial");
+  if (/scanned|image pdf|no readable text/i.test(raw)) return cmsT("wiz.err.scannedPdf");
+  if (/supported formats|unsupported (file|format)|unexpected file/i.test(raw)) return cmsT("wiz.err.badFormat");
+  if (/could not read .*(jpg|photo|heic)|vision ocr|image conversion/i.test(raw)) return cmsT("wiz.err.badImage");
+  if (/returned no speech|no speech/i.test(raw)) return cmsT("wiz.err.noSpeech");
   if (/openrouter|inworld|api key/i.test(raw) && /not configured|missing|configure|invalid/i.test(raw)) {
     return cmsT("wiz.err.aiNotReady");
   }
@@ -155,7 +175,13 @@ function friendlyCourseError(err) {
   if (/too large|max \d+\s*mb|file size|\b413\b/i.test(raw)) return cmsT("wiz.err.tooLarge");
   if (/failed to fetch|networkerror|network request failed|load failed|offline/i.test(raw)) return cmsT("wiz.err.network");
   if (/timed? ?out|timeout|deadline|\b50[34]\b|\b524\b/i.test(raw)) return cmsT("wiz.err.timeout");
-  return cmsT("wiz.err.generic");
+  if (/not valid json|incomplete generation|could not generate exercises|model output/i.test(raw)) {
+    return cmsT("wiz.err.badAnswer");
+  }
+  if (/^(llm|vision) \(/i.test(raw.trim()) || /rate limit|\b429\b|overloaded|provider/i.test(raw)) {
+    return cmsT("wiz.err.aiBusy");
+  }
+  return "";
 }
 
 function formatCmsErrorMessage(message) {
@@ -167,15 +193,19 @@ function formatCmsErrorMessage(message) {
   if (/too large.*2\s*mb/i.test(msg) || /max 2\s*mb/i.test(msg)) {
     return escapeHtml(cmsT("cms.upload.imageTooLarge"));
   }
+  const friendly = matchFriendlyCourseError(msg);
+  const adminLink = (href) => ` <a href="${href}">${escapeHtml(cmsT("wiz.err.adminSettings"))}</a>`;
   if (/openrouter/i.test(msg) && /not configured|api key|missing/i.test(msg)) {
-    return `${escapeHtml(msg)} <a href="/config.html#openrouter">Open OpenRouter settings</a>`;
+    return `${escapeHtml(friendly || msg)}${adminLink("/config.html#openrouter")}`;
   }
   if (/inworld/i.test(msg) && /not configured|api key|missing/i.test(msg)) {
-    return `${escapeHtml(msg)} <a href="/config.html#inworld">Open Inworld settings</a>`;
+    return `${escapeHtml(friendly || msg)}${adminLink("/config.html#inworld")}`;
   }
   if (/video generator|VIDEO_GENERATOR|router api/i.test(msg) && /not configured|missing|url/i.test(msg)) {
-    return `${escapeHtml(msg)} <a href="/config.html#video">Open Router API settings</a>`;
+    return `${escapeHtml(friendly || msg)}${adminLink("/config.html#video")}`;
   }
+  // Raw server wording (English) never reaches teachers when we know what it means.
+  if (friendly) return escapeHtml(friendly);
   return escapeHtml(msg);
 }
 
@@ -1753,8 +1783,36 @@ function initCmsTheme() {
   applyCmsTheme();
 }
 
+const CMS_TEXT_SIZE_KEY = "lango.cms.textSize";
+const CMS_TEXT_SIZES = ["md", "lg", "xl"];
+
+function applyCmsTextSize(size) {
+  const next = CMS_TEXT_SIZES.includes(size) ? size : CMS_TEXT_SIZE_DEFAULT;
+  document.documentElement.dataset.cmsTextSize = next;
+  document.querySelectorAll("[data-text-size]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", String(btn.dataset.textSize === next));
+  });
+  return next;
+}
+
 function initCmsTextSize() {
-  document.documentElement.dataset.cmsTextSize = CMS_TEXT_SIZE_DEFAULT;
+  let saved = "";
+  try {
+    saved = localStorage.getItem(CMS_TEXT_SIZE_KEY) || "";
+  } catch {
+    /* ignore */
+  }
+  applyCmsTextSize(saved);
+  document.querySelectorAll("[data-text-size]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const size = applyCmsTextSize(btn.dataset.textSize);
+      try {
+        localStorage.setItem(CMS_TEXT_SIZE_KEY, size);
+      } catch {
+        /* ignore */
+      }
+    });
+  });
 }
 
 function teacherDisplayName() {
@@ -1780,6 +1838,7 @@ async function api(path, options = {}) {
     method: options.method || "GET",
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    signal: options.signal,
   });
 
   const text = await res.text();
@@ -5850,6 +5909,19 @@ function renderAiPreviewStep() {
   renderMaterialAssetLibrary();
 }
 
+// Full-course drafts only need a separate "Publish" step when a section title is
+// already in the course (the teacher then picks "make new" or "add to existing").
+// Otherwise the Check step can save straight away, so the course flow has 3 steps.
+function aiCourseHasTitleConflicts() {
+  return (state.aiDraftExercises || []).some(
+    (exercise) => exercise.included !== false && existingSectionIndexByTitle(exercise._sectionTitle) >= 0
+  );
+}
+
+function aiCourseSavesFromCheckStep(step = state.aiWizardStep) {
+  return state.aiCourseMode && step === 3 && !aiCourseHasTitleConflicts();
+}
+
 function setAiWizardStep(step) {
   if (state.aiWizardBusy && step !== state.aiWizardStep) return;
   const next = Math.max(1, Math.min(4, Number(step) || 1));
@@ -5872,6 +5944,12 @@ function setAiWizardStep(step) {
     const numEl = btn.querySelector(".cms-ai-step-num");
     if (numEl) numEl.textContent = isDone ? "✓" : String(n);
   });
+  document.querySelectorAll(".cms-ai-step").forEach((btn) => {
+    if (Number(btn.dataset.step) !== 4) return;
+    const wrap = btn.closest(".cms-ai-step-wrap") || btn;
+    wrap.hidden = state.aiCourseMode && next !== 4;
+  });
+  document.querySelector("#cms-ai-wizard .cms-ai-steps")?.classList.toggle("is-three-steps", state.aiCourseMode && next !== 4);
   const kinds = aiActivePanelKinds(next);
   document.querySelectorAll("[data-step-kind]").forEach((panel) => {
     const active = kinds.includes(panel.dataset.stepKind);
@@ -5884,9 +5962,10 @@ function setAiWizardStep(step) {
   const previewReady = hasAiPreviewReady();
   if (back) back.hidden = next === 1;
   if (back) back.disabled = state.aiWizardBusy;
-  if (publish) publish.hidden = next !== 4;
+  const saveFromCheck = aiCourseSavesFromCheckStep(next);
+  if (publish) publish.hidden = !(next === 4 || saveFromCheck);
   if (nextBtn) {
-    nextBtn.hidden = next === 4;
+    nextBtn.hidden = next === 4 || saveFromCheck;
     nextBtn.classList.remove("small");
     if (state.aiCourseMode) {
       if (next === 1) nextBtn.textContent = cmsT("cms.ai.nextBuildOutline");
@@ -6160,9 +6239,11 @@ async function analyzeAiCoursePlan(options = {}) {
 
   if (!options.silentStatus && statusEl) statusEl.textContent = cmsT("wiz.progress.buildingOutline");
   if (options.manageBusy !== false) setAiWizardBusy(true, cmsT("wiz.progress.buildingOutline"));
+  const signal = startAiAbortable();
   try {
     const data = await api("/api/cms/analyze-course-material", {
       method: "POST",
+      signal,
       body: {
         material,
         langCode: settings.langCode,
@@ -6177,7 +6258,7 @@ async function analyzeAiCoursePlan(options = {}) {
     return true;
   } catch (err) {
     statusEl.textContent = "";
-    setCmsError(errorEl, friendlyCourseError(err));
+    setCmsError(errorEl, isAbortError(err) ? cmsT("wiz.stopped") : friendlyCourseError(err));
     return false;
   } finally {
     if (options.manageBusy !== false) setAiWizardBusy(false);
@@ -6214,6 +6295,7 @@ async function generateOneCourseSection(plan, section, settings) {
     try {
       const data = await api("/api/cms/generate-course-from-plan", {
         method: "POST",
+        signal: state.aiAbort?.signal,
         body: {
           plan: { ...plan, sections: [section] },
           langCode: settings.langCode,
@@ -6234,6 +6316,7 @@ async function generateOneCourseSection(plan, section, settings) {
         }
       );
     } catch (err) {
+      if (isAbortError(err)) throw err;
       const message = String(err?.message || err);
       return {
         key: section.key,
@@ -6313,20 +6396,36 @@ async function generateCourseFromPlan(options = {}) {
 
   if (!options.silentStatus && statusEl) statusEl.textContent = cmsT("wiz.status.generating");
   if (options.manageBusy !== false) setAiWizardBusy(true, cmsT("wiz.status.generating"));
+  startAiAbortable();
 
   try {
     state.aiCoursePlan = plan;
     const results = [];
     const failed = [];
+    let stopped = false;
 
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
       const title = section.title || cmsT("wiz.outline.untitled");
+      if (stopped || state.aiAbort?.signal.aborted) {
+        // Stopped by the teacher: keep what is done and offer "try again" for the rest.
+        stopped = true;
+        failed.push({ key: section.key, title, planIndex: i, section, message: "" });
+        continue;
+      }
       const label = cmsT("wiz.status.sectionOf", { i: i + 1, n: sections.length, title });
       setAiGenProgress(Math.round(5 + (i / sections.length) * 85), label);
       if (!options.silentStatus) statusEl.textContent = label;
 
-      const entry = await generateOneCourseSection(plan, section, settings);
+      let entry;
+      try {
+        entry = await generateOneCourseSection(plan, section, settings);
+      } catch (err) {
+        if (!isAbortError(err)) throw err;
+        stopped = true;
+        failed.push({ key: section.key, title, planIndex: i, section, message: "" });
+        continue;
+      }
       if (entry.fatal) throw new Error(entry.message);
       const videos = await makeCourseSectionVideos(entry, i + 1, settings, statusEl);
       const exercises = courseSectionExercises(entry, videos, settings);
@@ -6339,6 +6438,11 @@ async function generateCourseFromPlan(options = {}) {
 
     state.aiCourseResults = results;
     state.aiCourseFailed = failed;
+    if (stopped && !results.length) {
+      statusEl.textContent = "";
+      setCmsError(errorEl, cmsT("wiz.stopped"));
+      return false;
+    }
     if (failed.length === results.length) {
       setCmsError(errorEl, friendlyCourseError({ message: failed[0]?.message }));
       return false;
@@ -6589,6 +6693,11 @@ function selectedAiCourseGroups() {
 }
 
 async function publishAiCourse() {
+  // Saving straight from the Check step: ignore any leftover Publish-step markup.
+  if (aiCourseSavesFromCheckStep()) {
+    const leftover = $("#cms-ai-publish-summary");
+    if (leftover) leftover.innerHTML = "";
+  }
   const errorEl = $("#cms-ai-error");
   const statusEl = $("#cms-ai-generate-status");
   const btn = $("#btn-cms-ai-publish");
@@ -6644,6 +6753,7 @@ async function publishAiCourse() {
     successMessage: cmsT("wiz.publish.saved", { sections: cmsCount("wiz.n.sections", created + appended) }),
   });
   if (!errorEl.textContent) {
+    clearAiDraft();
     showCmsToast(cmsT("wiz.publish.saved", { sections: cmsCount("wiz.n.sections", created + appended) }));
     $("#cms-exercises-status").textContent = cmsT("wiz.publish.saved", { sections: cmsCount("wiz.n.sections", created + appended) });
     void maybeAutoFillCourseDetails();
@@ -7937,6 +8047,7 @@ async function openAiJobResult(job) {
 
 document.addEventListener("click", (event) => {
   if (event.target.closest("#btn-cms-ai-run-background")) runAiGenerationInBackground();
+  if (event.target.closest("#btn-cms-ai-stop")) state.aiAbort?.abort();
 });
 
 window.addEventListener("beforeunload", (event) => {
@@ -8657,6 +8768,93 @@ function openSectionExercises(sectionIndex, options = {}) {
   cmsMotion()?.playCmsTabEnter?.($("#cms-exercises-view"));
 }
 
+// --- Unfinished course draft -------------------------------------------------
+// The wizard keeps its work in memory only, so a refresh or a closed tab used to
+// throw away minutes of AI generation. Save the draft in this browser and offer
+// to continue next time the teacher opens "Build full course".
+const AI_DRAFT_KEY_PREFIX = "lango.cms.aiDraft.";
+const AI_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function aiDraftStorageKey() {
+  if (!state.editingCourse?.id) return "";
+  return `${AI_DRAFT_KEY_PREFIX}${state.user?.id || "0"}.${state.editingCourse.id}`;
+}
+
+function clearAiDraft() {
+  const key = aiDraftStorageKey();
+  if (!key) return;
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+function readAiDraft() {
+  const key = aiDraftStorageKey();
+  if (!key) return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.draft)) return null;
+    if (Date.now() - Number(parsed.savedAt || 0) > AI_DRAFT_MAX_AGE_MS) {
+      clearAiDraft();
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function hasUnsavedAiWork() {
+  return state.aiWizardActive && (hasAiPreviewReady() || !!state.aiCoursePlan?.sections?.length);
+}
+
+function saveAiDraft() {
+  const key = aiDraftStorageKey();
+  if (!key || !state.aiCourseMode || state.aiWizardBusy || !hasUnsavedAiWork()) return;
+  try {
+    if (state.aiWizardStep === 3) collectAiDraftFromDom();
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        v: 1,
+        savedAt: Date.now(),
+        plan: state.aiCoursePlan || null,
+        draft: state.aiDraftExercises || [],
+      })
+    );
+  } catch {
+    /* storage full or unavailable: the draft just is not kept */
+  }
+}
+
+async function offerRestoreAiDraft() {
+  const saved = readAiDraft();
+  if (!saved || !state.aiCourseMode) return;
+  const when = new Date(saved.savedAt).toLocaleString();
+  const keep = await openCmsConfirm({
+    title: cmsT("wiz.draft.title"),
+    body: cmsT("wiz.draft.body", { when }),
+    confirmLabel: cmsT("wiz.draft.continue"),
+    cancelLabel: cmsT("wiz.draft.discard"),
+    danger: false,
+  });
+  if (!keep) {
+    clearAiDraft();
+    return;
+  }
+  state.aiCoursePlan = saved.plan || null;
+  state.aiDraftExercises = saved.draft || [];
+  const hasQuestions = hasAiPreviewReady();
+  if (hasQuestions) state.aiWizardMaxStep = Math.max(state.aiWizardMaxStep || 1, 3);
+  else if (state.aiCoursePlan) state.aiWizardMaxStep = Math.max(state.aiWizardMaxStep || 1, 2);
+  setAiWizardStep(hasQuestions ? 3 : state.aiCoursePlan ? 2 : 1);
+}
+
+setInterval(saveAiDraft, 5000);
+window.addEventListener("pagehide", saveAiDraft);
+
 function openCourseGenerateWorkspace() {
   if (state.aiWizardBusy) return;
   syncSectionsMetadataFromDom();
@@ -8674,6 +8872,7 @@ function openCourseGenerateWorkspace() {
   resetAiGeneratePanel({ openChooser: false });
   state.aiCourseWorkspace = true;
   openAiGeneratePath("course");
+  void offerRestoreAiDraft();
   renderExerciseEditors({ skipReveal: true });
   syncExercisesSaveButton();
   cmsMotion()?.playCmsTabEnter?.($("#cms-exercises-view"));
@@ -11994,8 +12193,20 @@ $("#btn-cms-ai-cancel-generate")?.addEventListener("click", cancelAiCourseGenera
 $("#cms-ai-plan-format-select")?.addEventListener("change", (event) => {
   applyAiTemplate(event.target.value);
 });
-function resetAiWizardOnly() {
+async function resetAiWizardOnly() {
   if (state.aiWizardBusy) return;
+  if (hasUnsavedAiWork()) {
+    if (state.aiWizardStep === 3) collectAiDraftFromDom();
+    const ok = await openCmsConfirm({
+      title: cmsT("wiz.leave.title"),
+      body: cmsT("wiz.leave.body"),
+      confirmLabel: cmsT("wiz.leave.yes"),
+      cancelLabel: cmsT("wiz.leave.no"),
+      danger: true,
+    });
+    if (!ok) return;
+    clearAiDraft();
+  }
   resetAiGeneratePanel({ openChooser: false });
   syncAiIdleUi();
 }

@@ -131,6 +131,13 @@ test("friendlyCourseError turns raw failures into what-to-do-next messages", () 
     ["Video is too large (max 100 MB).", "wiz.err.tooLarge"],
     ["TypeError: Failed to fetch", "wiz.err.network"],
     ["Gateway Timeout 504", "wiz.err.timeout"],
+    ["No readable text found in a.pdf. This looks like a scanned/image PDF — configure OpenRouter to read it.", "wiz.err.scannedPdf"],
+    ["Supported formats: .txt, .md, .pdf, .docx", "wiz.err.badFormat"],
+    ["Could not read photo.heic. Try exporting it as JPG from Photos.", "wiz.err.badImage"],
+    ["STT returned no speech for this video.", "wiz.err.noSpeech"],
+    ["Model output was not valid JSON.", "wiz.err.badAnswer"],
+    ["Incomplete generation: mcquiz: got 1, need 3", "wiz.err.badAnswer"],
+    ["LLM (some/model): upstream failed", "wiz.err.aiBusy"],
     ["Something nobody planned for", "wiz.err.generic"],
   ];
   for (const [raw, expected] of cases) {
