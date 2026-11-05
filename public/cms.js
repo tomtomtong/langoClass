@@ -5277,6 +5277,33 @@ function openQuestionImagePreview(block, prefix = "cms-q") {
   });
 }
 
+let slidesPreviewPlayer = null;
+let slidesPreviewOpener = null;
+
+function openSlidesPreview(exercise, opener = null) {
+  const overlay = $("#cms-slides-preview");
+  const stage = $("#cms-slides-preview-stage");
+  if (!overlay || !stage || typeof LangoSlidesPlayer === "undefined") return;
+  closeSlidesPreview();
+  $("#cms-slides-preview-title").textContent = exercise.title || cmsT("cms.type.slides");
+  overlay.hidden = false;
+  document.body.classList.add("cms-asset-preview-open");
+  slidesPreviewOpener = opener;
+  slidesPreviewPlayer = LangoSlidesPlayer.mount(stage, exercise, {});
+  $("#btn-cms-slides-preview-close")?.focus();
+}
+
+function closeSlidesPreview() {
+  slidesPreviewPlayer?.destroy();
+  slidesPreviewPlayer = null;
+  const overlay = $("#cms-slides-preview");
+  if (!overlay || overlay.hidden) return;
+  overlay.hidden = true;
+  document.body.classList.remove("cms-asset-preview-open");
+  slidesPreviewOpener?.focus?.();
+  slidesPreviewOpener = null;
+}
+
 function closeMaterialAssetPreview() {
   const overlay = $("#cms-asset-preview");
   const img = $("#cms-asset-preview-img");
@@ -10631,6 +10658,7 @@ function renderSlidesBody(container, exercise) {
   const items = (exercise.items?.length ? exercise.items : defaultExercise("slides").items).map(clean);
 
   container.innerHTML = `<div class="cms-slides-voice">
+      <button type="button" class="btn small cms-slides-preview-btn">${escapeHtml(cmsT("wiz.slides.preview"))}</button>
       <label class="cms-slides-voice-toggle">
         <input type="checkbox" class="cms-slides-narrate" />
         <span>${escapeHtml(cmsT("wiz.slides.voice.toggle"))}</span>
@@ -10705,6 +10733,22 @@ function renderSlidesBody(container, exercise) {
     if (narrate && items.some((item) => !item.audioUrl && speechText(item))) void makeVoice();
   });
   makeVoiceBtn.addEventListener("click", () => void makeVoice());
+
+  // Plays what is on screen now (even unsaved edits) the way the host will see it.
+  container.querySelector(".cms-slides-preview-btn").addEventListener("click", (event) => {
+    const slides = container._collectItems();
+    voiceStatus.classList.remove("error");
+    if (!slides.length) {
+      voiceStatus.textContent = cmsT("wiz.slides.previewEmpty");
+      return;
+    }
+    const owner = container.closest(".cms-exercise-card, .cms-ai-edit-card");
+    const title = owner?.querySelector('[data-field="title"], .cms-ai-edit-title')?.value.trim() || exercise.title;
+    openSlidesPreview(
+      { type: "slides", title, items: slides, ...container._collectMeta() },
+      event.currentTarget
+    );
+  });
 
   function syncFromDom() {
     list.querySelectorAll(".cms-slide-block").forEach((block, idx) => {
@@ -11819,6 +11863,13 @@ $("#btn-community-preview-add")?.addEventListener("click", () => {
 });
 $("#btn-community-preview-report")?.addEventListener("click", () => {
   if (state.communityPreviewId) reportCommunityCourse(state.communityPreviewId);
+});
+$("#btn-cms-slides-preview-close")?.addEventListener("click", closeSlidesPreview);
+$("#cms-slides-preview-backdrop")?.addEventListener("click", closeSlidesPreview);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || $("#cms-slides-preview")?.hidden !== false) return;
+  event.preventDefault();
+  closeSlidesPreview();
 });
 $("#btn-cms-asset-preview-close")?.addEventListener("click", closeMaterialAssetPreview);
 $("#cms-asset-preview-backdrop")?.addEventListener("click", closeMaterialAssetPreview);

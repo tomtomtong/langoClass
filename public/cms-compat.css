@@ -3084,3 +3084,21 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
   color: #b92d4f;
   font-weight: 700;
 }
+
+/* Preview of a slides exercise in the editor: the same player the host uses. */
+.cms-slides-preview-dialog {
+  width: min(1040px, 100%);
+}
+
+.cms-slides-preview-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.cms-slides-preview-btn {
+  min-height: 44px;
+}

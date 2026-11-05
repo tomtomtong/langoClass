@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/cms.css" />
   <link rel="stylesheet" href="/cms-compat.css" />
+  <link rel="stylesheet" href="/slides-player.css" />
   <script>
     (function applyCmsThemeEarly() {
       document.documentElement.dataset.cmsTheme = "light";
@@ -885,6 +886,16 @@
       <div class="cms-asset-preview-actions">
         <button type="button" class="btn primary small" id="btn-cms-asset-preview-attach" hidden>Attach to question</button>
       </div>
+    </div>
+  </div>
+
+  <div class="cms-asset-preview cms-slides-preview" id="cms-slides-preview" hidden>
+    <div class="cms-asset-preview-backdrop" id="cms-slides-preview-backdrop"></div>
+    <div class="cms-asset-preview-dialog cms-slides-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="cms-slides-preview-title">
+      <button type="button" class="cms-icon-btn cms-asset-preview-close" id="btn-cms-slides-preview-close" aria-label="Close preview" data-i18n="wiz.slides.previewClose" data-i18n-attr="aria-label">×</button>
+      <p class="cms-asset-preview-title" id="cms-slides-preview-title"></p>
+      <div class="cms-slides-preview-stage" id="cms-slides-preview-stage"></div>
+      <p class="hint" data-i18n="wiz.slides.previewHint">This is how it looks on the teacher's screen. Use the arrows on the keyboard or the buttons to turn the pages.</p>
     </div>
   </div>
 

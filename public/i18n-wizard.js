@@ -271,6 +271,10 @@
     "wiz.n.slides": "{n} slides",
     "wiz.n.slides.one": "1 slide",
     "wiz.err.voiceNotReady": "The voice feature is not switched on yet. Please ask your Lango contact to finish the setup.",
+    "wiz.slides.preview": "Preview the slides",
+    "wiz.slides.previewClose": "Close the preview",
+    "wiz.slides.previewHint": "This is how it looks on the teacher's screen. Use the arrow keys or the buttons to turn the pages.",
+    "wiz.slides.previewEmpty": "Add a slide first, then you can preview it.",
   };
 
   const ZH_TW = {
@@ -525,6 +529,10 @@
     "wiz.n.slides": "{n} 頁",
     "wiz.n.slides.one": "1 頁",
     "wiz.err.voiceNotReady": "配音功能還沒有開啟。請聯絡你的 Lango 負責人完成設定。",
+    "wiz.slides.preview": "預覽簡報",
+    "wiz.slides.previewClose": "關閉預覽",
+    "wiz.slides.previewHint": "這就是老師畫面上的樣子。可用鍵盤方向鍵或按鈕翻頁。",
+    "wiz.slides.previewEmpty": "請先加入一頁簡報，才可以預覽。",
   };
 
   i18n.addMessagesAll({ en: EN, "zh-TW": ZH_TW });

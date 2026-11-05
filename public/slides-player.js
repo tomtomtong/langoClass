@@ -230,11 +230,15 @@
     }
 
     // Slide out (blur and rise), then slide in. A newer change overtakes an older
-    // one, and what finally shows is always the latest state.
+    // one, and what finally shows is always the latest state. The change never
+    // waits on the animation alone: a timer finishes it too, so a page whose
+    // animations are paused (a background tab) cannot get stuck on the old slide.
     function swap(applyState) {
       const id = ++swapId;
+      let done = false;
       const finish = () => {
-        if (destroyed || id !== swapId) return;
+        if (done || destroyed || id !== swapId) return;
+        done = true;
         pending = false;
         applyState();
         enter();
@@ -248,14 +252,14 @@
         finish();
         return;
       }
-      out.finished
-        .then(() => {
-          if (id === swapId) out.cancel();
-          finish();
-        })
-        .catch(() => {
-          /* cancelled by a newer change */
-        });
+      const settle = () => {
+        if (id === swapId) out.cancel();
+        finish();
+      };
+      out.finished.then(settle).catch(() => {
+        /* cancelled by a newer change */
+      });
+      setTimeout(settle, OUT_MS + 250);
     }
 
     function show(target, { revealAll }) {
