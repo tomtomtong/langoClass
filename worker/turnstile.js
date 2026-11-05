@@ -5,6 +5,7 @@ const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverif
 
 const GUARDED = new Set([
   "POST /api/lango/login",
+  "POST /api/lango/admin/login",
   "POST /api/logs/login",
   "GET /api/join/lookup",
 ]);

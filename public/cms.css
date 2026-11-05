@@ -625,12 +625,6 @@ p { margin: 0 0 0.75rem; }
   margin-bottom: 0.2rem;
 }
 .home-block { margin-top: 1.8rem; }
-.admin-block {
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, #faf7fc 0%, var(--paper) 100%);
-}
 .today-strip { display: flex; flex-direction: column; gap: 0.65rem; }
 .today-card {
   padding: 0.85rem 1rem;

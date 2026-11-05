@@ -1,0 +1,14 @@
+.admin-main {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  padding: 1.25rem;
+}
+.admin-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 10px;
+  background: #fff;
+}
+.admin-card h2 { margin: 0.2rem 0 0.4rem; }
+.login-card .hint a { color: inherit; text-decoration: underline; }

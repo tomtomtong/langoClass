@@ -217,3 +217,45 @@ test("dashboard progress needs a class id", async () => {
   const response = await api(handleStoreApi, store, token)("/api/cms/dashboard/progress");
   assert.equal(response.status, 400);
 });
+
+test("admin portal login lets a newcms admin in", async () => {
+  await withCms(
+    { "https://cms.test/api/login": () => Response.json({ token: "t", user: { id: 1, username: "head", role: "admin", schoolId: 3 } }) },
+    async () => {
+      const [request, url] = post("/api/lango/admin/login", { username: "head", password: "pw" });
+      const response = await handleStoreApi(request, env(), url);
+      const body = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(body.token, "t");
+      assert.equal(body.user.school_id, 3);
+    }
+  );
+});
+
+test("admin portal login refuses a teacher and returns no token", async () => {
+  await withCms(
+    { "https://cms.test/api/login": () => Response.json({ token: "t", user: { id: 2, role: "teacher" } }) },
+    async () => {
+      const [request, url] = post("/api/lango/admin/login", { username: "ms.chan", password: "pw" });
+      const response = await handleStoreApi(request, env(), url);
+      const body = await response.json();
+      assert.equal(response.status, 403);
+      assert.equal(body.token, undefined);
+    }
+  );
+});
+
+test("admin session check needs a token and the admin role", async () => {
+  await withCms(
+    { "https://cms.test/api/me": (init) => Response.json({ user: { id: 2, role: String(init.headers.Authorization).includes("boss") ? "admin" : "teacher" } }) },
+    async () => {
+      const url = new URL("/api/lango/admin/me", "https://class.lango.ai");
+      const bare = await handleStoreApi(new Request(url), env(), url);
+      assert.equal(bare.status, 401);
+      const teacher = await handleStoreApi(new Request(url, { headers: { authorization: "Bearer tch" } }), env(), url);
+      assert.equal(teacher.status, 403);
+      const admin = await handleStoreApi(new Request(url, { headers: { authorization: "Bearer boss" } }), env(), url);
+      assert.equal(admin.status, 200);
+    }
+  );
+});
