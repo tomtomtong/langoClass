@@ -206,6 +206,7 @@
     try {
       const data = await api("/api/logs/login", {
         method: "POST",
+        headers: await window.LangoTurnstile?.headers?.(),
         body: JSON.stringify({ username, password }),
       });
       state.token = data.token;

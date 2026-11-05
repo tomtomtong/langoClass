@@ -3022,6 +3022,7 @@ async function handleLogin() {
   try {
     const data = await api("/api/lango/login", {
       method: "POST",
+      headers: await window.LangoTurnstile?.headers?.(),
       body: { login: username, username, password, ...(schoolCode ? { school_id: schoolCode } : {}) },
     });
     const token = data.token || data.user?.token;

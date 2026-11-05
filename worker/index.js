@@ -8,11 +8,15 @@ import { serveUpload, uploadKey } from "./uploads.js";
 import { handleMaterialApi } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
+import { accessGate } from "./access.js";
+import { handleTurnstileConfig, turnstileGate } from "./turnstile.js";
 import { logRuntime, noteHost, observeApi } from "./lango-log.js";
 
 export { RoomDurableObject } from "./room.js";
 export { MediaContainer } from "./media-container.js";
 export { VideoContainer } from "./video-container.js";
+
+const ADMIN_PAGES = new Set(["/log.html", "/config.html"]);
 
 const PAGE_REDIRECTS = new Map([
   ["/", "/host.html"],
@@ -23,6 +27,10 @@ const PAGE_REDIRECTS = new Map([
 const app = {
   async fetch(request, env, ctx) {
     const incoming = new URL(request.url);
+    const denied = await accessGate(request, env, incoming);
+    if (denied) return denied;
+    // run_worker_first sends these pages here only so Access can be checked.
+    if (ADMIN_PAGES.has(incoming.pathname) && env.ASSETS) return env.ASSETS.fetch(request);
     if (request.method === "GET" || request.method === "HEAD") {
       const destination = PAGE_REDIRECTS.get(incoming.pathname);
       if (destination) {
@@ -86,6 +94,11 @@ const app = {
     }
 
     if (!isApiPath(incoming.pathname)) return new Response("Not found", { status: 404 });
+
+    const turnstileConfig = handleTurnstileConfig(request, env, incoming);
+    if (turnstileConfig) return turnstileConfig;
+    const challenged = await turnstileGate(request, env, incoming);
+    if (challenged) return challenged;
 
     const joinLinks = handleJoinLinks(request, env, incoming);
     if (joinLinks) return joinLinks;

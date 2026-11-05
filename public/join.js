@@ -639,7 +639,7 @@ function initRoomNameForm(roomId) {
 async function lookupOpenRoomForStudent(studentId) {
   const res = await fetch(
     `/api/join/lookup?studentId=${encodeURIComponent(String(studentId || "").trim())}`,
-    { headers: { Accept: "application/json" } }
+    { headers: { Accept: "application/json", ...(await window.LangoTurnstile?.headers?.()) } }
   );
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data?.ok || !data.roomId) {
