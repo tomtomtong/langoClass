@@ -25,11 +25,7 @@
     "LOG_INGEST_URL": "https://log.lango.ai/api/ingest",
     "LOG_ENVIRONMENT": "production",
     // Turnstile widget site key (public). Also set the secret: wrangler secret put TURNSTILE_SECRET_KEY
-    "TURNSTILE_SITE_KEY": "",
-    // Cloudflare Access for /log.html, /config.html, /api/logs*, /api/config*.
-    // e.g. "lango.cloudflareaccess.com" and the Access application's AUD tag.
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    "TURNSTILE_SITE_KEY": ""
   },
   "containers": [
     {
@@ -80,7 +76,7 @@
     "directory": "./public",
     "binding": "ASSETS",
     "html_handling": "none",
-    "run_worker_first": ["/api/*", "/uploads/*", "/log.html", "/config.html"]
+    "run_worker_first": ["/api/*", "/uploads/*"]
   },
   "routes": [
     {
