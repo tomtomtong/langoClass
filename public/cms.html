@@ -72,6 +72,11 @@
               <a href="/host.html?preview=1" target="_blank" rel="noopener" data-i18n="cms.nav.hostPreview">Host preview</a>
             </div>
           </div>
+          <div class="cms-textsize" role="group" aria-label="Text size" data-i18n-attr="aria-label" data-i18n="cms.nav.textSize">
+            <button type="button" class="cms-textsize-btn" data-text-size="md" aria-pressed="false" aria-label="A">A</button>
+            <button type="button" class="cms-textsize-btn cms-textsize-btn--lg" data-text-size="lg" aria-pressed="false" aria-label="A+">A+</button>
+            <button type="button" class="cms-textsize-btn cms-textsize-btn--xl" data-text-size="xl" aria-pressed="false" aria-label="A++">A++</button>
+          </div>
           <a class="btn ghost small" href="/config.html" data-i18n="cms.nav.notifications">Notifications</a>
           <div class="cms-language menu" id="cms-ui-language">
             <button type="button" class="btn ghost small cms-language-trigger" id="btn-cms-ui-language" aria-haspopup="listbox" aria-expanded="false" aria-controls="cms-ui-language-menu">
@@ -766,6 +771,7 @@
                   <p class="hint cms-ai-gen-progress-detail" id="cms-ai-gen-progress-detail" hidden></p>
                   <p class="cms-ai-gen-progress-eta" id="cms-ai-gen-progress-eta" hidden></p>
                 </div>
+                <button type="button" class="btn ghost small cms-ai-stop" id="btn-cms-ai-stop" data-i18n="wiz.stop">Stop</button>
                 <div class="cms-ai-gen-progress-bg" id="cms-ai-gen-progress-bg" hidden>
                   <button type="button" class="btn secondary small" id="btn-cms-ai-run-background" data-i18n="wiz.bg.button">Keep working while this runs</button>
                   <p class="hint" data-i18n="wiz.bg.hint">Making your questions carries on in the background. Progress shows at the bottom right. Please do not refresh or close this page.</p>

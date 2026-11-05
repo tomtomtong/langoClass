@@ -3102,3 +3102,74 @@ body.cms-light #app-shell #cms-ai-wizard .cms-ai-wizard-nav .cms-wizard-nav-btn.
 .cms-slides-preview-btn {
   min-height: 44px;
 }
+
+/* ---------------------------------------------------------------------------
+ * Large, easy-to-hit controls for teachers who are not used to computers.
+ * Text size is chosen with the A / A+ / A++ buttons in the top bar (default A+).
+ * ------------------------------------------------------------------------- */
+html[data-cms-text-size="md"] { font-size: 100%; }
+html[data-cms-text-size="lg"] { font-size: 112.5%; }
+html[data-cms-text-size="xl"] { font-size: 125%; }
+html[data-cms-text-size] body { font-size: 1rem; }
+
+/* Nothing a teacher has to read should be tiny, and grey hints must stay legible. */
+#app-shell .hint,
+#app-shell .error { font-size: 0.92rem; }
+#app-shell .hint { color: #52425f; }
+#app-shell .field label,
+#app-shell .field-label { font-size: 0.92rem; }
+#app-shell .btn.small { font-size: 0.92rem; min-height: 44px; padding: 0.4rem 0.9rem; }
+#app-shell #cms-ai-wizard .cms-ai-step-name { font-size: 0.9rem; color: var(--ink); }
+#app-shell #cms-tab-sections .cms-section-cover-label,
+#app-shell #cms-tab-sections .cms-section-cover-hint,
+#app-shell #cms-tab-sections .cms-section-meta-pill { font-size: 0.9rem; }
+
+/* Every button, link-button and form control is at least 44px tall. */
+#app-shell .btn,
+#app-shell select,
+#app-shell input[type="text"],
+#app-shell input[type="search"],
+#app-shell input[type="url"],
+#app-shell input[type="email"],
+#app-shell input[type="password"] { min-height: 44px; }
+
+/* The little "‹ ›" arrows that reorder question types were 22px wide. */
+#app-shell #cms-ai-wizard .cms-ai-type-move { gap: 0.35rem; }
+#app-shell #cms-ai-wizard .cms-ai-type-move-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 1.2rem;
+}
+
+/* A / A+ / A++ switch */
+.cms-textsize { display: inline-flex; gap: 0.25rem; align-items: center; }
+.cms-textsize-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 0.55rem;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--purple);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.cms-textsize-btn--lg { font-size: 1.15rem; }
+.cms-textsize-btn--xl { font-size: 1.3rem; }
+.cms-textsize-btn[aria-pressed="true"] {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+}
+.cms-textsize-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* Keep the background-job tray clear of the "Ask Lango" button on small screens. */
+@media (max-width: 720px) {
+  .cms-ai-job-tray { bottom: 5.5rem; }
+}
+
+/* Full-course flow: three steps (Material, Outline, Check & save). */
+#app-shell #cms-ai-wizard .cms-ai-step-wrap[hidden] { display: none; }
+#app-shell #cms-ai-wizard .cms-ai-steps.is-three-steps .cms-ai-step-wrap:nth-child(3) { flex: 0 0 auto; }
