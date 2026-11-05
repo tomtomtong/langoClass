@@ -15337,6 +15337,69 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
     0 3px 1.5px rgba(0, 0, 0, 0.25);
 }
 
+/* Course picker polish: aligned buttons, friendly empty thumbs, whole-card click */
+#app.lango-host .course-pick-card {
+  height: 500px;
+  cursor: pointer;
+}
+
+#app.lango-host .course-pick-card:focus-visible {
+  outline: 5px solid #fff;
+  outline-offset: 4px;
+}
+
+#app.lango-host .course-pick-card-inner {
+  flex: 1;
+  min-height: 0;
+}
+
+#app.lango-host .course-pick-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+#app.lango-host .course-pick-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#app.lango-host .course-pick-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Class name is already shown in the top-right chip; don't repeat it on every card */
+#app.lango-host .course-pick-card .course-pick-level {
+  display: none;
+}
+
+#app.lango-host .course-pick-card .course-pick-select {
+  margin-top: auto;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+#app.lango-host .course-pick-thumb--empty {
+  position: relative;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M32 14C26 10 16 9 8 11v35c8-2 18-1 24 3 6-4 16-5 24-3V11c-8-2-18-1-24 3z'/%3E%3Cpath d='M32 14v35'/%3E%3C/svg%3E")
+      center / 84px no-repeat,
+    linear-gradient(135deg, #d184ff 0%, #ff91c7 100%);
+}
+
+/* Soft fade at the bottom hints that more courses scroll into view */
+#app.lango-host .course-grid-scroll {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
+  padding-top: 14px;
+  padding-bottom: 36px;
+}
+
 #app.lango-host .course-status,
 #app.lango-host .course-error {
   position: absolute;

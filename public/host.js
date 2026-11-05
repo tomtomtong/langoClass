@@ -2137,11 +2137,21 @@ function renderCourseGrid(container, courses, { selectedId, onSelect }) {
     .map((course, index) => renderCourseCard(course, { selectedId, index }))
     .join("");
 
-  container.querySelectorAll(".course-pick-select").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
+  // Whole card is the click target; the Select button stays as the visible affordance.
+  container.querySelectorAll(".course-pick-card").forEach((card) => {
+    const pick = () => {
       playPageNextSound();
-      onSelect(Number(btn.dataset.id));
+      onSelect(Number(card.dataset.id));
+    };
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.addEventListener("click", pick);
+    card.addEventListener("keydown", (e) => {
+      if (e.target !== card) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        pick();
+      }
     });
   });
 }
