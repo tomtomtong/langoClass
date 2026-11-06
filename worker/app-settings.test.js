@@ -146,3 +146,17 @@ test("clearing the student database empties both score stores", async () => {
   assert.deepEqual(body.studentDatabase, { studentCount: 0, recordCount: 0 });
   assert.equal(env.DB.raw.prepare("SELECT count(*) AS n FROM score_records").get().n, 0);
 });
+
+test("settings are for admins: a school admin passes, a teacher is refused", async () => {
+  const { env } = await setup();
+  const url = new URL("https://class.lango.ai/api/config");
+  const asRole = (role) =>
+    withFetch(
+      () => Response.json({ user: { id: 7, role } }),
+      () => handleConfigApi(new Request(url, { headers: { authorization: "Bearer t" } }), env, url)
+    );
+  assert.equal((await asRole("admin")).status, 200);
+  assert.equal((await asRole("teacher")).status, 403);
+  const anonymous = await handleConfigApi(new Request(url), env, url);
+  assert.equal(anonymous.status, 401);
+});

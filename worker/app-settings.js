@@ -5,7 +5,9 @@
 // the Worker itself has a key secret.
 import { completeText, speak, speechProvider, transcribe } from "./ai.js";
 import { writeLog } from "./app-logs.js";
-import { json, readDoc, readJson, requireTeacher, writeDoc } from "./d1-store.js";
+import { json, readDoc, readJson, writeDoc } from "./d1-store.js";
+import { developerAuth } from "./dev-account.js";
+import { requireAdmin } from "./lango-api.js";
 
 const DOC = "app-settings";
 const CACHE_MS = 10000;
@@ -89,7 +91,11 @@ export async function handleConfigApi(request, env, url) {
   if (!env.DB) return null;
   const method = request.method.toUpperCase();
 
-  if (pathname === "/api/config" && method === "GET") return json(await configResponse(env));
+  if (pathname === "/api/config" && method === "GET") {
+    const auth = await requireConfigAdmin(request, env);
+    if (auth instanceof Response) return auth;
+    return json(await configResponse(env));
+  }
   if (pathname === "/api/config" && method === "PUT") return saveConfig(request, env);
   if (method !== "POST") return null;
 
@@ -102,7 +108,7 @@ export async function handleConfigApi(request, env, url) {
     "/api/config/clear-student-database": clearStudentDatabase,
   }[pathname];
   if (!test) return null;
-  const auth = await requireTeacher(request, env);
+  const auth = await requireConfigAdmin(request, env);
   if (auth instanceof Response) return auth;
   return test(request, env, auth);
 }
@@ -114,8 +120,18 @@ async function savedSettings(env) {
   return settings;
 }
 
+// Settings are school-admin only (admin.html → Settings). The developer account stays
+// allowed so local work and tests keep running.
+async function requireConfigAdmin(request, env) {
+  const dev = await developerAuth(request);
+  if (dev) return dev;
+  const admin = await requireAdmin(request, env);
+  if (admin.response) return admin.response;
+  return { token: admin.token, teacherId: admin.user.id };
+}
+
 async function saveConfig(request, env) {
-  const auth = await requireTeacher(request, env);
+  const auth = await requireConfigAdmin(request, env);
   if (auth instanceof Response) return auth;
   const body = await readJson(request);
   const updates = {};

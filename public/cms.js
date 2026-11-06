@@ -187,13 +187,13 @@ function formatCmsErrorMessage(message) {
   const friendly = matchFriendlyCourseError(msg);
   const adminLink = (href) => ` <a href="${href}">${escapeHtml(cmsT("wiz.err.adminSettings"))}</a>`;
   if (/openrouter/i.test(msg) && /not configured|api key|missing/i.test(msg)) {
-    return `${escapeHtml(friendly || msg)}${adminLink("/config.html#openrouter")}`;
+    return `${escapeHtml(friendly || msg)}${adminLink("/admin.html#openrouter")}`;
   }
   if (/inworld/i.test(msg) && /not configured|api key|missing/i.test(msg)) {
-    return `${escapeHtml(friendly || msg)}${adminLink("/config.html#inworld")}`;
+    return `${escapeHtml(friendly || msg)}${adminLink("/admin.html#inworld")}`;
   }
   if (/video generator|VIDEO_GENERATOR|router api/i.test(msg) && /not configured|missing|url/i.test(msg)) {
-    return `${escapeHtml(friendly || msg)}${adminLink("/config.html#video")}`;
+    return `${escapeHtml(friendly || msg)}${adminLink("/admin.html#video")}`;
   }
   // Raw server wording (English) never reaches teachers when we know what it means.
   if (friendly) return escapeHtml(friendly);

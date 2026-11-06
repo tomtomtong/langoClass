@@ -534,7 +534,7 @@ fi)
  Next steps:
    1. Edit ${APP_DIR}/${ENV_FILE_NAME} with your PUBLIC_BASE_URL and API keys
    2. Restart: sudo systemctl restart ${APP_NAME}
-   3. Open ${access_url}/config.html to finish setup in the browser
+   3. Open ${access_url}/admin.html (Settings) to finish setup in the browser
 ================================================================================
 
 EOF
