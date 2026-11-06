@@ -1,0 +1,275 @@
+/**
+ * HK elderly v2 — loaded after elderly.css (host.html, join.html).
+ * Community-centre noticeboard: calm deep-teal stage, warm paper cards,
+ * very large type on the projector, shape + letter + colour per answer.
+ * Delete this file (and its <link>) to return to the v1 look.
+ */
+
+html:has(body.hk-elderly) {
+  /* Stage + brand: replaces the Kahoot purple */
+  --kahoot-purple: #0f4c5c;
+  --kahoot-purple-deep: #082f3a;
+  --kahoot-text: #1d1b16;
+  --kahoot-surface: #f7f1e3;
+
+  /* Answer colours: each ≥7:1 against white text, also told apart by shape + letter */
+  --kahoot-red: #a4161a;
+  --kahoot-blue: #1c4e9b;
+  --kahoot-yellow: #7a4f00;
+  --kahoot-green: #17623a;
+
+  --hk-text: #1d1b16;
+  --hk-muted: #4a4538;
+  --hk-paper: #f7f1e3;
+  --hk-card: #fffaf0;
+  --hk-surface-soft: #efe6cf;
+  --hk-border: #cfc3a4;
+  --hk-highlight: #f2c14e;
+  --hk-error: #a4161a;
+  --hk-shadow: 0 8px 24px rgba(8, 47, 58, 0.16);
+  --hk-shadow-hover: 0 12px 28px rgba(8, 47, 58, 0.22);
+  --hk-touch: 64px;
+  --hk-font: "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", sans-serif;
+
+  --hk-kahoot-bg-base: linear-gradient(170deg, #082f3a 0%, #0c3f4c 60%, #0f4c5c 100%);
+  --hk-kahoot-bg-glow: none;
+
+  /* Projector sizes: the question is the star */
+  --hk-host-title: clamp(1.75rem, 2vw + 0.6vh, 2.75rem);
+  --hk-host-question: clamp(2.5rem, 3.4vw + 1vh, 5rem);
+  --hk-host-letter: clamp(2.5rem, 3vw + 1vh, 4.5rem);
+  --hk-host-option-copy: clamp(1.9rem, 2.5vw + 0.8vh, 3.4rem);
+  --hk-host-options-min: min(42dvh, 440px);
+  --hk-host-options-max: min(50dvh, 560px);
+  --hk-host-question-box-max: min(38dvh, 420px);
+  --hk-host-question-box-max-image: min(46dvh, 520px);
+}
+
+body.hk-elderly {
+  font-size: 1.35rem;
+  background-image: var(--hk-kahoot-bg-base);
+}
+
+body.hk-elderly::before {
+  display: none;
+}
+
+/* ── Buttons & inputs: bigger targets ── */
+body.hk-elderly .btn {
+  font-size: 1.5rem;
+  padding: 1.05rem 1.75rem;
+  border-radius: 16px;
+}
+
+body.hk-elderly .field input,
+body.hk-elderly input[type="text"],
+body.hk-elderly input[type="password"] {
+  font-size: 1.5rem;
+  min-height: var(--hk-touch);
+  border-width: 3px;
+}
+
+/* ── Host question: huge text, one clear stage ── */
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-container,
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-container {
+  width: min(96vw, 1760px);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-question-box,
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-result-question-box {
+  border: 0;
+  border-radius: 28px;
+  background: var(--hk-card);
+  box-shadow: var(--hk-shadow);
+  padding: clamp(2.25rem, 5dvh, 3.5rem) clamp(1.5rem, 3vw, 3rem);
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-question,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-question,
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-question {
+  font-weight: 900;
+  line-height: 1.25;
+  color: var(--hk-text);
+  text-wrap: balance;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-title,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-title,
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-title {
+  font-weight: 700;
+  color: #f7f1e3;
+  text-shadow: none;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-points,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-points,
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-points {
+  background: var(--hk-surface-soft);
+  color: var(--hk-text);
+  font-size: clamp(1.1rem, 1.3vw, 1.6rem);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-progress {
+  height: 14px;
+  background: rgba(247, 241, 227, 0.2);
+  border-radius: 999px;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-progress > div {
+  background: var(--hk-highlight);
+  border-radius: 999px;
+}
+
+/* ── Answers: letter badge + large copy, soft shadow ── */
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option {
+  border: 0;
+  border-radius: 24px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  padding: clamp(0.75rem, 1.6dvh, 1.5rem) clamp(1rem, 2vw, 2rem);
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option .label,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option .label {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: clamp(1rem, 2vw, 2rem);
+  text-align: left;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option-index,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option-index {
+  flex: 0 0 auto;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  background: #fffaf0;
+  color: var(--hk-text);
+  filter: none;
+  font-size: var(--hk-host-letter);
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-options.options-kahoot-grid .option-copy,
+body.hk-elderly #screen-host-quiz-preview .host-mcq-preview-options.options-kahoot-grid .option-copy {
+  flex: 1 1 auto;
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: left;
+  -webkit-line-clamp: 3;
+}
+
+/* ── Phone/tablet answer buttons ── */
+body.join-page.hk-elderly #screen-player-question .player-mcq-backdrop,
+body.join-page.hk-elderly #screen-player-results .player-mcq-result-backdrop,
+body.join-page.hk-elderly #screen-player-finished .player-leaderboard__backdrop {
+  background: var(--hk-kahoot-bg-base);
+}
+
+body.join-page.hk-elderly #screen-player-question .options-grid.player-options {
+  max-width: 560px;
+  gap: 18px;
+}
+
+body.join-page.hk-elderly #screen-player-question .option.player-btn {
+  min-height: clamp(120px, 26vh, 190px);
+  border-radius: 24px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+}
+
+body.join-page.hk-elderly #screen-player-question .option-shape {
+  font-size: clamp(3.5rem, 14vw, 5.5rem);
+}
+
+body.join-page.hk-elderly #screen-player-question:not(.is-previewing) .player-mcq-options-wrap::before {
+  font-size: clamp(1.4rem, 5vw, 1.9rem);
+  font-weight: 800;
+  text-shadow: none;
+}
+
+body.join-page.hk-elderly #screen-player-question .option.player-btn:focus-visible {
+  outline: 5px solid var(--hk-highlight);
+  outline-offset: 4px;
+}
+
+
+/* ── Undo base host caps (style.css) that assume a 800px stage ── */
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-main {
+  width: min(1560px, 100%);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-options .option {
+  max-height: none;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-question,
+body.hk-elderly #app.lango-host #screen-host-quiz-question:not(.fast-mode).has-image .host-mcq-question {
+  max-height: none;
+}
+
+/* Host stage: style.css paints navy on body:has(#app.lango-host) */
+body.hk-elderly:has(#app.lango-host) {
+  background-color: #082f3a;
+  background-image: var(--hk-kahoot-bg-base);
+}
+
+/* ── Join card: paper card + teal action, same family as the host login ── */
+body.join-page.hk-elderly #screen-join.active {
+  border: 0;
+  border-radius: 32px;
+  background: var(--hk-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  padding-top: 132px;
+}
+
+body.join-page.hk-elderly #screen-join h2 {
+  color: var(--hk-text);
+  text-shadow: none;
+  font-size: clamp(2rem, 7vw, 2.6rem);
+}
+
+body.join-page.hk-elderly #screen-join .connection-status,
+body.join-page.hk-elderly #screen-join .field span {
+  color: var(--hk-muted);
+  text-shadow: none;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+body.join-page.hk-elderly #screen-join .connection-status.err,
+body.join-page.hk-elderly #screen-join .error {
+  color: var(--hk-error);
+  text-shadow: none;
+}
+
+body.join-page.hk-elderly #screen-join .field input {
+  color: var(--hk-text);
+  border: 3px solid var(--hk-border);
+  border-radius: 18px;
+  box-shadow: none;
+  font-size: 1.6rem;
+  min-height: var(--hk-touch);
+}
+
+body.join-page.hk-elderly #screen-join .field input::placeholder {
+  color: #6b6553;
+}
+
+body.join-page.hk-elderly #screen-join .field input:focus {
+  border-color: var(--hk-accent);
+  box-shadow: 0 0 0 4px rgba(15, 76, 92, 0.25);
+}
+
+body.join-page.hk-elderly #screen-join .btn.primary {
+  background: var(--hk-accent);
+  color: #fff;
+  border: 0;
+  min-height: 72px;
+  font-size: 1.7rem;
+  box-shadow: none;
+}
+
+body.join-page.hk-elderly #screen-join .btn.primary:disabled {
+  background: #8a9a9d;
+}

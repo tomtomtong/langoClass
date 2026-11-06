@@ -51,18 +51,8 @@ const AI_COURSE_STEP_KINDS = ["material", "plan", "review", "publish"];
 
 const CMS_FALLBACK_SPEAK_LANGUAGES = [
   { code: "en", label: "English" },
-  { code: "yue", label: "Cantonese" },
-  { code: "zh", label: "Chinese (Traditional)" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "es-ES", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "vi", label: "Vietnamese" },
-  { code: "id", label: "Indonesian" },
-  { code: "pt-BR", label: "Portuguese (Brazil)" },
-  { code: "hi", label: "Hindi" },
-  { code: "ar-SA", label: "Arabic" },
+  { code: "yue", label: "Cantonese (粵語)" },
+  { code: "zh", label: "Mandarin (普通話, Traditional Chinese)" },
 ];
 
 const state = {

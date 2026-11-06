@@ -2391,13 +2391,15 @@ function openQuestionAnswering(game) {
 }
 
 function getGameplayTtsProvider() {
-  return settingsStore.readSettings().gameplayTtsProvider || (IS_HK_ELDERLY_VARIANT ? "openrouter" : "inworld");
+  return settingsStore.readSettings().gameplayTtsProvider || (IS_HK_ELDERLY_VARIANT ? "elevenlabs" : "inworld");
 }
 
 function getElevenlabsTtsSettings() {
   const settings = settingsStore.readSettings();
   return {
-    voiceId: settings.elevenlabsVoiceId || elevenlabsTts.DEFAULT_VOICE_ID,
+    voiceId:
+      settings.elevenlabsVoiceId ||
+      (IS_HK_ELDERLY_VARIANT ? elevenlabsTts.HK_ELDERLY_VOICE_ID : elevenlabsTts.DEFAULT_VOICE_ID),
     stability: settings.elevenlabsStability,
   };
 }
@@ -2405,7 +2407,7 @@ function getElevenlabsTtsSettings() {
 function buildQuestionTtsCacheMeta(speakLangCode) {
   if (getGameplayTtsProvider() === "elevenlabs") {
     const settings = getElevenlabsTtsSettings();
-    return { provider: "elevenlabs", model: "eleven_multilingual_v2", voice: settings.voiceId, stability: settings.stability };
+    return { provider: "elevenlabs", model: elevenlabsTts.DEFAULT_MODEL_ID, voice: settings.voiceId, stability: settings.stability };
   }
   if (getGameplayTtsProvider() === "openrouter") {
     return {
