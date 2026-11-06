@@ -3261,3 +3261,23 @@ html[data-cms-text-size] body { font-size: 1rem; }
 .admin-table .empty { text-align: center; padding: 1.5rem; }
 .admin-row { cursor: pointer; }
 .admin-row:hover, .admin-row:focus-visible { background: var(--wash); outline: none; }
+
+/* Admin "View as" banner */
+#view-as-banner {
+  position: sticky; top: 0; z-index: 9999;
+  display: flex; gap: 1rem; align-items: center; justify-content: center; flex-wrap: wrap;
+  padding: 0.75rem 1rem; background: #fff3c4; color: #4a3600;
+  border-bottom: 3px solid #e0a800; font-size: 1.1rem; font-weight: 800;
+}
+#view-as-banner .btn { min-height: 44px; font-size: 1rem; }
+
+/* Admin: course assignment */
+.assign-step { padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+.assign-step h3 { font-size: 1.25rem; margin: 0 0 0.75rem; }
+.assign-list { display: grid; gap: 0.5rem; max-height: 340px; overflow: auto; }
+.assign-item { display: flex; gap: 0.8rem; align-items: center; padding: 0.7rem 0.9rem; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; font-size: 1.05rem; }
+.assign-item:hover { background: var(--wash); }
+.assign-item input { width: 24px; height: 24px; flex: none; }
+.assign-results { list-style: none; padding: 0; margin: 0.8rem 0 0; font-size: 1.05rem; }
+.assign-results li { padding: 0.3rem 0; }
+#assign-go { min-height: 56px; font-size: 1.15rem; margin-top: 0.4rem; }

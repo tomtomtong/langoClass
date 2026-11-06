@@ -62,6 +62,7 @@
     }
     const sel = $("#teachers-school");
     sel.innerHTML = '<option value="">All schools</option>' + directory.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+    $("#assign-school").innerHTML = '<option value="">Choose a school</option>' + directory.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
     renderDirectory();
   }
 
@@ -94,10 +95,10 @@
       if (schoolFilter && s.id !== schoolFilter) continue;
       for (const t of s.teachers) {
         if (tq && !`${teacherName(t)} ${t.username || ""} ${t.email || ""}`.toLowerCase().includes(tq)) continue;
-        rows.push(`<tr><td><strong>${esc(teacherName(t))}</strong><br><span class="hint">${esc(t.email || "")}</span></td><td>${esc(t.username || "")}</td><td>${esc(s.name)}</td><td>${esc(t.classIds.join(", ") || "—")}</td></tr>`);
+        rows.push(`<tr><td><strong>${esc(teacherName(t))}</strong><br><span class="hint">${esc(t.email || "")}</span></td><td>${esc(t.username || "")}</td><td>${esc(s.name)}</td><td>${esc(t.classIds.join(", ") || "—")}</td><td><button type="button" class="btn small" data-view-as="${esc(t.id)}" data-school="${esc(s.id)}">View</button></td></tr>`);
       }
     }
-    $("#teachers-body").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="4" class="empty">No teachers found.</td></tr>';
+    $("#teachers-body").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="5" class="empty">No teachers found.</td></tr>';
   }
 
   function openSchool(id) {
@@ -106,6 +107,23 @@
     go("teachers");
   }
 
+  $("#teachers-body").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-view-as]");
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      const data = await api("/api/lango/admin/view-as", {
+        method: "POST",
+        body: JSON.stringify({ schoolId: btn.dataset.school, teacherId: btn.dataset.viewAs }),
+      });
+      sessionStorage.setItem("lango_view_as", JSON.stringify({ token: data.token, user: data.user, adminName: $("#admin-label").textContent }));
+      location.href = "/cms.html";
+    } catch (err) {
+      btn.disabled = false;
+      $("#directory-error").textContent = err.message;
+      go("schools");
+    }
+  });
   $("#schools-search").addEventListener("input", renderDirectory);
   $("#teachers-search").addEventListener("input", renderDirectory);
   $("#teachers-school").addEventListener("change", renderDirectory);
@@ -118,7 +136,96 @@
     if (row && e.key === "Enter") openSchool(row.dataset.school);
   });
 
+  // ── Course assignment: one community course → chosen teachers (one request each) ──
+  const assign = { courses: null, listingId: null, picked: new Map() };
+
+  async function loadAssignCourses() {
+    if (assign.courses) return renderAssign();
+    try {
+      assign.courses = (await api("/api/lango/admin/community")).courses || [];
+    } catch (err) {
+      assign.courses = [];
+      $("#assign-error").textContent = err.message;
+    }
+    renderAssign();
+  }
+
+  function renderAssign() {
+    const q = $("#assign-course-search").value.trim().toLowerCase();
+    const courses = (assign.courses || []).filter((c) => !q || `${c.name} ${c.description}`.toLowerCase().includes(q));
+    $("#assign-courses").innerHTML = courses.length
+      ? courses
+          .map(
+            (c) => `<label class="assign-item"><input type="radio" name="assign-course" value="${esc(c.id)}"${String(assign.listingId) === String(c.id) ? " checked" : ""}><span><strong>${esc(c.name)}</strong><br><span class="hint">${esc(c.exerciseCount)} exercises · by ${esc(c.authorName)}</span></span></label>`,
+          )
+          .join("")
+      : '<p class="empty">No community courses found.</p>';
+
+    const schoolId = $("#assign-school").value;
+    const school = (directory || []).find((s) => s.id === schoolId);
+    $("#assign-teachers").innerHTML = school
+      ? school.teachers.length
+        ? school.teachers
+            .map(
+              (t) => `<label class="assign-item"><input type="checkbox" data-teacher="${esc(t.id)}" data-name="${esc(teacherName(t))}"${assign.picked.has(String(t.id)) ? " checked" : ""}><span><strong>${esc(teacherName(t))}</strong><br><span class="hint">${esc(t.username || "")}</span></span></label>`,
+            )
+            .join("")
+        : '<p class="empty">This school has no teachers.</p>'
+      : '<p class="empty">Choose a school first.</p>';
+
+    const n = assign.picked.size;
+    const course = (assign.courses || []).find((c) => String(c.id) === String(assign.listingId));
+    $("#assign-summary").textContent = course && n ? `Give “${course.name}” to ${n} teacher${n === 1 ? "" : "s"}.` : "Pick a course and at least one teacher.";
+    $("#assign-go").disabled = !(course && n);
+  }
+
+  async function runAssign() {
+    const btn = $("#assign-go");
+    const list = $("#assign-results");
+    const course = (assign.courses || []).find((c) => String(c.id) === String(assign.listingId));
+    if (!course || !assign.picked.size) return;
+    btn.disabled = true;
+    list.innerHTML = "";
+    let done = 0;
+    for (const [id, name] of [...assign.picked]) {
+      const li = document.createElement("li");
+      li.textContent = `${name}: …`;
+      list.appendChild(li);
+      try {
+        const res = await api("/api/lango/admin/assign", { method: "POST", body: JSON.stringify({ listingId: course.id, teacherId: id }) });
+        li.textContent = `${name}: ${res.alreadyCopied ? "already had it" : "done"}`;
+        done += 1;
+      } catch (err) {
+        li.textContent = `${name}: failed — ${err.message}`;
+        li.className = "error";
+      }
+    }
+    $("#assign-summary").textContent = `Finished: ${done} of ${assign.picked.size} teachers.`;
+    btn.disabled = false;
+  }
+
+  $("#assign-course-search").addEventListener("input", renderAssign);
+  $("#assign-courses").addEventListener("change", (e) => {
+    assign.listingId = e.target.value;
+    renderAssign();
+  });
+  $("#assign-school").addEventListener("change", renderAssign);
+  $("#assign-teachers").addEventListener("change", (e) => {
+    const box = e.target.closest("[data-teacher]");
+    if (!box) return;
+    if (box.checked) assign.picked.set(box.dataset.teacher, box.dataset.name);
+    else assign.picked.delete(box.dataset.teacher);
+    renderAssign();
+  });
+  $("#assign-all").addEventListener("click", () => {
+    document.querySelectorAll("#assign-teachers [data-teacher]").forEach((b) => assign.picked.set(b.dataset.teacher, b.dataset.name));
+    renderAssign();
+  });
+  $("#assign-go").addEventListener("click", runAssign);
+
   function signOut() {
+    assign.courses = null;
+    assign.picked.clear();
     directory = null;
     state.token = "";
     state.user = null;
@@ -177,6 +284,7 @@
     if (!nav) return;
     e.preventDefault();
     go(nav.dataset.nav);
+    if (nav.dataset.nav === "assignments") loadAssignCourses();
   });
   restore();
 })();

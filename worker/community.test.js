@@ -37,6 +37,7 @@ async function withCms(run) {
   const real = globalThis.fetch;
   globalThis.fetch = async (url) => {
     if (String(url).includes("/api/teachers/900/classes")) return Response.json({ ok: true });
+    if (String(url).endsWith("/api/me")) return Response.json({ user: { id: 900, role: "teacher" } });
     throw new Error(`Unexpected fetch ${url}`);
   };
   try {
@@ -129,4 +130,32 @@ test("unsharing clears the course link and hides the listing", async () => {
   assert.equal((await getDoc(env, "community-courses")).listings[0].status, "unpublished");
   const feature = await call("/api/cms/community/courses/1/feature", { method: "POST", json: {} });
   assert.equal((await feature.json()).message, "Share the course to Community before featuring it.");
+});
+
+test("an admin gives a community course to a teacher once, and a teacher cannot", async () => {
+  const { env, call } = await setup();
+  await call("/api/cms/courses/-2/community/publish", { method: "POST", json: {} });
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    if (String(url).endsWith("/api/me")) {
+      return Response.json({ user: { id: 1, role: String(init.headers?.Authorization).includes("boss") ? "admin" : "teacher" } });
+    }
+    throw new Error(`Unexpected fetch ${url}`);
+  };
+  try {
+    const post = (token, body) => {
+      const url = new URL("/api/lango/admin/assign", "https://class.lango.ai");
+      return handleStoreApi(new Request(url, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) }), env, url);
+    };
+    assert.equal((await post("tch", { listingId: 1, teacherId: 700 })).status, 403);
+    const first = await (await post("boss", { listingId: 1, teacherId: 700 })).json();
+    assert.equal(first.alreadyCopied, false);
+    const again = await (await post("boss", { listingId: 1, teacherId: 700 })).json();
+    assert.equal(again.alreadyCopied, true);
+    const copy = (await getDoc(env, "teacher-courses")).courses.find((item) => item.id === first.course.id);
+    assert.equal(copy.teacherId, 700);
+    assert.equal(copy.assignedByAdminId, 1);
+  } finally {
+    globalThis.fetch = real;
+  }
 });

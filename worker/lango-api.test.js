@@ -285,3 +285,25 @@ test("admin directory refuses teachers and returns only whitelisted fields to ad
     }
   );
 });
+
+test("an admin token can read a teacher's courses but not change them", async () => {
+  await withCms(
+    {
+      "https://cms.test/api/teachers/": () => Response.json({ ok: true }),
+      "https://cms.test/api/me": (init) => Response.json({ user: { id: 1, role: String(init.headers.Authorization).includes("boss") ? "admin" : "teacher" } }),
+    },
+    async () => {
+      const store = env();
+      const call = (token, method) => {
+        const url = new URL("/api/cms/courses", "https://class.lango.ai");
+        const body = method === "POST" ? JSON.stringify({ name: "X" }) : undefined;
+        return handleStoreApi(new Request(url, { method, body, headers: { authorization: `Bearer ${token}`, "x-teacher-id": "55", "content-type": "application/json" } }), store, url);
+      };
+      assert.equal((await call("boss", "GET")).status, 200);
+      const blocked = await call("boss", "POST");
+      assert.equal(blocked.status, 403);
+      assert.match((await blocked.json()).message, /View only/);
+      assert.notEqual((await call("tch", "POST")).status, 403);
+    }
+  );
+});

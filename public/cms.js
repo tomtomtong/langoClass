@@ -1711,7 +1711,45 @@ function dashboardClassIdOf(value) {
   return id > 0 ? id : null;
 }
 
+// Admin "View as": admin.html parks the teacher's profile in sessionStorage (this tab
+// only). It is used instead of the saved login and never written to localStorage, so
+// the real teacher/admin session on this browser is untouched. The Worker enforces
+// read-only because the token is the admin's own.
+function readViewAs() {
+  try {
+    const data = JSON.parse(sessionStorage.getItem("lango_view_as") || "null");
+    return data?.token && data?.user?.id ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function exitViewAs() {
+  sessionStorage.removeItem("lango_view_as");
+  location.href = "/admin.html";
+}
+
+function showViewAsBanner() {
+  if (!state.viewAs || document.getElementById("view-as-banner")) return;
+  const user = state.viewAs.user || {};
+  const name = user.name_zh || user.name_en || user.username || user.id;
+  const bar = document.createElement("div");
+  bar.id = "view-as-banner";
+  bar.setAttribute("role", "status");
+  bar.innerHTML = `<span>${escapeHtml(cmsT("cms.viewAs.banner", { name }))}</span><button type="button" class="btn small">${escapeHtml(cmsT("cms.viewAs.exit"))}</button>`;
+  bar.querySelector("button").addEventListener("click", exitViewAs);
+  document.body.prepend(bar);
+  document.body.classList.add("view-as-active");
+}
+
 function loadPrefs() {
+  const viewAs = readViewAs();
+  if (viewAs) {
+    state.viewAs = viewAs;
+    state.token = viewAs.token;
+    state.user = viewAs.user;
+    return;
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
@@ -1729,6 +1767,7 @@ function loadPrefs() {
 }
 
 function savePrefs() {
+  if (state.viewAs) return;
   const loginUsername =
     $("#cms-login-username")?.value.trim().toLowerCase() || state.loginUsername || "";
   if (loginUsername) state.loginUsername = loginUsername;
@@ -3103,6 +3142,7 @@ function applyCmsLoginDefaults() {
 }
 
 function handleLogout() {
+  if (state.viewAs) return exitViewAs();
   state.token = null;
   state.user = null;
   state.editingCourse = null;
@@ -12670,6 +12710,7 @@ function setupCmsLanguage() {
 
 setupCmsLanguage();
 loadPrefs();
+showViewAsBanner();
 initCmsTheme();
 initCmsTextSize();
 initGlobalAgentSelection();
