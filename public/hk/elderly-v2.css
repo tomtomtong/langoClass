@@ -273,3 +273,10 @@ body.join-page.hk-elderly #screen-join .btn.primary {
 body.join-page.hk-elderly #screen-join .btn.primary:disabled {
   background: #8a9a9d;
 }
+
+/* Loading / empty status sits directly on the dark stage */
+body.hk-elderly #app.lango-host #screen-class .course-status,
+body.hk-elderly #app.lango-host #screen-course .course-status {
+  color: #f7f1e3;
+  font-weight: 700;
+}
