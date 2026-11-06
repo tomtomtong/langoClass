@@ -12,6 +12,7 @@ export async function handleLangoApi(request, env, url) {
   if (method === "POST" && pathname === "/api/lango/login") return login(request, env);
   if (method === "POST" && pathname === "/api/lango/admin/login") return adminLogin(request, env);
   if ((method === "GET" || method === "HEAD") && pathname === "/api/lango/admin/me") return adminMe(request, env);
+  if ((method === "GET" || method === "HEAD") && pathname === "/api/lango/admin/directory") return adminDirectory(request, env);
   if ((method === "GET" || method === "HEAD") && pathname === "/api/lango/classList") return classList(request, env);
   if ((method === "GET" || method === "HEAD") && pathname === "/api/lango/classStudents") return classStudents(request, env, url);
   return null;
@@ -95,6 +96,57 @@ async function adminMe(request, env) {
   const admin = await requireAdmin(request, env);
   if (admin.response) return admin.response;
   return json({ ok: true, user: { ...admin.user, school_id: admin.user.school_id ?? admin.user.schoolId ?? null } });
+}
+
+// Read-only directory for the admin portal: every school with its teachers and classes.
+// Only whitelisted fields leave here; student rosters and passwords are never included.
+async function adminDirectory(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (admin.response) return admin.response;
+  const { token } = admin;
+
+  const schoolsRes = await cmsRequest(env, "GET", "/api/schools", { token });
+  if (!schoolsRes.ok) return cmsError(schoolsRes.status, schoolsRes.data, "Failed to load schools");
+  const rawSchools = Array.isArray(schoolsRes.data?.schools) ? schoolsRes.data.schools : [];
+
+  const schools = await Promise.all(
+    rawSchools.map(async (school) => {
+      const id = encodeURIComponent(school.id);
+      const [teachersRes, classesRes] = await Promise.all([
+        cmsRequest(env, "GET", `/api/schools/${id}/teachers`, { token }),
+        cmsRequest(env, "GET", `/api/schools/${id}/classes`, { token }),
+      ]);
+      const teachers = (Array.isArray(teachersRes.data?.teachers) ? teachersRes.data.teachers : []).map((t) => ({
+        id: t.id,
+        username: t.username ?? null,
+        email: t.email ?? null,
+        teacherId: t.teacher_id ?? null,
+        nameEn: t.name_en ?? null,
+        nameZh: t.name_zh ?? null,
+        classIds: Array.isArray(t.class_ids) ? t.class_ids : [],
+      }));
+      const classes = (Array.isArray(classesRes.data?.classes) ? classesRes.data.classes : []).map((c) => ({
+        classId: c.class_id,
+        studentCount: Number(c.student_count) || 0,
+      }));
+      return {
+        id: school.id,
+        name: school.name || school.id,
+        teachers,
+        classes,
+        studentCount: classes.reduce((n, c) => n + c.studentCount, 0),
+        partial: !teachersRes.ok || !classesRes.ok,
+      };
+    }),
+  );
+
+  await writeLog(env, {
+    category: "server",
+    action: "admin_directory_viewed",
+    message: `Admin viewed school directory: ${admin.user?.username || admin.user?.id}`,
+    meta: { admin: { id: admin.user?.id ?? null }, schools: schools.length },
+  });
+  return json({ ok: true, schools });
 }
 
 async function classList(request, env) {

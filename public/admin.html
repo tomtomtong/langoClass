@@ -73,21 +73,27 @@
             </div>
           </div>
           <div class="dash-grid" id="admin-stats">
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Schools</div></article>
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Teachers</div></article>
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Classes</div></article>
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Courses assigned</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-schools">…</div><div class="hint">Schools</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-teachers">…</div><div class="hint">Teachers</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-classes">…</div><div class="hint">Classes</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-students">…</div><div class="hint">Students</div></article>
           </div>
         </section>
 
         <section id="screen-schools" class="screen">
-          <div class="screen-head"><div><h2>Schools</h2><p class="hint">Every school you manage.</p></div></div>
-          <div class="paper"><p class="empty">Not connected yet.</p></div>
+          <div class="screen-head"><div><h2>Schools</h2><p class="hint">Every school. Tap a school to see its teachers.</p></div></div>
+          <div class="paper admin-filters"><input id="schools-search" type="search" placeholder="Search school name or code" /></div>
+          <p class="error" id="directory-error"></p>
+          <div class="paper"><table class="admin-table"><thead><tr><th>School</th><th>Teachers</th><th>Classes</th><th>Students</th></tr></thead><tbody id="schools-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody></table></div>
         </section>
 
         <section id="screen-teachers" class="screen">
-          <div class="screen-head"><div><h2>Teachers</h2><p class="hint">Teacher accounts, their classes and activity.</p></div></div>
-          <div class="paper"><p class="empty">Not connected yet.</p></div>
+          <div class="screen-head"><div><h2>Teachers</h2><p class="hint">Teacher accounts and their classes. View only.</p></div></div>
+          <div class="paper admin-filters">
+            <input id="teachers-search" type="search" placeholder="Search name, username or email" />
+            <select id="teachers-school" aria-label="School"><option value="">All schools</option></select>
+          </div>
+          <div class="paper"><table class="admin-table"><thead><tr><th>Teacher</th><th>Username</th><th>School</th><th>Classes</th></tr></thead><tbody id="teachers-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody></table></div>
         </section>
 
         <section id="screen-assignments" class="screen">

@@ -3251,3 +3251,13 @@ html[data-cms-text-size] body { font-size: 1rem; }
 #community-catalog .community-card .cms-community-report-btn,
 #community-catalog .community-card .cms-community-unshare-btn { border: 0; }
 #screen-cms-community .community-filter-grid .field select { min-width: 0; width: 100%; }
+
+/* Admin portal tables: big, readable, view-only */
+.admin-filters { display: flex; gap: 0.75rem; flex-wrap: wrap; padding: 1rem; margin-bottom: 1rem; }
+.admin-filters input, .admin-filters select { flex: 1 1 220px; min-height: 52px; font-size: 1.05rem; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 1.05rem; }
+.admin-table th { text-align: left; font-size: 0.9rem; color: #6b5c78; padding: 0.6rem 0.8rem; }
+.admin-table td { padding: 0.85rem 0.8rem; border-top: 1px solid var(--line); vertical-align: top; }
+.admin-table .empty { text-align: center; padding: 1.5rem; }
+.admin-row { cursor: pointer; }
+.admin-row:hover, .admin-row:focus-visible { background: var(--wash); outline: none; }

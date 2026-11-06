@@ -48,7 +48,78 @@
     document.querySelectorAll(".sidebar-nav .nav-link").forEach((el) => el.classList.toggle("active", el.dataset.nav === screen));
   }
 
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  let directory = null;
+
+  async function loadDirectory() {
+    $("#directory-error").textContent = "";
+    try {
+      directory = (await api("/api/lango/admin/directory")).schools || [];
+    } catch (err) {
+      if (err.status === 401 || err.status === 403) return signOut();
+      directory = [];
+      $("#directory-error").textContent = err.message;
+    }
+    const sel = $("#teachers-school");
+    sel.innerHTML = '<option value="">All schools</option>' + directory.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+    renderDirectory();
+  }
+
+  function teacherName(t) {
+    return t.nameZh || t.nameEn || t.username || t.email || "—";
+  }
+
+  function renderDirectory() {
+    if (!directory) return;
+    const sum = (f) => directory.reduce((n, s) => n + f(s), 0);
+    $("#stat-schools").textContent = directory.length;
+    $("#stat-teachers").textContent = sum((s) => s.teachers.length);
+    $("#stat-classes").textContent = sum((s) => s.classes.length);
+    $("#stat-students").textContent = sum((s) => s.studentCount);
+
+    const sq = $("#schools-search").value.trim().toLowerCase();
+    const schools = directory.filter((s) => !sq || `${s.name} ${s.id}`.toLowerCase().includes(sq));
+    $("#schools-body").innerHTML = schools.length
+      ? schools
+          .map(
+            (s) => `<tr class="admin-row" data-school="${esc(s.id)}" tabindex="0"><td><strong>${esc(s.name)}</strong><br><span class="hint">${esc(s.id)}${s.partial ? " · some data missing" : ""}</span></td><td>${s.teachers.length}</td><td>${s.classes.length}</td><td>${s.studentCount}</td></tr>`,
+          )
+          .join("")
+      : '<tr><td colspan="4" class="empty">No schools found.</td></tr>';
+
+    const tq = $("#teachers-search").value.trim().toLowerCase();
+    const schoolFilter = $("#teachers-school").value;
+    const rows = [];
+    for (const s of directory) {
+      if (schoolFilter && s.id !== schoolFilter) continue;
+      for (const t of s.teachers) {
+        if (tq && !`${teacherName(t)} ${t.username || ""} ${t.email || ""}`.toLowerCase().includes(tq)) continue;
+        rows.push(`<tr><td><strong>${esc(teacherName(t))}</strong><br><span class="hint">${esc(t.email || "")}</span></td><td>${esc(t.username || "")}</td><td>${esc(s.name)}</td><td>${esc(t.classIds.join(", ") || "—")}</td></tr>`);
+      }
+    }
+    $("#teachers-body").innerHTML = rows.length ? rows.join("") : '<tr><td colspan="4" class="empty">No teachers found.</td></tr>';
+  }
+
+  function openSchool(id) {
+    $("#teachers-school").value = id;
+    renderDirectory();
+    go("teachers");
+  }
+
+  $("#schools-search").addEventListener("input", renderDirectory);
+  $("#teachers-search").addEventListener("input", renderDirectory);
+  $("#teachers-school").addEventListener("change", renderDirectory);
+  $("#schools-body").addEventListener("click", (e) => {
+    const row = e.target.closest("[data-school]");
+    if (row) openSchool(row.dataset.school);
+  });
+  $("#schools-body").addEventListener("keydown", (e) => {
+    const row = e.target.closest("[data-school]");
+    if (row && e.key === "Enter") openSchool(row.dataset.school);
+  });
+
   function signOut() {
+    directory = null;
     state.token = "";
     state.user = null;
     sessionStorage.removeItem(TOKEN_KEY);
@@ -76,6 +147,7 @@
       sessionStorage.setItem(TOKEN_KEY, data.token);
       $("#login-password").value = "";
       show(true);
+      loadDirectory();
     } catch (err) {
       $("#login-error").textContent = err.message;
     } finally {
@@ -89,6 +161,7 @@
       const data = await api("/api/lango/admin/me");
       state.user = data.user;
       show(true);
+      loadDirectory();
     } catch {
       signOut();
     }

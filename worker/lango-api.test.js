@@ -259,3 +259,29 @@ test("admin session check needs a token and the admin role", async () => {
     }
   );
 });
+
+test("admin directory refuses teachers and returns only whitelisted fields to admins", async () => {
+  await withCms(
+    {
+      "https://cms.test/api/me": (init) => Response.json({ user: { id: 2, role: String(init.headers.Authorization).includes("boss") ? "admin" : "teacher" } }),
+      "https://cms.test/api/schools/1001/teachers": () =>
+        Response.json({ teachers: [{ id: 9, username: "ms.chan", email: "a@b.c", teacher_id: "T1", class_ids: ["1A"], password: "secret", password_hash: "x" }] }),
+      "https://cms.test/api/schools/1001/classes": () => Response.json({ classes: [{ class_id: "1A", student_count: 25 }] }),
+      "https://cms.test/api/schools": () => Response.json({ schools: [{ id: "1001", name: "Test School" }] }),
+    },
+    async () => {
+      const url = new URL("/api/lango/admin/directory", "https://class.lango.ai");
+      const bare = await handleStoreApi(new Request(url), env(), url);
+      assert.equal(bare.status, 401);
+      const teacher = await handleStoreApi(new Request(url, { headers: { authorization: "Bearer tch" } }), env(), url);
+      assert.equal(teacher.status, 403);
+      const admin = await handleStoreApi(new Request(url, { headers: { authorization: "Bearer boss" } }), env(), url);
+      assert.equal(admin.status, 200);
+      const text = await admin.text();
+      assert.ok(!text.includes("secret"));
+      const body = JSON.parse(text);
+      assert.equal(body.schools[0].teachers[0].username, "ms.chan");
+      assert.equal(body.schools[0].studentCount, 25);
+    }
+  );
+});
