@@ -3173,3 +3173,81 @@ html[data-cms-text-size] body { font-size: 1rem; }
 /* Full-course flow: three steps (Material, Outline, Check & save). */
 #app-shell #cms-ai-wizard .cms-ai-step-wrap[hidden] { display: none; }
 #app-shell #cms-ai-wizard .cms-ai-steps.is-three-steps .cms-ai-step-wrap:nth-child(3) { flex: 0 0 auto; }
+
+/* ── Community / templates: large, calm, low-tech-teacher friendly ── */
+#app-shell #screen-cms-community .templates-tab {
+  min-height: 56px;
+  font-size: 1.2rem;
+}
+#screen-cms-community .templates-panel-hint {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--ink, #2d1f38);
+  margin-bottom: 1.1rem;
+}
+#screen-cms-community .community-filters {
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+#screen-cms-community .community-filter-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+}
+#screen-cms-community .community-filter-search { grid-column: 1 / -1; }
+/* Category pickers are empty/disabled → hide instead of showing dead controls */
+#screen-cms-community .community-filter-grid .field:has(select:disabled) { display: none; }
+#screen-cms-community .community-filter-grid .field-label {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+}
+#screen-cms-community .community-filter-grid select,
+#screen-cms-community .community-filter-grid input {
+  min-height: 56px;
+  font-size: 1.15rem;
+}
+#community-catalog .community-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 1.4rem;
+}
+#community-catalog .community-card .card-body { padding: 1.15rem 1.25rem 1.3rem; gap: 0.7rem; }
+#community-catalog .community-card .card-body h2 { font-size: 1.4rem; line-height: 1.3; }
+#community-catalog .community-card .card-body .hint {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #4a3b57;
+}
+#community-catalog .community-card .community-card-meta { font-size: 1rem; color: #6b5c78; }
+#community-catalog .community-card .badge { font-size: 0.9rem; padding: 0.25rem 0.7rem; }
+#community-catalog .community-card .card-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+}
+#community-catalog .community-card .card-actions .btn.small {
+  min-height: 52px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 0.6rem 1rem;
+  width: 100%;
+}
+/* Primary action first and biggest */
+#community-catalog .community-card .cms-community-add-btn { order: 1; min-height: 58px; font-size: 1.2rem; }
+#community-catalog .community-card .cms-community-preview-btn { order: 2; }
+#community-catalog .community-card .cms-community-report-btn,
+#community-catalog .community-card .cms-community-unshare-btn {
+  order: 3;
+  min-height: 44px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+  color: #6b5c78;
+}
+#community-catalog .community-card .cms-community-add-btn:disabled { opacity: 1; background: #e7dff0; color: #4a3b57; }
+#community-catalog .community-card .cms-community-report-btn,
+#community-catalog .community-card .cms-community-unshare-btn { border: 0; }
+#screen-cms-community .community-filter-grid .field select { min-width: 0; width: 100%; }

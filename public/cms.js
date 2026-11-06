@@ -65,6 +65,7 @@ const state = {
   communityLanguages: [],
   communityQuery: "",
   communityLang: "all",
+  communityLevel: "all",
   communitySort: "featured",
   communityPreviewId: null,
   classes: [],
@@ -4114,6 +4115,7 @@ async function enterCommunity() {
   if (state.communityLoaded) {
     // Show the templates we already have now; the fetch below refreshes them.
     renderCommunityLangOptions();
+    renderCommunityLevelOptions();
     renderCommunityList();
   } else {
     $("#cms-community-list").innerHTML = `
@@ -4137,6 +4139,7 @@ async function loadCommunityCourses() {
     state.communityLanguages = data.languages || [];
     state.communityLoaded = true;
     renderCommunityLangOptions();
+    renderCommunityLevelOptions();
     renderCommunityList();
     $("#cms-community-error").textContent = "";
     $("#cms-community-status").textContent = state.communityCourses.length
@@ -4163,11 +4166,31 @@ function renderCommunityLangOptions() {
   select.value = codes.includes(current) ? current : "all";
 }
 
+function communityCourseLevel(course) {
+  const m = String(course?.name || "").trim().match(/^([PS])\s?(\d)\b/i);
+  return m ? `${m[1].toUpperCase()}${m[2]}` : "";
+}
+
+function renderCommunityLevelOptions() {
+  const select = $("#cms-community-level");
+  if (!select) return;
+  const levels = [...new Set(state.communityCourses.map(communityCourseLevel).filter(Boolean))].sort();
+  if (state.communityLevel !== "all" && !levels.includes(state.communityLevel)) levels.push(state.communityLevel);
+  select.innerHTML =
+    `<option value="all">${escapeHtml(cmsT("cms.community.allLevels"))}</option>` +
+    levels.map((l) => `<option value="${l}">${l}</option>`).join("");
+  select.value = state.communityLevel || "all";
+  const field = select.closest(".field");
+  if (field) field.hidden = levels.length === 0;
+}
+
 function renderCommunityList() {
   const container = $("#community-catalog") || $("#cms-community-list");
   if (!container) return;
   const emptyEl = $("#community-empty");
-  if (!state.communityCourses.length) {
+  const level = state.communityLevel || "all";
+  const visible = level === "all" ? state.communityCourses : state.communityCourses.filter((c) => communityCourseLevel(c) === level);
+  if (!visible.length) {
     if (emptyEl) emptyEl.hidden = false;
     container.innerHTML = "";
     cmsMotion()?.playCmsListReveal?.(container);
@@ -4175,7 +4198,7 @@ function renderCommunityList() {
   }
   if (emptyEl) emptyEl.hidden = true;
 
-  container.innerHTML = `<div class="community-grid">${state.communityCourses
+  container.innerHTML = `<div class="community-grid">${visible
     .map((course) => {
       const banner = courseBannerUrl(course);
       const cover = banner
@@ -4192,9 +4215,8 @@ function renderCommunityList() {
           <div class="badges">
             <span class="badge">${escapeHtml(communityLangLabel(course.langCode))}</span>
             ${featured}${owner}
-            <span class="badge">${escapeHtml(cmsT("cms.community.addedTimes", { n: course.copyCount || 0 }))}</span>
           </div>
-          <p class="hint">${escapeHtml(course.authorName || cmsT("cms.community.teacher"))} · ${escapeHtml(cmsCountOneMany(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}</p>
+          <p class="hint community-card-meta">${escapeHtml(cmsCountOneMany(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}${course.copyCount ? ` · ${escapeHtml(cmsT("cms.community.addedBy", { n: course.copyCount }))}` : ""}</p>
           <div class="card-actions">
             <button type="button" class="btn small cms-community-preview-btn">${escapeHtml(cmsT("cms.community.preview"))}</button>
             <button type="button" class="btn small primary cms-community-add-btn"${copied ? " disabled" : ""}>${escapeHtml(copied ? cmsT("cms.community.inLibrary") : cmsT("cms.community.add"))}</button>
@@ -12014,6 +12036,10 @@ $("#cms-community-search")?.addEventListener("input", () => {
 $("#cms-community-lang")?.addEventListener("change", () => {
   state.communityLang = $("#cms-community-lang").value || "all";
   loadCommunityCourses();
+});
+$("#cms-community-level")?.addEventListener("change", () => {
+  state.communityLevel = $("#cms-community-level").value || "all";
+  renderCommunityList();
 });
 $("#cms-community-sort")?.addEventListener("change", () => {
   state.communitySort = $("#cms-community-sort").value || "featured";
