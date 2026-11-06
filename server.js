@@ -112,8 +112,13 @@ const INWORLD_BUZZIN_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__uncle_tommy
 // English is read in a UK accent; every other language keeps the default voice.
 const INWORLD_UK_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__uncle_tommy_uk";
 
+// Mandarin (zh) is read by Inworld with this designed voice.
+const INWORLD_MANDARIN_TTS_VOICE_ID = "default-zylgts2tamenvybeti3z0w__design-voice-b16f9c28";
+
 function inworldGameplayVoiceId(speakLangCode) {
-  return normalizeSpeakLangCode(speakLangCode) === "en" ? INWORLD_UK_TTS_VOICE_ID : INWORLD_BUZZIN_TTS_VOICE_ID;
+  const lang = normalizeSpeakLangCode(speakLangCode);
+  if (lang === "zh") return INWORLD_MANDARIN_TTS_VOICE_ID;
+  return lang === "en" ? INWORLD_UK_TTS_VOICE_ID : INWORLD_BUZZIN_TTS_VOICE_ID;
 }
 const INWORLD_TTS_MODEL_ID = "inworld-tts-1.5-max";
 const QWEN_API_BASE = String(
@@ -2394,8 +2399,20 @@ function getGameplayTtsProvider() {
   return settingsStore.readSettings().gameplayTtsProvider || (IS_HK_ELDERLY_VARIANT ? "elevenlabs" : "inworld");
 }
 
-function getElevenlabsTtsSettings() {
+// Per-language routing: Cantonese is always ElevenLabs v4, Mandarin always
+// Inworld; other languages follow the configured provider.
+function getGameplayTtsProviderForLang(speakLangCode) {
+  const lang = normalizeSpeakLangCode(speakLangCode);
+  if (lang === "yue") return "elevenlabs";
+  if (lang === "zh") return "inworld";
+  return getGameplayTtsProvider();
+}
+
+function getElevenlabsTtsSettings(speakLangCode) {
   const settings = settingsStore.readSettings();
+  if (normalizeSpeakLangCode(speakLangCode) === "yue") {
+    return { voiceId: elevenlabsTts.HK_ELDERLY_VOICE_ID, stability: settings.elevenlabsStability };
+  }
   return {
     voiceId:
       settings.elevenlabsVoiceId ||
@@ -2405,11 +2422,12 @@ function getElevenlabsTtsSettings() {
 }
 
 function buildQuestionTtsCacheMeta(speakLangCode) {
-  if (getGameplayTtsProvider() === "elevenlabs") {
-    const settings = getElevenlabsTtsSettings();
+  const provider = getGameplayTtsProviderForLang(speakLangCode);
+  if (provider === "elevenlabs") {
+    const settings = getElevenlabsTtsSettings(speakLangCode);
     return { provider: "elevenlabs", model: elevenlabsTts.DEFAULT_MODEL_ID, voice: settings.voiceId, stability: settings.stability };
   }
-  if (getGameplayTtsProvider() === "openrouter") {
+  if (provider === "openrouter") {
     return {
       provider: "openrouter",
       model: getOpenRouterTtsModel() || ENV_OPENROUTER_TTS_MODEL,
@@ -3356,10 +3374,11 @@ function synthesizeOpenRouterGameplayTts(text, languageCode, purpose) {
 
 async function synthesizeGameplayTts(text, languageCode, options = {}) {
   const purpose = String(options.purpose || "question").trim() || "question";
-  if (getGameplayTtsProvider() === "elevenlabs") {
-    return elevenlabsTts.synthesize(text, { ...getElevenlabsTtsSettings(), languageCode: languageCode || "en" });
+  const provider = getGameplayTtsProviderForLang(languageCode);
+  if (provider === "elevenlabs") {
+    return elevenlabsTts.synthesize(text, { ...getElevenlabsTtsSettings(languageCode), languageCode: languageCode || "en" });
   }
-  if (getGameplayTtsProvider() === "openrouter") {
+  if (provider === "openrouter") {
     return synthesizeOpenRouterGameplayTts(text, languageCode, purpose);
   }
 

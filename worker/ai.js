@@ -19,6 +19,7 @@ const INWORLD_TTS_VOICE = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
 const INWORLD_UK_TTS_VOICE = "default-zylgts2tamenvybeti3z0w__uncle_tommy_uk";
 
 function inworldVoice(env, code) {
+  if (code === "zh") return INWORLD_MANDARIN_TTS_VOICE;
   return setting(env, "INWORLD_TTS_VOICE", code === "en" ? INWORLD_UK_TTS_VOICE : INWORLD_TTS_VOICE);
 }
 const INWORLD_SPEAKING_RATE = 1.12;
@@ -27,6 +28,11 @@ const INWORLD_INSTRUCTION =
 const GROK_TTS_SPEED = 1.12;
 const ELEVENLABS_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
 const ELEVENLABS_STABILITY = 0.5;
+const ELEVENLABS_MODEL_ID = "eleven_v4";
+// Cantonese is always read by ElevenLabs v4 with this voice.
+const ELEVENLABS_CANTONESE_VOICE_ID = "YCAPSHGzUmYdPAwR2mmV";
+// Mandarin is always read by Inworld with this designed voice.
+const INWORLD_MANDARIN_TTS_VOICE = "default-zylgts2tamenvybeti3z0w__design-voice-b16f9c28";
 const STT_SAMPLE_RATE = 16000;
 const AUDIO_MAX_BYTES = 4 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 40000;
@@ -118,7 +124,7 @@ export async function speak(env, text, { language = "en", purpose = "question", 
   if (!trimmed) throw new Error("No text to synthesize.");
   const code = speakLangCode(language) || "en";
   const spoken = await cantoneseSpeech(env, trimmed, code);
-  const provider = speechProvider(env, variant);
+  const provider = code === "yue" ? "elevenlabs" : code === "zh" ? "inworld" : speechProvider(env, variant);
   if (provider === "elevenlabs") return speakWithElevenLabs(env, spoken, code);
   if (provider === "openrouter") return speakWithOpenRouter(env, spoken, code, purpose);
   return speakWithInworld(env, spoken, code);
@@ -268,7 +274,8 @@ async function speakWithElevenLabs(env, text, code) {
   const data = await postJson(endpoint, {
     body: {
       text,
-      voiceId: setting(env, "ELEVENLABS_VOICE_ID", ELEVENLABS_VOICE_ID),
+      voiceId: code === "yue" ? ELEVENLABS_CANTONESE_VOICE_ID : setting(env, "ELEVENLABS_VOICE_ID", ELEVENLABS_VOICE_ID),
+      modelId: ELEVENLABS_MODEL_ID,
       languageCode: code,
       stability: Number.isFinite(stability) ? stability : ELEVENLABS_STABILITY,
     },

@@ -10378,10 +10378,8 @@ function renderVideoBody(container, exercise) {
       <span>Caption language</span>
       <select class="cms-video-caption-target-language" aria-label="Caption language">
         <option value="en">English (en)</option>
-        <option value="zh">Chinese (zh)</option>
+        <option value="zh">Mandarin 普通話 (zh)</option>
         <option value="yue">Cantonese (yue)</option>
-        <option value="ja">Japanese (ja)</option>
-        <option value="ko">Korean (ko)</option>
       </select>
     </label>
     <button type="button" class="btn secondary small cms-upload-captions">Upload 字幕 (.vtt)</button>
@@ -10828,9 +10826,7 @@ function buzzinSttLanguageOptionsHtml(selected = "") {
     <option value=""${value ? "" : " selected"}>Server default</option>
     <option value="en"${value === "en" ? " selected" : ""}>English (en)</option>
     <option value="yue"${value === "yue" ? " selected" : ""}>Cantonese (yue)</option>
-    <option value="zh"${value === "zh" ? " selected" : ""}>Chinese (zh)</option>
-    <option value="ja"${value === "ja" ? " selected" : ""}>Japanese (ja)</option>
-    <option value="ko"${value === "ko" ? " selected" : ""}>Korean (ko)</option>
+    <option value="zh"${value === "zh" ? " selected" : ""}>Mandarin 普通話 (zh)</option>
   `;
 }
 
