@@ -73,26 +73,51 @@
             </div>
           </div>
           <div class="dash-grid" id="admin-stats">
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Schools</div></article>
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Teachers</div></article>
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Classes</div></article>
-            <article class="paper dash-stat"><div class="dash-num">...</div><div class="hint">Courses assigned</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-schools">…</div><div class="hint">Schools</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-teachers">…</div><div class="hint">Teachers</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-classes">…</div><div class="hint">Classes</div></article>
+            <article class="paper dash-stat"><div class="dash-num" id="stat-students">…</div><div class="hint">Students</div></article>
           </div>
         </section>
 
         <section id="screen-schools" class="screen">
-          <div class="screen-head"><div><h2>Schools</h2><p class="hint">Every school you manage.</p></div></div>
-          <div class="paper"><p class="empty">Not connected yet.</p></div>
+          <div class="screen-head"><div><h2>Schools</h2><p class="hint">Every school. Tap a school to see its teachers.</p></div></div>
+          <div class="paper admin-filters"><input id="schools-search" type="search" placeholder="Search school name or code" /></div>
+          <p class="error" id="directory-error"></p>
+          <div class="paper"><table class="admin-table"><thead><tr><th>School</th><th>Teachers</th><th>Classes</th><th>Students</th></tr></thead><tbody id="schools-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody></table></div>
         </section>
 
         <section id="screen-teachers" class="screen">
-          <div class="screen-head"><div><h2>Teachers</h2><p class="hint">Teacher accounts, their classes and activity.</p></div></div>
-          <div class="paper"><p class="empty">Not connected yet.</p></div>
+          <div class="screen-head"><div><h2>Teachers</h2><p class="hint">Teacher accounts and their classes. View only.</p></div></div>
+          <div class="paper admin-filters">
+            <input id="teachers-search" type="search" placeholder="Search name, username or email" />
+            <select id="teachers-school" aria-label="School"><option value="">All schools</option></select>
+          </div>
+          <div class="paper"><table class="admin-table"><thead><tr><th>Teacher</th><th>Username</th><th>School</th><th>Classes</th><th></th></tr></thead><tbody id="teachers-body"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table></div>
         </section>
 
         <section id="screen-assignments" class="screen">
-          <div class="screen-head"><div><h2>Course assignment</h2><p class="hint">Give courses to schools, teachers and classes.</p></div></div>
-          <div class="paper"><p class="empty">Not connected yet.</p></div>
+          <div class="screen-head"><div><h2>Course assignment</h2><p class="hint">Give a community course to teachers. Each teacher gets their own copy.</p></div></div>
+          <p class="error" id="assign-error"></p>
+          <div class="paper assign-step">
+            <h3>1. Pick a course</h3>
+            <div class="admin-filters"><input id="assign-course-search" type="search" placeholder="Search course name" /></div>
+            <div id="assign-courses" class="assign-list"><p class="empty">Loading…</p></div>
+          </div>
+          <div class="paper assign-step">
+            <h3>2. Pick teachers</h3>
+            <div class="admin-filters">
+              <select id="assign-school" aria-label="School"><option value="">Choose a school</option></select>
+              <button type="button" class="btn" id="assign-all">Select all in this school</button>
+            </div>
+            <div id="assign-teachers" class="assign-list"><p class="empty">Choose a school first.</p></div>
+          </div>
+          <div class="paper assign-step">
+            <h3>3. Give it</h3>
+            <p id="assign-summary" class="hint">Nothing selected yet.</p>
+            <button type="button" class="btn primary" id="assign-go" disabled>Give course</button>
+            <ul id="assign-results" class="assign-results"></ul>
+          </div>
         </section>
       </main>
     </div>

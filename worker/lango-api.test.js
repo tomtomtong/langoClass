@@ -137,7 +137,8 @@ test("app context lists the classroom languages without a login", async () => {
   const response = await handleStoreApi(new Request(url), env(), url);
   const body = await response.json();
   assert.equal(body.appVariant, "");
-  assert.deepEqual(body.speakLanguages, [{ code: "en", label: "English" }]);
+  assert.deepEqual(body.speakLanguages.map((entry) => entry.code), ["en", "yue", "zh"]);
+  assert.deepEqual(body.questionLanguages.map((entry) => entry.code), ["en", "yue", "zh"]);
   assert.equal(body.defaultSpeakLangCode, "en");
   assert.equal(body.ttsProvider, "inworld");
   assert.equal(body.ttsAvailable, true);
@@ -256,6 +257,54 @@ test("admin session check needs a token and the admin role", async () => {
       assert.equal(teacher.status, 403);
       const admin = await handleStoreApi(new Request(url, { headers: { authorization: "Bearer boss" } }), env(), url);
       assert.equal(admin.status, 200);
+    }
+  );
+});
+
+test("admin directory refuses teachers and returns only whitelisted fields to admins", async () => {
+  await withCms(
+    {
+      "https://cms.test/api/me": (init) => Response.json({ user: { id: 2, role: String(init.headers.Authorization).includes("boss") ? "admin" : "teacher" } }),
+      "https://cms.test/api/schools/1001/teachers": () =>
+        Response.json({ teachers: [{ id: 9, username: "ms.chan", email: "a@b.c", teacher_id: "T1", class_ids: ["1A"], password: "secret", password_hash: "x" }] }),
+      "https://cms.test/api/schools/1001/classes": () => Response.json({ classes: [{ class_id: "1A", student_count: 25 }] }),
+      "https://cms.test/api/schools": () => Response.json({ schools: [{ id: "1001", name: "Test School" }] }),
+    },
+    async () => {
+      const url = new URL("/api/lango/admin/directory", "https://class.lango.ai");
+      const bare = await handleStoreApi(new Request(url), env(), url);
+      assert.equal(bare.status, 401);
+      const teacher = await handleStoreApi(new Request(url, { headers: { authorization: "Bearer tch" } }), env(), url);
+      assert.equal(teacher.status, 403);
+      const admin = await handleStoreApi(new Request(url, { headers: { authorization: "Bearer boss" } }), env(), url);
+      assert.equal(admin.status, 200);
+      const text = await admin.text();
+      assert.ok(!text.includes("secret"));
+      const body = JSON.parse(text);
+      assert.equal(body.schools[0].teachers[0].username, "ms.chan");
+      assert.equal(body.schools[0].studentCount, 25);
+    }
+  );
+});
+
+test("an admin token can read a teacher's courses but not change them", async () => {
+  await withCms(
+    {
+      "https://cms.test/api/teachers/": () => Response.json({ ok: true }),
+      "https://cms.test/api/me": (init) => Response.json({ user: { id: 1, role: String(init.headers.Authorization).includes("boss") ? "admin" : "teacher" } }),
+    },
+    async () => {
+      const store = env();
+      const call = (token, method) => {
+        const url = new URL("/api/cms/courses", "https://class.lango.ai");
+        const body = method === "POST" ? JSON.stringify({ name: "X" }) : undefined;
+        return handleStoreApi(new Request(url, { method, body, headers: { authorization: `Bearer ${token}`, "x-teacher-id": "55", "content-type": "application/json" } }), store, url);
+      };
+      assert.equal((await call("boss", "GET")).status, 200);
+      const blocked = await call("boss", "POST");
+      assert.equal(blocked.status, 403);
+      assert.match((await blocked.json()).message, /View only/);
+      assert.notEqual((await call("tch", "POST")).status, 403);
     }
   );
 });

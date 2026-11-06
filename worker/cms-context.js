@@ -4,45 +4,13 @@ import { speechProvider, speechReady } from "./ai.js";
 
 const GROK_TTS_SPEAK_LANGUAGES = [
   { code: "en", label: "English" },
-  { code: "yue", label: "Cantonese" },
-  { code: "ar-EG", label: "Arabic (Egypt)" },
-  { code: "ar-SA", label: "Arabic (Saudi Arabia)" },
-  { code: "ar-AE", label: "Arabic (United Arab Emirates)" },
-  { code: "bn", label: "Bengali" },
-  { code: "zh", label: "Chinese (Simplified)" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "hi", label: "Hindi" },
-  { code: "id", label: "Indonesian" },
-  { code: "it", label: "Italian" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "pt-BR", label: "Portuguese (Brazil)" },
-  { code: "pt-PT", label: "Portuguese (Portugal)" },
-  { code: "ru", label: "Russian" },
-  { code: "es-MX", label: "Spanish (Mexico)" },
-  { code: "es-ES", label: "Spanish (Spain)" },
-  { code: "tr", label: "Turkish" },
-  { code: "vi", label: "Vietnamese" },
+  { code: "yue", label: "Cantonese (粵語)" },
+  { code: "zh", label: "Mandarin (普通話, Traditional Chinese)" },
 ];
 
-const INWORLD_CLASSROOM_SPEAK_LANGUAGES = [{ code: "en", label: "English" }];
+const INWORLD_CLASSROOM_SPEAK_LANGUAGES = GROK_TTS_SPEAK_LANGUAGES;
 
-const CMS_QUESTION_LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "yue", label: "Cantonese" },
-  { code: "zh", label: "Chinese (Traditional)" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "es-ES", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "vi", label: "Vietnamese" },
-  { code: "id", label: "Indonesian" },
-  { code: "pt-BR", label: "Portuguese (Brazil)" },
-  { code: "hi", label: "Hindi" },
-  { code: "ar-SA", label: "Arabic" },
-];
+const CMS_QUESTION_LANGUAGES = GROK_TTS_SPEAK_LANGUAGES;
 
 export function cmsAppContext(env) {
   const appVariant = String(env?.APP_VARIANT || "").trim();

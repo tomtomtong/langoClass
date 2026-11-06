@@ -9,7 +9,7 @@ test("CMS data URL becomes playback-ready MP3 with the supplied request settings
   global.fetch = async (url, options) => {
     assert.equal(url, ENDPOINT);
     assert.equal(options.method, "POST");
-    assert.deepEqual(JSON.parse(options.body), { text: "Hello from Lango.", voiceId: DEFAULT_VOICE_ID, languageCode: "en", stability: 0 });
+    assert.deepEqual(JSON.parse(options.body), { text: "Hello from Lango.", voiceId: DEFAULT_VOICE_ID, languageCode: "en", stability: 0, modelId: "eleven_v4" });
     assert.ok(options.signal instanceof AbortSignal);
     return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
   };
@@ -18,7 +18,7 @@ test("CMS data URL becomes playback-ready MP3 with the supplied request settings
 
 test("custom voice and language reach CMS without Grok style markers", async () => {
   global.fetch = async (_url, options) => {
-    assert.deepEqual(JSON.parse(options.body), { text: "Bonjour", voiceId: "custom_voice", languageCode: "fr", stability: 1 });
+    assert.deepEqual(JSON.parse(options.body), { text: "Bonjour", voiceId: "custom_voice", languageCode: "fr", stability: 1, modelId: "eleven_v4" });
     return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
   };
   await synthesize("Bonjour", { voiceId: "custom_voice", languageCode: "fr", stability: 1 });

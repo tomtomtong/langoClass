@@ -251,7 +251,26 @@ async function featureListing(env, listingId, auth, body) {
   return json({ ok: true, course: publicCard(listing, auth.teacherId, courses) });
 }
 
-async function copyListing(env, listingId, auth, fetchImpl) {
+// Admin portal: public listings an admin can hand out, and the hand-out itself.
+export async function listAssignableListings(env) {
+  const [store, courses] = await readStores(env);
+  return store.listings.filter(isPublic).map((item) => publicCard(item, null, courses));
+}
+
+// Copies one public listing into one teacher's courses (same copy a teacher makes
+// with "Add to My courses"), so a repeat is harmless: it reports alreadyCopied.
+export async function assignListingToTeacher(env, listingId, teacherId, assignedBy, fetchImpl = fetch) {
+  const numeric = Number(teacherId);
+  const id = Number.isInteger(numeric) && numeric > 0 ? numeric : String(teacherId);
+  try {
+    return await copyListing(env, Number(listingId), { teacherId: id }, fetchImpl, { assignedBy });
+  } catch (error) {
+    if (error instanceof CommunityError) return json({ message: error.message }, error.status);
+    throw error;
+  }
+}
+
+async function copyListing(env, listingId, auth, fetchImpl, { assignedBy = null } = {}) {
   let [store, courses] = await readStores(env);
   let listing = store.listings.find((item) => item.id === listingId);
   if (!isPublic(listing)) throw new CommunityError("Community course not found.");
@@ -281,6 +300,7 @@ async function copyListing(env, listingId, auth, fetchImpl) {
     now
   );
   course.sections = numberSections(structuredClone(snapshot.sections || []));
+  if (assignedBy != null) course.assignedByAdminId = assignedBy;
   courses.courses.push(course);
   listing.copyCount = (listing.copyCount || 0) + 1;
   listing.updatedAt = now;

@@ -27,6 +27,32 @@ function cmsUnavailable(status) {
   return json({ message: "Lango CMS is not responding. Please try again in a moment." }, 503);
 }
 
+// An admin can open a teacher's CMS to look (the admin portal's "View as"). The
+// token is the admin's own, so the role is checked here, on the server: an admin
+// token may only read, whatever the page in the browser tries to do.
+const adminChecked = new Map();
+
+async function isAdminToken(base, token) {
+  const key = `${base}\n${token}`;
+  const hit = adminChecked.get(key);
+  if (hit && hit.expires > Date.now()) return hit.admin;
+  let admin = false;
+  try {
+    const res = await fetch(`${base}/api/me`, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      if (res.status >= 500 || res.status === 408 || res.status === 429) return null;
+    } else {
+      const data = await res.json().catch(() => null);
+      admin = String((data?.user || data)?.role || "").toLowerCase() === "admin";
+    }
+  } catch {
+    return null;
+  }
+  if (adminChecked.size >= VERIFIED_MAX) adminChecked.delete(adminChecked.keys().next().value);
+  adminChecked.set(key, { admin, expires: Date.now() + VERIFIED_TTL_MS });
+  return admin;
+}
+
 export async function requireTeacher(request, env) {
   const dev = await developerAuth(request);
   if (dev) return dev;
@@ -40,22 +66,29 @@ export async function requireTeacher(request, env) {
   const teacherId = Number.isInteger(numeric) && numeric > 0 ? numeric : text;
   const base = String(env.CMS_API_BASE || CMS_BASE_DEFAULT).replace(/\/$/, "");
   const key = `${base}\n${teacherId}\n${token}`;
-  if (recentlyVerified(key)) return { token, teacherId };
-  let checked;
-  try {
-    checked = await fetch(`${base}/api/teachers/${encodeURIComponent(String(teacherId))}/classes`, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-    });
-  } catch {
-    return cmsUnavailable(null);
+  if (!recentlyVerified(key)) {
+    let checked;
+    try {
+      checked = await fetch(`${base}/api/teachers/${encodeURIComponent(String(teacherId))}/classes`, {
+        headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      return cmsUnavailable(null);
+    }
+    // Only a refusal from the CMS means the login is bad; an outage or rate
+    // limit is not the teacher's token expiring.
+    if (!checked.ok) {
+      if (checked.status >= 500 || checked.status === 408 || checked.status === 429) return cmsUnavailable(checked.status);
+      return json({ message: "Invalid or expired token." }, 401);
+    }
+    rememberVerified(key);
   }
-  // Only a refusal from the CMS means the login is bad; an outage or rate
-  // limit is not the teacher's token expiring.
-  if (!checked.ok) {
-    if (checked.status >= 500 || checked.status === 408 || checked.status === 429) return cmsUnavailable(checked.status);
-    return json({ message: "Invalid or expired token." }, 401);
+  const method = request.method.toUpperCase();
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    const admin = await isAdminToken(base, token);
+    if (admin === null) return cmsUnavailable(null);
+    if (admin) return json({ message: "View only: an admin can look at a teacher's account but not change it." }, 403);
   }
-  rememberVerified(key);
   return { token, teacherId };
 }
 

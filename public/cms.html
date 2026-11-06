@@ -253,18 +253,18 @@
         </div>
       </div>
       <div class="templates-tabs" id="templates-tabs" role="tablist">
-        <button class="templates-tab" type="button" role="tab" data-templates-tab="mine" aria-selected="false"><span>My templates</span></button>
+        <button class="templates-tab" type="button" role="tab" data-templates-tab="mine" aria-selected="false"><span data-i18n="cms.templates.mine">My templates</span></button>
         <button class="templates-tab active" type="button" role="tab" data-templates-tab="community" aria-selected="true"><span data-i18n="cms.nav.community">Community</span></button>
       </div>
       <div id="templates-mine-panel" class="templates-panel" role="tabpanel" hidden>
-        <p class="hint templates-panel-hint">Course templates you have created for this account.</p>
+        <p class="hint templates-panel-hint" data-i18n="cms.templates.mineHint">Course templates you have created for this account.</p>
         <div id="templates-mine-empty" class="paper empty" hidden>
-          <p>You have not created any course templates yet. Build a course in My courses, then share it to the Community.</p>
+          <p data-i18n="cms.templates.mineEmpty">You have not created any course templates yet. Build a course in My courses, then share it to the Community.</p>
         </div>
         <div class="community-grid" id="templates-mine-grid"></div>
       </div>
       <div id="templates-community-panel" class="templates-panel" role="tabpanel">
-        <p class="hint templates-panel-hint">Browse public course templates shared by other teachers.</p>
+        <p class="hint templates-panel-hint" data-i18n="cms.community.panelHint">Pick a course you like, then press “Add to My courses”. That is all.</p>
         <div class="paper community-filters">
           <div class="community-filter-grid">
             <div class="field community-filter-search">
@@ -278,6 +278,12 @@
             <div class="field">
               <label class="field-label" for="community-sub">Subcategory</label>
               <select id="community-sub" disabled><option value="">All subcategories</option></select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="cms-community-level" data-i18n="cms.community.level">Level</label>
+              <select id="cms-community-level" aria-label="Filter by level">
+                <option value="all" data-i18n="cms.community.allLevels">All levels</option>
+              </select>
             </div>
             <div class="field">
               <label class="field-label" for="cms-community-lang" data-i18n="cms.community.language">Language</label>

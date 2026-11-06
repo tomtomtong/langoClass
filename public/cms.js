@@ -51,18 +51,8 @@ const AI_COURSE_STEP_KINDS = ["material", "plan", "review", "publish"];
 
 const CMS_FALLBACK_SPEAK_LANGUAGES = [
   { code: "en", label: "English" },
-  { code: "yue", label: "Cantonese" },
-  { code: "zh", label: "Chinese (Traditional)" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "es-ES", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "vi", label: "Vietnamese" },
-  { code: "id", label: "Indonesian" },
-  { code: "pt-BR", label: "Portuguese (Brazil)" },
-  { code: "hi", label: "Hindi" },
-  { code: "ar-SA", label: "Arabic" },
+  { code: "yue", label: "Cantonese (粵語)" },
+  { code: "zh", label: "Mandarin (普通話, Traditional Chinese)" },
 ];
 
 const state = {
@@ -75,6 +65,7 @@ const state = {
   communityLanguages: [],
   communityQuery: "",
   communityLang: "all",
+  communityLevel: "all",
   communitySort: "featured",
   communityPreviewId: null,
   classes: [],
@@ -1720,7 +1711,45 @@ function dashboardClassIdOf(value) {
   return id > 0 ? id : null;
 }
 
+// Admin "View as": admin.html parks the teacher's profile in sessionStorage (this tab
+// only). It is used instead of the saved login and never written to localStorage, so
+// the real teacher/admin session on this browser is untouched. The Worker enforces
+// read-only because the token is the admin's own.
+function readViewAs() {
+  try {
+    const data = JSON.parse(sessionStorage.getItem("lango_view_as") || "null");
+    return data?.token && data?.user?.id ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+function exitViewAs() {
+  sessionStorage.removeItem("lango_view_as");
+  location.href = "/admin.html";
+}
+
+function showViewAsBanner() {
+  if (!state.viewAs || document.getElementById("view-as-banner")) return;
+  const user = state.viewAs.user || {};
+  const name = user.name_zh || user.name_en || user.username || user.id;
+  const bar = document.createElement("div");
+  bar.id = "view-as-banner";
+  bar.setAttribute("role", "status");
+  bar.innerHTML = `<span>${escapeHtml(cmsT("cms.viewAs.banner", { name }))}</span><button type="button" class="btn small">${escapeHtml(cmsT("cms.viewAs.exit"))}</button>`;
+  bar.querySelector("button").addEventListener("click", exitViewAs);
+  document.body.prepend(bar);
+  document.body.classList.add("view-as-active");
+}
+
 function loadPrefs() {
+  const viewAs = readViewAs();
+  if (viewAs) {
+    state.viewAs = viewAs;
+    state.token = viewAs.token;
+    state.user = viewAs.user;
+    return;
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
@@ -1738,6 +1767,7 @@ function loadPrefs() {
 }
 
 function savePrefs() {
+  if (state.viewAs) return;
   const loginUsername =
     $("#cms-login-username")?.value.trim().toLowerCase() || state.loginUsername || "";
   if (loginUsername) state.loginUsername = loginUsername;
@@ -3112,6 +3142,7 @@ function applyCmsLoginDefaults() {
 }
 
 function handleLogout() {
+  if (state.viewAs) return exitViewAs();
   state.token = null;
   state.user = null;
   state.editingCourse = null;
@@ -4124,6 +4155,7 @@ async function enterCommunity() {
   if (state.communityLoaded) {
     // Show the templates we already have now; the fetch below refreshes them.
     renderCommunityLangOptions();
+    renderCommunityLevelOptions();
     renderCommunityList();
   } else {
     $("#cms-community-list").innerHTML = `
@@ -4147,6 +4179,7 @@ async function loadCommunityCourses() {
     state.communityLanguages = data.languages || [];
     state.communityLoaded = true;
     renderCommunityLangOptions();
+    renderCommunityLevelOptions();
     renderCommunityList();
     $("#cms-community-error").textContent = "";
     $("#cms-community-status").textContent = state.communityCourses.length
@@ -4173,11 +4206,31 @@ function renderCommunityLangOptions() {
   select.value = codes.includes(current) ? current : "all";
 }
 
+function communityCourseLevel(course) {
+  const m = String(course?.name || "").trim().match(/^([PS])\s?(\d)\b/i);
+  return m ? `${m[1].toUpperCase()}${m[2]}` : "";
+}
+
+function renderCommunityLevelOptions() {
+  const select = $("#cms-community-level");
+  if (!select) return;
+  const levels = [...new Set(state.communityCourses.map(communityCourseLevel).filter(Boolean))].sort();
+  if (state.communityLevel !== "all" && !levels.includes(state.communityLevel)) levels.push(state.communityLevel);
+  select.innerHTML =
+    `<option value="all">${escapeHtml(cmsT("cms.community.allLevels"))}</option>` +
+    levels.map((l) => `<option value="${l}">${l}</option>`).join("");
+  select.value = state.communityLevel || "all";
+  const field = select.closest(".field");
+  if (field) field.hidden = levels.length === 0;
+}
+
 function renderCommunityList() {
   const container = $("#community-catalog") || $("#cms-community-list");
   if (!container) return;
   const emptyEl = $("#community-empty");
-  if (!state.communityCourses.length) {
+  const level = state.communityLevel || "all";
+  const visible = level === "all" ? state.communityCourses : state.communityCourses.filter((c) => communityCourseLevel(c) === level);
+  if (!visible.length) {
     if (emptyEl) emptyEl.hidden = false;
     container.innerHTML = "";
     cmsMotion()?.playCmsListReveal?.(container);
@@ -4185,7 +4238,7 @@ function renderCommunityList() {
   }
   if (emptyEl) emptyEl.hidden = true;
 
-  container.innerHTML = `<div class="community-grid">${state.communityCourses
+  container.innerHTML = `<div class="community-grid">${visible
     .map((course) => {
       const banner = courseBannerUrl(course);
       const cover = banner
@@ -4202,9 +4255,8 @@ function renderCommunityList() {
           <div class="badges">
             <span class="badge">${escapeHtml(communityLangLabel(course.langCode))}</span>
             ${featured}${owner}
-            <span class="badge">${escapeHtml(cmsT("cms.community.addedTimes", { n: course.copyCount || 0 }))}</span>
           </div>
-          <p class="hint">${escapeHtml(course.authorName || cmsT("cms.community.teacher"))} · ${escapeHtml(cmsCountOneMany(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}</p>
+          <p class="hint community-card-meta">${escapeHtml(cmsCountOneMany(course.exerciseCount || 0, "cms.count.exerciseOne", "cms.count.exerciseMany"))}${course.copyCount ? ` · ${escapeHtml(cmsT("cms.community.addedBy", { n: course.copyCount }))}` : ""}</p>
           <div class="card-actions">
             <button type="button" class="btn small cms-community-preview-btn">${escapeHtml(cmsT("cms.community.preview"))}</button>
             <button type="button" class="btn small primary cms-community-add-btn"${copied ? " disabled" : ""}>${escapeHtml(copied ? cmsT("cms.community.inLibrary") : cmsT("cms.community.add"))}</button>
@@ -10388,10 +10440,8 @@ function renderVideoBody(container, exercise) {
       <span>Caption language</span>
       <select class="cms-video-caption-target-language" aria-label="Caption language">
         <option value="en">English (en)</option>
-        <option value="zh">Chinese (zh)</option>
+        <option value="zh">Mandarin 普通話 (zh)</option>
         <option value="yue">Cantonese (yue)</option>
-        <option value="ja">Japanese (ja)</option>
-        <option value="ko">Korean (ko)</option>
       </select>
     </label>
     <button type="button" class="btn secondary small cms-upload-captions">Upload 字幕 (.vtt)</button>
@@ -10838,9 +10888,7 @@ function buzzinSttLanguageOptionsHtml(selected = "") {
     <option value=""${value ? "" : " selected"}>Server default</option>
     <option value="en"${value === "en" ? " selected" : ""}>English (en)</option>
     <option value="yue"${value === "yue" ? " selected" : ""}>Cantonese (yue)</option>
-    <option value="zh"${value === "zh" ? " selected" : ""}>Chinese (zh)</option>
-    <option value="ja"${value === "ja" ? " selected" : ""}>Japanese (ja)</option>
-    <option value="ko"${value === "ko" ? " selected" : ""}>Korean (ko)</option>
+    <option value="zh"${value === "zh" ? " selected" : ""}>Mandarin 普通話 (zh)</option>
   `;
 }
 
@@ -12029,6 +12077,10 @@ $("#cms-community-lang")?.addEventListener("change", () => {
   state.communityLang = $("#cms-community-lang").value || "all";
   loadCommunityCourses();
 });
+$("#cms-community-level")?.addEventListener("change", () => {
+  state.communityLevel = $("#cms-community-level").value || "all";
+  renderCommunityList();
+});
 $("#cms-community-sort")?.addEventListener("change", () => {
   state.communitySort = $("#cms-community-sort").value || "featured";
   loadCommunityCourses();
@@ -12658,6 +12710,7 @@ function setupCmsLanguage() {
 
 setupCmsLanguage();
 loadPrefs();
+showViewAsBanner();
 initCmsTheme();
 initCmsTextSize();
 initGlobalAgentSelection();
