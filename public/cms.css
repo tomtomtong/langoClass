@@ -1058,7 +1058,7 @@ p { margin: 0 0 0.75rem; }
 }
 
 #screen-community-detail {
-  max-width: 960px;
+  max-width: 1400px;
 }
 .community-detail-topbar {
   display: flex;
@@ -1643,7 +1643,7 @@ p { margin: 0 0 0.75rem; }
 .ex-body { margin-top: 0.7rem; padding-top: 0.7rem; border-top: 1px solid var(--line); }
 .option-row { display: flex; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
 
-.wizard { max-width: 760px; }
+.wizard { max-width: 1100px; }
 .wizard-step-track {
   display: flex;
   align-items: center;

@@ -30,7 +30,7 @@ const ELEVENLABS_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
 const ELEVENLABS_STABILITY = 0.5;
 const ELEVENLABS_MODEL_ID = "eleven_v4";
 // Cantonese is always read by ElevenLabs v4 with this voice.
-const ELEVENLABS_CANTONESE_VOICE_ID = "YCAPSHGzUmYdPAwR2mmV";
+const ELEVENLABS_CANTONESE_VOICE_ID = "wXGXswE8VswvmoBhUVfQ";
 // Mandarin is always read by Inworld with this designed voice.
 const INWORLD_MANDARIN_TTS_VOICE = "default-zylgts2tamenvybeti3z0w__design-voice-b16f9c28";
 const STT_SAMPLE_RATE = 16000;

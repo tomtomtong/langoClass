@@ -49,6 +49,7 @@
         <button class="nav-link cms-link-nav" type="button" data-nav="schools">Schools</button>
         <button class="nav-link cms-link-nav" type="button" data-nav="teachers">Teachers</button>
         <button class="nav-link cms-link-nav" type="button" data-nav="assignments">Course assignment</button>
+        <button class="nav-link cms-link-nav" type="button" data-nav="settings">Settings</button>
       </nav>
       <div class="sidebar-foot">
         <span class="teacher-chip" id="admin-label">Admin</span>
@@ -117,6 +118,144 @@
             <p id="assign-summary" class="hint">Nothing selected yet.</p>
             <button type="button" class="btn primary" id="assign-go" disabled>Give course</button>
             <ul id="assign-results" class="assign-results"></ul>
+          </div>
+        </section>
+        <section id="screen-settings" class="screen">
+          <div class="screen-head"><div><h2>Settings</h2><p class="hint">Speech, AI models, video and student data. API keys live on the Lango CMS router, not here.</p></div></div>
+          <div class="config-sections">
+        <div class="paper config-panel">
+          <h2>Live question speech</h2>
+          <p class="hint config-panel-intro">
+            Choose the speech provider for this server. The deployment default uses
+            Inworld for Classroom and OpenRouter Grok Voice for HK Elderly.
+          </p>
+          <div class="config-field-grid">
+            <label class="field">
+              <span>Speech provider</span>
+              <select id="config-tts-provider" aria-describedby="config-tts-error">
+                <option value="">Deployment default</option>
+                <option value="inworld">Inworld</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="elevenlabs">ElevenLabs (Lango CMS)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>ElevenLabs Voice ID</span>
+              <input id="config-elevenlabs-voice" aria-describedby="config-tts-hint config-tts-error" type="text" maxlength="128" placeholder="JBFqnCBsd6RMkjVDRZzb" />
+            </label>
+            <label class="field">
+              <span>ElevenLabs stability (0–1)</span>
+              <input id="config-elevenlabs-stability" required aria-describedby="config-tts-error" type="number" min="0" max="1" step="0.01" value="0.5" />
+            </label>
+          </div>
+          <p class="hint" id="config-tts-hint">ElevenLabs uses the Lango CMS speech API. Voice ID and stability apply when ElevenLabs is selected.</p>
+          <div class="config-actions">
+            <button type="button" class="btn primary small" id="btn-config-save-tts">Save speech settings</button>
+            <button type="button" class="btn small" id="btn-config-test-tts">Test saved speech settings</button>
+          </div>
+          <p class="status-msg" id="config-tts-status" role="status"></p>
+          <p class="error" id="config-tts-error" role="alert"></p>
+          <audio id="config-tts-preview" controls hidden aria-label="Speech sample"></audio>
+          <div class="config-meta config-meta-compact" id="config-tts-routing">
+            <p><strong>Classroom (main):</strong> <span id="config-tts-classroom">—</span></p>
+            <p><strong>HK Elderly:</strong> <span id="config-tts-elderly">—</span></p>
+            <p><strong>This server:</strong> <span id="config-tts-current">—</span></p>
+          </div>
+        </div>
+
+        <div class="paper config-panel">
+          <h2>AI models</h2>
+          <p class="hint config-panel-intro">
+            Leave a field empty to use the deployment default.
+          </p>
+          <div class="config-field-grid">
+            <label class="field">
+              <span>Course AI generate</span>
+              <input type="text" id="config-openrouter-generate-model" list="config-openrouter-generate-models" placeholder="x-ai/grok-4.3" autocomplete="off" />
+              <datalist id="config-openrouter-generate-models">
+                <option value="x-ai/grok-4.3"></option>
+                <option value="x-ai/grok-4"></option>
+              </datalist>
+              <p class="hint config-field-meta">
+                Active: <strong id="config-openrouter-generate-model-effective">—</strong>
+                · Default: <strong id="config-openrouter-generate-model-env-default">—</strong>
+              </p>
+            </label>
+            <label class="field">
+              <span>Speech-to-text (Buzz In)</span>
+              <input type="text" id="config-inworld-stt-model" list="config-inworld-stt-models" placeholder="inworld/inworld-stt-1" autocomplete="off" />
+              <datalist id="config-inworld-stt-models">
+                <option value="inworld/inworld-stt-1"></option>
+                <option value="groq/whisper-large-v3"></option>
+              </datalist>
+              <p class="hint config-field-meta">
+                Active: <strong id="config-inworld-stt-model-effective">—</strong>
+                · Default: <strong id="config-inworld-stt-model-env-default">—</strong>
+              </p>
+            </label>
+            <label class="field">
+              <span>OpenRouter speech (HK Elderly)</span>
+              <input type="text" id="config-openrouter-tts-model" list="config-openrouter-tts-models" placeholder="x-ai/grok-voice-tts-1.0" autocomplete="off" />
+              <datalist id="config-openrouter-tts-models">
+                <option value="x-ai/grok-voice-tts-1.0"></option>
+                <option value="openai/tts-1"></option>
+                <option value="openai/tts-1-hd"></option>
+                <option value="elevenlabs/eleven_multilingual_v2"></option>
+              </datalist>
+              <p class="hint config-field-meta">
+                Active: <strong id="config-openrouter-tts-model-effective">—</strong>
+                · Default: <strong id="config-openrouter-tts-model-env-default">—</strong>
+              </p>
+            </label>
+          </div>
+          <div class="config-actions">
+            <button type="button" class="btn primary small" id="btn-config-save-models">Save models</button>
+            <button type="button" class="btn small" id="btn-config-reset-models">Reset to defaults</button>
+          </div>
+          <p class="status-msg" id="config-models-status" role="status"></p>
+          <p class="error" id="config-models-error" role="alert"></p>
+        </div>
+
+        <div class="paper config-panel">
+          <h2>Video generator API</h2>
+          <p class="hint config-panel-intro">
+            LangoCMS Router API — video <code>POST /api/video</code>, image <code>POST /api/router/image</code>.
+          </p>
+          <label class="field">
+            <span>API base URL</span>
+            <input type="url" id="config-video-generator-url" placeholder="https://newcms.lango.ai" autocomplete="off" />
+            <p class="hint config-field-meta">
+              Active: <strong id="config-video-generator-url-effective">—</strong>
+              · Default: <strong id="config-video-generator-url-env-default">—</strong>
+            </p>
+          </label>
+          <div class="config-actions">
+            <button type="button" class="btn primary small" id="btn-config-save-video-generator-url">Save URL</button>
+            <button type="button" class="btn small" id="btn-config-reset-video-generator-url">Reset to default</button>
+          </div>
+          <p class="status-msg" id="config-video-generator-save-status"></p>
+          <p class="error" id="config-video-generator-error"></p>
+        </div>
+
+        <div class="paper config-panel">
+          <h2>Student database</h2>
+          <p class="hint config-panel-intro">
+            Score history for semester leaderboards. Clearing removes all student profiles and score records.
+          </p>
+          <div class="config-meta config-meta-compact config-meta-inline">
+            <p><strong>Student profiles:</strong> <span id="config-student-db-count">—</span></p>
+            <p><strong>Score records:</strong> <span id="config-student-db-records">—</span></p>
+          </div>
+          <div class="config-actions">
+            <button type="button" class="btn small cms-danger" id="btn-config-clear-student-db">
+              Clear all student database
+            </button>
+          </div>
+          <p class="status-msg" id="config-student-db-status"></p>
+          <p class="error" id="config-student-db-error"></p>
+        </div>
+
+        <p class="error" id="config-error"></p>
           </div>
         </section>
       </main>

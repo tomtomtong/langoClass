@@ -717,15 +717,42 @@ body.cms-asset-preview-open {
 
 #app-shell #screen-cms-edit .cms-tab-panel {
   display: none;
-  max-width: 720px;
+  max-width: none; /* use the whole screen */
 }
 
 #app-shell #screen-cms-edit .cms-tab-panel.active {
   display: block;
 }
 
+/* Details tab: two columns on wide screens instead of one narrow strip. */
+@media (min-width: 1000px) {
+  #app-shell #screen-cms-edit #cms-tab-details.active {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2rem;
+    align-items: start;
+    max-width: 1400px;
+  }
+  #app-shell #screen-cms-edit #cms-tab-details > * { grid-column: 1 / -1; }
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#course-level),
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#course-start),
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#course-objectives),
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#course-author-notes),
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#cover-preview),
+  #app-shell #screen-cms-edit #cms-tab-details > .field-host { grid-column: auto; }
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#course-objectives) { order: 1; }
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#course-author-notes) { order: 1; }
+  #app-shell #screen-cms-edit #cms-tab-details > .field:has(#cover-preview),
+  #app-shell #screen-cms-edit #cms-tab-details > .field-host { order: 2; }
+  #app-shell #screen-cms-edit #cms-tab-details > .error,
+  #app-shell #screen-cms-edit #cms-tab-details > .cms-community-share-status,
+  #app-shell #screen-cms-edit #cms-tab-details > .row,
+  #app-shell #screen-cms-edit #cms-tab-details > .cms-editor-delete-wrap,
+  #app-shell #screen-cms-edit #cms-tab-details > .status-msg { order: 3; }
+}
+
 #app-shell #cms-tab-sections {
-  max-width: 720px;
+  max-width: none; /* use the whole screen */
   text-align: left;
 }
 
@@ -3281,3 +3308,26 @@ html[data-cms-text-size] body { font-size: 1rem; }
 .assign-results { list-style: none; padding: 0; margin: 0.8rem 0 0; font-size: 1.05rem; }
 .assign-results li { padding: 0.3rem 0; }
 #assign-go { min-height: 56px; font-size: 1.15rem; margin-top: 0.4rem; }
+
+/* UI language picker (top bar): JS toggles .is-open + [hidden]; .menu-list is display:none by default. */
+.cms-language.is-open > .cms-language-menu { display: block; }
+.cms-language-menu { list-style: none; margin: 0; z-index: 200; }
+.cms-language-menu[hidden] { display: none !important; }
+.cms-language-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  outline: none;
+}
+.cms-language-option:hover,
+.cms-language-option:focus-visible { background: var(--wash); }
+.cms-language-option.is-selected { color: var(--purple); }
+.cms-language-option.is-selected .cms-language-option-check::before { content: "✓"; }
