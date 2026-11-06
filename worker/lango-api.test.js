@@ -137,7 +137,8 @@ test("app context lists the classroom languages without a login", async () => {
   const response = await handleStoreApi(new Request(url), env(), url);
   const body = await response.json();
   assert.equal(body.appVariant, "");
-  assert.deepEqual(body.speakLanguages, [{ code: "en", label: "English" }]);
+  assert.deepEqual(body.speakLanguages.map((entry) => entry.code), ["en", "yue", "zh"]);
+  assert.deepEqual(body.questionLanguages.map((entry) => entry.code), ["en", "yue", "zh"]);
   assert.equal(body.defaultSpeakLangCode, "en");
   assert.equal(body.ttsProvider, "inworld");
   assert.equal(body.ttsAvailable, true);
