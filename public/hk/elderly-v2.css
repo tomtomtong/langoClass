@@ -203,7 +203,9 @@ body.hk-elderly #app.lango-host #screen-host-quiz-question:not(.fast-mode) .host
 
 body.hk-elderly #app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-question,
 body.hk-elderly #app.lango-host #screen-host-quiz-question:not(.fast-mode).has-image .host-mcq-question {
-  max-height: none;
+  /* fitTextToBox() sizes the text against this cap, so keep it numeric and let the text content-size */
+  flex: 0 0 auto;
+  max-height: min(34dvh, 360px);
 }
 
 /* Host stage: style.css paints navy on body:has(#app.lango-host) */
@@ -279,4 +281,238 @@ body.hk-elderly #app.lango-host #screen-class .course-status,
 body.hk-elderly #app.lango-host #screen-course .course-status {
   color: #f7f1e3;
   font-weight: 700;
+}
+
+/* Host question: give the question the space the answers don't need */
+html:has(body.hk-elderly) {
+  --hk-host-options-min: min(32dvh, 330px);
+  --hk-host-options-max: min(36dvh, 380px);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-question-box {
+  flex: 1 1 auto;
+  min-height: min(26dvh, 260px);
+  max-height: none;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-question .host-mcq-options {
+  flex: 0 0 auto;
+}
+
+/* Phone answer shapes: always white so they read on every answer colour */
+body.join-page.hk-elderly #screen-player-question .option-shape {
+  color: #fff;
+  filter: none;
+}
+
+/* Phone countdown: dark number on the white ring */
+body.join-page.hk-elderly #screen-player-question .player-mcq-countdown .timer-ring {
+  color: var(--hk-text);
+  border-color: transparent;
+}
+
+/* ── Host results: readable at projector distance, no leftover purple/orange ── */
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-title {
+  color: #f7f1e3;
+  text-shadow: none;
+  -webkit-text-stroke: 0;
+  font-size: clamp(2.5rem, 3vw, 4rem);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-question {
+  font-size: clamp(1.6rem, 2.2vw, 2.8rem) !important;
+  color: var(--hk-text);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-letter {
+  color: var(--hk-accent);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-highlight {
+  font-size: clamp(1.6rem, 2.2vw, 2.8rem) !important;
+  color: var(--kahoot-green);
+  font-weight: 900;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-distribution-title {
+  font-size: clamp(1.6rem, 2vw, 2.4rem);
+  color: var(--hk-text);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-copy {
+  font-size: clamp(1.4rem, 1.8vw, 2.2rem) !important;
+  color: var(--hk-text);
+  font-weight: 800;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-letter {
+  font-size: clamp(1.6rem, 2vw, 2.6rem) !important;
+  color: var(--hk-accent);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-item strong {
+  font-size: clamp(1.1rem, 1.4vw, 1.7rem);
+  color: var(--hk-muted);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-board h3 {
+  color: var(--hk-text);
+  font-size: clamp(1.6rem, 2vw, 2.4rem);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-board p,
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-empty {
+  color: var(--hk-muted);
+  font-size: clamp(1.2rem, 1.5vw, 1.8rem);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-count {
+  background: var(--hk-accent);
+  color: #fff;
+  font-size: clamp(1.1rem, 1.4vw, 1.7rem);
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-footer-btn {
+  min-height: 64px;
+  border: 0;
+  border-radius: 999px;
+  background: #fffaf0;
+  background-image: none;
+  color: var(--hk-text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-footer-btn .host-btn-label {
+  color: var(--hk-text);
+  font-weight: 800;
+  font-size: clamp(1.1rem, 1.5vw, 1.5rem);
+  text-shadow: none;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-next-btn {
+  background: var(--hk-accent);
+  background-image: none;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-next-btn .host-btn-label {
+  color: #fff;
+}
+
+/* ── Phone result screen: paper card, solid colours ── */
+body.join-page.hk-elderly #screen-player-results .player-mcq-result-card {
+  border: 0;
+  background: var(--hk-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+body.join-page.hk-elderly #screen-player-results .result-msg {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  color: var(--kahoot-green);
+  text-shadow: none;
+  font-weight: 900;
+}
+
+body.join-page.hk-elderly #screen-player-results .result-msg.wrong {
+  color: var(--kahoot-red);
+}
+
+body.join-page.hk-elderly #screen-player-results .player-mcq-result-points {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  color: var(--hk-text);
+  text-shadow: none;
+}
+
+body.join-page.hk-elderly #screen-player-results .player-mcq-result-encouragement {
+  color: var(--hk-muted);
+  font-weight: 700;
+}
+
+/* ── Waiting / info cards on the phone: no rainbow frame ── */
+body.join-page.hk-elderly .general-waiting-ui__message-card {
+  border: 0;
+  background: var(--hk-card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+}
+
+body.join-page.hk-elderly #screen-join .btn.primary,
+body.join-page.hk-elderly .btn.primary {
+  border-image: none;
+}
+
+/* ── Leftover decorations: rainbow rings, glowing titles, purple pills ── */
+body.join-page.hk-elderly .player-mcq-result-card::after,
+body.join-page.hk-elderly .player-mcq-result-card::before,
+body.join-page.hk-elderly .general-waiting-ui__message-card::after,
+body.join-page.hk-elderly .general-waiting-ui__message-card::before,
+body.join-page.hk-elderly #screen-join .btn.primary::after,
+body.join-page.hk-elderly #screen-join .btn.primary::before {
+  display: none !important;
+}
+
+body.join-page.hk-elderly .player-mcq-result-title,
+body.join-page.hk-elderly .general-waiting-ui__header h1,
+body.join-page.hk-elderly .player-mcq-title {
+  text-shadow: none;
+  color: #f7f1e3;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-footer-btn {
+  background-image: none !important;
+  background-color: #fffaf0 !important;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-footer-btn .host-btn-face {
+  background-image: none !important;
+  background-color: var(--hk-accent) !important;
+}
+
+body.hk-elderly #app.lango-host #screen-host-quiz-results .host-mcq-next-btn {
+  background-color: var(--hk-accent) !important;
+}
+
+/* Results panels: let the answer list use the height it needs */
+body.hk-elderly #screen-host-quiz-results .host-mcq-distribution-body {
+  overflow: visible;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend-item {
+  min-height: 0;
+  padding-block: 0.4rem;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-legend {
+  overflow: visible;
+  grid-auto-rows: auto;
+  grid-template-rows: none;
+  gap: 0.6rem;
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-correct-board-header h3 {
+  color: var(--hk-text);
+  font-size: clamp(1.6rem, 2vw, 2.4rem);
+}
+
+body.hk-elderly #screen-host-quiz-results .host-mcq-result-question {
+  color: var(--hk-text);
+}
+
+/* Phone: the empty rounded timer frame carried a rainbow border */
+body.join-page.hk-elderly #screen-player-question .player-mcq-timer-card {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.hk-elderly #screen-host-quiz-question .host-mcq-image-wrap[hidden],
+body.hk-elderly #screen-host-quiz-question .question-image[hidden] {
+  display: none !important;
 }
