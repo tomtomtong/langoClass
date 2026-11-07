@@ -6,9 +6,17 @@
 import { Container } from "@cloudflare/containers";
 import { TERMINAL, poll, resumeStalled, startJob, tryStart } from "./video-job.js";
 
+const MAX_RUN_MS = 75 * 60 * 1000; // video-job.js MAX_JOB_MS (60m) plus time to save
+
 export class VideoContainer extends Container {
   defaultPort = 8080;
-  sleepAfter = "5m";
+  sleepAfter = "1m";
+
+  // The server is PID 1 in its container and has no SIGTERM handler, so the
+  // default SIGTERM stop is ignored and the container keeps running (and billing).
+  async stop() {
+    await this.destroy();
+  }
 
   constructor(ctx, env) {
     super(ctx, env);
@@ -34,9 +42,16 @@ export class VideoContainer extends Container {
   // Keep the container up while a render is running even without requests.
   async onActivityExpired() {
     const job = await this.ctx.storage.get("job");
-    if (job && !TERMINAL.has(job.status)) {
+    // Never keep a container billing past the job limit, even if the poll chain died.
+    const overdue = job && Date.now() - (job.startedAt || 0) > MAX_RUN_MS;
+    if (job && !TERMINAL.has(job.status) && !overdue) {
       this.renewActivityTimeout();
       return;
+    }
+    if (overdue && !TERMINAL.has(job.status)) {
+      job.status = "failed";
+      job.error = "Video generation took too long.";
+      await this.ctx.storage.put("job", job);
     }
     await this.stop();
   }
