@@ -32,11 +32,11 @@ export async function handleStoreApi(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === "POST" && pathname === "/api/lango/login") {
-    const dev = await developerLogin(request);
+    const dev = await developerLogin(request, env);
     if (dev) return dev;
   }
   if (method === "GET" && pathname === "/api/lango/classList") {
-    const dev = await developerClassList(request);
+    const dev = await developerClassList(request, env);
     if (dev) return dev;
   }
   const lango = await handleLangoApi(request, env, url);

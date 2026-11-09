@@ -54,7 +54,7 @@ async function isAdminToken(base, token) {
 }
 
 export async function requireTeacher(request, env) {
-  const dev = await developerAuth(request);
+  const dev = await developerAuth(request, env);
   if (dev) return dev;
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : header.trim();

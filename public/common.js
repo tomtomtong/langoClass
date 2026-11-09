@@ -61,16 +61,10 @@ if (document.body?.classList.contains("join-page")) {
   );
 }
 
-const DEFAULT_TEACHER_LOGIN_USERNAME = "lango-developer-alex";
-const DEFAULT_TEACHER_LOGIN_PASSWORD = "lango123";
-
+// Remembers the last username only; no account or password is ever prefilled.
 function applyTeacherLoginDefaults(usernameInput, passwordInput, savedUsername) {
-  if (usernameInput) {
-    usernameInput.value = savedUsername || DEFAULT_TEACHER_LOGIN_USERNAME;
-  }
-  if (passwordInput) {
-    passwordInput.value = DEFAULT_TEACHER_LOGIN_PASSWORD;
-  }
+  if (usernameInput) usernameInput.value = savedUsername || "";
+  if (passwordInput) passwordInput.value = "";
 }
 
 function hideQuestionImage(imgEl, wrapperEl) {

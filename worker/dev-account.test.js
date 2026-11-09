@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeStudentList } from "./classes.js";
-import { developerClassList, developerLogin } from "./dev-account.js";
+import { developerAuth, developerClassList, developerLogin } from "./dev-account.js";
+
+const ENV = { DEV_LOGIN: "1" };
 
 async function developerBearer() {
   const response = await developerLogin(
@@ -9,7 +11,8 @@ async function developerBearer() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ login: "lango-developer-alex", password: "lango123" }),
-    })
+    }),
+    ENV
   );
   const body = await response.json();
   return body.token;
@@ -19,7 +22,8 @@ async function classList(token) {
   return developerClassList(
     new Request("https://class.lango.ai/api/lango/classList", {
       headers: { authorization: `Bearer ${token}` },
-    })
+    }),
+    ENV
   );
 }
 
@@ -45,4 +49,19 @@ test("dev classes carry a roster, since the dev teacher has no school_id", async
 
 test("dev class list is refused for other tokens", async () => {
   assert.equal(await classList("someone-else"), null);
+});
+
+test("the developer account is off unless DEV_LOGIN is set", async () => {
+  const token = await developerBearer();
+  const login = () =>
+    new Request("https://class.lango.ai/api/lango/login", {
+      method: "POST",
+      body: JSON.stringify({ login: "lango-developer-alex", password: "lango123" }),
+    });
+  const authed = () => new Request("https://class.lango.ai/api/lango/classList", { headers: { authorization: `Bearer ${token}` } });
+  for (const env of [{}, undefined, { DEV_LOGIN: "" }, { DEV_LOGIN: "0" }]) {
+    assert.equal(await developerLogin(login(), env), null);
+    assert.equal(await developerClassList(authed(), env), null);
+    assert.equal(await developerAuth(authed(), env), null);
+  }
 });

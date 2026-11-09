@@ -116,6 +116,7 @@ export function memoryR2() {
 
 // Signs in as the built-in developer teacher (id 835).
 export async function developerToken(handler, env) {
+  env.DEV_LOGIN = "1";
   const url = new URL("https://class.lango.ai/api/lango/login");
   const response = await handler(
     new Request(url, { method: "POST", body: JSON.stringify({ login: "lango-developer-alex", password: "lango123" }) }),

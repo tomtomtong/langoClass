@@ -123,7 +123,7 @@ async function savedSettings(env) {
 // Settings are school-admin only (admin.html → Settings). The developer account stays
 // allowed so local work and tests keep running.
 async function requireConfigAdmin(request, env) {
-  const dev = await developerAuth(request);
+  const dev = await developerAuth(request, env);
   if (dev) return dev;
   const admin = await requireAdmin(request, env);
   if (admin.response) return admin.response;

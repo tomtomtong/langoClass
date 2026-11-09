@@ -1,5 +1,6 @@
-// School login used to accept this teacher (id 835). newcms.lango.ai no longer
-// has the account, so class.lango.ai recognizes the same prefilled login locally.
+// A built-in teacher (id 835) with placeholder classes, for local work and tests only.
+// It is off unless the Worker is started with DEV_LOGIN=1 (for example in .dev.vars),
+// so a deployed site never accepts it and the login page is never prefilled with it.
 const DEV_USERNAME = "lango-developer-alex";
 const DEV_PASSWORD = "lango123";
 const DEV_TEACHER_ID = 835;
@@ -38,7 +39,12 @@ function devClass(id, name, studentCount) {
   return { id, name, studentCount, level: null, studentList };
 }
 
-export async function developerLogin(request) {
+export function devLoginEnabled(env) {
+  return /^(1|true|yes|on)$/i.test(String(env?.DEV_LOGIN ?? "").trim());
+}
+
+export async function developerLogin(request, env) {
+  if (!devLoginEnabled(env)) return null;
   let body = {};
   try {
     body = (await request.clone().json()) || {};
@@ -56,8 +62,8 @@ export async function developerLogin(request) {
   return Response.json({ ok: true, token, user });
 }
 
-export async function developerClassList(request) {
-  if (!(await isDeveloperRequest(request))) return null;
+export async function developerClassList(request, env) {
+  if (!devLoginEnabled(env) || !(await isDeveloperRequest(request))) return null;
   return Response.json({
     ok: true,
     teacher: { id: DEV_TEACHER_ID, username: DEV_USERNAME },
@@ -65,8 +71,8 @@ export async function developerClassList(request) {
   });
 }
 
-export async function developerAuth(request) {
-  if (!(await isDeveloperRequest(request))) return null;
+export async function developerAuth(request, env) {
+  if (!devLoginEnabled(env) || !(await isDeveloperRequest(request))) return null;
   const raw = request.headers.get("x-teacher-id");
   if (raw != null && String(raw).trim() && String(raw).trim() !== String(DEV_TEACHER_ID)) {
     return null;

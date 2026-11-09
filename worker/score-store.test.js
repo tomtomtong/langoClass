@@ -102,7 +102,7 @@ test("/api/scores returns room scores together with the older document", async (
   ]), "2026-10-21T01:00:00.000Z");
   await saveScoreBatch(db, batch([{ studentUserId: "cy", displayName: "Cy", score: 900 }], { classId: 579 }));
 
-  const env = { DB: db };
+  const env = { DB: db, DEV_LOGIN: "1" };
   const login = await handleStoreApi(
     new Request("https://class.lango.ai/api/lango/login", {
       method: "POST",
@@ -146,7 +146,7 @@ test("a class named with text, like Demo, saves and reads its scores", async () 
 test("scores and host progress work for a text class ID", async () => {
   const db = d1();
   await saveScoreBatch(db, batch([{ studentUserId: "ada", displayName: "Ada", score: 300 }], { classId: "Demo" }));
-  const env = { DB: db };
+  const env = { DB: db, DEV_LOGIN: "1" };
   const loginUrl = new URL("https://class.lango.ai/api/lango/login");
   const login = await handleStoreApi(
     new Request(loginUrl, { method: "POST", body: JSON.stringify({ login: "lango-developer-alex", password: "lango123" }) }),
