@@ -17,7 +17,8 @@ export function randomPart(length = 8) {
 }
 
 export function extensionOf(name) {
-  const match = String(name || "").toLowerCase().match(/\.[a-z0-9]{1,8}$/);
+  const pathOnly = String(name || "").split(/[?#]/)[0];
+  const match = pathOnly.toLowerCase().match(/\.[a-z0-9]{1,8}$/);
   return match ? match[0] : "";
 }
 
@@ -37,10 +38,14 @@ export async function openUpload(env, url, fetchImpl = fetch) {
 }
 
 // Copies an /uploads/ file to a new name in folder. A file that cannot be
-// found keeps its old URL, as lib/community-store.js does.
+// found keeps its old URL, as lib/community-store.js does. A lecture is a
+// shared, read-only folder: lecture.json points at voice/ and tommy/ files
+// beside it, so copying the JSON alone (and losing its extension to "?v=1")
+// breaks it. Its URL is kept, and deleteUpload never removes lectures/.
 export async function copyUpload(env, url, folder, fetchImpl = fetch) {
   const trimmed = String(url || "").trim();
-  if (!uploadKey(trimmed)) return trimmed;
+  const key = uploadKey(trimmed);
+  if (!key || key.split("/")[1] === "lectures") return trimmed;
   const source = await openUpload(env, trimmed, fetchImpl);
   if (!source) return trimmed;
   const ext = extensionOf(trimmed);
