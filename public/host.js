@@ -1273,11 +1273,12 @@ function resolveHostNextAction() {
   const nextExerciseLabel = hostT("quiz.nextExercise");
 
   if (step) {
-    const displayLabel = isLast
-      ? nextExerciseLabel
-      : step.type === "section"
-        ? `Next section: ${step.label}`
-        : `Next exercise: ${step.label}`;
+    const displayLabel =
+      step.type === "section"
+        ? hostT("quiz.nextSectionNamed", { label: step.label })
+        : isLast
+          ? nextExerciseLabel
+          : `Next exercise: ${step.label}`;
     return { ...step, displayLabel };
   }
 
@@ -1306,8 +1307,16 @@ function updateSectionStartButtonLabel() {
   startLabel.textContent = isSectionIntroExercise(state.selectedExercise)
     ? hostT("intro.play")
     : shouldStartSkipToNextSection()
-      ? hostT("quiz.nextExercise")
+      ? hostT("quiz.nextSectionNamed", {
+          label: sectionTitle(getNextSectionAfter(state.selectedSection)),
+        })
       : hostT("section.startExercise");
+}
+
+function sectionTransitionInfo(section) {
+  const playable = getPlayableSections();
+  const idx = playable.findIndex((entry) => Number(entry.id) === Number(section?.id));
+  return { id: section?.id ?? null, title: sectionTitle(section), index: idx >= 0 ? idx + 1 : null };
 }
 
 function setNextStepButtonLabel(btn, buttonLabel) {
@@ -1797,6 +1806,7 @@ function setSectionExercisePanelVisible(visible) {
     overlay.hidden = true;
     overlay.classList.remove("is-closing");
     sectionExerciseCloseTimer = null;
+    playPendingSectionUnlocks();
   }, SECTION_EXERCISE_CLOSE_MS);
 }
 
@@ -1804,7 +1814,7 @@ function closeSectionExercises() {
   setSectionExercisePanelVisible(false);
 }
 
-function renderSectionPickCard(section, { selectedId, index, locked = false }) {
+function renderSectionPickCard(section, { selectedId, index, locked = false, pendingUnlock = false }) {
   const active = section.id === selectedId ? " active" : "";
   const banner = sectionBanner(section);
   const exerciseCount = (section.exercises || []).length;
@@ -1825,7 +1835,8 @@ function renderSectionPickCard(section, { selectedId, index, locked = false }) {
           Start
         </button>`;
 
-  return `<article class="course-pick-card${active}${hasExercises ? "" : " course-pick-card--empty"}${locked ? " course-pick-card--locked" : ""}" data-id="${section.id}" style="--card-i: ${index}">
+  return `<article class="course-pick-card${active}${hasExercises ? "" : " course-pick-card--empty"}${locked ? " course-pick-card--locked" : ""}${pendingUnlock ? " course-pick-card--pending-unlock" : ""}" data-id="${section.id}" style="--card-i: ${index}">
+    ${pendingUnlock ? sectionLockBadgeHtml("course-pick-pending-lock") : ""}
     <div class="course-pick-card-inner">
       ${thumb}
       <div class="course-pick-body">
@@ -1855,7 +1866,11 @@ function renderSectionPickerGrid(container, sections, { selectedId, onSelect }) 
         renderSectionPickCard(section, {
           selectedId,
           index,
-          locked: !isHostSectionUnlocked(section, playableSections),
+          // Same deferral as the journey map: stay locked until the unlock effect plays.
+          locked:
+            !isHostSectionUnlocked(section, playableSections) ||
+            Boolean(state.pendingSectionUnlocks?.has(Number(section.id))),
+          pendingUnlock: Boolean(state.pendingSectionUnlocks?.has(Number(section.id))),
         })
       )
       .join("");
@@ -1926,7 +1941,11 @@ function renderSectionRoad(sections, { selectedId, playableSections = getPlayabl
       renderSectionRoadCard(section, {
         selectedId,
         index,
-        locked: !isHostSectionUnlocked(section, playableSections),
+        // A just-unlocked section keeps its lock until the map is on screen, so the
+        // unlock effect is actually seen (see playPendingSectionUnlocks).
+        locked:
+          !isHostSectionUnlocked(section, playableSections) ||
+          Boolean(state.pendingSectionUnlocks?.has(Number(section.id))),
       })
     )
     .join("");
@@ -2016,6 +2035,14 @@ function smoothRoadPath(points) {
   return path;
 }
 
+function sectionLockBadgeHtml(className) {
+  return `<span class="${className}" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M7 10V8a5 5 0 0 1 10 0v2h1.25A1.75 1.75 0 0 1 20 11.75v8.5A1.75 1.75 0 0 1 18.25 22H5.75A1.75 1.75 0 0 1 4 20.25v-8.5A1.75 1.75 0 0 1 5.75 10H7Zm2.5 0h5V8a2.5 2.5 0 0 0-5 0v2Zm2.5 3.5a2 2 0 0 0-1 3.73V19h2v-1.77a2 2 0 0 0-1-3.73Z" />
+        </svg>
+      </span>`;
+}
+
 function renderSectionRoadCard(section, { selectedId, index, locked = false }) {
   const active = section.id === selectedId ? " active" : "";
   const banner = sectionBanner(section);
@@ -2025,19 +2052,13 @@ function renderSectionRoadCard(section, { selectedId, index, locked = false }) {
   const thumbnailContent = banner
     ? `<img class="section-road-thumb" src="${escapeHtml(banner)}" alt="" />`
     : `<span class="section-road-thumb section-road-thumb--empty" aria-hidden="true">${index + 1}</span>`;
-  const lockIcon = disabled
-    ? `<span class="section-road-lock" aria-hidden="true">
-        <svg viewBox="0 0 24 24" focusable="false">
-          <path d="M7 10V8a5 5 0 0 1 10 0v2h1.25A1.75 1.75 0 0 1 20 11.75v8.5A1.75 1.75 0 0 1 18.25 22H5.75A1.75 1.75 0 0 1 4 20.25v-8.5A1.75 1.75 0 0 1 5.75 10H7Zm2.5 0h5V8a2.5 2.5 0 0 0-5 0v2Zm2.5 3.5a2 2 0 0 0-1 3.73V19h2v-1.77a2 2 0 0 0-1-3.73Z" />
-        </svg>
-      </span>`
-    : "";
+  const lockIcon = disabled ? sectionLockBadgeHtml("section-road-lock") : "";
   const thumbnail = `<button type="button" class="section-road-thumb-button section-road-select-target" data-id="${section.id}" aria-label="${buttonLabel} section" ${disabled}>
     ${thumbnailContent}
     ${lockIcon}
   </button>`;
 
-  return `<article class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}${locked ? " section-road-card--locked" : ""}" style="--section-x: ${index * SECTION_ROAD_STEP_PX}px;">
+  return `<article data-section-id="${section.id}" class="section-road-card${active}${hasExercises ? "" : " section-road-card--empty"}${locked ? " section-road-card--locked" : ""}" style="--section-x: ${index * SECTION_ROAD_STEP_PX}px;">
     <div class="section-road-content">
       ${thumbnail}
     </div>
@@ -2819,6 +2840,7 @@ function renderSectionPicker() {
     : "Sections are listed below — add exercises in the CMS to make them playable.";
   updateSectionCountBadge(sections.length);
   updateSectionProgressCard(sections);
+  trackNewlyUnlockedSections(sections, playableSections);
 
   function handleSectionSelect(id) {
     const section = findSectionInList(id);
@@ -2840,6 +2862,79 @@ function renderSectionPicker() {
     selectedId: state.selectedSection?.id,
     onSelect: handleSectionSelect,
   });
+  playPendingSectionUnlocks();
+}
+
+// Remember which sections were unlocked the last time the map was drawn; anything new
+// (the host just finished the section before it) is queued for the unlock effect. The
+// first draw for a course only records the baseline, so reloads never replay it.
+function trackNewlyUnlockedSections(sections, playableSections) {
+  const courseId = state.course?.id ?? null;
+  const unlocked = new Set(
+    sections
+      .filter((section) => isHostSectionUnlocked(section, playableSections))
+      .map((section) => Number(section.id))
+  );
+  const seen = state.sectionUnlockSeen;
+  if (!seen || seen.courseId !== courseId) {
+    state.sectionUnlockSeen = { courseId, ids: unlocked };
+    state.pendingSectionUnlocks = new Set();
+    return;
+  }
+  if (!state.pendingSectionUnlocks) state.pendingSectionUnlocks = new Set();
+  for (const id of unlocked) {
+    if (!seen.ids.has(id)) state.pendingSectionUnlocks.add(id);
+  }
+  seen.ids = unlocked;
+}
+
+const SECTION_UNLOCK_MS = 1500;
+
+// Plays the lock-open effect on the journey map once it is actually visible: not while
+// the exercise panel covers it or while another screen is up. Called again when the
+// panel closes.
+function playPendingSectionUnlocks() {
+  const pending = state.pendingSectionUnlocks;
+  if (!pending?.size) return;
+  const overlay = $("#section-exercise-overlay");
+  if (!$("#screen-section")?.classList.contains("active")) return;
+  if (overlay && !overlay.hidden) return;
+
+  const grid = $("#section-grid");
+  const ids = [...pending];
+  pending.clear();
+  let animated = false;
+  for (const id of ids) {
+    const road = grid?.querySelector(`.section-road-card[data-section-id="${id}"]`);
+    const pick = road ? null : grid?.querySelector(`.course-pick-card[data-id="${id}"]`);
+    const card = road || pick;
+    if (!card) continue;
+    animated = true;
+    const burst = document.createElement("span");
+    burst.className = "section-road-unlock-burst";
+    burst.setAttribute("aria-hidden", "true");
+    if (road) {
+      card.classList.remove("section-road-card--locked");
+      card.classList.add("section-road-card--unlocking");
+      card.querySelector(".section-road-thumb-button")?.removeAttribute("disabled");
+      card.querySelector(".section-road-content")?.appendChild(burst);
+    } else {
+      card.classList.remove("course-pick-card--locked", "course-pick-card--pending-unlock");
+      card.classList.add("course-pick-card--unlocking");
+      const button = card.querySelector(".course-pick-select");
+      if (button) {
+        button.classList.remove("course-pick-select--locked");
+        button.textContent = "Start";
+      }
+      card.appendChild(burst);
+    }
+  }
+  if (!animated) return;
+  playPageNextSound();
+  // Redraw once the effect ends so the card is clickable and plain again.
+  setTimeout(() => {
+    if ($("#screen-section")?.classList.contains("active")) renderSectionPicker();
+  }, SECTION_UNLOCK_MS);
 }
 
 async function showSectionExercises() {
@@ -3704,6 +3799,7 @@ async function launchHostExercise(exercise, {
   errorElement = $("#journey-error"),
   idleText = "Start exercise",
   playIntro = true,
+  sectionTransition = null,
 } = {}) {
   if (!exercise?.id || !state.activeRoomId) return;
 
@@ -3729,7 +3825,15 @@ async function launchHostExercise(exercise, {
       }
     }
 
-    await startNextExerciseViaSocket(state.activeRoomId, exercise, state.course);
+    // Students get the section info on the exercise itself and show the same card;
+    // both screens run it side by side before the exercise begins.
+    const transitionDone = sectionTransition ? showSectionTransitionCard(sectionTransition) : null;
+    await startNextExerciseViaSocket(
+      state.activeRoomId,
+      sectionTransition ? { ...exercise, sectionTransition } : exercise,
+      state.course
+    );
+    if (transitionDone) await transitionDone;
     state.selectedExercise = exercise;
     state.quizActive = true;
     syncPersistentRoomCode();
@@ -3820,7 +3924,7 @@ async function handleStartNextExercise() {
   void markHostExerciseSelected(step.exercise.id);
 
   const startingLabel =
-    step.type === "section" ? "Starting next section…" : "Starting next exercise…";
+    step.type === "section" ? hostT("quiz.startingNextSection") : "Starting next exercise…";
   const buttons = [
     "#btn-host-quiz-next-exercise",
     "#btn-host-fast-results-next-exercise",
@@ -3836,6 +3940,7 @@ async function handleStartNextExercise() {
 
   try {
     await launchHostExercise(step.exercise, {
+      sectionTransition: step.type === "section" ? sectionTransitionInfo(step.section) : null,
       errorElement: $("#waiting-error"),
       idleText: step.type === "section" ? "Next section" : "Next exercise",
       playIntro: false,
@@ -4139,6 +4244,9 @@ async function returnHostToJourney() {
       state.selectedSection = findSectionInList(nextSection.id) || nextSection;
       savePrefs();
       void markHostSectionVisited(nextSection.id);
+      // Host-only: no exercise is launched on this path, so students stay on their
+      // waiting screen and get no card.
+      await showSectionTransitionCard({ ...sectionTransitionInfo(nextSection), holdMs: 1800 });
     }
   }
 

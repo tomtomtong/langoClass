@@ -57,6 +57,7 @@ function clearStoredParticipant() {
   localStorage.removeItem(ROOM_STORAGE_KEY);
 }
 
+let lastSectionTransitionKey = "";
 let roomSessionSocket = null;
 let studentExerciseEpoch = 0;
 let joinSessionLocale = "en";
@@ -462,15 +463,24 @@ function getRoomSessionSocket() {
       }
     });
 
-    roomSessionSocket.on("session_started", ({ exercise, preloadExercises } = {}) => {
+    roomSessionSocket.on("session_started", async ({ exercise, preloadExercises } = {}) => {
       if (!roomParticipant) return;
       studentExerciseEpoch += 1;
+      const epoch = studentExerciseEpoch;
+      const transition = exercise?.sectionTransition;
+      const transitionKey = transition ? `${transition.id}:${exercise.id}` : "";
+      const showTransition = transition?.title && transitionKey !== lastSectionTransitionKey;
+      if (showTransition) lastSectionTransitionKey = transitionKey;
       window.roomFastQuizCompleted = false;
       setJoinWaitingStatus("join.classStarting");
       if (typeof ensureRoomBuzzinSocket === "function") ensureRoomBuzzinSocket();
       if (typeof ensureStudentOpenAnswerSocket === "function") ensureStudentOpenAnswerSocket();
       if (typeof scheduleStudentMediaPreload === "function") {
         scheduleStudentMediaPreload({ exercise, preloadExercises });
+      }
+      if (showTransition && typeof showSectionTransitionCard === "function") {
+        await showSectionTransitionCard(transition);
+        if (studentExerciseEpoch !== epoch) return;
       }
       startRoomExercise(
         roomParticipant.roomId,

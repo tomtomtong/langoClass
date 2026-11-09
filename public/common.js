@@ -1202,3 +1202,37 @@ function playCountdown321Video(options = {}) {
     if (playPromise?.catch) playPromise.catch(finish);
   });
 }
+
+// Full-screen card shown when class moves into a new section, so the switch is never
+// silent. Used by the host and by students. Resolves once the card has faded out.
+function showSectionTransitionCard({ title, index = null, holdMs = 2400 } = {}) {
+  return new Promise((resolve) => {
+    const t = (key, vars) => window.LangoI18n?.t?.(key, vars) ?? key;
+    const overlay = document.createElement("div");
+    overlay.className = "host-section-transition";
+    overlay.setAttribute("role", "status");
+    overlay.setAttribute("aria-live", "polite");
+
+    const kicker = document.createElement("p");
+    kicker.className = "host-section-transition-kicker";
+    kicker.textContent = index != null ? t("section.transitionKicker", { n: index }) : "";
+    kicker.hidden = index == null;
+
+    const heading = document.createElement("h2");
+    heading.className = "host-section-transition-title";
+    heading.textContent = title || "";
+
+    overlay.append(kicker, heading);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add("is-visible"));
+
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    setTimeout(() => {
+      overlay.classList.remove("is-visible");
+      setTimeout(() => {
+        overlay.remove();
+        resolve();
+      }, reduceMotion ? 0 : 300);
+    }, holdMs);
+  });
+}
