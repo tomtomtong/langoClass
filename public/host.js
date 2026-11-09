@@ -1365,32 +1365,123 @@ const EXERCISE_TRANSITION_VOICE_HOLD_MS = 2300;
 const EXERCISE_INTRO_VOICE_WAIT_MS = 1200;
 
 // What Uncle Tommy says before each exercise type, by speak language. Only the type is
-// named (never the title), so there are a handful of fixed lines that are made once,
-// cached in R2 and preloaded on the host while the previous exercise is still running.
+// named (never the title). Each type has a few variants and one is picked at random so it
+// does not get repetitive. Every variant is made once, cached in R2, and the one picked for
+// the upcoming exercise is preloaded on the host while the current exercise is running.
 const EXERCISE_INTRO_LINES = {
   en: {
-    mcquiz: "Get ready! Next up, a multiple choice quiz!",
-    fastmcquiz: "Next up, the Lightning Round! Let's go!",
-    buzzin: "Next up, Buzz In! Fingers on the buzzers!",
-    openanswer: "Next up, Everyone Answers! Your turn, everybody!",
-    video: "Next up, a video! Eyes on the screen!",
-    slides: "Next up, slides! Let's take a look!",
+    mcquiz: [
+      "Get ready! Next up, a multiple choice quiz!",
+      "Quiz time! Pick the right answer!",
+      "Brain warm-up! Multiple choice coming right up!",
+      "Here comes a multiple choice quiz! Let's go!",
+    ],
+    fastmcquiz: [
+      "Next up, the Lightning Round! Let's go!",
+      "Lightning Round! Think fast, everybody!",
+      "Speed time! Quick questions coming up!",
+      "Hold on tight! It's a Lightning Round!",
+    ],
+    buzzin: [
+      "Next up, Buzz In! Fingers on the buzzers!",
+      "Buzz In time! Who will be the fastest?",
+      "Ready, set, buzz! Here comes Buzz In!",
+      "Get those buzzers ready! Buzz In is next!",
+    ],
+    openanswer: [
+      "Next up, Everyone Answers! Your turn, everybody!",
+      "Everyone gets to answer this time! Let's hear you!",
+      "It's Everyone Answers! Everybody joins in!",
+      "Time to share your answers! Everyone, get ready!",
+    ],
+    video: [
+      "Next up, a video! Eyes on the screen!",
+      "Video time! Sit back and watch!",
+      "Lights, camera, action! Here comes a video!",
+      "Let's watch a video together! Here we go!",
+    ],
+    slides: [
+      "Next up, slides! Let's take a look!",
+      "Slide time! Let's learn something new!",
+      "Eyes up front! Here come the slides!",
+      "Let's check out some slides together!",
+    ],
   },
   yue: {
-    mcquiz: "準備好未呀？下一個係選擇題！",
-    fastmcquiz: "下一個係快問快答！睇你有幾快！",
-    buzzin: "下一個係搶答題！手指準備好！",
-    openanswer: "下一個係全班作答！人人都有份！",
-    video: "下一個係影片！大家睇住個畫面！",
-    slides: "下一個係簡報！一齊嚟睇下！",
+    mcquiz: [
+      "準備好未呀？下一個係選擇題！",
+      "選擇題嚟喇！睇下邊個揀得啱！",
+      "玩選擇題喇！大家動動腦筋！",
+      "嚟緊係選擇題！一齊加油！",
+    ],
+    fastmcquiz: [
+      "下一個係快問快答！睇你有幾快！",
+      "快問快答時間！大家手腳要快啲！",
+      "閃電問答嚟喇！跟上啦！",
+      "快問快答開始喇！唔好眨眼呀！",
+    ],
+    buzzin: [
+      "下一個係搶答題！手指準備好！",
+      "搶答時間！睇下邊個最快！",
+      "搶答題嚟喇！預備，開始！",
+      "準備搶答喇！快手啲先贏呀！",
+    ],
+    openanswer: [
+      "下一個係全班作答！人人都有份！",
+      "全班作答嚟喇！大家一齊答！",
+      "今次人人都要答！準備好未呀？",
+      "全班作答時間！等我哋聽下你哋嘅答案！",
+    ],
+    video: [
+      "下一個係影片！大家睇住個畫面！",
+      "影片時間！坐定定慢慢睇！",
+      "睇片喇！大家睇清楚呀！",
+      "嚟緊有段影片！一齊睇下！",
+    ],
+    slides: [
+      "下一個係簡報！一齊嚟睇下！",
+      "簡報時間！一齊學啲新嘢！",
+      "睇簡報喇！大家望住前面！",
+      "嚟緊係簡報！我哋一齊睇！",
+    ],
   },
   zh: {
-    mcquiz: "准备好了吗？下一个是选择题！",
-    fastmcquiz: "下一个是闪电轮！看谁最快！",
-    buzzin: "下一个是抢答题！手指准备好！",
-    openanswer: "下一个是全班作答！人人都有份！",
-    video: "下一个是视频！大家看屏幕！",
-    slides: "下一个是简报！一起来看看！",
+    mcquiz: [
+      "准备好了吗？下一个是选择题！",
+      "选择题来啦！看谁选得对！",
+      "玩选择题啦！大家动动脑筋！",
+      "接下来是选择题！一起加油！",
+    ],
+    fastmcquiz: [
+      "下一个是闪电轮！看谁最快！",
+      "闪电轮时间！大家手脚要快！",
+      "快问快答来啦！跟上哦！",
+      "闪电轮开始啦！别眨眼！",
+    ],
+    buzzin: [
+      "下一个是抢答题！手指准备好！",
+      "抢答时间！看谁最快！",
+      "抢答题来啦！预备，开始！",
+      "准备抢答啦！手快有分！",
+    ],
+    openanswer: [
+      "下一个是全班作答！人人都有份！",
+      "全班作答来啦！大家一起答！",
+      "这次人人都要回答！准备好了吗？",
+      "全班作答时间！让我们听听你们的答案！",
+    ],
+    video: [
+      "下一个是视频！大家看屏幕！",
+      "视频时间！坐好慢慢看！",
+      "看视频啦！大家看清楚哦！",
+      "接下来有段视频！一起看看！",
+    ],
+    slides: [
+      "下一个是简报！一起来看看！",
+      "简报时间！一起学点新东西！",
+      "看简报啦！大家看前面！",
+      "接下来是简报！我们一起看！",
+    ],
   },
 };
 
@@ -1404,11 +1495,32 @@ function exerciseIntroSpeakLang(exercise) {
   return EXERCISE_INTRO_LINES[code] ? code : "en";
 }
 
+// The variant chosen for each upcoming exercise, so the clip preloaded while the current
+// exercise runs is the same one said at launch. Cleared once said, and the next pick avoids
+// repeating the line used last time for that language and type.
+const exerciseIntroPicks = new Map();
+const exerciseIntroLastSaid = new Map();
+
 function exerciseIntroLine(exercise) {
   const lang = exerciseIntroSpeakLang(exercise);
-  const lines = EXERCISE_INTRO_LINES[lang];
-  const type = lines[exercise?.type] ? exercise.type : "mcquiz";
-  return { lang, type, text: lines[type] };
+  const variants = EXERCISE_INTRO_LINES[lang];
+  const type = variants[exercise?.type] ? exercise.type : "mcquiz";
+  const options = variants[type];
+  const pickKey = `${exercise?.id}|${lang}|${type}`;
+  let index = exerciseIntroPicks.get(pickKey);
+  if (index == null || index >= options.length) {
+    const last = exerciseIntroLastSaid.get(`${lang}|${type}`);
+    const candidates = options.map((_, i) => i).filter((i) => i !== last || options.length < 2);
+    index = candidates[Math.floor(Math.random() * candidates.length)];
+    exerciseIntroPicks.set(pickKey, index);
+  }
+  return { lang, type, index, pickKey, text: options[index] };
+}
+
+function markExerciseIntroSaid(exercise) {
+  const line = exerciseIntroLine(exercise);
+  exerciseIntroLastSaid.set(`${line.lang}|${line.type}`, line.index);
+  exerciseIntroPicks.delete(line.pickKey);
 }
 
 async function fetchExerciseIntroVoice({ lang, text }) {
@@ -1432,11 +1544,35 @@ async function fetchExerciseIntroVoice({ lang, text }) {
   return btoa(binary);
 }
 
+/**
+ * Makes and caches every intro clip up front so no class waits on the speech model.
+ * Run from the browser console on a logged-in host page of the deployment to warm
+ * (each deployment keeps its own cache): await pregenerateExerciseIntroVoices()
+ * Pass { langs: ["yue"] } to limit it; { force: true } remakes clips that exist.
+ */
+async function pregenerateExerciseIntroVoices({ langs = Object.keys(EXERCISE_INTRO_LINES), force = false } = {}) {
+  const total = { generated: 0, cached: 0, failed: 0 };
+  for (const lang of langs) {
+    const byType = EXERCISE_INTRO_LINES[lang];
+    if (!byType) continue;
+    const items = Object.values(byType)
+      .flat()
+      .map((text, i) => ({ key: `${lang}:${i}`, text, speakLangCode: lang, purpose: "announcement", force }));
+    const data = await api("/api/cms/prefetch-question-tts", { method: "POST", body: { items } });
+    total.generated += data.generated || 0;
+    total.cached += data.cached || 0;
+    total.failed += data.failed || 0;
+    console.info(`[intro voices] ${lang}: ${data.generated} made, ${data.cached} cached, ${data.failed} failed`);
+  }
+  return total;
+}
+window.pregenerateExerciseIntroVoices = pregenerateExerciseIntroVoices;
+
 /** Starts loading the clip for `exercise`; safe to call repeatedly. Resolves to base64 MP3 or null. */
 function preloadExerciseIntroVoice(exercise) {
   if (!hostExerciseTransitionEnabled || !exercise?.id) return Promise.resolve(null);
   const line = exerciseIntroLine(exercise);
-  const key = `${line.lang}|${line.type}`;
+  const key = `${line.lang}|${line.type}|${line.index}`;
   if (!exerciseIntroVoiceCache.has(key)) {
     const loading = fetchExerciseIntroVoice(line).catch(() => null);
     exerciseIntroVoiceCache.set(key, loading);
@@ -4001,7 +4137,10 @@ async function launchHostExercise(exercise, {
         preloadExerciseIntroVoice(exercise),
         new Promise((resolve) => setTimeout(() => resolve(null), EXERCISE_INTRO_VOICE_WAIT_MS)),
       ]);
-      if (introVoice) sectionTransition = { ...sectionTransition, holdMs: EXERCISE_TRANSITION_VOICE_HOLD_MS };
+      if (introVoice) {
+        sectionTransition = { ...sectionTransition, holdMs: EXERCISE_TRANSITION_VOICE_HOLD_MS };
+        markExerciseIntroSaid(exercise);
+      }
     }
 
     // Students get the section info on the exercise itself and show the same card;
