@@ -17408,6 +17408,14 @@ textarea.cms-autogrow {
   overflow-wrap: anywhere;
 }
 
+.host-section-transition-first {
+  margin: 0.8rem 0 0;
+  font-size: clamp(1rem, 2.8vmin, 1.7rem);
+  font-weight: 800;
+  color: #743c9b;
+  overflow-wrap: anywhere;
+}
+
 .host-section-transition-star {
   position: absolute;
   width: clamp(26px, 5vmin, 56px);

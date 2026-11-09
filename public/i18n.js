@@ -39,6 +39,9 @@
       "Background music fades out when video or speech plays, so classroom audio stays clear.",
     "settings.audioIsolation.descOff":
       "Background music can keep playing under video and speech.",
+    "settings.exerciseTransition.title": "Up-next card between exercises",
+    "settings.exerciseTransition.descOn": "Uncle Tommy shows what comes next before each new exercise.",
+    "settings.exerciseTransition.descOff": "No card between exercises; the next exercise starts straight away.",
     "settings.language.title": "Language",
     "settings.language.desc": "Choose the interface language for the host.",
 
@@ -222,6 +225,9 @@
         "播放影片或語音時，背景音樂會淡出，讓課堂聲音更清晰。",
       "settings.audioIsolation.descOff":
         "背景音樂可在影片或語音播放時繼續播放。",
+      "settings.exerciseTransition.title": "練習之間顯示下一個",
+      "settings.exerciseTransition.descOn": "每個新練習開始前，Tommy 叔叔會先講下一個係咩。",
+      "settings.exerciseTransition.descOff": "練習之間唔顯示，直接開始下一個。",
       "settings.language.title": "語言",
       "settings.language.desc": "選擇主持端介面語言。",
       "common.back": "返回",
@@ -392,6 +398,9 @@
         "播片或者講嘢嗰陣，背景音樂會收細，課堂聲音就會清啲。",
       "settings.audioIsolation.descOff":
         "播片或者講嘢嗰陣，背景音樂都可以繼續播。",
+      "settings.exerciseTransition.title": "練習之間顯示下一個",
+      "settings.exerciseTransition.descOn": "每個新練習開始前，Tommy 叔叔會先講下一個係咩。",
+      "settings.exerciseTransition.descOff": "練習之間唔顯示，直接開始下一個。",
       "settings.language.title": "語言",
       "settings.language.desc": "揀主持畫面用邊種語言。",
       "common.back": "返轉頭",
@@ -562,6 +571,9 @@
         "播放视频或语音时，背景音乐会淡出，让课堂声音更清晰。",
       "settings.audioIsolation.descOff":
         "背景音乐可在视频或语音播放时继续播放。",
+      "settings.exerciseTransition.title": "练习之间显示下一个",
+      "settings.exerciseTransition.descOn": "每个新练习开始前，Tommy 叔叔会先说下一个是什么。",
+      "settings.exerciseTransition.descOff": "练习之间不显示，直接开始下一个。",
       "settings.language.title": "语言",
       "settings.language.desc": "选择主持端界面语言。",
       "common.back": "返回",

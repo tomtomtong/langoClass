@@ -1205,7 +1205,15 @@ function playCountdown321Video(options = {}) {
 
 // Full-screen card shown when class moves into a new section, so the switch is never
 // silent. Used by the host and by students. Resolves once the card has faded out.
-function showSectionTransitionCard({ title, index = null, holdMs = 2400 } = {}) {
+// kind "section" announces a new section (optionally with its first exercise);
+// kind "exercise" is the shorter "Up next" card between exercises of one section.
+function showSectionTransitionCard({
+  title,
+  index = null,
+  holdMs = 2400,
+  kind = "section",
+  exerciseTitle = "",
+} = {}) {
   return new Promise((resolve) => {
     const t = (key, vars) => window.LangoI18n?.t?.(key, vars) ?? key;
     const overlay = document.createElement("div");
@@ -1230,16 +1238,27 @@ function showSectionTransitionCard({ title, index = null, holdMs = 2400 } = {}) 
     const card = document.createElement("div");
     card.className = "host-section-transition-card";
 
+    const isExercise = kind === "exercise";
     const kicker = document.createElement("p");
     kicker.className = "host-section-transition-kicker";
-    kicker.textContent = index != null ? t("section.transitionKicker", { n: index }) : "";
-    kicker.hidden = index == null;
+    kicker.textContent = isExercise
+      ? t("section.upNextKicker")
+      : index != null
+        ? t("section.transitionKicker", { n: index })
+        : "";
+    kicker.hidden = !isExercise && index == null;
 
     const heading = document.createElement("h2");
     heading.className = "host-section-transition-title";
-    heading.textContent = title || "";
+    heading.textContent = title || (isExercise ? t("section.upNextFallback") : "");
 
     card.append(kicker, heading);
+    if (!isExercise && exerciseTitle) {
+      const first = document.createElement("p");
+      first.className = "host-section-transition-first";
+      first.textContent = t("section.transitionFirst", { title: exerciseTitle });
+      card.append(first);
+    }
     overlay.append(tommy, card);
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add("is-visible"));

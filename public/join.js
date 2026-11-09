@@ -468,8 +468,10 @@ function getRoomSessionSocket() {
       studentExerciseEpoch += 1;
       const epoch = studentExerciseEpoch;
       const transition = exercise?.sectionTransition;
-      const transitionKey = transition ? `${transition.id}:${exercise.id}` : "";
-      const showTransition = transition?.title && transitionKey !== lastSectionTransitionKey;
+      const transitionKey = transition ? `${transition.kind || "section"}:${transition.id}:${exercise.id}` : "";
+      const showTransition =
+        Boolean(transition?.title || transition?.kind === "exercise") &&
+        transitionKey !== lastSectionTransitionKey;
       if (showTransition) lastSectionTransitionKey = transitionKey;
       window.roomFastQuizCompleted = false;
       setJoinWaitingStatus("join.classStarting");

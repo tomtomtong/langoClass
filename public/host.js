@@ -86,6 +86,8 @@ let hostSoundEffectsMuted = false;
 let hostSoundMenuOpen = false;
 /** When on, BGM fully yields to video/speech so classroom audio stays clear. */
 let hostAudioIsolationEnabled = true;
+/** When on, a short "Up next" Uncle Tommy card plays between exercises of a section. */
+let hostExerciseTransitionEnabled = true;
 let hostSettingsReturnScreenId = "";
 
 function clampHostVolume(value, fallback = 1) {
@@ -393,6 +395,22 @@ function updateHostSettingsControls() {
   const valueEl = $("#host-ui-language-value");
   const menu = $("#host-ui-language-menu");
   const current = window.LangoI18n?.getLocale?.();
+  const transToggle = $("#btn-host-exercise-transition");
+
+  if (transToggle) {
+    transToggle.classList.toggle("is-on", hostExerciseTransitionEnabled);
+    transToggle.setAttribute("aria-checked", hostExerciseTransitionEnabled ? "true" : "false");
+    const transState = $("#host-exercise-transition-state");
+    if (transState) {
+      transState.textContent = hostExerciseTransitionEnabled ? hostT("settings.on") : hostT("settings.off");
+    }
+    const transDesc = $("#host-exercise-transition-desc");
+    if (transDesc) {
+      transDesc.textContent = hostExerciseTransitionEnabled
+        ? hostT("settings.exerciseTransition.descOn")
+        : hostT("settings.exerciseTransition.descOff");
+    }
+  }
 
   if (toggle) {
     toggle.classList.toggle("is-on", hostAudioIsolationEnabled);
@@ -457,6 +475,12 @@ function setHostAudioIsolationEnabled(enabled, { persist = true } = {}) {
   if (persist) savePrefs();
 }
 
+function setHostExerciseTransitionEnabled(enabled, { persist = true } = {}) {
+  hostExerciseTransitionEnabled = Boolean(enabled);
+  updateHostSettingsControls();
+  if (persist) savePrefs();
+}
+
 function openHostSettings() {
   closeHostSoundMenu();
   closeHostLanguageMenu();
@@ -496,6 +520,10 @@ function setupHostSettings() {
 
   $("#btn-host-audio-isolation")?.addEventListener("click", () => {
     setHostAudioIsolationEnabled(!hostAudioIsolationEnabled);
+  });
+
+  $("#btn-host-exercise-transition")?.addEventListener("click", () => {
+    setHostExerciseTransitionEnabled(!hostExerciseTransitionEnabled);
   });
 
   $("#btn-host-ui-language")?.addEventListener("click", (event) => {
@@ -897,6 +925,9 @@ function loadPrefs() {
     if (typeof data.audioIsolationEnabled === "boolean") {
       hostAudioIsolationEnabled = data.audioIsolationEnabled;
     }
+    if (typeof data.exerciseTransitionEnabled === "boolean") {
+      hostExerciseTransitionEnabled = data.exerciseTransitionEnabled;
+    }
     if (data.uiLocale) {
       hostPreferredUiLocale = data.uiLocale;
     }
@@ -929,6 +960,7 @@ function savePrefs() {
       bgmVolume: HOST_BGM_VOLUME,
       soundEffectsVolume: hostSoundEffectsVolume,
       audioIsolationEnabled: hostAudioIsolationEnabled,
+      exerciseTransitionEnabled: hostExerciseTransitionEnabled,
       uiLocale: window.LangoI18n?.getLocale?.() || "en",
     })
   );
@@ -1313,10 +1345,30 @@ function updateSectionStartButtonLabel() {
       : hostT("section.startExercise");
 }
 
-function sectionTransitionInfo(section) {
+function sectionTransitionInfo(section, firstExercise = null) {
   const playable = getPlayableSections();
   const idx = playable.findIndex((entry) => Number(entry.id) === Number(section?.id));
-  return { id: section?.id ?? null, title: sectionTitle(section), index: idx >= 0 ? idx + 1 : null };
+  return {
+    id: section?.id ?? null,
+    title: sectionTitle(section),
+    index: idx >= 0 ? idx + 1 : null,
+    kind: "section",
+    exerciseTitle: firstExercise?.title || "",
+  };
+}
+
+// Shorter "Up next" card between two exercises of the same section.
+const EXERCISE_TRANSITION_HOLD_MS = 1600;
+
+function exerciseTransitionInfo(exercise) {
+  if (!hostExerciseTransitionEnabled || !exercise?.id) return null;
+  return {
+    id: exercise.id,
+    title: exercise.title || "",
+    index: null,
+    kind: "exercise",
+    holdMs: EXERCISE_TRANSITION_HOLD_MS,
+  };
 }
 
 function setNextStepButtonLabel(btn, buttonLabel) {
@@ -3865,8 +3917,11 @@ async function launchHostExercise(exercise, {
       state.course
     );
     // Students see their card for holdMs + fade (~2.7s) plus network delay; start the exercise only after
-    // that so nobody is still on the card when the host's game begins.
-    if (transitionDone) await Promise.all([transitionDone, new Promise((r) => setTimeout(r, 3400))]);
+    // that so nobody is still on the card when the host's game begins (hold + fade + network margin).
+    const transitionWaitMs = (sectionTransition?.holdMs || 2400) + 1000;
+    if (transitionDone) {
+      await Promise.all([transitionDone, new Promise((r) => setTimeout(r, transitionWaitMs))]);
+    }
     state.selectedExercise = exercise;
     state.quizActive = true;
     syncPersistentRoomCode();
@@ -3973,7 +4028,10 @@ async function handleStartNextExercise() {
 
   try {
     await launchHostExercise(step.exercise, {
-      sectionTransition: step.type === "section" ? sectionTransitionInfo(step.section) : null,
+      sectionTransition:
+        step.type === "section"
+          ? sectionTransitionInfo(step.section, step.exercise)
+          : exerciseTransitionInfo(step.exercise),
       // Students get the Uncle Tommy card; the host big screen shows the map unlocking.
       hostTransition: step.type === "section" ? showHostMapUnlock : null,
       errorElement: $("#waiting-error"),
