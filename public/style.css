@@ -15928,6 +15928,34 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
   transition: transform 180ms ease, filter 180ms ease;
 }
 
+#app.lango-host .section-road-island-title {
+  position: absolute;
+  top: calc(var(--section-island-size) - 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 340px;
+  margin: 0;
+  padding: 8px 22px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 3px solid #feca57;
+  box-shadow: 0 6px 14px rgba(52, 67, 86, 0.18);
+  color: #b11980;
+  font-family: "Nunito", sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+#app.lango-host .section-road-card--locked .section-road-island-title {
+  color: #6b7686;
+  border-color: #c5ccd6;
+}
+
 #app.lango-host .section-road-card.active .section-road-content {
   transform: translateY(-4px) scale(1.02);
   filter: drop-shadow(0 12px 18px rgba(112, 68, 150, 0.25));

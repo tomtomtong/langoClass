@@ -2041,6 +2041,7 @@ function renderSectionRoadCard(section, { selectedId, index, locked = false }) {
     <div class="section-road-content">
       ${thumbnail}
     </div>
+    <p class="section-road-island-title">${escapeHtml(sectionTitle(section))}</p>
   </article>`;
 }
 
