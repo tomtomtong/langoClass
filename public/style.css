@@ -5075,6 +5075,15 @@ body:has(#screen-host-quiz-question.active) {
   animation-delay: calc(800ms + var(--student-i, 0) * 28ms);
 }
 
+/* Results step 1: only the left side (question + distribution). The board keeps its place so the
+   layout doesn't shift; dropping the class on Next plays the slide-in above. */
+#screen-host-quiz-results.is-results-step-1 .host-mcq-correct-board,
+#screen-host-quiz-results.is-results-step-1 .host-mcq-correct-count,
+#screen-host-quiz-results.is-results-step-1 .host-mcq-correct-student {
+  visibility: hidden;
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   #screen-host-quiz-results.active .host-mcq-correct-board,
   #screen-host-quiz-results.active .host-mcq-correct-count,

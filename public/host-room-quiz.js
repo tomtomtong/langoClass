@@ -1529,13 +1529,11 @@ function setupHostRoomQuizSocket(socket) {
     renderCorrectResponders(results);
     renderLeaderboard($("#host-quiz-leaderboard"), leaderboard);
     const isLast = q && q.questionIndex + 1 >= q.totalQuestions;
-    const nextBtn = $("#btn-host-quiz-next");
-    const nextLabel = nextBtn?.querySelector(".host-btn-label") || nextBtn;
-    if (nextLabel) {
-      nextLabel.textContent = isLast
-        ? uiT("quiz.showFinalResults")
-        : uiT("quiz.nextQuestion");
-    }
+    hostResultsNextLabel = isLast ? uiT("quiz.showFinalResults") : uiT("quiz.nextQuestion");
+    // Step 1: question + distribution only; the first Next click reveals the correct-responders board.
+    hostResultsBoardPending = true;
+    $("#screen-host-quiz-results")?.classList.add("is-results-step-1");
+    setHostResultsNextLabel(uiT("common.next"));
   });
 
   socket.on("game_finished", ({ leaderboard, accuracyLeaderboard, answerReview, semesterLeaderboard, exerciseLeaderboard }) => {
@@ -2426,9 +2424,30 @@ if (typeof window !== "undefined") {
   window.setupHostRoomQuizReconnect = setupHostRoomQuizReconnect;
 }
 
+// MC results come in two steps: the question and answer distribution first, then the board of
+// students who answered correctly. The Next button reveals the board before it moves on.
+let hostResultsBoardPending = false;
+let hostResultsNextLabel = "";
+
+function setHostResultsNextLabel(text) {
+  const nextBtn = $("#btn-host-quiz-next");
+  const nextLabel = nextBtn?.querySelector(".host-btn-label") || nextBtn;
+  if (nextLabel) nextLabel.textContent = text;
+}
+
+function revealHostResultsBoard() {
+  hostResultsBoardPending = false;
+  $("#screen-host-quiz-results")?.classList.remove("is-results-step-1");
+  setHostResultsNextLabel(hostResultsNextLabel);
+}
+
 function initHostRoomQuizUi() {
   $("#btn-host-quiz-next")?.addEventListener("click", () => {
     if (typeof playPageNextSound === "function") playPageNextSound();
+    if (hostResultsBoardPending) {
+      revealHostResultsBoard();
+      return;
+    }
     getRoomQuizSocket().emit("next_question");
   });
 
