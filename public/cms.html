@@ -471,25 +471,32 @@
             <h1 id="cms-exercises-section-title">Untitled section</h1>
             <span class="autosave" id="cms-exercises-autosave" aria-live="polite"></span>
           </div>
-          <p class="kicker" data-i18n="cms.ex.kicker">Section exercises</p>
+          <p class="kicker" data-i18n="cms.ex.kicker">Questions in this section</p>
           <p class="hint cms-section-duration-estimate" id="cms-exercises-section-duration" hidden aria-live="polite"></p>
           <div id="cms-playlist-toolbar" class="cms-playlist-toolbar">
             <div class="row cms-playlist-toolbar-preview">
               <a class="btn ghost cms-exercise-preview-all" href="/join.html?preview=1" target="_blank" rel="noopener" data-i18n="cms.ex.previewAll">Preview all student layouts</a>
             </div>
-            <div class="row cms-playlist-add-row">
-              <span class="cms-playlist-add-label" data-i18n="cms.ex.add">Add question:</span>
-              <button type="button" class="btn small" data-add-exercise="mcquiz" data-i18n="cms.type.mcquiz">MC Quiz</button>
-              <button type="button" class="btn small" data-add-exercise="fastmcquiz" data-i18n="cms.type.fastmcquiz">Lightning round</button>
-              <button type="button" class="btn small" data-add-exercise="buzzin" data-i18n="cms.type.buzzin">Buzz in Question</button>
-              <button type="button" class="btn small" data-add-exercise="openanswer" data-i18n="cms.type.openanswer">Everyone Answers</button>
-              <button type="button" class="btn small" data-add-exercise="video" data-i18n="cms.type.video">Video</button>
-              <button type="button" class="btn small" data-add-exercise="slides" data-i18n="cms.type.slides">Slides</button>
+            <div class="cms-playlist-add-row">
+              <p class="cms-playlist-add-label" data-i18n="cms.ex.add">Add a question</p>
+              <p class="hint cms-playlist-add-hint" data-i18n="cms.ex.addHint">Pick a type. One tap adds one question to this section.</p>
+              <div class="cms-type-grid">
+                <button type="button" class="cms-type-card" data-add-exercise="mcquiz"><strong data-i18n="cms.type.mcquiz">MC Quiz</strong><small data-i18n="cms.typeDesc.mcquiz">Students pick the right answer.</small></button>
+                <button type="button" class="cms-type-card" data-add-exercise="fastmcquiz"><strong data-i18n="cms.type.fastmcquiz">Lightning round</strong><small data-i18n="cms.typeDesc.fastmcquiz">Timed multiple choice, quick and lively.</small></button>
+                <button type="button" class="cms-type-card" data-add-exercise="buzzin"><strong data-i18n="cms.type.buzzin">Buzz in Question</strong><small data-i18n="cms.typeDesc.buzzin">Students race to buzz in first.</small></button>
+                <button type="button" class="cms-type-card" data-add-exercise="openanswer"><strong data-i18n="cms.type.openanswer">Everyone Answers</strong><small data-i18n="cms.typeDesc.openanswer">The whole class types an answer on their phone.</small></button>
+                <button type="button" class="cms-type-card" data-add-exercise="video"><strong data-i18n="cms.type.video">Video</strong><small data-i18n="cms.typeDesc.video">Play a video for the class.</small></button>
+                <button type="button" class="cms-type-card" data-add-exercise="slides"><strong data-i18n="cms.type.slides">Slides</strong><small data-i18n="cms.typeDesc.slides">Show slides to the class.</small></button>
+              </div>
             </div>
           </div>
-          <div class="row cms-playlist-ai-row">
-            <button type="button" class="btn" id="btn-cms-ai-idle-start" data-i18n="cms.ai.generate">Generate with AI</button>
-            <button type="button" class="btn ghost" id="btn-cms-ai-change-path-playlist" data-i18n="cms.ai.changeApproach">Change approach</button>
+          <div class="cms-playlist-ai-row cms-ai-callout">
+            <div>
+              <strong data-i18n="cms.ai.generate">Generate with AI</strong>
+              <p class="hint" data-i18n="cms.ai.idleIntro">Create questions from a document or pasted text for this section.</p>
+            </div>
+            <button type="button" class="btn primary" id="btn-cms-ai-idle-start" data-i18n="cms.ai.generateCta">Make questions with AI</button>
+            <button type="button" class="btn ghost" id="btn-cms-ai-change-path-playlist" hidden data-i18n="cms.ai.changeApproach">Change approach</button>
           </div>
           <div id="cms-exercise-list" class="cms-exercise-list playlist"></div>
           <div class="cms-ai-panel" id="cms-ai-panel">

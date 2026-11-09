@@ -3331,3 +3331,26 @@ html[data-cms-text-size] body { font-size: 1rem; }
 .cms-language-option:focus-visible { background: var(--wash); }
 .cms-language-option.is-selected { color: var(--purple); }
 .cms-language-option.is-selected .cms-language-option-check::before { content: "✓"; }
+
+/* Exercises toolbar: plain-language type cards instead of unexplained chips */
+#app-shell #cms-exercises-view .cms-playlist-add-row { display: block; }
+#app-shell #cms-exercises-view .cms-playlist-add-label { font-size: 1.3rem; font-weight: 800; margin: 0.4rem 0 0.2rem; }
+#app-shell #cms-exercises-view .cms-playlist-add-hint { font-size: 1.05rem; margin: 0 0 0.8rem; }
+.cms-type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 0.75rem; }
+.cms-type-card {
+  display: flex; flex-direction: column; gap: 0.3rem; text-align: left;
+  padding: 0.9rem 1rem; min-height: 88px;
+  background: #f1e9f8; border: 2px solid transparent; border-radius: 16px; cursor: pointer;
+  font-family: var(--font-ui); color: var(--ink, #2d1f38);
+}
+.cms-type-card strong { font-size: 1.2rem; color: var(--purple); }
+.cms-type-card small { font-size: 0.98rem; line-height: 1.4; color: #4a3b57; font-weight: 600; }
+.cms-type-card:hover, .cms-type-card:focus-visible { border-color: var(--purple); background: #eadcf5; outline: none; }
+#app-shell #cms-exercises-view .cms-ai-callout {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: 1rem 1.2rem; margin: 1rem 0; border: 2px dashed var(--purple); border-radius: 16px; background: #fbf8fe;
+}
+#app-shell #cms-exercises-view .cms-ai-callout > div { flex: 1 1 260px; }
+#app-shell #cms-exercises-view .cms-ai-callout strong { font-size: 1.2rem; }
+#app-shell #cms-exercises-view .cms-ai-callout p { margin: 0.2rem 0 0; font-size: 1.02rem; }
+#app-shell #cms-exercises-view .cms-ai-callout .btn { min-height: 52px; font-size: 1.1rem; padding: 0.6rem 1.4rem; }
