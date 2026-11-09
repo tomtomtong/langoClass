@@ -4327,15 +4327,33 @@ async function openCommunityPreview(listingId) {
   }
 }
 
-async function addCommunityCourse(listingId, { fromPreview = false } = {}) {
+const communityAdding = new Set();
+
+// Copying a course also copies its pictures and audio, so it can take a while. The
+// button must say so at once, or teachers think nothing happened and press it again.
+async function addCommunityCourse(listingId, { fromPreview = false, button = null } = {}) {
+  if (communityAdding.has(listingId)) return;
+  communityAdding.add(listingId);
   const errorEl = fromPreview ? $("#cms-community-preview-error") : $("#cms-community-error");
+  const statusEl = fromPreview ? $("#cms-community-preview-error") : $("#cms-community-status");
   if (errorEl) errorEl.textContent = "";
+  const label = button?.querySelector("span") || button;
+  const originalLabel = label ? label.textContent : "";
+  if (button) {
+    button.disabled = true;
+    button.classList.add("is-busy");
+    button.setAttribute("aria-busy", "true");
+    if (label) label.textContent = cmsT("cms.community.adding");
+  }
+  if (statusEl && !fromPreview) statusEl.textContent = cmsT("cms.community.addingHint");
+  let ok = false;
   try {
     const data = await api(`/api/cms/community/courses/${listingId}/copy`, { method: "POST", body: {} });
+    ok = true;
     if (data.alreadyCopied) {
-      showCmsToast("This course is already in My courses.");
+      showCmsToast(cmsT("cms.community.alreadyIn"));
     } else {
-      showCmsToast(`Added “${data.course?.name || "course"}” to My courses.`);
+      showCmsToast(cmsT("cms.community.added", { name: data.course?.name || "" }));
     }
     closeCommunityPreview();
     if (data.course?.id && !data.alreadyCopied) {
@@ -4345,6 +4363,15 @@ async function addCommunityCourse(listingId, { fromPreview = false } = {}) {
     }
   } catch (err) {
     if (errorEl) errorEl.textContent = err.message;
+  } finally {
+    communityAdding.delete(listingId);
+    if (statusEl && !fromPreview && !errorEl?.textContent) statusEl.textContent = "";
+    if (button?.isConnected && !ok) {
+      button.disabled = false;
+      button.classList.remove("is-busy");
+      button.removeAttribute("aria-busy");
+      if (label) label.textContent = originalLabel;
+    }
   }
 }
 
@@ -12094,8 +12121,9 @@ function handleCommunityCatalogClick(event) {
     openCommunityPreview(listingId);
     return;
   }
-  if (event.target.closest(".cms-community-add-btn")) {
-    addCommunityCourse(listingId);
+  const addBtn = event.target.closest(".cms-community-add-btn");
+  if (addBtn) {
+    addCommunityCourse(listingId, { button: addBtn });
     return;
   }
   if (event.target.closest(".cms-community-report-btn")) {
@@ -12111,7 +12139,7 @@ $("#community-catalog")?.addEventListener("click", handleCommunityCatalogClick);
 $("#btn-community-preview-close")?.addEventListener("click", closeCommunityPreview);
 $("#cms-community-preview-backdrop")?.addEventListener("click", closeCommunityPreview);
 $("#btn-community-preview-add")?.addEventListener("click", () => {
-  if (state.communityPreviewId) addCommunityCourse(state.communityPreviewId, { fromPreview: true });
+  if (state.communityPreviewId) addCommunityCourse(state.communityPreviewId, { fromPreview: true, button: $("#btn-community-preview-add") });
 });
 $("#btn-community-preview-report")?.addEventListener("click", () => {
   if (state.communityPreviewId) reportCommunityCourse(state.communityPreviewId);

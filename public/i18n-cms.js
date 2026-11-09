@@ -7,6 +7,10 @@
   if (!i18n?.addMessagesAll) return;
 
   const EN = {
+    "cms.community.adding": "Adding…",
+    "cms.community.addingHint": "Copying the course and its pictures. This can take up to a minute — please keep this page open.",
+    "cms.community.alreadyIn": "This course is already in My courses.",
+    "cms.community.added": "Added “{name}” to My courses.",
     "cms.ui.main": "Main",
     "cms.ui.dropTitle": "Drop materials to start a section",
     "cms.ui.dropHint": "PDF, Word, Excel, or video files — up to 100 MB total. Add multiple files.",
@@ -513,6 +517,10 @@
   i18n.addMessagesAll({
     en: EN,
     "zh-TW": zh({
+      "cms.community.adding": "加入中…",
+      "cms.community.addingHint": "正在複製課程與圖片，最多可能需要一分鐘，請保持此頁面開啟。",
+      "cms.community.alreadyIn": "這個課程已經在「我的課程」。",
+      "cms.community.added": "已將「{name}」加入「我的課程」。",
       "cms.ui.main": "主要",
       "cms.ui.dropTitle": "拖入教材，開始一個單元",
       "cms.ui.dropHint": "可使用 PDF、Word、Excel 或影片檔案 — 合計最大 100 MB。可加入多個檔案。",
@@ -1149,6 +1157,10 @@
       "cms.loggedInAs": "已登录：{name}",
     },
     yue: {
+      "cms.community.adding": "加入緊…",
+      "cms.community.addingHint": "而家複製緊課程同圖片，最多可能要等一分鐘，請唔好閂咗呢頁。",
+      "cms.community.alreadyIn": "呢個課程已經喺「我嘅課程」。",
+      "cms.community.added": "已將「{name}」加入「我嘅課程」。",
       "cms.ui.main": "主要",
       "cms.ui.dropTitle": "拖入教材，開始一個單元",
       "cms.ui.dropHint": "可用 PDF、Word、Excel 或影片檔案 — 合共最大 100 MB。可以加入多個檔案。",

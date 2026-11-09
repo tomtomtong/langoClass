@@ -3354,3 +3354,13 @@ html[data-cms-text-size] body { font-size: 1rem; }
 #app-shell #cms-exercises-view .cms-ai-callout strong { font-size: 1.2rem; }
 #app-shell #cms-exercises-view .cms-ai-callout p { margin: 0.2rem 0 0; font-size: 1.02rem; }
 #app-shell #cms-exercises-view .cms-ai-callout .btn { min-height: 52px; font-size: 1.1rem; padding: 0.6rem 1.4rem; }
+
+/* Busy button: spinner + disabled look so a slow action never feels like nothing happened */
+.btn.is-busy { position: relative; opacity: 1; cursor: progress; }
+.btn.is-busy::before {
+  content: ""; display: inline-block; width: 1em; height: 1em; margin-right: 0.6em; vertical-align: -0.15em;
+  border: 3px solid rgba(255,255,255,0.45); border-top-color: #fff; border-radius: 50%;
+  animation: cms-btn-spin 0.8s linear infinite;
+}
+@keyframes cms-btn-spin { to { transform: rotate(360deg); } }
+#cms-community-status { font-size: 1.1rem; font-weight: 700; color: var(--purple); }

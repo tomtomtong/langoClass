@@ -197,11 +197,20 @@ export function rewriteCourseUrls(course, swap) {
 }
 
 // Copies each /uploads/ file a course uses; folderFor picks the new folder.
+const COPY_CONCURRENCY = 6;
+
 export async function copyCourseFiles(env, course, folderFor, fetchImpl = fetch) {
   const map = new Map();
-  for (const url of courseUrls(course)) {
-    if (!uploadKey(url)) continue;
-    map.set(url, await copyUpload(env, url, folderFor(url), fetchImpl));
-  }
+  const urls = [...new Set(courseUrls(course))].filter((url) => uploadKey(url));
+  // A course can hold dozens of pictures and clips; copying them one by one made
+  // "Add to My courses" take a long time, so a few run side by side.
+  let next = 0;
+  const worker = async () => {
+    while (next < urls.length) {
+      const url = urls[next++];
+      map.set(url, await copyUpload(env, url, folderFor(url), fetchImpl));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(COPY_CONCURRENCY, urls.length) }, worker));
   return rewriteCourseUrls(course, (url) => map.get(String(url || "").trim()) || url);
 }
