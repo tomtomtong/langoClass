@@ -12986,9 +12986,9 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
   left: 0;
   top: 0;
   width: 820px;
-  min-height: 230px;
-  height: 230px;
-  padding: 15px 25px 28px;
+  min-height: 250px;
+  height: 250px;
+  padding: 20px 25px 24px;
   border: 10px solid rgba(162, 89, 255, 0.6);
   border-radius: 100px;
   background: rgba(255, 255, 255, 0.9);
@@ -13005,9 +13005,9 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
   position: absolute;
   z-index: 1;
   left: 242px;
-  top: 220px;
+  top: 244px;
   width: 335px;
-  height: 409px;
+  height: 385px;
   object-fit: contain;
   object-position: center bottom;
   pointer-events: none;
@@ -13058,7 +13058,7 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
   align-items: center;
   justify-content: center;
   flex: 1 1 auto;
-  margin-top: 0;
+  margin-top: 4px;
   padding: 0;
   overflow: visible;
 }
@@ -13066,7 +13066,10 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
 #app.lango-host .host-buzzin-winner-card {
   position: relative;
   box-sizing: border-box;
-  width: 221px;
+  /* Grows for long names instead of letting them cross the border. */
+  width: max-content;
+  min-width: 221px;
+  max-width: 320px;
   min-height: 106px;
   padding: 8px 16px;
   border: 4px solid #fc7dba;
@@ -13081,6 +13084,56 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
 
 #app.lango-host .host-buzzin-winner-card.is-live {
   border-color: #fc7dba;
+}
+
+/* In the Real Time screen the winner card fills the whole leaderboard box. */
+#app.lango-host .host-buzzin-feedback-winner-wrap > #host-buzzin-winner-card {
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  padding: 10px 0 0;
+}
+
+#app.lango-host .host-buzzin-feedback-winner-wrap .host-buzzin-winner-card {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  justify-content: center;
+  gap: 24px;
+  padding: 8px 40px;
+  /* The leaderboard box is already the frame, so no card inside it. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#app.lango-host .host-buzzin-feedback-winner-wrap .host-buzzin-winner-card .host-buzzin-chat-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  font-size: 26px;
+}
+
+#app.lango-host .host-buzzin-feedback-winner-wrap .host-buzzin-winner-copy {
+  flex: 0 1 auto;
+}
+
+#app.lango-host .host-buzzin-feedback-winner-wrap .host-buzzin-winner-name {
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+#app.lango-host .host-buzzin-feedback-winner-wrap .host-buzzin-winner-time {
+  margin-top: 6px;
+  font-size: 36px;
+}
+
+#app.lango-host .host-buzzin-feedback-winner-wrap .host-buzzin-winner-medal {
+  /* Only one winner, and the box title already says so. */
+  display: none;
 }
 
 #app.lango-host .host-buzzin-winner-card .host-buzzin-chat-avatar {
@@ -13150,6 +13203,7 @@ html.lango-gsap-ready #screen-host-buzzin-empty.active.host-buzzin-empty-screen-
   font-size: 20px;
   font-weight: 600;
   line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
 #app.lango-host .host-buzzin-winner-time {

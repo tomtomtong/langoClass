@@ -1633,6 +1633,26 @@ html[dir="rtl"] #app.lango-host .host-join-toast {
   grid-column: 1;
 }
 
+/* Teacher retry choice: two equal buttons, label centred and kept inside. */
+#app.lango-host .host-buzzin-feedback-retry-actions {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+}
+
+#app.lango-host .host-buzzin-feedback-retry-actions button.host-buzzin-footer-btn--panel {
+  grid-template-columns: 1fr;
+  padding: 4px 10px 2px;
+  font-size: clamp(16px, 1.5vw, 22px);
+  line-height: 1.15;
+}
+
+#app.lango-host .host-buzzin-feedback-retry-actions button.host-buzzin-footer-btn--panel > .host-btn-label {
+  grid-column: 1;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 @keyframes hostBuzzinNextActionsIn {
   from {
     opacity: 0;
