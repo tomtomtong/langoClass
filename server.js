@@ -7402,39 +7402,35 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("buzzin_retry_choice", ({ accept }, callback) => {
+  // The teacher decides whether the student who just got marked answers again.
+  socket.on("buzzin_retry_choice", ({ accept, roomId }, callback) => {
     const meta = socketMeta.get(socket.id);
-    if (!meta || meta.role !== "session_player" || !meta.playerId || !meta.pin) {
-      callback?.({ ok: false, error: "Join the class waiting room first." });
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can choose a retry." });
       return;
     }
 
-    const round = buzzInRounds.get(meta.pin);
+    const round = buzzInRounds.get(pin);
     if (!round || round.phase !== "typing") {
       callback?.({ ok: false, error: "Buzz-in is not accepting answers right now." });
       return;
     }
 
-    if (round.pendingRetryPlayerId !== meta.playerId) {
+    const playerId = round.pendingRetryPlayerId;
+    if (!playerId) {
       callback?.({ ok: false, error: "No retry is available right now." });
       return;
     }
 
     round.pendingRetryPlayerId = null;
-    if (accept) {
-      if (!canOfferBuzzinRetry(round, meta.playerId)) {
-        finalizeBuzzinAnswerRound(meta.pin);
-        callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
-        return;
-      }
-      round.retryActivePlayerId = meta.playerId;
-      callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
-      broadcastBuzzInUpdate(meta.pin);
-      return;
+    if (accept && canOfferBuzzinRetry(round, playerId)) {
+      round.retryActivePlayerId = playerId;
+      broadcastBuzzInUpdate(pin);
+    } else {
+      round.retryActivePlayerId = null;
+      finalizeBuzzinAnswerRound(pin);
     }
-
-    round.retryActivePlayerId = null;
-    finalizeBuzzinAnswerRound(meta.pin);
     callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
   });
 

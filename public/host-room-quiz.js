@@ -344,9 +344,53 @@ function hostBuzzinAnswerFlowComplete(payload) {
   return hostBuzzinReviewSequenceDone.has(buzzinSpokenFeedbackAudioKey(latest));
 }
 
+function hostBuzzinRetryChoiceReady(payload) {
+  const pendingId = payload?.pendingRetryPlayerId;
+  if (!pendingId || payload.phase !== "typing" || hostBuzzinLuckyDrawRunning) return false;
+  const responses = buzzinResponsesForDisplay(payload);
+  const latest = responses.length ? responses[responses.length - 1] : null;
+  if (!latest || latest.playerId !== pendingId) return false;
+  if (latest.analysisStatus === "error") return true;
+  if (latest.analysisStatus !== "done") return false;
+  return !latest.text || hostBuzzinReviewSequenceDone.has(buzzinSpokenFeedbackAudioKey(latest));
+}
+
 function syncHostBuzzinNextActions(payload) {
   const row = $("#host-buzzin-feedback-next-actions");
   if (row) row.hidden = !hostBuzzinAnswerFlowComplete(payload);
+
+  // Teacher decides whether the marked student answers again.
+  const retryRow = $("#host-buzzin-feedback-retry-actions");
+  if (!retryRow) return;
+  const ready = hostBuzzinRetryChoiceReady(payload);
+  retryRow.hidden = !ready;
+  if (!ready) return;
+  const name =
+    (payload.buzzes || []).find((b) => b.playerId === payload.pendingRetryPlayerId)?.displayName || "Student";
+  const label = $("#btn-host-buzzin-retry-label");
+  if (label) label.textContent = uiT("buzzin.hostRetry", { name });
+  ["#btn-host-buzzin-retry", "#btn-host-buzzin-skip-retry"].forEach((sel) => {
+    const btn = $(sel);
+    if (btn) btn.disabled = false;
+  });
+}
+
+function emitHostBuzzinRetryChoice(accept) {
+  const socket = getHostSessionSocket();
+  const buttons = ["#btn-host-buzzin-retry", "#btn-host-buzzin-skip-retry"].map((sel) => $(sel));
+  buttons.forEach((btn) => {
+    if (btn) btn.disabled = true;
+  });
+  socket.emit("buzzin_retry_choice", { roomId: hostBuzzinRoomId, accept }, (res) => {
+    if (!res?.ok) {
+      buttons.forEach((btn) => {
+        if (btn) btn.disabled = false;
+      });
+      console.warn(res?.error || "Could not send retry choice.");
+      return;
+    }
+    updateHostBuzzinUi(res);
+  });
 }
 
 function syncHostBuzzinShowAnswerButton(payload) {
@@ -957,6 +1001,8 @@ function ensureHostBuzzinSocket() {
   $("#btn-host-buzzin-show-answer")?.addEventListener("click", () => {
     revealHostBuzzinCorrectAnswer();
   });
+  $("#btn-host-buzzin-retry")?.addEventListener("click", () => emitHostBuzzinRetryChoice(true));
+  $("#btn-host-buzzin-skip-retry")?.addEventListener("click", () => emitHostBuzzinRetryChoice(false));
 }
 
 function startHostBuzzinRound(roomId) {

@@ -653,29 +653,25 @@ function submitBuzzResponse(state, data, ctx) {
   });
 }
 
+// The teacher decides whether the student who just got marked answers again.
 function retryChoice(state, data, ctx) {
-  const playerId = ctx.playerId;
-  if (!playerId || (ctx.role !== "session_player" && ctx.role !== "player")) {
-    return done(state, { ack: { ok: false, error: "Join the class waiting room first." } });
-  }
+  if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can choose a retry." } });
   const round = state.buzz;
   if (!round || round.phase !== "typing") {
     return done(state, { ack: { ok: false, error: "Buzz-in is not accepting answers right now." } });
   }
-  if (round.pendingRetryPlayerId !== playerId) {
+  const playerId = round.pendingRetryPlayerId;
+  if (!playerId) {
     return done(state, { ack: { ok: false, error: "No retry is available right now." } });
   }
   round.pendingRetryPlayerId = null;
   if (data.accept && attemptsOf(round, playerId) < BUZZ_MAX_ATTEMPTS) {
     round.retryActivePlayerId = playerId;
-    return done(state, {
-      ack: { ok: true, ...buzzPayload(round, ctx.now, false) },
-      broadcasts: [buzzFrame("buzzin_update", round, ctx.now)],
-    });
+  } else {
+    finalizeAnswer(round);
   }
-  finalizeAnswer(round);
   return done(state, {
-    ack: { ok: true, ...buzzPayload(round, ctx.now, false) },
+    ack: { ok: true, ...buzzPayload(round, ctx.now, true) },
     broadcasts: [buzzFrame("buzzin_update", round, ctx.now)],
   });
 }

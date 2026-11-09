@@ -499,6 +499,8 @@ function hideStudentBuzzinRetryChoice() {
   if (wrap) wrap.hidden = true;
 }
 
+// The teacher decides whether the student answers again; the student only
+// waits (the host sends buzzin_retry_choice).
 function showStudentBuzzinRetryChoice(response, payload) {
   const wrap = $("#room-buzzin-retry-choice");
   const message = $("#room-buzzin-retry-message");
@@ -507,56 +509,15 @@ function showStudentBuzzinRetryChoice(response, payload) {
   const submitted = $("#room-buzzin-submitted");
   const retryBtn = $("#btn-room-buzzin-retry");
   const skipBtn = $("#btn-room-buzzin-skip-retry");
-  const canRetry = payload?.canOfferRetry !== false;
 
   hideStudentBuzzinAnswerPrompt();
   if (recordControls) recordControls.hidden = true;
   if (recordBtn) recordBtn.hidden = true;
   if (submitted) submitted.hidden = true;
   if (wrap) wrap.hidden = false;
-  if (retryBtn) {
-    retryBtn.hidden = !canRetry;
-    retryBtn.disabled = false;
-    retryBtn.textContent = uiT("buzzin.tryAgain");
-  }
-  if (skipBtn) {
-    skipBtn.disabled = false;
-    skipBtn.textContent = uiT("buzzin.keepAnswer");
-  }
-  if (message) {
-    message.textContent = canRetry
-      ? response?.answerVerdict === "partial"
-        ? uiT("buzzin.retryOfferPartial")
-        : uiT("buzzin.retryOfferIncorrect")
-      : uiT("buzzin.retryLimitReached");
-  }
-}
-
-function emitBuzzinRetryChoice(accept) {
-  const socket = getRoomSessionSocket();
-  const retryBtn = $("#btn-room-buzzin-retry");
-  const skipBtn = $("#btn-room-buzzin-skip-retry");
-  if (retryBtn) retryBtn.disabled = true;
-  if (skipBtn) skipBtn.disabled = true;
-
-  const finish = (res) => {
-    if (!res?.ok) {
-      if (retryBtn) retryBtn.disabled = false;
-      if (skipBtn) skipBtn.disabled = false;
-      const turnStatus = $("#room-buzzin-turn-status");
-      if (turnStatus) turnStatus.textContent = res?.error || uiT("buzzin.submitError");
-      return;
-    }
-    hideStudentBuzzinRetryChoice();
-    updateStudentBuzzinUi(res);
-  };
-
-  if (!socket?.connected) {
-    finish({ ok: false, error: uiT("buzzin.submitError") });
-    return;
-  }
-
-  socket.emit("buzzin_retry_choice", { accept }, finish);
+  if (retryBtn) retryBtn.hidden = true;
+  if (skipBtn) skipBtn.hidden = true;
+  if (message) message.textContent = uiT("buzzin.waitingTeacherRetry");
 }
 
 function resetRoomBuzzinTurnUi() {
@@ -962,14 +923,6 @@ function ensureRoomBuzzinSocket() {
       setRoomBuzzinRecordStatus(err.message || uiT("buzzin.micError"));
       if (turnStatus) turnStatus.textContent = err.message || uiT("buzzin.micError");
     }
-  });
-
-  $("#btn-room-buzzin-retry")?.addEventListener("click", () => {
-    emitBuzzinRetryChoice(true);
-  });
-
-  $("#btn-room-buzzin-skip-retry")?.addEventListener("click", () => {
-    emitBuzzinRetryChoice(false);
   });
 
   return socket;

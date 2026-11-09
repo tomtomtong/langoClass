@@ -93,7 +93,11 @@ test("a wrong answer offers one retry, and the second answer closes the turn", (
   const blocked = student(state, "ada", "submit_buzzin_response", { text: "pear" }, 6100);
   assert.equal(blocked.ack.error, "Choose whether to try again first.");
 
-  const retry = student(state, "ada", "buzzin_retry_choice", { accept: true }, 6200);
+  const own = student(state, "ada", "buzzin_retry_choice", { accept: true }, 6150);
+  assert.equal(own.ack.ok, false);
+  assert.equal(own.state.buzz.pendingRetryPlayerId, "ada");
+
+  const retry = host(state, "buzzin_retry_choice", { accept: true }, 6200);
   assert.equal(retry.ack.ok, true);
   assert.equal(retry.state.buzz.retryActivePlayerId, "ada");
   state = retry.state;
@@ -265,4 +269,16 @@ test("buzz announcement follows the room speak language", async () => {
   assert.match(buzzAnnouncement("什么是AI？", "Tom", "zh"), /轮到你啦/);
   assert.match(buzzAnnouncement("Q?", "Tom", "ja"), /you're up/);
   assert.match(buzzAnnouncement("Q?", "Tom"), /you're up/);
+});
+
+test("the teacher can skip the retry, which moves the turn on", () => {
+  let state = student(buzzRoom(), "ada", "buzz_in", {}, 3500).state;
+  const sent = student(state, "ada", "submit_buzzin_response", { text: "pear" }, 5000);
+  const marked = applyRoomJob(sent.state, sent.jobs[0], { ok: true, analysis: "", spokenFeedback: "", answerVerdict: "partial", isCorrect: false }, 6000);
+  assert.equal(marked.state.buzz.pendingRetryPlayerId, "ada");
+  const skipped = host(marked.state, "buzzin_retry_choice", { accept: false }, 6200);
+  assert.equal(skipped.ack.ok, true);
+  assert.equal(skipped.state.buzz.phase, "done");
+  assert.equal(skipped.state.buzz.pendingRetryPlayerId, null);
+  assert.equal(host(skipped.state, "buzzin_retry_choice", { accept: true }, 6300).ack.ok, false);
 });
