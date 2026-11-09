@@ -5075,8 +5075,36 @@ body:has(#screen-host-quiz-question.active) {
   animation-delay: calc(800ms + var(--student-i, 0) * 28ms);
 }
 
-/* Results step 1: only the left side (question + distribution). The board keeps its place so the
-   layout doesn't shift; dropping the class on Next plays the slide-in above. */
+/* Results step 1: only the question + correct answer, centred. The board and distribution keep
+   their layout slots (so nothing reflows); dropping the class on Next slides the question card
+   up/left into place, fades the distribution in and plays the board slide-in above. */
+#screen-host-quiz-results .host-mcq-result-left {
+  transition: transform 520ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+#screen-host-quiz-results .host-mcq-result-question-box {
+  transition: top 520ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+#screen-host-quiz-results .host-mcq-distribution {
+  transition: opacity 420ms ease 280ms, transform 420ms ease 280ms;
+}
+
+#screen-host-quiz-results.is-results-step-1 .host-mcq-result-left {
+  transform: translateX(220px); /* half of the board (420) + gap (20): centres the card on the stage */
+}
+
+#screen-host-quiz-results.is-results-step-1 .host-mcq-result-question-box {
+  top: 140px; /* (578 - 298) / 2: vertically centred in the left column */
+}
+
+#screen-host-quiz-results.is-results-step-1 .host-mcq-distribution {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(24px);
+  transition: none;
+}
+
 #screen-host-quiz-results.is-results-step-1 .host-mcq-correct-board,
 #screen-host-quiz-results.is-results-step-1 .host-mcq-correct-count,
 #screen-host-quiz-results.is-results-step-1 .host-mcq-correct-student {
