@@ -13597,6 +13597,13 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
   right: 208px;
 }
 
+/* The question box spans x 240-1040 of the 1280px stage: park the timer beside it,
+   not on top of the question text (host-leaderboard.css also positions it, so match its specificity). */
+#app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-countdown {
+  top: 78px;
+  right: 96px;
+}
+
 /* Fast MC quiz exercise, based on Figma frame 294:16807. */
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-container {
   padding: 20px;
@@ -13620,16 +13627,6 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
   flex: 1 0 0;
   align-items: center;
   justify-content: center;
-}
-
-/* Fast mode has no options row, so the points sit in the flow above the question instead of overlapping it. */
-#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-points {
-  position: relative;
-  left: auto;
-  top: auto;
-  width: 100%;
-  align-self: stretch;
-  text-align: right;
 }
 
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-options,
@@ -17061,6 +17058,7 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
 
 #app.lango-host #screen-host-quiz-question .host-mcq-question-box {
   min-height: min(320px, 48vh);
+  padding-top: 52px; /* room for the points badge so it never covers the question */
 }
 
 #app.lango-host #screen-host-quiz-question .host-mcq-question {
