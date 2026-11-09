@@ -17276,20 +17276,25 @@ textarea.cms-autogrow {
   z-index: 1;
 }
 
-/* Section-change card shown between the last exercise of one section and the next. */
+/* Section-change card: sky backdrop, Uncle Tommy and a cream card, matching the journey map. */
 .host-section-transition {
   position: fixed;
   inset: 0;
   z-index: 10000;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: center;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 0 clamp(0.5rem, 3vw, 2.5rem);
   padding: 2rem;
-  text-align: center;
-  color: #fff;
-  background: rgba(24, 20, 56, 0.92);
+  font-family: var(--lango-font, "Nunito", ui-rounded, system-ui, sans-serif);
+  color: #344356;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.75) 0, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(84, 173, 244, 0.55), rgba(194, 148, 255, 0.5)),
+    url("/assets/class/bg.jpg") center / cover no-repeat,
+    #dde9ff;
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -17298,32 +17303,92 @@ textarea.cms-autogrow {
   opacity: 1;
 }
 
+.host-section-transition-tommy {
+  flex: 0 0 auto;
+  width: clamp(240px, 40vmin, 480px);
+  height: auto;
+  /* the art has wide transparent margins; pull them in so layout hugs the character */
+  margin: -9% -12% -12%;
+  filter: drop-shadow(0 14px 14px rgba(52, 67, 86, 0.25));
+  transform: translateX(-40px) scale(0.9);
+  opacity: 0;
+  transition: transform 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) 0.1s, opacity 0.3s ease 0.1s;
+}
+
+.host-section-transition-card {
+  position: relative;
+  max-width: min(36rem, 90vw);
+  padding: clamp(1.2rem, 3vmin, 2rem) clamp(1.6rem, 4vmin, 3rem) clamp(1.4rem, 3.4vmin, 2.2rem);
+  text-align: center;
+  border-radius: 32px;
+  background: #fffdf8;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.9),
+    0 18px 0 -8px rgba(116, 60, 155, 0.18),
+    0 24px 40px rgba(52, 67, 86, 0.25);
+  transform: translateY(24px) scale(0.85);
+  opacity: 0;
+  transition: transform 0.5s cubic-bezier(0.2, 1.3, 0.4, 1), opacity 0.3s ease;
+}
+
 .host-section-transition-kicker {
-  margin: 0;
-  font-size: clamp(1rem, 2.4vw, 1.6rem);
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  display: inline-block;
+  margin: 0 0 0.6rem;
+  padding: 0.3rem 1.1rem;
+  border-radius: 999px;
+  font-size: clamp(0.9rem, 2.2vmin, 1.3rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.8;
+  color: #fff;
+  background: linear-gradient(90deg, #a1268e, #743c9b);
+  box-shadow: 0 4px 0 rgba(116, 60, 155, 0.35);
 }
 
 .host-section-transition-title {
   margin: 0;
-  font-size: clamp(2rem, 6vw, 4.5rem);
-  font-weight: 800;
-  line-height: 1.1;
-  transform: translateY(12px);
-  transition: transform 0.4s ease;
+  font-size: clamp(1.8rem, 6vmin, 3.6rem);
+  font-weight: 900;
+  line-height: 1.15;
+  color: #344356;
+  overflow-wrap: anywhere;
 }
 
-.host-section-transition.is-visible .host-section-transition-title {
+.host-section-transition-star {
+  position: absolute;
+  width: clamp(26px, 5vmin, 56px);
+  height: clamp(26px, 5vmin, 56px);
+  pointer-events: none;
+  opacity: 0;
+  animation: sectionTransitionTwinkle 1.4s ease-in-out infinite;
+}
+
+.host-section-transition-star svg { display: block; width: 100%; height: 100%; }
+.host-section-transition-star:nth-child(1) { left: 12%; top: 18%; animation-delay: 0.2s; }
+.host-section-transition-star:nth-child(2) { right: 14%; top: 22%; animation-delay: 0.6s; }
+.host-section-transition-star:nth-child(3) { left: 20%; bottom: 16%; animation-delay: 0.9s; }
+.host-section-transition-star:nth-child(4) { right: 18%; bottom: 20%; animation-delay: 0.4s; }
+
+.host-section-transition.is-visible .host-section-transition-tommy,
+.host-section-transition.is-visible .host-section-transition-card {
   transform: none;
+  opacity: 1;
+}
+
+@keyframes sectionTransitionTwinkle {
+  0%, 100% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(20deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .host-section-transition,
-  .host-section-transition-title {
+  .host-section-transition-tommy,
+  .host-section-transition-card {
     transition: none;
+  }
+  .host-section-transition-star {
+    animation: none;
+    opacity: 0.8;
   }
 }
 
@@ -17449,4 +17514,13 @@ textarea.cms-autogrow {
 
 #app.lango-host .course-pick-card--unlocking {
   transition: opacity 0.6s ease 0.35s, filter 0.6s ease 0.35s;
+}
+
+/* Keep the line breaks teachers typed in the CMS question box (MC Quiz and Lightning round). */
+#host-quiz-preview-question-text,
+#host-quiz-question-text,
+#host-quiz-results-question-text,
+#player-question-text,
+#player-result-question {
+  white-space: pre-line;
 }

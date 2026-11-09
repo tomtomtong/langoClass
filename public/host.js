@@ -2937,6 +2937,32 @@ function playPendingSectionUnlocks() {
   }, SECTION_UNLOCK_MS);
 }
 
+// Host big screen: when the class moves on to the next section, land on the journey map
+// and let the newly unlocked section open up before going into it. Resolves when done;
+// returns at once if nothing was newly unlocked.
+async function showHostMapUnlock() {
+  if (!state.course?.id) return;
+  // The exercise list lives inside the map screen and would cover the map: shut it.
+  if (sectionExerciseCloseTimer) {
+    clearTimeout(sectionExerciseCloseTimer);
+    sectionExerciseCloseTimer = null;
+  }
+  const overlay = $("#section-exercise-overlay");
+  if (overlay) {
+    overlay.hidden = true;
+    overlay.classList.remove("is-closing");
+  }
+  document.querySelector("#screen-section .section-scene")?.classList.remove("section-scene--exercises-open");
+
+  await showScreen("section");
+  setActiveStep("section");
+  renderSectionPicker();
+  if (!document.querySelector("#section-grid .section-road-card--unlocking, #section-grid .course-pick-card--unlocking")) {
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, SECTION_UNLOCK_MS + 300));
+}
+
 async function showSectionExercises() {
   state.selectedExercise = null;
   updateExerciseContextLabel();
@@ -3800,6 +3826,7 @@ async function launchHostExercise(exercise, {
   idleText = "Start exercise",
   playIntro = true,
   sectionTransition = null,
+  hostTransition = null,
 } = {}) {
   if (!exercise?.id || !state.activeRoomId) return;
 
@@ -3827,13 +3854,19 @@ async function launchHostExercise(exercise, {
 
     // Students get the section info on the exercise itself and show the same card;
     // both screens run it side by side before the exercise begins.
-    const transitionDone = sectionTransition ? showSectionTransitionCard(sectionTransition) : null;
+    const transitionDone = sectionTransition
+      ? hostTransition
+        ? hostTransition()
+        : showSectionTransitionCard(sectionTransition)
+      : null;
     await startNextExerciseViaSocket(
       state.activeRoomId,
       sectionTransition ? { ...exercise, sectionTransition } : exercise,
       state.course
     );
-    if (transitionDone) await transitionDone;
+    // Students see their card for holdMs + fade (~2.7s) plus network delay; start the exercise only after
+    // that so nobody is still on the card when the host's game begins.
+    if (transitionDone) await Promise.all([transitionDone, new Promise((r) => setTimeout(r, 3400))]);
     state.selectedExercise = exercise;
     state.quizActive = true;
     syncPersistentRoomCode();
@@ -3941,6 +3974,8 @@ async function handleStartNextExercise() {
   try {
     await launchHostExercise(step.exercise, {
       sectionTransition: step.type === "section" ? sectionTransitionInfo(step.section) : null,
+      // Students get the Uncle Tommy card; the host big screen shows the map unlocking.
+      hostTransition: step.type === "section" ? showHostMapUnlock : null,
       errorElement: $("#waiting-error"),
       idleText: step.type === "section" ? "Next section" : "Next exercise",
       playIntro: false,
@@ -4245,8 +4280,8 @@ async function returnHostToJourney() {
       savePrefs();
       void markHostSectionVisited(nextSection.id);
       // Host-only: no exercise is launched on this path, so students stay on their
-      // waiting screen and get no card.
-      await showSectionTransitionCard({ ...sectionTransitionInfo(nextSection), holdMs: 1800 });
+      // waiting screen. The host sees the next section unlock on the journey map.
+      await showHostMapUnlock();
     }
   }
 

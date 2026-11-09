@@ -699,6 +699,27 @@ async function initStudentIdJoin() {
   }
 }
 
+const RANDOM_NAME_PARTS = {
+  zh: {
+    adj: ["快樂", "勇敢", "聰明", "可愛", "閃亮", "機靈", "安靜", "活潑", "幸運", "友善"],
+    noun: ["小貓", "小狗", "熊貓", "老虎", "兔仔", "企鵝", "海豚", "獅子", "小鳥", "狐狸"],
+    sep: "",
+  },
+  en: {
+    adj: ["Happy", "Brave", "Clever", "Swift", "Lucky", "Bright", "Calm", "Jolly", "Kind", "Witty"],
+    noun: ["Panda", "Tiger", "Fox", "Dolphin", "Koala", "Eagle", "Rabbit", "Otter", "Lion", "Penguin"],
+    sep: " ",
+  },
+};
+
+function generateRandomName() {
+  const locale = String(window.LangoI18n?.getLocale?.() || document.documentElement.lang || "en");
+  const parts = /^(zh|yue)/i.test(locale) ? RANDOM_NAME_PARTS.zh : RANDOM_NAME_PARTS.en;
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  const num = Math.floor(Math.random() * 90) + 10; // 2 digits to reduce duplicates in one room
+  return `${pick(parts.adj)}${parts.sep}${pick(parts.noun)}${parts.sep}${num}`.slice(0, 40);
+}
+
 function initRoomJoin() {
   showRoomJoinPanels({ showJoining: true });
 
@@ -719,7 +740,11 @@ function initRoomJoin() {
   const displayName = resolveDisplayName(activeRoom, stored);
   const studentId = resolveStudentUserId(activeRoom, stored);
   if (!displayName && !studentId) {
-    initRoomNameForm(activeRoom);
+    // Scanned the QR code (?room=…) with no name: auto-assign a random one.
+    // doJoinRoom stores it, so a refresh keeps the same name.
+    const randomName = generateRandomName();
+    rememberJoinDisplayName(randomName);
+    void doJoinRoom(activeRoom, randomName);
     return;
   }
 

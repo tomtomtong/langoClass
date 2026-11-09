@@ -1213,6 +1213,23 @@ function showSectionTransitionCard({ title, index = null, holdMs = 2400 } = {}) 
     overlay.setAttribute("role", "status");
     overlay.setAttribute("aria-live", "polite");
 
+    // Decorative four-point sparkles (inline SVG: no extra requests, always themed).
+    for (const fill of ["#f9b545", "#ffffff", "#f577a5", "#fff4a3"]) {
+      const star = document.createElement("span");
+      star.className = "host-section-transition-star";
+      star.setAttribute("aria-hidden", "true");
+      star.innerHTML = `<svg viewBox="0 0 24 24"><path fill="${fill}" stroke="rgba(116,60,155,0.35)" stroke-width="0.8" d="M12 1.5C12.9 7.1 16.9 11.1 22.5 12C16.9 12.9 12.9 16.9 12 22.5C11.1 16.9 7.1 12.9 1.5 12C7.1 11.1 11.1 7.1 12 1.5Z"/></svg>`;
+      overlay.appendChild(star);
+    }
+
+    const tommy = document.createElement("img");
+    tommy.className = "host-section-transition-tommy";
+    tommy.src = "/assets/transitions/user_uncletommy_1.png";
+    tommy.alt = "";
+
+    const card = document.createElement("div");
+    card.className = "host-section-transition-card";
+
     const kicker = document.createElement("p");
     kicker.className = "host-section-transition-kicker";
     kicker.textContent = index != null ? t("section.transitionKicker", { n: index }) : "";
@@ -1222,7 +1239,8 @@ function showSectionTransitionCard({ title, index = null, holdMs = 2400 } = {}) 
     heading.className = "host-section-transition-title";
     heading.textContent = title || "";
 
-    overlay.append(kicker, heading);
+    card.append(kicker, heading);
+    overlay.append(tommy, card);
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add("is-visible"));
 
