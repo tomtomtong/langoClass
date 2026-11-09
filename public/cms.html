@@ -49,7 +49,7 @@
         <span class="brand-sub" data-i18n="cms.brand">Course CMS</span>
       </a>
       <nav class="sidebar-nav">
-        <p class="kicker sidebar-kicker">Main</p>
+        <p class="kicker sidebar-kicker" data-i18n="cms.ui.main">Main</p>
         <button class="nav-link cms-link-nav active" type="button" id="nav-cms-home" data-nav="home" data-screen="home" data-i18n="cms.nav.home">Home</button>
         <button class="nav-link cms-link-nav" type="button" id="nav-cms-courses" data-nav="courses" data-screen="list" data-i18n="cms.nav.courses">Courses in progress</button>
         <button class="nav-link cms-link-nav" type="button" id="nav-cms-community" data-nav="community" data-screen="community" data-i18n="cms.nav.community">Templates</button>
@@ -90,30 +90,30 @@
     <section id="screen-cms-home" class="screen">
       <p class="kicker" data-i18n="cms.nav.home">Home</p>
       <div class="home-block home-upload-block paper" id="home-upload-block">
-        <h2>Drop materials to start a section</h2>
-        <p class="hint">PDF, Word, Excel, or video files — up to 100 MB total. Add multiple files.</p>
+        <h2 data-i18n="cms.ui.dropTitle">Drop materials to start a section</h2>
+        <p class="hint" data-i18n="cms.ui.dropHint">PDF, Word, Excel, or video files — up to 100 MB total. Add multiple files.</p>
         <div class="home-dropzone" id="home-dropzone" tabindex="0" role="button">
-          <p class="home-dropzone-title">Drag and drop files here</p>
-          <p class="hint">or click to browse</p>
+          <p class="home-dropzone-title" data-i18n="cms.ai.dropPrimary">Drag and drop files here</p>
+          <p class="hint" data-i18n="cms.ai.dropSecondary">or click to browse</p>
         </div>
         <input type="file" id="home-upload-input" multiple hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.mp4,.webm,.mov,video/*,application/pdf" />
         <div class="home-upload-url row">
           <div class="field" style="flex:1;margin-bottom:0">
-            <label for="home-upload-url">Direct video link (.mp4)</label>
+            <label for="home-upload-url" data-i18n="cms.ai.youtubeLabel">Direct video link (.mp4)</label>
             <input id="home-upload-url" type="url" placeholder="https://example.com/lesson.mp4" />
           </div>
-          <button class="btn ghost" type="button" id="home-upload-url-add">Add link</button>
+          <button class="btn ghost" type="button" id="home-upload-url-add" data-i18n="cms.ui.addLink">Add link</button>
         </div>
         <ul class="home-upload-list" id="home-upload-list" hidden></ul>
         <p class="hint home-upload-size" id="home-upload-size"></p>
         <div class="home-upload-assign" id="home-upload-assign" hidden>
           <div class="field" style="margin-bottom:0.75rem">
-            <label for="home-upload-course">Choose a course for this section</label>
+            <label for="home-upload-course" data-i18n="cms.ui.chooseCourse">Choose a course for this section</label>
             <select id="home-upload-course"></select>
           </div>
           <div class="row home-upload-assign-actions">
-            <button class="btn primary" type="button" id="home-upload-continue">Continue to generate</button>
-            <button class="btn ghost" type="button" id="home-upload-clear">Clear materials</button>
+            <button class="btn primary" type="button" id="home-upload-continue" data-i18n="cms.ui.continueGenerate">Continue to generate</button>
+            <button class="btn ghost" type="button" id="home-upload-clear" data-i18n="cms.ui.clearMaterials">Clear materials</button>
           </div>
           <p class="status-msg" id="home-upload-status" hidden></p>
         </div>
@@ -125,43 +125,43 @@
         </div>
         <div class="row home-quick">
           <button class="btn primary" type="button" data-home="create" data-i18n="cms.home.newCourse">Create a new course</button>
-          <button class="btn ghost" type="button" data-home="edit">Edit courses in progress</button>
+          <button class="btn ghost" type="button" data-home="edit" data-i18n="cms.home.editCourses">Edit courses in progress</button>
           <button class="btn ghost" type="button" data-home="community" data-i18n="cms.home.community">Browse templates</button>
           <button class="btn ghost" type="button" data-home="progress" data-i18n="cms.home.progress">Live class insights</button>
         </div>
       </div>
       <div class="home-block">
-        <h2>Today &amp; this week</h2>
+        <h2 data-i18n="cms.ui.todayWeek">Today &amp; this week</h2>
         <div class="today-strip" id="home-today"></div>
       </div>
       <div class="dash-grid" id="home-stats"></div>
       <div class="home-block">
         <div class="screen-head">
           <div>
-            <h2>Course status</h2>
-            <p class="hint">How far each of your courses has been taught.</p>
+            <h2 data-i18n="cms.ui.courseStatus">Course status</h2>
+            <p class="hint" data-i18n="cms.ui.courseStatusHint">How far each of your courses has been taught.</p>
           </div>
         </div>
         <div class="status-split">
           <div>
-            <p class="kicker">In progress</p>
+            <p class="kicker" data-i18n="cms.dash.inProgress">In progress</p>
             <div class="progress-list" id="home-in-progress"></div>
           </div>
           <div>
-            <p class="kicker">Completed</p>
+            <p class="kicker" data-i18n="cms.dash.completed">Completed</p>
             <div class="progress-list" id="home-completed"></div>
           </div>
         </div>
       </div>
       <div class="home-block">
-        <h2>Your classes</h2>
+        <h2 data-i18n="cms.ui.yourClasses">Your classes</h2>
         <div class="progress-list" id="home-classes"></div>
       </div>
       <div class="home-block">
         <div class="screen-head">
           <div>
-            <h2>Courses for sale</h2>
-            <p class="hint">Ready-made lessons you can buy for your school.</p>
+            <h2 data-i18n="cms.ui.forSale">Courses for sale</h2>
+            <p class="hint" data-i18n="cms.ui.forSaleHint">Ready-made lessons you can buy for your school.</p>
           </div>
         </div>
         <div class="course-grid" id="home-store"></div>
@@ -170,13 +170,13 @@
         <div class="screen-head">
           <div>
             <h2 data-i18n="cms.nav.community">Templates</h2>
-            <p class="hint">Newest and most added public course templates.</p>
+            <p class="hint" data-i18n="cms.ui.templatesHint">Newest and most added public course templates.</p>
           </div>
           <button class="btn ghost" type="button" data-home="community" data-i18n="cms.home.community">Browse templates</button>
         </div>
-        <p class="kicker">Most added</p>
+        <p class="kicker" data-i18n="cms.community.popular">Most added</p>
         <div class="course-grid" id="home-popular"></div>
-        <p class="kicker" style="margin-top:1.1rem">Newest</p>
+        <p class="kicker" style="margin-top:1.1rem" data-i18n="cms.community.newest">Newest</p>
         <div class="course-grid" id="home-newest"></div>
       </div>
       <div class="cms-home-grid" id="cms-home-grid" hidden role="list"></div>
@@ -220,22 +220,22 @@
           <input type="file" id="import-one-file" class="cms-file-input-offscreen" accept=".zip,application/zip" />
           <button type="button" class="btn ghost" id="btn-import-one-course" data-i18n="cms.list.importOne">Import one course</button>
           <button type="button" class="btn ghost" id="btn-export-all-courses" data-i18n="cms.list.exportAll">Export all</button>
-          <button type="button" class="btn primary" id="btn-new-course">+ New course</button>
+          <button type="button" class="btn primary" id="btn-new-course" data-i18n="cms.ui.newCoursePlus">+ New course</button>
         </div>
       </div>
       <div class="courses-tabs" id="courses-tabs" role="tablist">
-        <button class="courses-tab active" type="button" role="tab" data-courses-tab="all" aria-selected="true"><span>All</span></button>
-        <button class="courses-tab" type="button" role="tab" data-courses-tab="in_progress" aria-selected="false"><span>In progress</span></button>
-        <button class="courses-tab" type="button" role="tab" data-courses-tab="completed" aria-selected="false"><span>Completed</span></button>
+        <button class="courses-tab active" type="button" role="tab" data-courses-tab="all" aria-selected="true"><span data-i18n="cms.ui.all">All</span></button>
+        <button class="courses-tab" type="button" role="tab" data-courses-tab="in_progress" aria-selected="false"><span data-i18n="cms.dash.inProgress">In progress</span></button>
+        <button class="courses-tab" type="button" role="tab" data-courses-tab="completed" aria-selected="false"><span data-i18n="cms.dash.completed">Completed</span></button>
       </div>
       <div id="courses-empty" class="paper empty" hidden>
-        <h2>No courses yet</h2>
-        <p>Start with New course, or add a copy from Community.</p>
-        <button class="btn primary" type="button" data-home="create">+ New course</button>
+        <h2 data-i18n="cms.list.emptyTitle">No courses yet</h2>
+        <p data-i18n="cms.ui.emptyStart">Start with New course, or add a copy from Community.</p>
+        <button class="btn primary" type="button" data-home="create" data-i18n="cms.ui.newCoursePlus">+ New course</button>
       </div>
       <div id="courses-filter-empty" class="paper empty" hidden>
-        <h2>No courses here</h2>
-        <p>Try another tab to see your courses.</p>
+        <h2 data-i18n="cms.ui.noCoursesHere">No courses here</h2>
+        <p data-i18n="cms.ui.tryOtherTab">Try another tab to see your courses.</p>
       </div>
       <div class="course-grid" id="courses-grid"></div>
       <div id="cms-course-list" class="cms-course-list" hidden aria-hidden="true"></div>
@@ -271,16 +271,16 @@
               <input id="cms-community-search" type="search" placeholder="Search title, author, or description" data-i18n="cms.community.searchPlaceholder" data-i18n-attr="placeholder" />
             </div>
             <div class="field">
-              <label class="field-label" for="community-main">Main category</label>
-              <select id="community-main" disabled><option value="">All categories</option></select>
+              <label class="field-label" for="community-main" data-i18n="cms.ui.mainCategory">Main category</label>
+              <select id="community-main" disabled><option value="" data-i18n="cms.ui.allCategories">All categories</option></select>
             </div>
             <div class="field">
-              <label class="field-label" for="community-sub">Subcategory</label>
-              <select id="community-sub" disabled><option value="">All subcategories</option></select>
+              <label class="field-label" for="community-sub" data-i18n="cms.ui.subcategory">Subcategory</label>
+              <select id="community-sub" disabled><option value="" data-i18n="cms.ui.allSubcategories">All subcategories</option></select>
             </div>
             <div class="field">
               <label class="field-label" for="cms-community-level" data-i18n="cms.community.level">Level</label>
-              <select id="cms-community-level" aria-label="Filter by level">
+              <select id="cms-community-level" aria-label="Filter by level" data-i18n="cms.ui.filterLevel" data-i18n-attr="aria-label">
                 <option value="all" data-i18n="cms.community.allLevels">All levels</option>
               </select>
             </div>
@@ -316,7 +316,7 @@
         <h1 id="cms-edit-title">New course</h1>
         <span class="autosave" id="cms-autosave-status" aria-live="polite">All changes saved</span>
       </div>
-      <div class="tabs" role="tablist" aria-label="Course editor">
+      <div class="tabs" role="tablist" aria-label="Course editor" data-i18n="cms.ui.courseEditor" data-i18n-attr="aria-label">
         <button type="button" class="tab active" data-tab="details" role="tab" aria-selected="true" data-i18n="cms.tab.details">1 · Details</button>
         <button type="button" class="tab" data-tab="sections" role="tab" aria-selected="false" data-i18n="cms.tab.sections">2 · Sections</button>
       </div>
@@ -325,41 +325,41 @@
         <div class="field">
           <label for="course-name" data-i18n="cms.details.name">Course name</label>
           <input type="text" id="course-name" maxlength="120" placeholder="e.g. Hong Kong around us" data-i18n="cms.details.namePlaceholder" data-i18n-attr="placeholder" />
-          <span class="hint">Max 120</span>
+          <span class="hint" data-i18n="cms.ui.max120">Max 120</span>
         </div>
         <div class="field">
           <label for="course-description" data-i18n="cms.details.description">Description</label>
           <textarea id="course-description" maxlength="500" rows="4" placeholder="e.g. Everyday Hong Kong culture for Primary 5" data-i18n="cms.details.descPlaceholder" data-i18n-attr="placeholder"></textarea>
-          <span class="hint">Max 500</span>
+          <span class="hint" data-i18n="cms.ui.max500">Max 500</span>
         </div>
         <div class="field row date-row">
           <div class="field-col">
-            <label for="course-level">Intended level</label>
-            <input id="course-level" type="text" maxlength="40" placeholder="S1, P2, DSE…" />
+            <label for="course-level" data-i18n="cms.ui.intendedLevel">Intended level</label>
+            <input id="course-level" type="text" maxlength="40" placeholder="S1, P2, DSE…" / data-i18n="cms.ui.levelPlaceholder" data-i18n-attr="placeholder">
           </div>
           <div class="field-col">
-            <label for="course-minutes">Estimated Host time</label>
+            <label for="course-minutes" data-i18n="cms.ui.hostTime">Estimated Host time</label>
             <div class="input-unit-wrap">
               <input id="course-minutes" type="number" min="1" max="180" />
-              <span class="input-unit">mins</span>
+              <span class="input-unit" data-i18n="cms.ui.mins">mins</span>
             </div>
           </div>
         </div>
         <div class="field">
-          <label for="course-objectives">Learning objectives</label>
-          <textarea id="course-objectives" rows="3" placeholder="One objective per line"></textarea>
+          <label for="course-objectives" data-i18n="cms.ui.objectives">Learning objectives</label>
+          <textarea id="course-objectives" rows="3" placeholder="One objective per line" data-i18n="cms.ui.objectivesPlaceholder" data-i18n-attr="placeholder"></textarea>
         </div>
         <div class="field">
-          <label for="course-author-notes">Author notes</label>
-          <textarea id="course-author-notes" rows="3" placeholder="Prep tips for other teachers"></textarea>
+          <label for="course-author-notes" data-i18n="cms.ui.authorNotes">Author notes</label>
+          <textarea id="course-author-notes" rows="3" placeholder="Prep tips for other teachers" data-i18n="cms.ui.authorNotesPlaceholder" data-i18n-attr="placeholder"></textarea>
         </div>
         <div class="field row date-row">
           <div class="field-col">
-            <label for="course-start">Planned start</label>
+            <label for="course-start" data-i18n="cms.ui.plannedStart">Planned start</label>
             <input id="course-start" type="date" />
           </div>
           <div class="field-col">
-            <label for="course-end">Planned end</label>
+            <label for="course-end" data-i18n="cms.ui.plannedEnd">Planned end</label>
             <input id="course-end" type="date" />
           </div>
         </div>
@@ -424,15 +424,15 @@
               <p class="hint" data-i18n="cms.batch.typesHint">Shared types / counts / difficulty</p>
               <div class="row cms-batch-type-row">
                 <label class="cms-batch-type-label"><input type="checkbox" id="cms-batch-type-mcquiz" checked /> <span data-i18n="cms.type.mcquiz">MC Quiz</span></label>
-                <input class="input cms-batch-count-input" id="cms-batch-count-mcquiz" type="text" inputmode="numeric" value="3" aria-label="MC Quiz count" />
+                <input class="input cms-batch-count-input" id="cms-batch-count-mcquiz" type="text" inputmode="numeric" value="3" aria-label="MC Quiz count" / data-i18n="cms.ai.count.mcquiz" data-i18n-attr="aria-label">
                 <label class="cms-batch-type-label"><input type="checkbox" id="cms-batch-type-fastmcquiz" /> <span data-i18n="cms.type.fastmcquiz">Lightning round</span></label>
-                <input class="input cms-batch-count-input" id="cms-batch-count-fastmcquiz" type="text" inputmode="numeric" value="2" aria-label="Lightning round count" />
+                <input class="input cms-batch-count-input" id="cms-batch-count-fastmcquiz" type="text" inputmode="numeric" value="2" aria-label="Lightning round count" / data-i18n="cms.ai.count.fast" data-i18n-attr="aria-label">
                 <label class="cms-batch-type-label"><input type="checkbox" id="cms-batch-type-buzzin" /> <span data-i18n="cms.type.buzzin">Buzz in Question</span></label>
-                <input class="input cms-batch-count-input" id="cms-batch-count-buzzin" type="text" inputmode="numeric" value="1" aria-label="Buzz in Question count" />
+                <input class="input cms-batch-count-input" id="cms-batch-count-buzzin" type="text" inputmode="numeric" value="1" aria-label="Buzz in Question count" / data-i18n="cms.ai.count.buzzin" data-i18n-attr="aria-label">
                 <label class="cms-batch-type-label"><input type="checkbox" id="cms-batch-type-openanswer" /> <span data-i18n="cms.type.openanswer">Everyone Answers</span></label>
-                <input class="input cms-batch-count-input" id="cms-batch-count-openanswer" type="text" inputmode="numeric" value="1" aria-label="Everyone Answers count" />
+                <input class="input cms-batch-count-input" id="cms-batch-count-openanswer" type="text" inputmode="numeric" value="1" aria-label="Everyone Answers count" / data-i18n="cms.ui.countOpen" data-i18n-attr="aria-label">
                 <label class="cms-batch-type-label"><input type="checkbox" id="cms-batch-type-video" /> <span data-i18n="cms.type.video">Video</span></label>
-                <input class="input cms-batch-count-input" id="cms-batch-count-video" type="text" inputmode="numeric" value="1" aria-label="Video count" />
+                <input class="input cms-batch-count-input" id="cms-batch-count-video" type="text" inputmode="numeric" value="1" aria-label="Video count" / data-i18n="cms.ai.count.video" data-i18n-attr="aria-label">
                 <select id="cms-batch-difficulty" aria-label="Difficulty">
                   <option value="easy" data-i18n="cms.batch.easy">Easy</option>
                   <option value="medium" selected data-i18n="cms.batch.medium">Medium</option>
@@ -697,7 +697,7 @@
                   </fieldset>
                   <label class="field cms-ai-field cms-ai-plan-same" id="cms-ai-plan-same" hidden>
                     <span data-i18n="wiz.mode.styleLabel">Style</span>
-                    <select id="cms-ai-plan-format-select" aria-label="Style for every section">
+                    <select id="cms-ai-plan-format-select" aria-label="Style for every section" data-i18n="cms.ui.styleAll" data-i18n-attr="aria-label">
                       <option value="vocab" data-i18n="cms.ai.tpl.vocab">Vocab drill</option>
                       <option value="reading" data-i18n="cms.ai.tpl.reading">Reading check</option>
                       <option value="speaking" data-i18n="cms.ai.tpl.speaking">Speaking class</option>
@@ -819,7 +819,7 @@
     <div class="cms-onboarding-card" role="dialog" aria-labelledby="cms-onboarding-title" aria-modal="true">
       <p class="cms-onboarding-kicker" id="cms-onboarding-kicker">Step 1 of 3</p>
       <h2 id="cms-onboarding-title">Build your course</h2>
-      <p id="cms-onboarding-copy">Open Sections to add lesson units, covers, and exercise lists.</p>
+      <p id="cms-onboarding-copy" data-i18n="cms.ui.onboardCopy">Open Sections to add lesson units, covers, and exercise lists.</p>
       <div class="cms-onboarding-actions">
         <button type="button" class="btn secondary small" id="btn-cms-onboarding-skip" data-i18n="cms.tour.skip">Skip tour</button>
         <button type="button" class="btn primary small" id="btn-cms-onboarding-next" data-i18n="cms.tour.next">Next</button>
@@ -831,7 +831,7 @@
     <div class="cms-confirm-backdrop" id="cms-confirm-backdrop"></div>
     <div class="cms-confirm-card" role="dialog" aria-modal="true" aria-labelledby="cms-confirm-title" aria-describedby="cms-confirm-body">
       <h2 id="cms-confirm-title">Remove this section?</h2>
-      <p id="cms-confirm-body">This will also delete its exercises.</p>
+      <p id="cms-confirm-body" data-i18n="cms.ui.confirmBody">This will also delete its exercises.</p>
       <div class="cms-confirm-actions">
         <button type="button" class="btn secondary" id="btn-cms-confirm-cancel" data-i18n="cms.confirm.cancel">Cancel</button>
         <button type="button" class="btn cms-danger" id="btn-cms-confirm-ok" data-i18n="cms.sections.removeConfirm">Remove</button>
@@ -894,7 +894,7 @@
   </div>
 
   <div class="cms-global-agent-dock" id="cms-global-agent-dock" hidden>
-    <aside class="cms-ai-agent cms-global-agent-panel" id="cms-global-agent" hidden aria-label="Lango CMS assistant">
+    <aside class="cms-ai-agent cms-global-agent-panel" id="cms-global-agent" hidden aria-label="Lango CMS assistant" data-i18n="cms.ui.assistantAria" data-i18n-attr="aria-label">
       <header class="cms-ai-agent-head">
         <div>
           <p class="cms-global-agent-kicker" id="cms-global-agent-mode">CMS assistant</p>
@@ -946,7 +946,7 @@
             <circle cx="11" cy="12" r="1.25" fill="currentColor" />
           </svg>
         </span>
-        <label class="cms-section-order-field" title="Display order">
+        <label class="cms-section-order-field" title="Display order" data-i18n="cms.ui.displayOrder" data-i18n-attr="title">
           <span class="cms-order-label">#</span>
           <input type="number" class="cms-section-order" min="1" aria-label="Section display order" data-i18n="cms.sections.order" data-i18n-attr="aria-label" />
         </label>
@@ -1116,7 +1116,7 @@
         aria-valuemax="100"
         aria-valuenow="0"
         aria-label="Course import progress"
-      >
+       data-i18n="cms.ui.importProgress" data-i18n-attr="aria-label">
         <span id="cms-import-dock-bar"></span>
       </div>
       <p class="hint cms-import-dock-label" id="cms-import-dock-label"></p>
