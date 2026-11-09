@@ -5091,18 +5091,7 @@ body:has(#screen-host-quiz-question.active) {
 }
 
 #screen-host-quiz-results.is-results-step-1 .host-mcq-result-left {
-  transform: translateX(220px); /* half of the board (420) + gap (20): centres the card on the stage */
-}
-
-#screen-host-quiz-results.is-results-step-1 .host-mcq-result-question-box {
-  top: 140px; /* (578 - 298) / 2: vertically centred in the left column */
-}
-
-#screen-host-quiz-results.is-results-step-1 .host-mcq-distribution {
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(24px);
-  transition: none;
+  transform: translateX(220px); /* half of the board (420) + gap (20): centres the column on the stage */
 }
 
 #screen-host-quiz-results.is-results-step-1 .host-mcq-correct-board,
