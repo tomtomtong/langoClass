@@ -1278,26 +1278,34 @@ function initialsForName(name) {
   return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "S";
 }
 
-// The board's grid area is about 332 x 384 px. Up to nine students keep the roomy 3 x 3
-// layout; more than that, pick the column count that gives every student the largest cell
-// so nobody is cut off, and hide names once cells get too small to read.
-const CORRECT_BOARD_W = 332;
-const CORRECT_BOARD_H = 384;
-const CORRECT_BOARD_MAX = 48;
+// Step 2 of the MC results shows the correct responders full screen. The grid area is about
+// 1130 x 385 px: pick the column count that gives every student the largest cell (capped, so a
+// handful of students stay close together instead of spreading across the stage) and hide names
+// once cells get too small to read.
+const CORRECT_BOARD_W = 1130;
+const CORRECT_BOARD_H = 385;
+const CORRECT_BOARD_MAX = 60;
+const CORRECT_CELL_MAX_W = 220;
+const CORRECT_CELL_MAX_H = 210;
 
 function correctBoardLayout(count) {
-  if (count <= 9) return { cols: 3, rows: 3, avatar: 80, names: true };
   let best = null;
-  for (let cols = 3; cols <= 8; cols += 1) {
+  for (let cols = 1; cols <= Math.min(12, count); cols += 1) {
     const rows = Math.ceil(count / cols);
-    const cell = Math.min(CORRECT_BOARD_W / cols, CORRECT_BOARD_H / rows);
-    if (!best || cell > best.cell) best = { cols, rows, cell };
+    const cell = Math.min(CORRECT_BOARD_W / cols, CORRECT_BOARD_H / rows, CORRECT_CELL_MAX_W, CORRECT_CELL_MAX_H);
+    // Prefer wider boards on ties so small classes read as one row.
+    if (!best || cell >= best.cell - 0.5) best = { cols, rows, cell };
   }
+  const cellW = Math.min(CORRECT_BOARD_W / best.cols, CORRECT_CELL_MAX_W);
+  const cellH = Math.min(CORRECT_BOARD_H / best.rows, CORRECT_CELL_MAX_H);
+  const names = Math.min(cellW, cellH) >= 84;
   return {
     cols: best.cols,
     rows: best.rows,
-    avatar: Math.round(Math.min(80, best.cell * 0.66)),
-    names: best.cell >= 60,
+    cellW,
+    cellH,
+    avatar: Math.round(Math.min(140, (names ? cellH - 34 : cellH) * 0.78, cellW * 0.72)),
+    names,
   };
 }
 
@@ -1324,9 +1332,11 @@ function renderCorrectResponders(results) {
   const shown = correct.length > CORRECT_BOARD_MAX ? correct.slice(0, CORRECT_BOARD_MAX - 1) : correct;
   const extra = correct.length - shown.length;
   const layout = correctBoardLayout(shown.length + (extra ? 1 : 0));
-  container.className = `host-mcq-correct-grid${layout.names ? "" : " is-compact"}${shown.length > 12 ? " is-crowded" : ""}`;
+  container.className = `host-mcq-correct-grid${layout.names ? "" : " is-compact"}${shown.length > 24 ? " is-crowded" : ""}`;
   container.style.setProperty("--cols", layout.cols);
   container.style.setProperty("--rows", layout.rows);
+  container.style.setProperty("--cell-w", `${layout.cellW}px`);
+  container.style.setProperty("--cell-h", `${layout.cellH}px`);
   container.style.setProperty("--avatar", `${layout.avatar}px`);
 
   container.innerHTML =
@@ -1523,17 +1533,20 @@ function setupHostRoomQuizSocket(socket) {
         ? `${escapeHtml(label)} <span class="host-mcq-correct-letter">${escapeHtml(correctLabel)}</span> <span class="host-mcq-correct-highlight">${escapeHtml(correctAnswer)}</span>`
         : escapeHtml(label);
     }
+    const boardAnswerEl = $("#host-quiz-correct-board-answer");
+    if (boardAnswerEl) {
+      boardAnswerEl.innerHTML = correctAnswer
+        ? `${escapeHtml(uiT("mcq.correctAnswer"))} <span class="host-mcq-correct-letter">${escapeHtml(correctLabel)}</span> <strong>${escapeHtml(correctAnswer)}</strong>`
+        : "";
+    }
     $("#host-quiz-results-bars").innerHTML = "";
     renderHostResultDistribution(q, answerCounts, correctIndex);
     fitHostResultText();
     renderCorrectResponders(results);
     renderLeaderboard($("#host-quiz-leaderboard"), leaderboard);
     const isLast = q && q.questionIndex + 1 >= q.totalQuestions;
-    hostResultsNextLabel = isLast ? uiT("quiz.showFinalResults") : uiT("quiz.nextQuestion");
-    // Step 1: question + distribution only; the first Next click reveals the correct-responders board.
-    hostResultsBoardPending = true;
-    $("#screen-host-quiz-results")?.classList.add("is-results-step-1");
-    setHostResultsNextLabel(uiT("common.next"));
+    // Step 1: question + answer + distribution; the first Next click shows the correct responders.
+    beginHostResultsSteps(isLast ? uiT("quiz.showFinalResults") : uiT("quiz.nextQuestion"));
   });
 
   socket.on("game_finished", ({ leaderboard, accuracyLeaderboard, answerReview, semesterLeaderboard, exerciseLeaderboard }) => {
@@ -2424,8 +2437,8 @@ if (typeof window !== "undefined") {
   window.setupHostRoomQuizReconnect = setupHostRoomQuizReconnect;
 }
 
-// MC results come in two steps: the question and answer distribution first, then the board of
-// students who answered correctly. The Next button reveals the board before it moves on.
+// MC results come in two steps: the question, answer and distribution first, then the students who
+// answered correctly full screen. The Next button reveals them before it moves on.
 let hostResultsBoardPending = false;
 let hostResultsNextLabel = "";
 
@@ -2435,9 +2448,20 @@ function setHostResultsNextLabel(text) {
   if (nextLabel) nextLabel.textContent = text;
 }
 
+function beginHostResultsSteps(finalNextLabel) {
+  const screen = $("#screen-host-quiz-results");
+  hostResultsBoardPending = true;
+  hostResultsNextLabel = finalNextLabel;
+  screen?.classList.remove("is-results-step-2");
+  screen?.classList.add("is-results-step-1");
+  setHostResultsNextLabel(uiT("common.next"));
+}
+
 function revealHostResultsBoard() {
+  const screen = $("#screen-host-quiz-results");
   hostResultsBoardPending = false;
-  $("#screen-host-quiz-results")?.classList.remove("is-results-step-1");
+  screen?.classList.remove("is-results-step-1");
+  screen?.classList.add("is-results-step-2");
   setHostResultsNextLabel(hostResultsNextLabel);
 }
 

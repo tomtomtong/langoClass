@@ -611,9 +611,13 @@
         renderHostResultDistribution(roomQuizCurrentQuestion, [3, 1, 1, 0], 0);
         renderCorrectResponders(SAMPLE.quizResults);
         renderLeaderboard($("#host-quiz-leaderboard"), SAMPLE.leaderboard.slice(0, 5));
-        const nextBtn = $("#btn-host-quiz-next");
-        const nextLabel = nextBtn?.querySelector(".host-btn-label") || nextBtn;
-        if (nextLabel) nextLabel.textContent = previewT("quiz.nextQuestion");
+        const boardAnswerEl = $("#host-quiz-correct-board-answer");
+        if (boardAnswerEl) {
+          boardAnswerEl.innerHTML =
+            `${previewT("mcq.correctAnswer")} <span class="host-mcq-correct-letter">A.</span> <strong>Photosynthesis</strong>`;
+        }
+        // Same two steps as a live room: Next reveals the correct responders, then moves on.
+        beginHostResultsSteps(previewT("quiz.nextQuestion"));
         break;
       }
 

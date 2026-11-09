@@ -5075,19 +5075,10 @@ body:has(#screen-host-quiz-question.active) {
   animation-delay: calc(800ms + var(--student-i, 0) * 28ms);
 }
 
-/* Results step 1: only the question + correct answer, centred. The board and distribution keep
-   their layout slots (so nothing reflows); dropping the class on Next slides the question card
-   up/left into place, fades the distribution in and plays the board slide-in above. */
+/* MC results, step 1: the question + correct answer + distribution (the whole left column),
+   centred. The board keeps its layout slot so nothing reflows. */
 #screen-host-quiz-results .host-mcq-result-left {
   transition: transform 520ms cubic-bezier(0.2, 0.8, 0.3, 1);
-}
-
-#screen-host-quiz-results .host-mcq-result-question-box {
-  transition: top 520ms cubic-bezier(0.2, 0.8, 0.3, 1);
-}
-
-#screen-host-quiz-results .host-mcq-distribution {
-  transition: opacity 420ms ease 280ms, transform 420ms ease 280ms;
 }
 
 #screen-host-quiz-results.is-results-step-1 .host-mcq-result-left {
@@ -5099,6 +5090,97 @@ body:has(#screen-host-quiz-question.active) {
 #screen-host-quiz-results.is-results-step-1 .host-mcq-correct-student {
   visibility: hidden;
   animation: none;
+}
+
+/* Step 2: the left column fades out and the correct-responders board fills the stage. */
+@keyframes hostResultsLeftOut {
+  from { opacity: 1; visibility: visible; }
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes hostCorrectBoardFull {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+#screen-host-quiz-results .host-mcq-result-main {
+  position: relative;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-result-left {
+  animation: hostResultsLeftOut 320ms ease both;
+  pointer-events: none;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-board,
+#screen-host-quiz-results.active.is-results-step-2 .host-mcq-correct-board {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  padding: 14px 44px 28px;
+  border-radius: 80px;
+  animation: hostCorrectBoardFull 480ms cubic-bezier(0.2, 0.9, 0.3, 1.1) 200ms both;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-board-header {
+  min-height: 0;
+  padding-bottom: 6px;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-board-header h3 {
+  font-size: 48px;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-board-header p:not(.host-mcq-correct-board-answer) {
+  display: none; /* the title already says it; the room goes to the students */
+}
+
+#screen-host-quiz-results .host-mcq-correct-board-answer {
+  display: none;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-board-answer {
+  display: block;
+  margin-top: 4px;
+  color: #3d7c2a;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.host-mcq-correct-board-answer .host-mcq-correct-letter {
+  margin: 0 2px;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-count {
+  margin-top: 6px;
+  padding: 2px 20px 4px;
+  font-size: 22px;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-grid {
+  /* cells are capped (--cell-w/--cell-h set by correctBoardLayout), so small classes stay together */
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, var(--cell-w, 190px)));
+  grid-template-rows: repeat(var(--rows, 3), minmax(0, var(--cell-h, 200px)));
+  justify-content: center;
+  align-content: center;
+  gap: 6px 10px;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-avatar {
+  border-width: 4px;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-student p {
+  font-size: 20px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#screen-host-quiz-results.is-results-step-2 .host-mcq-correct-grid.is-crowded .host-mcq-correct-student p {
+  font-size: 15px;
 }
 
 @media (prefers-reduced-motion: reduce) {
