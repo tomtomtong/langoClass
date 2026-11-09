@@ -258,3 +258,11 @@ test("finished exercises ask the room for the semester leaderboard", () => {
   assert.equal(ended.ackSemester, true);
   assert.equal(ended.broadcasts.find((frame) => frame.event === "room_exercise_wrap_up").semester, true);
 });
+
+test("buzz announcement follows the room speak language", async () => {
+  const { buzzAnnouncement } = await import("./buzz-feedback.js");
+  assert.match(buzzAnnouncement("AI係咩？", "Tom", "yue"), /Tom，到你喇/);
+  assert.match(buzzAnnouncement("什么是AI？", "Tom", "zh"), /轮到你啦/);
+  assert.match(buzzAnnouncement("Q?", "Tom", "ja"), /you're up/);
+  assert.match(buzzAnnouncement("Q?", "Tom"), /you're up/);
+});

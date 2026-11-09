@@ -554,7 +554,7 @@ function luckyDraw(state, ctx) {
   round.turnIndex = Math.max(0, round.buzzes.findIndex((item) => item.playerId === winner.playerId));
   round.pendingRetryPlayerId = null;
   round.retryActivePlayerId = null;
-  const text = buzzAnnouncement(round.topic, winner.displayName);
+  const text = buzzAnnouncement(round.topic, winner.displayName, roomSpeakLang(state));
   if (ctx.caps?.speech) {
     round.answerAnnouncement = null;
     return done(state, {
@@ -783,7 +783,7 @@ function startTyping(state, now, caps = {}) {
   const broadcasts = [buzzFrame("buzzin_join_closed", round, now)];
   const already = round.responses.some((item) => item.playerId === winner.playerId && String(item.text || "").trim());
   if (already) return done(state, { broadcasts, clearTimer: true });
-  const text = buzzAnnouncement(round.topic, winner.displayName);
+  const text = buzzAnnouncement(round.topic, winner.displayName, roomSpeakLang(state));
   if (caps.speech) {
     round.answerAnnouncement = null;
     return done(state, {

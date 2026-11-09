@@ -88,10 +88,23 @@ export function parseBuzzFeedback(reply, studentName) {
   };
 }
 
-export function buzzAnnouncement(topic, displayName) {
-  const question = String(topic || "").trim() || "your question";
+const ANNOUNCEMENTS = {
+  yue: ({ question, name }) =>
+    `今日條題目係：${question}。${name}，到你喇！喺你部機㩒錄音掣，講出答案，再㩒一次提交。`,
+  zh: ({ question, name }) =>
+    `今天的问题是：${question}。${name}，轮到你啦！请在你的设备上点击录音按钮，说出答案，再点一次提交。`,
+  en: ({ question, name }) =>
+    `Today's question is: ${question} ${name}, you're up! On your device, tap the Record button, speak your answer, then tap again to submit.`,
+};
+
+// Spoken "you're up" line, in the room's speak language (English fallback).
+export function buzzAnnouncement(topic, displayName, language = "en") {
+  const lang = String(language || "en").trim().toLowerCase().split(/[-_]/)[0];
+  const template = ANNOUNCEMENTS[lang] || ANNOUNCEMENTS.en;
+  const question =
+    String(topic || "").trim() || (lang === "yue" ? "你嘅問題" : lang === "zh" ? "你的问题" : "your question");
   const name = String(displayName || "Student").trim() || "Student";
-  return `Today's question is: ${question} ${name}, you're up! On your device, tap the Record button, speak your answer, then tap again to submit.`;
+  return template({ question, name });
 }
 
 function verdictOf(value) {
