@@ -1359,6 +1359,94 @@ function sectionTransitionInfo(section, firstExercise = null) {
 
 // Shorter "Up next" card between two exercises of the same section.
 const EXERCISE_TRANSITION_HOLD_MS = 1600;
+// Longer when Uncle Tommy also says the exercise type aloud.
+const EXERCISE_TRANSITION_VOICE_HOLD_MS = 2300;
+// How long a launch waits for a clip that was not preloaded before it goes ahead silently.
+const EXERCISE_INTRO_VOICE_WAIT_MS = 1200;
+
+// What Uncle Tommy says before each exercise type, by speak language. Only the type is
+// named (never the title), so there are a handful of fixed lines that are made once,
+// cached in R2 and preloaded on the host while the previous exercise is still running.
+const EXERCISE_INTRO_LINES = {
+  en: {
+    mcquiz: "Get ready! Next up, a multiple choice quiz!",
+    fastmcquiz: "Next up, the Lightning Round! Let's go!",
+    buzzin: "Next up, Buzz In! Fingers on the buzzers!",
+    openanswer: "Next up, Everyone Answers! Your turn, everybody!",
+    video: "Next up, a video! Eyes on the screen!",
+    slides: "Next up, slides! Let's take a look!",
+  },
+  yue: {
+    mcquiz: "準備好未呀？下一個係選擇題！",
+    fastmcquiz: "下一個係快問快答！睇你有幾快！",
+    buzzin: "下一個係搶答題！手指準備好！",
+    openanswer: "下一個係全班作答！人人都有份！",
+    video: "下一個係影片！大家睇住個畫面！",
+    slides: "下一個係簡報！一齊嚟睇下！",
+  },
+  zh: {
+    mcquiz: "准备好了吗？下一个是选择题！",
+    fastmcquiz: "下一个是闪电轮！看谁最快！",
+    buzzin: "下一个是抢答题！手指准备好！",
+    openanswer: "下一个是全班作答！人人都有份！",
+    video: "下一个是视频！大家看屏幕！",
+    slides: "下一个是简报！一起来看看！",
+  },
+};
+
+const exerciseIntroVoiceCache = new Map();
+
+function exerciseIntroSpeakLang(exercise) {
+  const raw =
+    exercise?.speakLangCode || state.course?.langCode || (isHkElderlyVariant() ? "yue" : "en");
+  // Same reduction as the Worker's speakLangCode: "zh-HK" is read as Mandarin, "yue" as Cantonese.
+  const code = String(raw).trim().toLowerCase().split(/[-_]/)[0];
+  return EXERCISE_INTRO_LINES[code] ? code : "en";
+}
+
+function exerciseIntroLine(exercise) {
+  const lang = exerciseIntroSpeakLang(exercise);
+  const lines = EXERCISE_INTRO_LINES[lang];
+  const type = lines[exercise?.type] ? exercise.type : "mcquiz";
+  return { lang, type, text: lines[type] };
+}
+
+async function fetchExerciseIntroVoice({ lang, text }) {
+  // Reuses the CMS speech cache: the first room to ask makes the clip, every later one reads it from R2.
+  const prefetch = await api("/api/cms/prefetch-question-tts", {
+    method: "POST",
+    body: { items: [{ key: "intro", text, speakLangCode: lang, purpose: "announcement" }] },
+  });
+  const cacheKey = prefetch?.results?.[0]?.cacheKey;
+  if (!cacheKey) return null;
+  const res = await fetch(`/api/cms/question-tts/${encodeURIComponent(cacheKey)}.mp3`, {
+    headers: {
+      ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
+      ...(state.user?.id ? { "X-Teacher-Id": String(state.user.id) } : {}),
+    },
+  });
+  if (!res.ok) return null;
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+/** Starts loading the clip for `exercise`; safe to call repeatedly. Resolves to base64 MP3 or null. */
+function preloadExerciseIntroVoice(exercise) {
+  if (!hostExerciseTransitionEnabled || !exercise?.id) return Promise.resolve(null);
+  const line = exerciseIntroLine(exercise);
+  const key = `${line.lang}|${line.type}`;
+  if (!exerciseIntroVoiceCache.has(key)) {
+    const loading = fetchExerciseIntroVoice(line).catch(() => null);
+    exerciseIntroVoiceCache.set(key, loading);
+    // A failed load must not stick: try again the next time it is asked for.
+    void loading.then((audio) => {
+      if (!audio && exerciseIntroVoiceCache.get(key) === loading) exerciseIntroVoiceCache.delete(key);
+    });
+  }
+  return exerciseIntroVoiceCache.get(key);
+}
 
 function exerciseTransitionInfo(exercise) {
   if (!hostExerciseTransitionEnabled || !exercise?.id) return null;
@@ -1385,6 +1473,7 @@ function setNextStepButtonLabel(btn, buttonLabel) {
 
 function refreshNextExerciseUi() {
   const action = resolveHostNextAction();
+  if (action?.type === "exercise") void preloadExerciseIntroVoice(action.exercise);
   // Nothing comes after a section's last exercise when no next section is open, so the
   // Dashboard button beside it is the only way on; a "Next exercise" there would mislead.
   const buttonLabel = action?.type === "section-end" ? null : action?.displayLabel || null;
@@ -3904,12 +3993,27 @@ async function launchHostExercise(exercise, {
       }
     }
 
+    // Between exercises Uncle Tommy also says the exercise type on the host speakers. The clip
+    // is normally preloaded already; if it is not ready in time the card plays silently.
+    let introVoice = null;
+    if (sectionTransition?.kind === "exercise") {
+      introVoice = await Promise.race([
+        preloadExerciseIntroVoice(exercise),
+        new Promise((resolve) => setTimeout(() => resolve(null), EXERCISE_INTRO_VOICE_WAIT_MS)),
+      ]);
+      if (introVoice) sectionTransition = { ...sectionTransition, holdMs: EXERCISE_TRANSITION_VOICE_HOLD_MS };
+    }
+
     // Students get the section info on the exercise itself and show the same card;
     // both screens run it side by side before the exercise begins.
     const transitionDone = sectionTransition
       ? hostTransition
         ? hostTransition()
         : showSectionTransitionCard(sectionTransition)
+      : null;
+    // Playback follows the audio isolation setting: Uncle Tommy speech ducks the background music.
+    const introVoiceDone = introVoice
+      ? playUncleTommyTts(introVoice, "mp3").catch(() => {})
       : null;
     await startNextExerciseViaSocket(
       state.activeRoomId,
@@ -3920,7 +4024,11 @@ async function launchHostExercise(exercise, {
     // that so nobody is still on the card when the host's game begins (hold + fade + network margin).
     const transitionWaitMs = (sectionTransition?.holdMs || 2400) + 1000;
     if (transitionDone) {
-      await Promise.all([transitionDone, new Promise((r) => setTimeout(r, transitionWaitMs))]);
+      await Promise.all([
+        transitionDone,
+        introVoiceDone,
+        new Promise((r) => setTimeout(r, transitionWaitMs)),
+      ]);
     }
     state.selectedExercise = exercise;
     state.quizActive = true;

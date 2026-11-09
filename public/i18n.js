@@ -40,8 +40,8 @@
     "settings.audioIsolation.descOff":
       "Background music can keep playing under video and speech.",
     "settings.exerciseTransition.title": "Up-next card between exercises",
-    "settings.exerciseTransition.descOn": "Uncle Tommy shows what comes next before each new exercise.",
-    "settings.exerciseTransition.descOff": "No card between exercises; the next exercise starts straight away.",
+    "settings.exerciseTransition.descOn": "Uncle Tommy shows and announces the next exercise type before it starts.",
+    "settings.exerciseTransition.descOff": "No card or voice between exercises; the next exercise starts straight away.",
     "settings.language.title": "Language",
     "settings.language.desc": "Choose the interface language for the host.",
 
@@ -226,8 +226,8 @@
       "settings.audioIsolation.descOff":
         "背景音樂可在影片或語音播放時繼續播放。",
       "settings.exerciseTransition.title": "練習之間顯示下一個",
-      "settings.exerciseTransition.descOn": "每個新練習開始前，Tommy 叔叔會先講下一個係咩。",
-      "settings.exerciseTransition.descOff": "練習之間唔顯示，直接開始下一個。",
+      "settings.exerciseTransition.descOn": "每個新練習開始前，Tommy 叔叔會顯示並講出下一個係咩類型。",
+      "settings.exerciseTransition.descOff": "練習之間冇卡片同語音，直接開始下一個。",
       "settings.language.title": "語言",
       "settings.language.desc": "選擇主持端介面語言。",
       "common.back": "返回",
@@ -399,8 +399,8 @@
       "settings.audioIsolation.descOff":
         "播片或者講嘢嗰陣，背景音樂都可以繼續播。",
       "settings.exerciseTransition.title": "練習之間顯示下一個",
-      "settings.exerciseTransition.descOn": "每個新練習開始前，Tommy 叔叔會先講下一個係咩。",
-      "settings.exerciseTransition.descOff": "練習之間唔顯示，直接開始下一個。",
+      "settings.exerciseTransition.descOn": "每個新練習開始前，Tommy 叔叔會顯示並講出下一個係咩類型。",
+      "settings.exerciseTransition.descOff": "練習之間冇卡片同語音，直接開始下一個。",
       "settings.language.title": "語言",
       "settings.language.desc": "揀主持畫面用邊種語言。",
       "common.back": "返轉頭",
@@ -572,8 +572,8 @@
       "settings.audioIsolation.descOff":
         "背景音乐可在视频或语音播放时继续播放。",
       "settings.exerciseTransition.title": "练习之间显示下一个",
-      "settings.exerciseTransition.descOn": "每个新练习开始前，Tommy 叔叔会先说下一个是什么。",
-      "settings.exerciseTransition.descOff": "练习之间不显示，直接开始下一个。",
+      "settings.exerciseTransition.descOn": "每个新练习开始前，Tommy 叔叔会显示并说出下一个是什么类型。",
+      "settings.exerciseTransition.descOff": "练习之间没有卡片和语音，直接开始下一个。",
       "settings.language.title": "语言",
       "settings.language.desc": "选择主持端界面语言。",
       "common.back": "返回",
