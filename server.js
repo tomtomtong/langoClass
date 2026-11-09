@@ -14,6 +14,7 @@ const {
 } = require("./lib/lango-classes");
 const cmsStore = require("./lib/cms-store");
 const logStore = require("./lib/log-store");
+const { buildBuzzinAnswerAnnouncement } = require("./lib/buzzin-announcement");
 const {
   isLiveMcQuizExercise,
   isVideoExercise,
@@ -1753,20 +1754,14 @@ function advanceBuzzInTurn(pin) {
   broadcastBuzzInUpdate(pin);
 }
 
-function buildBuzzinAnswerAnnouncement(topic, displayName) {
-  const question = String(topic || "").trim() || "your question";
-  const name = String(displayName || "Student").trim() || "Student";
-  return `Today's question is: ${question} ${name}, you're up! On your device, tap the Record button, speak your answer, then tap again to submit.`;
-}
-
-function buildBuzzinLuckyDrawAnnouncement(topic, displayName) {
-  return buildBuzzinAnswerAnnouncement(topic, displayName);
+function buildBuzzinLuckyDrawAnnouncement(topic, displayName, speakLangCode) {
+  return buildBuzzinAnswerAnnouncement(topic, displayName, speakLangCode);
 }
 
 async function synthesizeBuzzinAnswerAnnouncement(round, winner, languageCode) {
   const playerId = winner?.playerId;
   const displayName = winner?.displayName || "Student";
-  const text = buildBuzzinAnswerAnnouncement(round.topic, displayName);
+  const text = buildBuzzinAnswerAnnouncement(round.topic, displayName, languageCode);
   let audio = null;
   let format = null;
 
