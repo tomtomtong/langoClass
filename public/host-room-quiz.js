@@ -1172,9 +1172,6 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
   const hasQuestionImage = !!questionImageUrl;
   screen?.classList.toggle("fast-mode", isFastMode);
   screen?.classList.toggle("has-image", hasQuestionImage);
-  screen?.classList.toggle("text-short", questionText.length <= 70);
-  screen?.classList.toggle("text-medium", questionText.length > 70 && questionText.length <= 150);
-  screen?.classList.toggle("text-long", questionText.length > 150);
   showScreen("host-quiz-question", { transition });
   const pct = ((data.questionIndex + 1) / data.totalQuestions) * 100;
   const points = data.points || (data.fastMode ? 500 : 300);
@@ -1194,8 +1191,8 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
     optionLabels: hostMcqOptionLabels(),
     kahootGrid: isHkElderlyVariant(),
   });
-  // Regular MC has room to spare, so short questions grow; fast mode keeps its own sizing.
-  fitTextToBoxSoon(isFastMode ? undefined : { max: 64 }, $("#host-quiz-question-text"));
+  // MC Quiz and the Lightning round size the question identically: short text grows, long text shrinks to fit.
+  fitTextToBoxSoon({ max: 64 }, $("#host-quiz-question-text"));
   fitTextToBoxSoon(...document.querySelectorAll("#host-quiz-options .option"));
   $("#host-quiz-answered-count").textContent = preparing
     ? uiT("mcq.startingShortly")

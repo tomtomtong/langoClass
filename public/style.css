@@ -13614,96 +13614,22 @@ html.lango-gsap-ready #screen-host-buzzin-feedback.active.host-buzzin-feedback-s
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-title {
   flex: 1 0 0;
   min-width: 0;
-  font-size: 50px;
-  line-height: 1.12;
-  letter-spacing: 0.9px;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-main {
-  width: 100%;
   flex: 1 0 0;
   align-items: center;
   justify-content: center;
 }
 
-#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-question-box {
-  width: clamp(560px, 54vw, 800px);
-  height: auto;
-  min-height: 286px;
-  max-height: min(58vh, 546px);
-  padding: 36px;
-  gap: 12px;
-  justify-content: center;
-  background: linear-gradient(91.39deg, rgba(177, 25, 128, 0.8) 10.96%, rgba(116, 60, 155, 0.8) 97.2%);
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode.text-short:not(.has-image) .host-mcq-question-box {
-  width: clamp(520px, 44vw, 660px);
-  min-height: 250px;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode.text-medium:not(.has-image) .host-mcq-question-box {
-  width: clamp(620px, 50vw, 760px);
-  min-height: 318px;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode.text-long:not(.has-image) .host-mcq-question-box {
-  width: clamp(700px, 58vw, 880px);
-  min-height: 390px;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode.has-image .host-mcq-question-box {
-  width: clamp(700px, 54vw, 800px);
-  min-height: 500px;
-  max-height: min(62vh, 560px);
-}
-
+/* Fast mode has no options row, so the points sit in the flow above the question instead of overlapping it. */
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-points {
   position: relative;
   left: auto;
   top: auto;
   width: 100%;
   align-self: stretch;
-  font-size: 32px;
-  line-height: 1.12;
-  letter-spacing: 0.75px;
   text-align: right;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-question {
-  width: 100%;
-  font-family: "HK Grotesk", "Nunito", sans-serif;
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 36px;
-  overflow-wrap: anywhere;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode.text-short:not(.has-image) .host-mcq-question {
-  font-size: clamp(34px, 2.7vw, 46px);
-  line-height: 1.13;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode.text-long .host-mcq-question {
-  font-size: clamp(24px, 2vw, 30px);
-  line-height: 1.2;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-image-wrap {
-  width: min(448px, 100%);
-  height: auto;
-  max-height: 283px;
-  flex: 0 0 auto;
-}
-
-#app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-image {
-  width: min(448px, 100%);
-  height: auto;
-  max-height: 283px;
-  aspect-ratio: 448 / 283;
-  border-radius: 20px;
-  object-fit: cover;
 }
 
 #app.lango-host #screen-host-quiz-question.fast-mode .host-mcq-options,
@@ -17093,6 +17019,38 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
   }
 }
 
+/* One question size for MC Quiz and the Lightning (fast) round, with or without an image:
+   the preview and question screens share these tokens, so nothing jumps between modes. */
+#app.lango-host {
+  --host-quiz-question-font: "Nunito", sans-serif;
+  --host-quiz-question-size: clamp(1.45rem, 2.35vw, 1.875rem);
+  --host-quiz-question-weight: 800;
+  --host-quiz-question-line: 1.2;
+  --host-quiz-image-w: min(344px, 46vw);
+  --host-quiz-image-h: min(205px, 28vh);
+}
+
+#app.lango-host .host-mcq-question,
+#app.lango-host .host-mcq-preview-question {
+  font-family: var(--host-quiz-question-font);
+  font-size: var(--host-quiz-question-size);
+  font-weight: var(--host-quiz-question-weight);
+  line-height: var(--host-quiz-question-line);
+}
+
+#app.lango-host .host-mcq-image-wrap,
+#app.lango-host .host-mcq-preview-image-wrap {
+  width: var(--host-quiz-image-w);
+  height: var(--host-quiz-image-h);
+}
+
+#app.lango-host #screen-host-quiz-question .host-mcq-image,
+#app.lango-host #screen-host-quiz-preview .host-mcq-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 /* Long questions and options: bound each text box, then fitTextToBox() shrinks
    the text to fit instead of pushing the options behind the footer buttons. */
 /* The Dashboard/Next footer sits bottom-left, so keep the answer grid above it:
@@ -17101,17 +17059,17 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
   padding-bottom: 84px;
 }
 
-#app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-question-box {
+#app.lango-host #screen-host-quiz-question .host-mcq-question-box {
   min-height: min(320px, 48vh);
 }
 
-#app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-question {
+#app.lango-host #screen-host-quiz-question .host-mcq-question {
   max-height: 190px;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
 
-#app.lango-host #screen-host-quiz-question:not(.fast-mode).has-image .host-mcq-question {
+#app.lango-host #screen-host-quiz-question.has-image .host-mcq-question {
   max-height: 90px;
 }
 
