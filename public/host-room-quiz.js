@@ -867,6 +867,18 @@ async function maybePlayHostBuzzinAnswerAnnouncement(payload) {
       announcementAudioFormat: announcement.format,
     })
   );
+  emitHostBuzzinAnnouncementDone();
+}
+
+// Tells the students' devices Uncle Tommy has finished, so their Record button
+// unlocks (it stays disabled while he is speaking to avoid overlapping voices).
+function emitHostBuzzinAnnouncementDone() {
+  if (!hostBuzzinRoomId) return;
+  try {
+    getHostSessionSocket().emit("buzzin_announcement_done", { roomId: hostBuzzinRoomId }, () => {});
+  } catch (err) {
+    console.warn(err?.message || err);
+  }
 }
 
 // Spins as soon as it is called; the winner may still be on its way from the

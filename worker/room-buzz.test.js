@@ -282,3 +282,33 @@ test("the teacher can skip the retry, which moves the turn on", () => {
   assert.equal(skipped.state.buzz.pendingRetryPlayerId, null);
   assert.equal(host(skipped.state, "buzzin_retry_choice", { accept: true }, 6300).ack.ok, false);
 });
+
+test("the student waits for Uncle Tommy's announcement before recording", () => {
+  const buzzed = student(buzzRoom(), "ada", "buzz_in", {}, 3500);
+  assert.equal(buzzed.broadcasts[0].data.announcementPending, true);
+  assert.equal(buzzed.ack.announcementPending, true);
+
+  // Audio is ready, but the host has not finished playing it yet.
+  const announced = applyRoomJob(buzzed.state, buzzed.jobs[0], { audioId: "a1", format: "mp3" }, 4000);
+  assert.equal(announced.broadcasts[0].data.announcementPending, true);
+
+  // A student cannot end the wait for the host.
+  const own = student(announced.state, "ada", "buzzin_announcement_done", {}, 4100);
+  assert.equal(own.ack.ok, false);
+  assert.equal(own.state.buzz.announcementPending, true);
+
+  const finished = host(announced.state, "buzzin_announcement_done", {}, 6000);
+  assert.equal(finished.ack.ok, true);
+  assert.equal(finished.state.buzz.announcementPending, false);
+  assert.equal(finished.broadcasts[0].event, "buzzin_update");
+  assert.equal(finished.broadcasts[0].data.announcementPending, false);
+});
+
+test("no wait when there is nothing to play", () => {
+  const silent = student(buzzRoom({ speech: false, text: true }), "ada", "buzz_in", {}, 3500, { speech: false, text: true });
+  assert.equal(silent.broadcasts[0].data.announcementPending, false);
+
+  const buzzed = student(buzzRoom(), "ada", "buzz_in", {}, 3500);
+  const failed = applyRoomJob(buzzed.state, buzzed.jobs[0], { ok: false }, 4000);
+  assert.equal(failed.broadcasts[0].data.announcementPending, false);
+});

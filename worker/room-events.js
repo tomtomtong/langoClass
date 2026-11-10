@@ -85,6 +85,8 @@ export function applyRoomEvent(state, message, ctx) {
       return submitBuzzResponse(state, data, ctx);
     case "buzzin_retry_choice":
       return retryChoice(state, data, ctx);
+    case "buzzin_announcement_done":
+      return announcementDone(state, ctx);
     case "start_openanswer_round":
       return startOpenAnswer(state, ctx);
     case "next_openanswer_question":
@@ -557,6 +559,7 @@ function luckyDraw(state, ctx) {
   round.pendingRetryPlayerId = null;
   round.retryActivePlayerId = null;
   const text = buzzAnnouncement(round.topic, winner.displayName, roomSpeakLang(state));
+  round.announcementPending = Boolean(ctx.caps?.speech);
   if (ctx.caps?.speech) {
     round.answerAnnouncement = null;
     return done(state, {
@@ -622,6 +625,7 @@ function submitBuzzResponse(state, data, ctx) {
     analysisAudioFormat: null,
   };
   round.responses.push(entry);
+  round.announcementPending = false;
   if (round.retryActivePlayerId === playerId) round.retryActivePlayerId = null;
 
   if (!ctx.caps?.text) {
@@ -652,6 +656,20 @@ function submitBuzzResponse(state, data, ctx) {
       variant: state.session.variant || "",
       speech: !!ctx.caps?.speech,
     }],
+  });
+}
+
+// The host device finished playing Uncle Tommy's "you're up" line, so the
+// student may record without talking over it.
+function announcementDone(state, ctx) {
+  if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can finish the announcement." } });
+  const round = state.buzz;
+  if (!round) return done(state, { ack: { ok: false, error: "Buzz-in round not prepared." } });
+  if (!round.announcementPending) return done(state, { ack: { ok: true } });
+  round.announcementPending = false;
+  return done(state, {
+    ack: { ok: true },
+    broadcasts: [buzzFrame("buzzin_update", round, ctx.now)],
   });
 }
 
@@ -729,6 +747,8 @@ function announced(state, job, outcome, now) {
     audio: outcome?.audioId ? audioRef(outcome.audioId) : null,
     format: outcome?.audioId ? outcome.format || "mp3" : null,
   };
+  // No audio (speech failed) means nothing for the host to play.
+  round.announcementPending = Boolean(round.answerAnnouncement.audio);
   return done(state, {
     ack: job.ack === "lucky-draw" ? luckyDrawAck(round, winner, now) : undefined,
     broadcasts: [buzzFrame("buzzin_update", round, now)],
@@ -778,8 +798,10 @@ function startTyping(state, now, caps = {}) {
   round.phase = "typing";
   round.status = "closed";
   round.turnIndex = 0;
-  const broadcasts = [buzzFrame("buzzin_join_closed", round, now)];
   const already = round.responses.some((item) => item.playerId === winner.playerId && String(item.text || "").trim());
+  // The student's Record button waits until the host has played the announcement.
+  round.announcementPending = Boolean(caps.speech) && !already;
+  const broadcasts = [buzzFrame("buzzin_join_closed", round, now)];
   if (already) return done(state, { broadcasts, clearTimer: true });
   const text = buzzAnnouncement(round.topic, winner.displayName, roomSpeakLang(state));
   if (caps.speech) {
@@ -821,6 +843,7 @@ function luckyDrawAck(round, winner, now) {
 }
 
 function finalizeAnswer(round) {
+  round.announcementPending = false;
   round.pendingRetryPlayerId = null;
   round.retryActivePlayerId = null;
   if (round.phase !== "typing") return;
@@ -1296,6 +1319,9 @@ function newBuzz(topics, index, now) {
     joinOpenedAt: 0,
     joinEndsAt: 0,
     answerAnnouncement: null,
+    // True from the winner being picked until the host has finished playing
+    // the spoken announcement, so the student's Record button waits.
+    announcementPending: false,
     pendingRetryPlayerId: null,
     retryActivePlayerId: null,
   };
@@ -1332,6 +1358,7 @@ function buzzPayload(round, now, forHost) {
     answeredPlayerIds,
     pendingRetryPlayerId: round.pendingRetryPlayerId || null,
     retryActivePlayerId: round.retryActivePlayerId || null,
+    announcementPending: Boolean(round.announcementPending),
     canOfferRetry: round.pendingRetryPlayerId ? attemptsOf(round, round.pendingRetryPlayerId) < BUZZ_MAX_ATTEMPTS : false,
     answerAnnouncement: announcement
       ? {

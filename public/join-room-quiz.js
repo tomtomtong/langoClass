@@ -18,6 +18,48 @@ const ROOM_BUZZIN_MAX_RECORD_MS = 30000;
 const ROOM_BUZZIN_MIN_RECORD_MS = 600;
 const ROOM_BUZZIN_SUBMIT_TIMEOUT_MS = 60000;
 
+// How long a student waits for the host to report Uncle Tommy has finished
+// before Record unlocks anyway (host closed the tab, lost connection, ...).
+const ROOM_BUZZIN_ANNOUNCE_WAIT_MAX_MS = 30000;
+let roomBuzzinAnnounceWaitKey = null;
+let roomBuzzinAnnounceWaitSince = 0;
+let roomBuzzinAnnounceWaitTimer = null;
+let roomBuzzinWasWaiting = null;
+let roomBuzzinUnlockedRound = null;
+let roomBuzzinNudgeTimer = null;
+
+function studentBuzzinAnnouncementPending(payload) {
+  if (!payload?.announcementPending) return false;
+  const key = String(payload.roundId ?? "");
+  if (roomBuzzinAnnounceWaitKey !== key) {
+    roomBuzzinAnnounceWaitKey = key;
+    roomBuzzinAnnounceWaitSince = Date.now();
+  }
+  const remaining = ROOM_BUZZIN_ANNOUNCE_WAIT_MAX_MS - (Date.now() - roomBuzzinAnnounceWaitSince);
+  if (remaining <= 0) return false;
+  clearTimeout(roomBuzzinAnnounceWaitTimer);
+  roomBuzzinAnnounceWaitTimer = setTimeout(() => {
+    if (joinLastBuzzinPayload) updateStudentBuzzinUi(joinLastBuzzinPayload);
+  }, remaining + 50);
+  return true;
+}
+
+// Short pulse + buzz on the Record button right after Uncle Tommy finishes.
+function nudgeStudentBuzzinRecord() {
+  const recordBtn = $("#btn-room-buzzin-record");
+  if (!recordBtn) return;
+  recordBtn.classList.remove("is-nudging");
+  void recordBtn.offsetWidth; // restart the animation
+  recordBtn.classList.add("is-nudging");
+  try {
+    navigator.vibrate?.([140, 70, 140]);
+  } catch (_) {
+    /* vibration is optional */
+  }
+  clearTimeout(roomBuzzinNudgeTimer);
+  roomBuzzinNudgeTimer = setTimeout(() => recordBtn.classList.remove("is-nudging"), 5000);
+}
+
 function isRoomBuzzinBusy() {
   return roomBuzzinSubmitInFlight || Boolean(roomBuzzinPcmRecorder?.isRecording());
 }
@@ -138,7 +180,11 @@ function syncStudentBuzzinAnswerPrompt(payload) {
       : uiT("buzzin.nameYoureUp", { name: announcement.displayName || "You" });
   }
   if (turnStatus && !isRetryForMe) {
-    turnStatus.textContent = uiT("buzzin.tapWhenFinished");
+    turnStatus.textContent = studentBuzzinAnnouncementPending(payload)
+      ? uiT("buzzin.announcementWait")
+      : roomBuzzinUnlockedRound === payload?.roundId
+        ? uiT("buzzin.nowYourTurn")
+        : uiT("buzzin.tapWhenFinished");
   }
 
   // The card title becomes the hero line ("Eric, you're up!" / "Try again!"),
@@ -217,7 +263,7 @@ function resetRoomBuzzinRecordingUi() {
   if (recordBtn) {
     recordBtn.disabled = false;
     recordBtn.textContent = uiT("buzzin.record");
-    recordBtn.classList.remove("is-recording");
+    recordBtn.classList.remove("is-recording", "is-waiting", "is-nudging");
   }
   if (turnStatus) turnStatus.hidden = false;
   if (recordStatus) {
@@ -643,16 +689,32 @@ function updateStudentBuzzinTurnUi(payload) {
   }
 
   if (isMyAnswerTurn) {
-    turnStatus.textContent = sameBuzzPlayer(payload?.answerAnnouncement?.playerId, playerId)
-      ? uiT("buzzin.tapWhenFinished")
-      : uiT("buzzin.speakAnswer");
+    // Uncle Tommy is still speaking on the host device: keep Record locked so
+    // the student's voice cannot overlap his, then nudge them when it unlocks.
+    const waitingForTommy = studentBuzzinAnnouncementPending(payload);
+    const justUnlocked = !waitingForTommy && roomBuzzinWasWaiting === payload.roundId;
+    if (waitingForTommy) roomBuzzinWasWaiting = payload.roundId;
+    else if (justUnlocked) {
+      roomBuzzinWasWaiting = null;
+      roomBuzzinUnlockedRound = payload.roundId;
+    }
+
+    turnStatus.textContent = waitingForTommy
+      ? uiT("buzzin.announcementWait")
+      : justUnlocked
+        ? uiT("buzzin.nowYourTurn")
+        : sameBuzzPlayer(payload?.answerAnnouncement?.playerId, playerId)
+          ? uiT("buzzin.tapWhenFinished")
+          : uiT("buzzin.speakAnswer");
     const recordBtn = $("#btn-room-buzzin-record");
     if (recordBtn) {
       recordBtn.hidden = false;
-      recordBtn.disabled = false;
+      recordBtn.disabled = waitingForTommy;
+      recordBtn.classList.toggle("is-waiting", waitingForTommy);
     }
     if (submitted) submitted.hidden = true;
     syncStudentBuzzinAnswerPrompt(payload);
+    if (justUnlocked) nudgeStudentBuzzinRecord();
     return;
   }
 
@@ -908,6 +970,7 @@ function ensureRoomBuzzinSocket() {
     const recordBtn = $("#btn-room-buzzin-record");
     const turnStatus = $("#room-buzzin-turn-status");
     if (!recordBtn || recordBtn.disabled) return;
+    recordBtn.classList.remove("is-nudging");
 
     if (roomBuzzinPcmRecorder?.isRecording()) {
       await finishRoomBuzzinRecordingAndSubmit();

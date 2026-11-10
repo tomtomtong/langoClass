@@ -1628,6 +1628,7 @@ function canPlayerSubmitBuzzinResponse(round, playerId) {
 function finalizeBuzzinAnswerRound(pin) {
   const round = buzzInRounds.get(pin);
   if (!round) return;
+  round.announcementPending = false;
   round.pendingRetryPlayerId = null;
   round.retryActivePlayerId = null;
   advanceBuzzInTurn(pin);
@@ -1669,6 +1670,7 @@ function buzzInPublicPayload(round) {
     answeredPlayerIds,
     pendingRetryPlayerId: round.pendingRetryPlayerId || null,
     retryActivePlayerId: round.retryActivePlayerId || null,
+    announcementPending: Boolean(round.announcementPending),
     canOfferRetry: round.pendingRetryPlayerId
       ? canOfferBuzzinRetry(round, round.pendingRetryPlayerId)
       : false,
@@ -1782,6 +1784,8 @@ async function synthesizeBuzzinAnswerAnnouncement(round, winner, languageCode) {
     audio,
     format,
   };
+  // Nothing for the host to play (TTS off or failed) means no wait.
+  round.announcementPending = Boolean(audio);
   return round.answerAnnouncement;
 }
 
@@ -1795,11 +1799,12 @@ async function finalizeBuzzInJoinToTyping(pin) {
   round.phase = "typing";
   round.status = "closed";
   round.turnIndex = 0;
-  broadcastBuzzInUpdate(pin, "buzzin_join_closed");
-
   const alreadyAnswered = round.responses.some(
     (entry) => entry.playerId === winner.playerId && String(entry.text || "").trim()
   );
+  round.announcementPending = isGameplayTtsAvailable() && !alreadyAnswered;
+  broadcastBuzzInUpdate(pin, "buzzin_join_closed");
+
   if (!alreadyAnswered) {
     await synthesizeBuzzinAnswerAnnouncement(round, winner, resolveSessionSpeakLangCode(session));
   }
@@ -1887,6 +1892,9 @@ function createBuzzInRound(
     joinEndsAt: 0,
     joinTimer: null,
     answerAnnouncement: null,
+    // True until the host has finished playing the spoken announcement, so the
+    // student's Record button waits instead of talking over Uncle Tommy.
+    announcementPending: false,
     pendingRetryPlayerId: null,
     retryActivePlayerId: null,
   };
@@ -7388,6 +7396,7 @@ io.on("connection", (socket) => {
     if (round.retryActivePlayerId === meta.playerId) {
       round.retryActivePlayerId = null;
     }
+    round.announcementPending = false;
 
     callback?.({ ok: true, ...buzzInPayloadForSocket(round, socket.id) });
 
@@ -7400,6 +7409,27 @@ io.on("connection", (socket) => {
       audioFormat: format,
       sttLanguage: round.sttLanguage || "",
     });
+  });
+
+  // The host device finished playing Uncle Tommy's "you're up" line, so the
+  // student may record without talking over it.
+  socket.on("buzzin_announcement_done", ({ roomId }, callback) => {
+    const meta = socketMeta.get(socket.id);
+    const pin = normalizeRoomId(roomId) || meta?.pin;
+    if (!meta || meta.role !== "host" || !pin) {
+      callback?.({ ok: false, error: "Only the host can finish the announcement." });
+      return;
+    }
+    const round = buzzInRounds.get(pin);
+    if (!round) {
+      callback?.({ ok: false, error: "Buzz-in round not prepared." });
+      return;
+    }
+    if (round.announcementPending) {
+      round.announcementPending = false;
+      broadcastBuzzInUpdate(pin);
+    }
+    callback?.({ ok: true });
   });
 
   // The teacher decides whether the student who just got marked answers again.
