@@ -521,11 +521,14 @@ function updateHostBuzzinTurnUi(payload) {
   }
 
   const retryStudentName = (chatStudent || selectedStudent)?.displayName || "Student";
-  const retryNotice = payload.retryActivePlayerId
-    ? uiT("buzzin.retryNotice", { name: retryStudentName })
-    : payload.pendingRetryPlayerId
-      ? uiT("buzzin.waitingRetryChoice", { name: retryStudentName })
-      : "";
+  // "Let them try again?" only after the recording and Uncle Tommy's feedback
+  // have played, the same moment the Skip / Try again buttons appear.
+  const getRetryNotice = () =>
+    payload.retryActivePlayerId
+      ? uiT("buzzin.retryNotice", { name: retryStudentName })
+      : hostBuzzinRetryChoiceReady(payload)
+        ? uiT("buzzin.waitingRetryChoice", { name: retryStudentName })
+        : "";
 
   const renderBuzzinChat = (overrides = {}) => {
     renderHostBuzzinFeedbackChat(chatEl, {
@@ -538,7 +541,7 @@ function updateHostBuzzinTurnUi(payload) {
       feedbackVisible,
       correctAnswer: getHostBuzzinCorrectAnswerForReveal(payload),
       correctAnswerRevealed: hostBuzzinCorrectAnswerRevealed,
-      retryNotice,
+      retryNotice: getRetryNotice(),
       animate: {
         topic: animate.topic,
         answer: animate.answer,
@@ -567,6 +570,8 @@ function updateHostBuzzinTurnUi(payload) {
     ).then(() => {
       hostBuzzinReviewSequenceDone.add(responseKey);
       syncHostBuzzinNextActions(hostBuzzinLastPayload);
+      // The retry question joins the chat only now that the review has played.
+      if (hostBuzzinLastPayload) updateHostBuzzinTurnUi(hostBuzzinLastPayload);
     });
   }
 }
