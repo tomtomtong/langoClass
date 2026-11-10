@@ -526,6 +526,10 @@ function luckyDraw(state, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can run a lucky draw." } });
   const round = state.buzz;
   if (!round) return done(state, { ack: { ok: false, error: "Buzz-in round not prepared." } });
+  // A marking result still on its way would end the drawn student's turn.
+  if (round.responses.some((item) => item.analysisStatus === "pending")) {
+    return done(state, { ack: { ok: false, error: "Wait until the current answer has been checked." } });
+  }
   const answered = new Set(round.answeredPlayerIds || []);
   for (const item of round.buzzes) answered.add(item.playerId);
   for (const item of round.responses) answered.add(item.playerId);
@@ -861,8 +865,11 @@ function latestResponse(round, playerId) {
   return matches.length ? matches[matches.length - 1] : null;
 }
 
+// An answer the marking call failed on does not use up one of the student's tries.
 function attemptsOf(round, playerId) {
-  return (round.responses || []).filter((item) => item.playerId === playerId).length;
+  return (round.responses || []).filter(
+    (item) => item.playerId === playerId && item.analysisStatus !== "error"
+  ).length;
 }
 
 function canSubmit(round, playerId) {

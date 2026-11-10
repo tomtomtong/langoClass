@@ -1606,9 +1606,12 @@ function getLatestBuzzinResponseForPlayer(round, playerId) {
   return matches.length ? matches[matches.length - 1] : null;
 }
 
+// An answer the marking call failed on does not use up one of the student's tries.
 function buzzinAnswerAttemptCount(round, playerId) {
   if (!round || !playerId) return 0;
-  return (round.responses || []).filter((entry) => entry.playerId === playerId).length;
+  return (round.responses || []).filter(
+    (entry) => entry.playerId === playerId && entry.analysisStatus !== "error"
+  ).length;
 }
 
 function canOfferBuzzinRetry(round, playerId) {
@@ -7244,6 +7247,12 @@ io.on("connection", (socket) => {
     const round = buzzInRounds.get(pin);
     if (!round) {
       callback?.({ ok: false, error: "Buzz-in round not prepared." });
+      return;
+    }
+
+    // A marking result still on its way would end the drawn student's turn.
+    if ((round.responses || []).some((entry) => entry?.analysisStatus === "pending")) {
+      callback?.({ ok: false, error: "Wait until the current answer has been checked." });
       return;
     }
 

@@ -127,6 +127,40 @@ test("a failed marking call still offers the student another try", () => {
   assert.equal(failed.state.buzz.pendingRetryPlayerId, "ada");
 });
 
+test("a failed marking call does not use up one of the student's tries", () => {
+  let state = student(buzzRoom(), "ada", "buzz_in", {}, 3500).state;
+  for (const at of [5000, 7000]) {
+    const sent = student(state, "ada", "submit_buzzin_response", { text: "apple" }, at);
+    state = applyRoomJob(sent.state, sent.jobs[0], { ok: false, error: "LLM down" }, at + 500).state;
+    assert.equal(state.buzz.phase, "typing");
+    assert.equal(state.buzz.pendingRetryPlayerId, "ada");
+    const retry = host(state, "buzzin_retry_choice", { accept: true }, at + 600);
+    assert.equal(retry.state.buzz.retryActivePlayerId, "ada");
+    state = retry.state;
+  }
+  // Both real tries are still there: a wrong answer gets one more go.
+  const wrong = student(state, "ada", "submit_buzzin_response", { text: "chair" }, 9000);
+  state = applyRoomJob(wrong.state, wrong.jobs[0], { ok: true, analysis: "", spokenFeedback: "", isCorrect: false }, 9500).state;
+  assert.equal(state.buzz.pendingRetryPlayerId, "ada");
+  state = host(state, "buzzin_retry_choice", { accept: true }, 9600).state;
+  const last = student(state, "ada", "submit_buzzin_response", { text: "table" }, 10000);
+  state = applyRoomJob(last.state, last.jobs[0], { ok: true, analysis: "", spokenFeedback: "", isCorrect: false }, 10500).state;
+  assert.equal(state.buzz.phase, "done");
+});
+
+test("lucky draw waits while an answer is still being marked", () => {
+  let state = student(buzzRoom(), "ada", "buzz_in", {}, 3500).state;
+  const sent = student(state, "ada", "submit_buzzin_response", { text: "apple" }, 5000);
+  const early = host(sent.state, "buzzin_lucky_draw", {}, 5200);
+  assert.equal(early.ack.ok, false);
+  assert.match(early.ack.error, /checked/);
+  assert.equal(early.state.buzz.buzzes.length, 1);
+  const marked = applyRoomJob(early.state, sent.jobs[0], { ok: true, analysis: "", spokenFeedback: "", isCorrect: true }, 6000);
+  const drawn = host(marked.state, "buzzin_lucky_draw", {}, 6500);
+  assert.equal(drawn.state.buzz.buzzes[drawn.state.buzz.turnIndex].playerId, "bo");
+  assert.equal(drawn.state.buzz.phase, "typing");
+});
+
 test("without a marking model the answer is kept and the turn ends", () => {
   const caps = { speech: false, text: false };
   let state = student(buzzRoom(caps), "ada", "buzz_in", {}, 3500, caps).state;
