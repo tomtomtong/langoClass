@@ -17725,3 +17725,28 @@ textarea.cms-autogrow {
   font-weight: 900;
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
 }
+
+/* Persistent "you are …" badge on the student join page */
+.join-name-badge {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  max-width: calc(100vw - 24px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+}
+.join-name-badge[hidden] {
+  display: none;
+}

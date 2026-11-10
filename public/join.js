@@ -149,6 +149,25 @@ function teardownJoinSockets() {
   }
 }
 
+/* Persistent "who am I" badge, shown on every screen once joined. */
+function updateJoinNameBadge(name) {
+  const text = String(name || "").trim();
+  let badge = document.getElementById("join-name-badge");
+  if (!text) {
+    if (badge) badge.hidden = true;
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.id = "join-name-badge";
+    badge.className = "join-name-badge";
+    badge.setAttribute("role", "status");
+    document.body.appendChild(badge);
+  }
+  badge.textContent = joinT("join.youAre", { name: text });
+  badge.hidden = false;
+}
+
 function rememberJoinDisplayName(name) {
   const next = String(name || "").trim().slice(0, 40);
   if (next) lastJoinDisplayName = next;
@@ -156,6 +175,7 @@ function rememberJoinDisplayName(name) {
 
 function showClassEnded({ statusKey = "join.endedStatus" } = {}) {
   joinEndedStatusKey = statusKey || "join.endedStatus";
+  updateJoinNameBadge("");
   rememberJoinDisplayName(
     roomParticipant?.displayName || urlNickname || lastJoinDisplayName
   );
@@ -626,7 +646,7 @@ function wireRoomNameForm() {
   });
 }
 
-function initRoomNameForm(roomId) {
+function initRoomNameForm(roomId, { suggestName = false } = {}) {
   showRoomJoinPanels({ showNameForm: true });
   wireRoomNameForm();
   wireLeaveRoomButton();
@@ -641,10 +661,17 @@ function initRoomNameForm(roomId) {
   if (codeInput) codeInput.value = presetRoom ? formatRoomCode(presetRoom) : "";
   if (nameInput) {
     nameInput.value = String(lastJoinDisplayName || urlNickname || "").trim().slice(0, 40);
+    if (suggestName && !nameInput.value) {
+      nameInput.value = generateRandomName();
+      if (errorEl) errorEl.textContent = joinT("join.nameSuggested");
+    }
   }
   requestAnimationFrame(() => {
     if (codeInput && !presetRoom) codeInput.focus();
-    else nameInput?.focus();
+    else {
+      nameInput?.focus();
+      if (suggestName) nameInput?.select();
+    }
   });
 }
 
@@ -742,11 +769,9 @@ function initRoomJoin() {
   const displayName = resolveDisplayName(activeRoom, stored);
   const studentId = resolveStudentUserId(activeRoom, stored);
   if (!displayName && !studentId) {
-    // Scanned the QR code (?room=…) with no name: auto-assign a random one.
-    // doJoinRoom stores it, so a refresh keeps the same name.
-    const randomName = generateRandomName();
-    rememberJoinDisplayName(randomName);
-    void doJoinRoom(activeRoom, randomName);
+    // Scanned the QR code (?room=…) with no name: show the name form with a
+    // random suggestion prefilled. The student can keep it or type their own.
+    initRoomNameForm(activeRoom, { suggestName: true });
     return;
   }
 
@@ -833,6 +858,7 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
         saveStoredParticipant(participant);
         roomParticipant = participant;
         rememberJoinDisplayName(participant.displayName);
+        updateJoinNameBadge(participant.displayName);
         if (typeof ensureRoomBuzzinSocket === "function") ensureRoomBuzzinSocket();
       if (typeof ensureStudentOpenAnswerSocket === "function") ensureStudentOpenAnswerSocket();
         clearJoinEndedState();
@@ -912,6 +938,7 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
             saveStoredParticipant(participant);
             roomParticipant = participant;
             rememberJoinDisplayName(participant.displayName);
+            updateJoinNameBadge(participant.displayName);
             if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
             if (typeof scheduleStudentMediaPreload === "function") {
               scheduleStudentMediaPreload(data);
