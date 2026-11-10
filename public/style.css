@@ -17736,7 +17736,7 @@ textarea.cms-autogrow {
   max-width: calc(100vw - 24px);
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.7);
   color: #fff;
   font-size: 0.95rem;
   font-weight: 800;
@@ -17745,7 +17745,6 @@ textarea.cms-autogrow {
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
-  backdrop-filter: blur(6px);
 }
 .join-name-badge[hidden] {
   display: none;
