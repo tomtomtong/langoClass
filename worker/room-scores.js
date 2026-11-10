@@ -42,8 +42,8 @@ export function queueVideoScores(state, exercise, now) {
   return queue(state, batchOf(state, exercise, state.session.courseId, scores, "video"), now);
 }
 
-export function queueBuzzScores(state, exercise, now) {
-  if (exerciseKind(exercise) !== "buzzin") return false;
+// Everyone in the room, 300 for each student who buzzed in or was drawn.
+function buzzScoresOf(state) {
   const awarded = new Map(state.session.buzzinAwardedPlayers || []);
   const winner = state.buzz?.buzzes?.[0];
   if (winner) awarded.set(winner.playerId, winner.displayName || "Student");
@@ -57,6 +57,21 @@ export function queueBuzzScores(state, exercise, now) {
       scores.push({ studentUserId: playerId, displayName: displayName || "Student", score: BUZZIN_POINTS });
     }
   }
+  return scores;
+}
+
+// This exercise's points for the wrap-up screen, as server.js
+// getBuzzinExerciseLeaderboard. Read it before queueBuzzScores clears them.
+export function buzzLeaderboard(state, exercise) {
+  if (exerciseKind(exercise) !== "buzzin") return null;
+  return buzzScoresOf(state)
+    .map((entry) => ({ id: entry.studentUserId, name: entry.displayName, score: entry.score }))
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+}
+
+export function queueBuzzScores(state, exercise, now) {
+  if (exerciseKind(exercise) !== "buzzin") return false;
+  const scores = buzzScoresOf(state);
   state.session.buzzinExerciseId = null;
   state.session.buzzinAwardedPlayers = [];
   return queue(state, batchOf(state, exercise, state.session.courseId, scores, "buzzin"), now);

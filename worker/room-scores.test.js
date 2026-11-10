@@ -96,7 +96,17 @@ test("a buzz-in winner gets 300 points and the rest get 0", () => {
   state = send(state, "start_buzzin_round", {}, host(5000));
   state = send(state, "open_buzzin_join", {}, host(6000));
   state = send(state, "buzz_in", {}, { ...player("bo", 6500), role: "session_player" });
-  state = send(state, "end_room_exercise", { exerciseId: 13, exerciseType: "buzzin" }, host(9000));
+  const ended = applyRoomEvent(state, { event: "end_room_exercise", data: { exerciseId: 13, exerciseType: "buzzin" } }, host(9000));
+  state = ended.state;
+  // The wrap-up screen the students see lists this exercise's points.
+  assert.deepEqual(ended.ack.exerciseLeaderboard, [
+    { id: "bo", name: "Bo", score: 300 },
+    { id: "ada", name: "Ada", score: 0 },
+  ]);
+  assert.deepEqual(
+    ended.broadcasts.find((frame) => frame.event === "room_exercise_wrap_up").data.exerciseLeaderboard.map((e) => e.id),
+    ["bo", "ada"]
+  );
   assert.equal(state.pendingScores.length, 1);
   assert.deepEqual(
     state.pendingScores[0].scores.map((entry) => [entry.studentUserId, entry.score]),

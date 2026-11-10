@@ -1,5 +1,6 @@
 import {
   awardBuzz,
+  buzzLeaderboard,
   exerciseKind,
   queueBuzzScores,
   queueOpenAnswerScores,
@@ -400,11 +401,12 @@ function endExercise(state, data, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can end an exercise." } });
   const finished = finishedExercise(state, data);
   const kind = exerciseKind(finished);
+  const buzzBoard = kind === "buzzin" ? buzzLeaderboard(state, finished) : null;
   if (kind === "quiz" && state.game) queueQuizScores(state, ctx.now);
   else if (kind === "video") queueVideoScores(state, finished, ctx.now);
   else if (kind === "buzzin") queueBuzzScores(state, finished, ctx.now);
   else if (kind === "openanswer") queueOpenAnswerScores(state, finished, ctx.now);
-  const leaderboard = state.game ? leaderboardOf(state.game) : [];
+  const leaderboard = buzzBoard || (state.game ? leaderboardOf(state.game) : []);
   state.game = null;
   state.buzz = null;
   state.open = null;
