@@ -17586,3 +17586,142 @@ textarea.cms-autogrow {
 #player-result-question {
   white-space: pre-line;
 }
+
+/* Course search (shown when many courses) */
+.course-search {
+  margin: 0.6rem auto 0;
+  width: min(420px, 100%);
+}
+
+.course-search__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(139, 79, 168, 0.35);
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+}
+
+#app.lango-host .course-search {
+  position: absolute;
+  left: 50%;
+  top: 292px;
+  transform: translateX(-50%);
+  width: 760px;
+  margin: 0;
+}
+
+#app.lango-host .course-search[hidden] {
+  display: none;
+}
+
+#app.lango-host .course-search__input {
+  height: 64px;
+  padding: 0 32px;
+  border: 5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #5b2a78;
+  font-family: "DM Sans", sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.2);
+}
+
+#app.lango-host .course-search__input:focus {
+  outline: 4px solid rgba(255, 177, 237, 0.95);
+  outline-offset: 2px;
+}
+
+#app.lango-host .course-screen.has-course-search .course-grid-scroll {
+  top: 400px;
+}
+
+/* Course picker with many courses: smaller cards + a scrollbar teachers can see */
+#app.lango-host #screen-course .course-grid-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: #ff9f43 rgba(255, 255, 255, 0.55);
+  -ms-overflow-style: auto;
+  padding-right: 14px;
+}
+
+#app.lango-host #screen-course .course-grid-scroll::-webkit-scrollbar {
+  display: block;
+  width: 22px;
+}
+
+#app.lango-host #screen-course .course-grid-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+}
+
+#app.lango-host #screen-course .course-grid-scroll::-webkit-scrollbar-thumb {
+  background: #ff9f43;
+  border: 4px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+}
+
+#app.lango-host .course-grid.course-grid--compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: center;
+  gap: 32px;
+}
+
+#app.lango-host .course-grid--compact .course-pick-card {
+  width: 400px;
+  height: auto;
+  min-height: 270px;
+  padding: 16px;
+  border-width: 8px;
+  border-radius: 34px;
+  gap: 8px;
+}
+
+#app.lango-host .course-grid--compact .course-pick-card-inner {
+  gap: 10px;
+}
+
+#app.lango-host .course-grid--compact .course-pick-thumb {
+  height: 120px;
+  border-radius: 20px;
+}
+
+#app.lango-host .course-grid--compact .course-pick-title {
+  font-size: 26px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#app.lango-host .course-grid--compact .course-pick-desc,
+#app.lango-host .course-grid--compact .course-pick-level {
+  display: none;
+}
+
+#app.lango-host .course-grid--compact .course-pick-select {
+  height: 56px;
+  min-height: 56px;
+  margin-top: 0;
+  padding-bottom: 14px;
+  font-size: 24px;
+}
+
+.course-last-badge {
+  position: absolute;
+  top: -14px;
+  right: 18px;
+  z-index: 2;
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: #ff7eb6;
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+}

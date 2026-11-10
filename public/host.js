@@ -2382,7 +2382,7 @@ function renderCourseCard(course, { selectedId, index }) {
   const description = courseDescription(course);
   const level = courseLevelLabel();
   const banner = courseBanner(course);
-  const questNum = index + 1;
+  const questNum = Math.max(state.courses.indexOf(course), index) + 1;
   const xp = courseXpValue(course);
   const exerciseCount = course.exerciseCount || 0;
   const thumb = banner
@@ -2391,6 +2391,7 @@ function renderCourseCard(course, { selectedId, index }) {
 
   return `<article class="course-pick-card${active}" data-id="${course.id}" style="--card-i: ${index}">
     <span class="course-quest-badge">Quest ${questNum}</span>
+    ${active ? `<span class="course-last-badge">${escapeHtml(uiT("course.lastUsed"))}</span>` : ""}
     ${xp > 0 ? `<span class="course-xp-badge">${xp} XP</span>` : ""}
     <div class="course-pick-card-inner">
       ${thumb}
@@ -2954,6 +2955,8 @@ async function enterCourseStep({ resume = false, keepCourse = false } = {}) {
     state.selectedExercise = null;
   }
 
+  initCourseSearch();
+  if (!resume && !keepCourse && $("#course-search")) $("#course-search").value = "";
   $("#course-error").textContent = "";
   $("#course-status").textContent = hostT("course.loading");
   $("#course-sections").innerHTML = "";
@@ -2994,17 +2997,44 @@ async function enterCourseStep({ resume = false, keepCourse = false } = {}) {
   }
 }
 
+const COURSE_SEARCH_MIN = 6;
+
+function courseMatchesQuery(course, q) {
+  const hay = `${courseTitle(course)} ${course.description || ""}`.toLowerCase();
+  return q.split(/\s+/).every((part) => hay.includes(part));
+}
+
 function renderCourseSections() {
+  const grid = $("#course-sections");
+  const searchWrap = $("#course-search-wrap");
+  const searchInput = $("#course-search");
+
   if (!state.courses.length) {
     $("#course-status").textContent =
       "No courses assigned to this class — assign one in the CMS or leave classes unassigned.";
-    $("#course-sections").innerHTML = "";
-    $("#course-sections").className = isHkElderlyVariant() ? "class-sections" : "course-grid";
+    grid.innerHTML = "";
+    grid.className = isHkElderlyVariant() ? "class-sections" : "course-grid";
     updateCourseCountBadge(0);
+    if (searchWrap) searchWrap.hidden = true;
+    $("#screen-course")?.classList.remove("has-course-search");
     return;
   }
 
-  $("#course-status").textContent = "";
+  const showSearch = state.courses.length > COURSE_SEARCH_MIN;
+  if (searchWrap) searchWrap.hidden = !showSearch;
+  $("#screen-course")?.classList.toggle("has-course-search", showSearch);
+  const rawQuery = showSearch ? (searchInput?.value || "").trim() : "";
+  const q = rawQuery.toLowerCase();
+  let visible = q ? state.courses.filter((c) => courseMatchesQuery(c, q)) : state.courses;
+  // Long list: put the course the teacher used last at the top.
+  if (!q && showSearch && !isHkElderlyVariant() && state.course?.id) {
+    const last = visible.find((c) => c.id === state.course.id);
+    if (last) visible = [last, ...visible.filter((c) => c !== last)];
+  }
+
+  $("#course-status").textContent = visible.length
+    ? ""
+    : hostT("course.noMatch", { q: rawQuery });
   updateCourseCountBadge(state.courses.length);
 
   function handleCourseSelect(id) {
@@ -3016,16 +3046,36 @@ function renderCourseSections() {
     state.course = next;
     state.selectedExercise = null;
     savePrefs();
-    renderCourseGrid($("#course-sections"), state.courses, {
+    renderCourseGrid(grid, visible, {
       selectedId: state.course?.id,
       onSelect: handleCourseSelect,
     });
     if (state.course) void enterSectionStep();
   }
 
-  renderCourseGrid($("#course-sections"), state.courses, {
+  renderCourseGrid(grid, visible, {
     selectedId: state.course?.id,
     onSelect: handleCourseSelect,
+  });
+  // Long lists: smaller cards so more fit on screen; keep that size while filtering.
+  grid.classList.toggle("course-grid--compact", showSearch && !isHkElderlyVariant());
+  if (!q) grid.querySelector(".course-pick-card.active")?.scrollIntoView({ block: "nearest" });
+}
+
+function initCourseSearch() {
+  const input = $("#course-search");
+  if (!input || input.dataset.bound) return;
+  input.dataset.bound = "1";
+  input.addEventListener("input", () => renderCourseSections());
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && input.value) {
+      e.preventDefault();
+      input.value = "";
+      renderCourseSections();
+    } else if (e.key === "Enter") {
+      const cards = document.querySelectorAll("#course-sections .course-pick-card");
+      if (cards.length === 1) cards[0].click();
+    }
   });
 }
 
