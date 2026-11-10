@@ -1159,7 +1159,7 @@ function renderHostQuizPreview(data, { transition = true } = {}) {
   previewScreen?.classList.toggle("has-image", !!questionImageUrl);
   $("#host-quiz-preview-title").textContent = uiT("mcq.questionN", { n: data.questionIndex + 1 });
   $("#host-quiz-preview-points").textContent = uiT("mcq.pts", { n: points });
-  $("#host-quiz-preview-question-text").textContent = data.text || "";
+  $("#host-quiz-preview-question-text").textContent = formatQuestionText(data.text);
   fitTextToBoxSoon({ max: 64 }, $("#host-quiz-preview-question-text"));
   setQuestionImage(
     $("#host-quiz-preview-image"),
@@ -1248,7 +1248,7 @@ function renderHostQuizQuestion(data, { preparing = false, transition = true } =
     $("#host-quiz-question-image-wrap"),
     questionImageUrl
   );
-  $("#host-quiz-question-text").textContent = questionText;
+  $("#host-quiz-question-text").textContent = formatQuestionText(questionText);
   renderOptions($("#host-quiz-options"), data.options || [], {
     clickable: false,
     optionLabels: hostMcqOptionLabels(),
@@ -1587,7 +1587,7 @@ function setupHostRoomQuizSocket(socket) {
       questionImageUrl
     );
     $("#host-quiz-results-points").textContent = uiT("mcq.pts", { n: points });
-    $("#host-quiz-results-question-text").textContent = q?.text || "";
+    $("#host-quiz-results-question-text").textContent = formatQuestionText(q?.text);
     const correctLabel = hostMcqOptionLabels()[correctIndex] || "";
     const correctAnswerEl = $("#host-quiz-results-correct-answer");
     if (correctAnswerEl) {

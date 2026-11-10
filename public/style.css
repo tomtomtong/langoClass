@@ -17268,12 +17268,19 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
 
 #app.lango-host #screen-host-quiz-question .host-mcq-question {
   max-height: 190px;
+  flex-shrink: 0; /* never let the flex column squash the stem; fitTextToBox() sizes it */
   overflow: hidden;
   overflow-wrap: anywhere;
 }
 
+/* If the box runs out of height, the picture gives way (object-fit keeps it whole), not the text. */
+#app.lango-host #screen-host-quiz-question .host-mcq-image-wrap {
+  flex-shrink: 1;
+  min-height: 80px;
+}
+
 #app.lango-host #screen-host-quiz-question.has-image .host-mcq-question {
-  max-height: 90px;
+  max-height: 150px; /* room for a stem of 3 lines at a readable size; the picture shrinks instead */
 }
 
 #app.lango-host #screen-host-quiz-question:not(.fast-mode) .host-mcq-options .option {
@@ -17284,12 +17291,13 @@ html.lango-gsap-ready #app.lango-host #screen-waiting.active:not(.is-gsap-entere
 
 #app.lango-host #screen-host-quiz-preview .host-mcq-preview-question {
   max-height: 250px;
+  flex-shrink: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
 
 #app.lango-host #screen-host-quiz-preview.has-image .host-mcq-preview-question {
-  max-height: 90px;
+  max-height: 150px;
 }
 
 textarea.cms-autogrow {

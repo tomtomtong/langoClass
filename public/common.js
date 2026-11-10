@@ -777,6 +777,32 @@ function groupClassesByLevel(classes) {
 }
 
 /**
+ * Puts each English sentence of a quiz stem on its own line, like the CMS box does.
+ * Stems that already hold line breaks are left alone. A break needs ". " (or ? / !)
+ * followed by a capital letter or quote, so "either...or." and "P.2 students" stay
+ * whole; abbreviations (Mr., Dr., e.g.), initials and numbering (1., Q1.) are skipped.
+ */
+const QUESTION_ABBREVIATIONS = new Set([
+  "mr", "mrs", "ms", "miss", "dr", "prof", "st", "mt", "jr", "sr", "vs", "etc", "no",
+]);
+function formatQuestionText(text) {
+  const raw = String(text ?? "");
+  if (!raw || /[\r\n]/.test(raw)) return raw;
+  return raw
+    .replace(/([.?!]["'\u201d\u2019)]*)[ \t]+(?=["'\u201c\u2018(]?[A-Z])/g, (match, punct, offset) => {
+      if (punct[0] === ".") {
+        const word = (/([A-Za-z0-9.]+)$/.exec(raw.slice(0, offset)) || [])[1] || "";
+        const bare = word.toLowerCase();
+        if (QUESTION_ABBREVIATIONS.has(bare) || /^[A-Za-z]$/.test(word) || /^q?\d+$/.test(bare) || /^(?:[A-Za-z]\.)+[A-Za-z]$/.test(word)) {
+          return match;
+        }
+      }
+      return `${punct}\n`;
+    })
+    .trim();
+}
+
+/**
  * Shrinks the text until it fits the box the CSS gives the element (a fixed or
  * flex-limited height with overflow hidden). Starts from the CSS font size (or
  * `max` when given, so short text can grow) and does nothing while the element
@@ -944,7 +970,7 @@ function renderPlayerMcqResultInfo() {
   const info = playerMcqResultInfo;
   wrap.hidden = !info;
   if (!info) return;
-  $("#player-result-question").textContent = info.text;
+  $("#player-result-question").textContent = formatQuestionText(info.text);
   const answerEl = $("#player-result-correct-answer");
   answerEl.hidden = !info.correctText;
   if (info.correctText) {

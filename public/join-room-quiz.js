@@ -1061,7 +1061,7 @@ function setupRoomPlayerQuiz(socket) {
       $("#player-question-image-wrap"),
       typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
     );
-    $("#player-question-text").textContent = data.text || "";
+    $("#player-question-text").textContent = formatQuestionText(data.text);
     $("#player-options").innerHTML = "";
     $("#answer-feedback").textContent = uiT("mcq.getReadyAnswer");
 
@@ -1099,7 +1099,7 @@ function setupRoomPlayerQuiz(socket) {
       $("#player-question-image-wrap"),
       typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
     );
-    $("#player-question-text").textContent = data.text || "";
+    $("#player-question-text").textContent = formatQuestionText(data.text);
     $("#player-options").innerHTML = "";
     $("#answer-feedback").textContent = uiT("buzzin.uncleReading");
     $("#timer-text").textContent = "…";
@@ -1125,7 +1125,7 @@ function setupRoomPlayerQuiz(socket) {
       $("#player-question-image-wrap"),
       typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
     );
-    $("#player-question-text").textContent = data.text;
+    $("#player-question-text").textContent = formatQuestionText(data.text);
     $("#answer-feedback").textContent = "";
 
     const optionsWrap = document.querySelector(".player-mcq-options-wrap");
