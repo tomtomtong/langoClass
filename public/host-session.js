@@ -146,4 +146,12 @@ function disconnectHostSession() {
     hostSessionSocket.disconnect();
     hostSessionSocket = null;
   }
+  // The quiz socket (host-room-quiz.js) is bound to this class's room too.
+  // Left open, the next class's quizzes went to this one after it ended.
+  if (typeof roomQuizSocket !== "undefined" && roomQuizSocket) {
+    roomQuizSocket.disconnect();
+    roomQuizSocket = null;
+  }
+  if (typeof hostBuzzinRoomId !== "undefined") hostBuzzinRoomId = null;
+  window.__hostRoomQuizCtx = null;
 }
