@@ -137,6 +137,8 @@ const LOG_ADMIN_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 const logAdminSessions = new Map();
 // How long a disconnected student keeps their seat before removal.
 const OFFLINE_GRACE_MS = 90 * 1000;
+// In the waiting room nobody is mid-game, so a dropped student is removed fast.
+const WAITING_OFFLINE_GRACE_MS = 8 * 1000;
 const TRANSCRIBE_PROMPT =
   "Listen to this audio and respond with exactly two sections:\n\n" +
   "Transcript:\n" +
@@ -3024,6 +3026,9 @@ function removeFromSession(socketId, disconnectReason) {
 
   // Grace window: keep the seat, mark offline, remove only if the student
   // does not come back within OFFLINE_GRACE_MS. Rejoin cancels the timer.
+  const inWaitingRoom = session.status === "waiting";
+  const leftOnPurpose = disconnectReason === "client namespace disconnect";
+  const graceMs = inWaitingRoom ? (leftOnPurpose ? 0 : WAITING_OFFLINE_GRACE_MS) : OFFLINE_GRACE_MS;
   participant.online = false;
   participant.offlineSince = Date.now();
   if (!participant.removalTimer) {
@@ -3045,7 +3050,7 @@ function removeFromSession(socketId, disconnectReason) {
         }
       );
       broadcastSessionLobby(still);
-    }, OFFLINE_GRACE_MS);
+    }, graceMs);
   }
 
   writeAppLog(
@@ -3062,7 +3067,7 @@ function removeFromSession(socketId, disconnectReason) {
       reasonCode: why.reasonCode,
       reasonText: why.reasonText,
       sourceRole: "session_player",
-      graceMs: OFFLINE_GRACE_MS,
+      graceMs,
     }
   );
   broadcastSessionLobby(session);
