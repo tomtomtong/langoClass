@@ -46,19 +46,33 @@
       // More jobs than this wait in line (worker/video-container.js tryStart).
       "max_instances": 5,
       "instance_type": "standard-4"
+    },
+    {
+      // Autoclass lesson renders (worker/autoclass-container.js): the same image, its own line.
+      "class_name": "AutoclassContainer",
+      "image": "./video-container/Dockerfile",
+      "image_build_context": "./video-container",
+      "max_instances": 2,
+      "instance_type": "standard-4"
     }
   ],
   "durable_objects": {
     "bindings": [
       { "name": "ROOM", "class_name": "RoomDurableObject" },
       { "name": "MEDIA", "class_name": "MediaContainer" },
-      { "name": "VIDEO", "class_name": "VideoContainer" }
+      { "name": "VIDEO", "class_name": "VideoContainer" },
+      { "name": "AUTOCLASS_VIDEO", "class_name": "AutoclassContainer" }
     ]
   },
   "exports": {
     "RoomDurableObject": { "type": "durable-object", "storage": "sqlite" },
     "MediaContainer": { "type": "durable-object", "storage": "sqlite" },
-    "VideoContainer": { "type": "durable-object", "storage": "sqlite" }
+    "VideoContainer": { "type": "durable-object", "storage": "sqlite" },
+    "AutoclassContainer": { "type": "durable-object", "storage": "sqlite" }
+  },
+  // Hourly: remove old autoclass render folders (worker/autoclass-cleanup.js).
+  "triggers": {
+    "crons": ["17 * * * *"]
   },
   "r2_buckets": [
     {

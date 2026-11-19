@@ -3,6 +3,10 @@
 // storage, its render container (containerFetch, stop), its alarms
 // (schedule) and env.UPLOADS. Kept apart from the class so it can be tested
 // without the containers runtime.
+//
+// The autoclass lesson renders (autoclass-container.js) run the same job with a few hooks on the
+// box: `paths` (the container routes), `startedStatus`, and `saveOutput(job, state)`, which
+// replaces saving one MP4 under lectures/.
 
 export const POLL_SECONDS = 15;
 const MAX_JOB_MS = 60 * 60 * 1000;
@@ -22,12 +26,15 @@ export async function resumeStalled(box) {
   else await box.schedule(POLL_SECONDS, "poll");
 }
 
-export async function startJob(box, { jobId, text, routerBase }) {
+const LECTURE_PATHS = { start: "http://container/jobs", status: (jobId) => `http://container/jobs/${jobId}` };
+
+// `meta` is kept on the job (and shown in its status); the rest of the body goes to the container.
+export async function startJob(box, { jobId, meta, ...request }) {
   const existing = await box.ctx.storage.get("job");
   if (existing) return Response.json(existing, { status: 202 });
   const now = Date.now();
-  const job = { jobId, status: "queued", logs: ["Queued."], error: null, videoUrl: null, segmentCount: 0, segmentsDone: 0, queuedAt: now, startedAt: now, lastPolledAt: now };
-  await box.ctx.storage.put("request", { text, routerBase });
+  const job = { ...(meta || {}), jobId, status: "queued", logs: ["Queued."], error: null, videoUrl: null, segmentCount: 0, segmentsDone: 0, queuedAt: now, startedAt: now, lastPolledAt: now };
+  await box.ctx.storage.put("request", request);
   await box.ctx.storage.put("job", job);
   await tryStart(box);
   return Response.json(await box.ctx.storage.get("job"), { status: 202 });
@@ -41,7 +48,7 @@ export async function tryStart(box) {
   const request = await box.ctx.storage.get("request");
   job.lastPolledAt = Date.now();
   try {
-    const res = await box.containerFetch("http://container/jobs", {
+    const res = await box.containerFetch((box.paths || LECTURE_PATHS).start, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jobId: job.jobId, ...request }),
@@ -52,7 +59,7 @@ export async function tryStart(box) {
       await fail(box, job, data.message || `Video container returned ${res.status}.`);
       return;
     }
-    Object.assign(job, { status: "planning", startedAt: Date.now() });
+    Object.assign(job, { status: box.startedStatus || "planning", startedAt: Date.now() });
     await box.ctx.storage.put("job", job);
     await box.ctx.storage.delete("request");
     await box.schedule(POLL_SECONDS, "poll");
@@ -82,7 +89,7 @@ export async function poll(box) {
   job.lastPolledAt = Date.now();
   await box.ctx.storage.put("job", job);
   try {
-    const res = await box.containerFetch(`http://container/jobs/${job.jobId}`);
+    const res = await box.containerFetch((box.paths || LECTURE_PATHS).status(job.jobId));
     if (res.status === 404) {
       await fail(box, job, "The video renderer restarted before the video was finished. Try again.");
       return;
@@ -100,7 +107,8 @@ export async function poll(box) {
     }
     await box.ctx.storage.put("job", job);
     if (state.status === "completed") {
-      await saveVideo(box, job);
+      if (box.saveOutput) await box.saveOutput(job, state);
+      else await saveVideo(box, job);
       return;
     }
   } catch (error) {
@@ -137,12 +145,22 @@ async function saveVideo(box, job) {
   await box.stop();
 }
 
-async function fail(box, job, message) {
+export async function fail(box, job, message) {
   Object.assign(job, { status: "failed", error: message });
   job.logs = [...(job.logs || []), `Failed: ${message}`];
   await box.ctx.storage.put("job", job);
   await box.stop().catch(() => {});
   return job;
+}
+
+// Streams a container response into R2 (R2 needs the length up front for a streamed body, and
+// the container's body cannot pipeTo() a FixedLengthStream, so it is copied chunk by chunk).
+export async function putStream(bucket, key, res, contentType) {
+  const size = Number(res.headers.get("content-length") || 0);
+  if (!res.body || !size) throw new Error(`${key} came back empty.`);
+  const { readable, writable } = new FixedLengthStream(size);
+  await Promise.all([bucket.put(key, readable, { httpMetadata: { contentType } }), copyStream(res.body, writable)]);
+  return size;
 }
 
 async function copyStream(from, to) {

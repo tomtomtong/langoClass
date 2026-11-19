@@ -31,11 +31,17 @@ ENV PRODUCER_HEADLESS_SHELL_PATH=/usr/local/bin/chrome-headless-shell
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chrome-headless-shell
 
 RUN npm install -g hyperframes@${HYPERFRAMES_VERSION}
+# Autoclass lessons (autoclass/) were made with a newer HyperFrames; it sits beside the lecture
+# one so lecture renders do not change (server.mjs AUTOCLASS_HYPERFRAMES_BIN).
+ARG AUTOCLASS_HYPERFRAMES_VERSION=0.9.40
+RUN npm install --prefix /opt/hf-autoclass hyperframes@${AUTOCLASS_HYPERFRAMES_VERSION}
+ENV AUTOCLASS_HYPERFRAMES_BIN=/opt/hf-autoclass/node_modules/.bin/hyperframes
 
 WORKDIR /app
 COPY package.json ./
 COPY assets ./assets
 COPY server.mjs plan.mjs voice.mjs build.mjs slide-css.mjs ./
+COPY autoclass ./autoclass
 
 ENV PORT=8080
 ENV VIDEO_WORK_DIR=/tmp/lecture-jobs

@@ -55,7 +55,7 @@ export function memoryR2() {
   return {
     objects,
     async put(key, value, options = {}) {
-      objects.set(key, { bytes: await toBytes(value), httpMetadata: options.httpMetadata || {} });
+      objects.set(key, { bytes: await toBytes(value), httpMetadata: options.httpMetadata || {}, uploaded: new Date() });
       return { key };
     },
     async get(key, options = {}) {
@@ -80,7 +80,7 @@ export function memoryR2() {
       return {
         objects: [...objects.entries()]
           .filter(([key]) => key.startsWith(prefix))
-          .map(([key, stored]) => ({ key, size: stored.bytes.length })),
+          .map(([key, stored]) => ({ key, size: stored.bytes.length, uploaded: stored.uploaded })),
         truncated: false,
       };
     },

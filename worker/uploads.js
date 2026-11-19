@@ -10,7 +10,7 @@ const FOLDERS = new Set([
   "community",
   "lectures",
   "slides",
-  // Autoclass lesson media (autoclass-video/build.mjs, scripts/upload-autoclass.mjs).
+  // Autoclass lesson renders, one folder per render (worker/autoclass-job.js).
   "autoclass",
 ]);
 

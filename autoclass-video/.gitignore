@@ -4,3 +4,8 @@ node_modules/
 out/
 assets/voice/
 assets/tommy-talking.webm
+# Written by build.mjs from lessons/<id>.json (the scenes live in ../video-container/autoclass/).
+index.html
+compositions/
+assets/lesson.css
+assets/correct.mp3
