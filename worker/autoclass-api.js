@@ -4,23 +4,26 @@
 //   PUT  /api/autoclass/lessons/:id          teacher  save a lesson script (400 with errors if invalid)
 //   GET  /api/autoclass/lessons/:id          teacher  the script, the latest render, the published one
 //   POST /api/autoclass/lessons/:id/render   teacher  render the saved script → { jobId, status }
+//   POST /api/autoclass/lessons/:id/cleanup  teacher  remove old render folders now (autoclass-cleanup.js)
 //   GET  /api/autoclass/jobs/:jobId          teacher  render status (as the lecture video jobs)
 //   GET  /api/autoclass/lessons/:id/cues     anyone   the published cues, for /autoclass.html?lesson=<id>
 import { autoclassEnabled } from "./autoclass-page.js";
 import { json, readJson, requireTeacher, sameId } from "./d1-store.js";
 import { VOICE_CACHE_PREFIX, readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
 import { isLessonId, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
+import { cleanLessonRenders } from "./autoclass-cleanup.js";
 
 const TERMINAL = new Set(["completed", "failed", "missing"]);
 const JOB_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
 export function autoclassRoute(method, pathname) {
   const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
-  let m = path.match(/^\/api\/autoclass\/lessons\/([^/]+)(?:\/(render|cues))?$/);
+  let m = path.match(/^\/api\/autoclass\/lessons\/([^/]+)(?:\/(render|cues|cleanup))?$/);
   if (m) {
     const [, id, sub] = m;
     if (!sub && (method === "PUT" || method === "GET")) return { kind: method === "PUT" ? "save" : "read", id };
     if (sub === "render" && method === "POST") return { kind: "render", id };
+    if (sub === "cleanup" && method === "POST") return { kind: "cleanup", id };
     if (sub === "cues" && (method === "GET" || method === "HEAD")) return { kind: "cues", id };
     return { kind: "method" };
   }
@@ -44,6 +47,11 @@ export async function handleAutoclassApi(request, env, url) {
   if (auth instanceof Response) return auth;
   if (route.kind === "save") return saveLesson(request, env, auth, route.id);
   if (route.kind === "read") return readLessonApi(env, auth, route.id);
+  if (route.kind === "cleanup") {
+    const lesson = await ownLesson(env, auth, route.id);
+    if (lesson instanceof Response) return lesson;
+    return json({ ok: true, ...(await cleanLessonRenders(env, route.id)) });
+  }
   if (route.kind === "render") return startRender(env, auth, route.id, publicOrigin(env, url));
   return jobStatus(env, auth, route.jobId);
 }

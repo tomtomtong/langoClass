@@ -6,6 +6,7 @@
 // for this render (_voice/<key>.mp3) go into the shared voice cache instead of the render folder.
 import { fail, putStream } from "./video-job.js";
 import { VOICE_CACHE_PREFIX, publishRender, renderFolder } from "./autoclass-lessons.js";
+import { cleanLessonRenders } from "./autoclass-cleanup.js";
 
 export const AUTOCLASS_PATHS = {
   start: "http://container/autoclass/jobs",
@@ -66,5 +67,8 @@ export async function saveLessonRender(box, job, state) {
   Object.assign(job, { status: "completed", videoUrl: `${folder.url}/${job.lessonId}.mp4`, cuesUrl: `${folder.url}/cues.json` });
   job.logs = [...job.logs, "Saved."];
   await box.ctx.storage.put("job", job);
+  // Old renders nobody plays any more; a failure here never fails the render.
+  await cleanLessonRenders(box.env, job.lessonId).catch((error) =>
+    console.error(JSON.stringify({ message: "autoclass_clean_failed", lessonId: job.lessonId, error: String(error?.message || error) })));
   await box.stop();
 }

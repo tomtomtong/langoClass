@@ -4,7 +4,8 @@
 //
 //   { id, teacherId, script, createdAt, updatedAt,
 //     render:    { jobId, scriptHash, startedAt }        the latest render job
-//     published: { renderId, scriptHash, mediaUrl, at }  the render the autoclass page plays }
+//     published: { renderId, scriptHash, mediaUrl, at }  the render the autoclass page plays
+//     retired:   [{ renderId, at }]                     renders it replaced, until autoclass-cleanup.js removes them }
 import { readDoc, writeDoc } from "./d1-store.js";
 
 export const MEDIA_PREFIX = "uploads/autoclass";
@@ -37,6 +38,9 @@ export async function publishRender(env, lessonId, published) {
   if (!lesson) return null;
   const current = lesson.published;
   if (current?.startedAt && published.startedAt && current.startedAt > published.startedAt) return lesson;
+  if (current?.renderId && current.renderId !== published.renderId) {
+    lesson.retired = [...(lesson.retired || []).filter((r) => r.renderId !== current.renderId), { renderId: current.renderId, at: new Date().toISOString() }];
+  }
   lesson.published = published;
   await writeLesson(env, lesson);
   return lesson;

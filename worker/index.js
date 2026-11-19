@@ -10,6 +10,7 @@ import { handleMaterialApi } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
 import { handleAutoclassApi } from "./autoclass-api.js";
+import { cleanAllRenders } from "./autoclass-cleanup.js";
 import { handleTurnstileConfig, turnstileGate } from "./turnstile.js";
 import { logRuntime, noteHost, observeApi } from "./lango-log.js";
 
@@ -189,6 +190,15 @@ export default {
     }
     observeApi(env, ctx, request, incoming.pathname, response.status, Date.now() - started);
     return response;
+  },
+
+  // Cron triggers (wrangler.jsonc "triggers"). Hourly: remove autoclass renders nobody plays.
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(
+      cleanAllRenders(env)
+        .then((summary) => console.log(JSON.stringify({ message: "autoclass_clean_run", ...summary })))
+        .catch((error) => logRuntime(env, ctx, "autoclass_clean_failed", error))
+    );
   },
 };
 

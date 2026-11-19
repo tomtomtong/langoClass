@@ -168,6 +168,20 @@ test("the page gets the published cues, not a render still in progress", async (
   assert.equal(read.body.lesson.playUrl, "/autoclass.html?lesson=animal-homes");
 });
 
+test("a teacher can clean their own lesson's old renders now", async () => {
+  const { call, env } = await setup();
+  await call("/api/autoclass/lessons/animal-homes", { method: "PUT", json: script });
+  const old = "a".repeat(32);
+  await env.UPLOADS.put(`uploads/autoclass/animal-homes/${old}/cues.json`, "{}");
+  env.UPLOADS.objects.get(`uploads/autoclass/animal-homes/${old}/cues.json`).uploaded = new Date(Date.now() - 7 * 60 * 60 * 1000);
+  const res = await call("/api/autoclass/lessons/animal-homes/cleanup", { method: "POST" });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.deleted, [old]);
+  await writeLesson(env, { id: "theirs", teacherId: 99, script });
+  assert.equal((await call("/api/autoclass/lessons/theirs/cleanup", { method: "POST" })).status, 404);
+  assert.equal((await call("/api/autoclass/lessons/animal-homes/cleanup")).status, 405);
+});
+
 test("lessons are their own D1 rows", () => {
   assert.equal(lessonDocName("animal-homes"), "autoclass-lesson:animal-homes");
 });

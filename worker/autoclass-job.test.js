@@ -107,6 +107,25 @@ test("a finished render is copied into its R2 folder, cues last, then published"
   assert.equal(b.calls.stopped, 1);
 });
 
+test("publishing a render retires the one it replaces and clears old unpublished ones", async () => {
+  const b = box(finishedRenderer());
+  await started(b);
+  const before = "b".repeat(32);
+  const stale = "c".repeat(32);
+  await b.env.UPLOADS.put(`uploads/autoclass/animal-homes/${before}/cues.json`, "{}");
+  await b.env.UPLOADS.put(`uploads/autoclass/animal-homes/${stale}/cues.json`, "{}");
+  b.env.UPLOADS.objects.get(`uploads/autoclass/animal-homes/${before}/cues.json`).uploaded = new Date(Date.now() - 30 * 3600e3);
+  b.env.UPLOADS.objects.get(`uploads/autoclass/animal-homes/${stale}/cues.json`).uploaded = new Date(Date.now() - 30 * 3600e3);
+  const lesson = await readLesson(b.env, "animal-homes");
+  await writeLesson(b.env, { ...lesson, published: { renderId: before, startedAt: 0 } });
+  await poll(b);
+  const after = await readLesson(b.env, "animal-homes");
+  assert.equal(after.published.renderId, "r1");
+  assert.deepEqual(after.retired.map((r) => r.renderId), [before]);
+  assert.ok(await b.env.UPLOADS.get(`uploads/autoclass/animal-homes/${before}/cues.json`), "just replaced: kept for classes still on it");
+  assert.equal(await b.env.UPLOADS.get(`uploads/autoclass/animal-homes/${stale}/cues.json`), null);
+});
+
 test("lines voiced fresh go into the shared voice cache, not the render folder", async () => {
   const listed = [{ name: "_voice/abc123.mp3", size: 3, type: "audio/mpeg" }, ...FILES];
   const b = box(finishedRenderer({

@@ -83,6 +83,7 @@ is step 3. The CMS/host showing the item is also step 3.
 | `PUT /api/autoclass/lessons/:id` | teacher | validate + save the script; `400 { errors }` if invalid |
 | `GET /api/autoclass/lessons/:id` | teacher | script, `render`, `published` |
 | `POST /api/autoclass/lessons/:id/render` | teacher | start a render of the saved script → `202 { jobId, status }` |
+| `POST /api/autoclass/lessons/:id/cleanup` | teacher | remove old render folders now → `{ deleted, kept, files }` |
 | `GET /api/autoclass/jobs/:jobId` | teacher | `{ status, logs, error, segmentCount, segmentsDone, lessonId }` |
 | `GET /api/autoclass/lessons/:id/cues` | anyone (page is gated) | the published cues JSON, `no-store` |
 
@@ -117,7 +118,13 @@ Retry = POST render again (a new job id). The page needs no login, like now.
 - **Save**: the DO copies each file to R2 at `uploads/autoclass/<lessonId>/<renderId>/…`
   (cues URLs are written for that folder), then sets the lesson's `published`, then stops the
   container. A versioned folder means a re-render never breaks a class that is playing and
-  needs no cache purge. Old render folders are left for now (clean-up is a follow-up).
+  needs no cache purge.
+- **Clean-up** (`worker/autoclass-cleanup.js`): the published render is never removed. A render it
+  replaced is kept 6 hours (`lesson.retired`), because a class that started on it still fetches
+  Tommy's lines from its folder. A render never published (failed, half saved) goes once its newest
+  file is 6 hours old. Only folders named like a render id are touched; the voice cache is kept. It
+  runs after every publish, hourly from a cron trigger (`17 * * * *`), and on
+  `POST /api/autoclass/lessons/:id/cleanup`.
 - **Local check without Docker**: `wrangler dev --enable-containers=false --var
   AUTOCLASS_RENDERER_URL:http://localhost:8085 --var PUBLIC_BASE_URL:http://localhost:8792` makes the DO call the renderer run as a plain
   `node video-container/server.mjs` (localhost URLs only; unset in production). `PUBLIC_BASE_URL`
@@ -133,7 +140,7 @@ stays and also covers the new API. `public/autoclass/animal-homes.cues.json` and
 
 ## Not in this step
 
-AI-written scripts, the teacher editor, showing the item in CMS/host, deleting old render folders.
+AI-written scripts, the teacher editor, showing the item in CMS/host, trimming the voice cache.
 
 ## Open questions
 

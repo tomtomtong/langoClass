@@ -68,6 +68,10 @@
     "VideoContainer": { "type": "durable-object", "storage": "sqlite" },
     "AutoclassContainer": { "type": "durable-object", "storage": "sqlite" }
   },
+  // Hourly: remove old autoclass render folders (worker/autoclass-cleanup.js).
+  "triggers": {
+    "crons": ["17 * * * *"]
+  },
   "r2_buckets": [
     {
       "binding": "UPLOADS",
