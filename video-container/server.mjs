@@ -29,6 +29,10 @@ const AUTOCLASS_HF_BIN = process.env.AUTOCLASS_HYPERFRAMES_BIN || HF_BIN;
 const MAX_LOGS = 60;
 const RENDER_FPS = process.env.RENDER_FPS || "24";
 const RENDER_QUALITY = process.env.RENDER_QUALITY || "standard";
+// Autoclass lessons are flat slides and a talking Tommy: CRF 28 is a quarter of the size of the
+// "standard" quality (7.5 MB, not 25.6 MB, for a 136 s lesson) with no visible loss (SSIM 0.996),
+// so the page streams it quickly on a school network. Lecture renders keep RENDER_QUALITY only.
+const AUTOCLASS_RENDER_CRF = process.env.AUTOCLASS_RENDER_CRF || "28";
 const RENDER_WORKERS = process.env.HF_WORKERS || String(Math.max(2, os.cpus().length));
 const RENDER_STALL_MS = Number(process.env.RENDER_STALL_MS) || 5 * 60 * 1000;
 const jobs = new Map();
@@ -110,11 +114,11 @@ async function runJob(job, text, routerBase) {
   }
 }
 
-function render(job, dir, output, bin = HF_BIN) {
+function render(job, dir, output, bin = HF_BIN, extraArgs = []) {
   return new Promise((resolve, reject) => {
     // Capture is nearly all of the time: 24 fps cuts a fifth of the frames, and
     // one Chrome per CPU keeps every core busy (each needs about 256 MB).
-    const args = ["render", dir, "-o", output, "--fps", RENDER_FPS, "--quality", RENDER_QUALITY, "--workers", RENDER_WORKERS];
+    const args = ["render", dir, "-o", output, "--fps", RENDER_FPS, "--quality", RENDER_QUALITY, "--workers", RENDER_WORKERS, ...extraArgs];
     // stdin closed: with it open the CLI can sit waiting for input.
     const child = spawn(bin, args, { cwd: dir, env: { ...process.env, HYPERFRAMES_NO_TELEMETRY: "1" }, stdio: ["ignore", "pipe", "pipe"] });
     let tail = "";
@@ -208,7 +212,7 @@ const server = http.createServer(async (req, res) => {
       if (existing) return sendJson(res, 202, publicJob(existing));
       const job = newJob(body.jobId);
       log(job, "Queued.");
-      runAutoclassJob(job, body, { workDir: WORK, log, render: (j, dir, out) => render(j, dir, out, AUTOCLASS_HF_BIN) });
+      runAutoclassJob(job, body, { workDir: WORK, log, render: (j, dir, out) => render(j, dir, out, AUTOCLASS_HF_BIN, ["--crf", AUTOCLASS_RENDER_CRF]) });
       return sendJson(res, 202, publicJob(job));
     }
     const lesson = url.pathname.match(/^\/autoclass\/jobs\/([A-Za-z0-9_-]+)(?:\/files\/(.+))?$/);
