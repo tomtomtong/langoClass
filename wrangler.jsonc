@@ -25,7 +25,9 @@
     "LOG_INGEST_URL": "https://log.lango.ai/api/ingest",
     "LOG_ENVIRONMENT": "production",
     // Turnstile widget site key (public). Also set the secret: wrangler secret put TURNSTILE_SECRET_KEY
-    "TURNSTILE_SITE_KEY": ""
+    "TURNSTILE_SITE_KEY": "",
+    // Internal autoclass test page (/autoclass.html, worker/autoclass-page.js). Remove to turn it off.
+    "AUTOCLASS": "1"
   },
   "containers": [
     {
