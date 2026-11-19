@@ -207,6 +207,8 @@ function startHostBgm() {
 }
 
 function fadeHostBgmTo(targetVolume, { pauseAtEnd = false } = {}) {
+  // Speech/video ducking calls this per question; never let it revive muted BGM.
+  if (hostBgmMuted && targetVolume > 0) return;
   if (!hostBgmAudio) {
     if (targetVolume <= 0) return;
     startHostBgm();
@@ -1080,10 +1082,8 @@ function firstQuizIndexInList(exercises) {
 }
 
 function isHostExerciseUnlocked(exercise, exerciseIndex, exercises) {
-  if (exerciseIndex <= 0) return true;
-  const firstQuizIndex = firstQuizIndexInList(exercises);
-  if (firstQuizIndex >= 0 && exerciseIndex <= firstQuizIndex) return true;
-  return isHostExerciseCompleted(exercises[exerciseIndex - 1]?.id);
+  // Host may pick any exercise in any order.
+  return true;
 }
 
 function countCompletedHostSections(sections = getSortedSections()) {
@@ -3901,6 +3901,9 @@ const LATE_JOIN_COALESCE_MS = 1200;
 
 function renderParticipants(participants, { announceJoins = false } = {}) {
   hostSessionParticipants = Array.isArray(participants) ? participants.slice() : [];
+  // Waiting room only lists students who are actually connected right now;
+  // offline seats (kept server-side for a grace window) must not show up.
+  participants = hostSessionParticipants.filter((p) => p?.online !== false);
   const list = $("#waiting-participants");
   const statusEl = $("#waiting-participant-status");
   const roster = getWaitingClassRoster();

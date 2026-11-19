@@ -130,6 +130,47 @@ export async function speak(env, text, { language = "en", purpose = "question", 
   return speakWithInworld(env, spoken, code);
 }
 
+// Uncle Tommy exactly as he sounds in the lesson videos (autoclass-video/build.mjs): the
+// plain uncle_tommy voice (not the UK one the room uses for English), at normal speed, in
+// English, Cantonese or Mandarin alike. Used where his voice must match a video he is in.
+const TOMMY_VIDEO_SPEAKING_RATE = 1.0;
+export async function speakAsTommy(env, text, { language = "en" } = {}) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) throw new Error("No text to synthesize.");
+  const code = speakLangCode(language) || "en";
+  const body = {
+    voice: INWORLD_TTS_VOICE,
+    model: INWORLD_TTS_MODEL,
+    language: BCP47[code] || "en-US",
+    sampleRate: 24000,
+    speakingRate: TOMMY_VIDEO_SPEAKING_RATE,
+  };
+  const key = secret(env, "INWORLD_API_KEY");
+  if (key) {
+    const data = await postJson(`${INWORLD_API_BASE}/tts/v1/voice`, {
+      headers: { Authorization: `Basic ${key}` },
+      body: {
+        text: trimmed,
+        voiceId: body.voice,
+        modelId: body.model,
+        audioConfig: { audioEncoding: "MP3", sampleRateHertz: body.sampleRate, speakingRate: body.speakingRate },
+        language: body.language,
+      },
+      label: "TTS (Tommy)",
+    });
+    const audioContent = String(data?.audioContent || "").trim();
+    if (!audioContent) throw new Error("TTS: No audio returned.");
+    return { audioContent, format: "mp3" };
+  }
+  const data = await postJson(`${routerBase(env)}/tts`, {
+    body: { text: trimmed, ...body, audioEncoding: "MP3" },
+    label: "TTS (router, Tommy)",
+  });
+  const match = typeof data?.audio === "string" && data.audio.match(/^data:audio\/(?:mpeg|mp3);base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!match) throw new Error("TTS (router): No MP3 audio returned.");
+  return { audioContent: match[1].replace(/\s/g, ""), format: "mp3" };
+}
+
 export function speakLangCode(value) {
   const code = String(value || "")
     .trim()

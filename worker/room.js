@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
-import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed, openAnswerSubmitCheck } from "./room-events.js";
-import { completeText, speak, speechReady, textModelReady, transcribe } from "./ai.js";
+import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed, openAnswerSubmitCheck, tutorAskCheck } from "./room-events.js";
+import { parseTutorReply, tutorPrompt } from "./room-tutor.js";
+import { completeText, speak, speakAsTommy, speechReady, textModelReady, transcribe } from "./ai.js";
 import { withSettings } from "./app-settings.js";
 import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
 import { semesterLeaderboard } from "./d1-api.js";
@@ -121,20 +122,26 @@ export class RoomDurableObject extends DurableObject {
       caps: this.#caps(state),
     });
 
-    if (incoming.event === "submit_buzzin_response" || incoming.event === "submit_openanswer_response") {
-      const check = incoming.event === "submit_buzzin_response"
-        ? buzzSubmitCheck(state, ctx())
-        : openAnswerSubmitCheck(state, ctx());
+    if (["submit_buzzin_response", "submit_openanswer_response", "ask_question"].includes(incoming.event)) {
+      const checks = { submit_buzzin_response: buzzSubmitCheck, submit_openanswer_response: openAnswerSubmitCheck, ask_question: tutorAskCheck };
+      const check = checks[incoming.event](state, ctx());
       if (!check.ok) {
         send(ws, { t: "ack", id: incoming.id, data: check });
         return;
       }
-      const spoken = await this.#spokenAnswer(incoming.data, check.sttLanguage);
-      if (spoken.error) {
+      // A question for Tommy and a practice sentence are only read, so their recordings are not
+      // kept for replay.
+      const keep = incoming.event !== "ask_question" && !check.practice;
+      const spoken = await this.#spokenAnswer(incoming.data, check.sttLanguage, { keep });
+      if (spoken.error && check.practice) {
+        // A practice go still counts when the transcription fails (room-open-answer.js).
+        incoming = { ...incoming, data: { text: "", hadAudio: true } };
+      } else if (spoken.error) {
         send(ws, { t: "ack", id: incoming.id, data: { ok: false, error: spoken.error } });
         return;
+      } else {
+        incoming = { ...incoming, data: spoken.data };
       }
-      incoming = { ...incoming, data: spoken.data };
       state = this.#read();
       if (state?.closed) return;
     }
@@ -224,6 +231,7 @@ export class RoomDurableObject extends DurableObject {
             : await speak(env, job.text, { ...options, purpose: purposes[job.kind] });
         return { audioId: this.#saveAudio(speech.audioContent), format: speech.format };
       }
+      if (job.kind === "tutor-answer") return await this.#tutorAnswer(env, job);
       if (job.kind === "buzz-analyze" || job.kind === "open-analyze") {
         const reply = await completeText(
           env,
@@ -253,16 +261,36 @@ export class RoomDurableObject extends DurableObject {
     return {};
   }
 
+  // Uncle Tommy's answer to a student's question: a model writes it, his voice reads it.
+  // If the voice fails the host still gets the text.
+  async #tutorAnswer(env, job) {
+    const reply = parseTutorReply(
+      await completeText(env, [{ role: "user", content: tutorPrompt(job) }], 300, { title: "Lango Autoclass" })
+    );
+    if (!reply.ok) return { ok: true, declined: true };
+    // Answer in Cantonese when the question was asked in Chinese, else in the lesson's language.
+    const language = /[\u3400-\u9fff]/.test(job.question) ? "yue" : job.lesson?.language || "en";
+    const outcome = { ok: true, question: reply.question, answer: reply.answer, language };
+    try {
+      // His voice in the lesson video, so the answer sounds like the same Tommy.
+      const speech = await speakAsTommy(env, reply.answer, { language });
+      return { ...outcome, audioId: this.#saveAudio(speech.audioContent), format: speech.format };
+    } catch (error) {
+      logJobError(job, error, "speech");
+      return outcome;
+    }
+  }
+
   // A spoken answer becomes text before the room sees it; the recording is
   // kept for the host to replay.
-  async #spokenAnswer(data, language) {
+  async #spokenAnswer(data, language, { keep = true } = {}) {
     const next = { ...(data || {}) };
     const audio = String(next.audioBase64 || "").trim();
     delete next.audioBase64;
     if (audio) {
       next.hadAudio = true;
       const base64 = audio.startsWith("data:") ? audio.slice(audio.indexOf(",") + 1) : audio;
-      if (base64.length <= AUDIO_MAX_CHARS) {
+      if (keep && base64.length <= AUDIO_MAX_CHARS) {
         next.responseAudioId = this.#saveAudio(base64);
         next.responseAudioFormat = String(next.format || "webm").trim().toLowerCase().replace(/^\./, "") || "webm";
       }

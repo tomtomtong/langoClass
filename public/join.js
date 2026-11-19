@@ -174,6 +174,9 @@ function rememberJoinDisplayName(name) {
 }
 
 function showClassEnded({ statusKey = "join.endedStatus" } = {}) {
+  window.LangoJoinReactions?.hide();
+  window.LangoJoinPoll?.hide();
+  window.LangoJoinTutor?.hide();
   joinEndedStatusKey = statusKey || "join.endedStatus";
   updateJoinNameBadge("");
   rememberJoinDisplayName(
@@ -461,6 +464,9 @@ function setRoomConnectionBanner(show) {
 function getRoomSessionSocket() {
   if (!roomSessionSocket) {
     roomSessionSocket = io({ transports: ["websocket", "polling"] });
+    window.LangoJoinReactions?.attach(roomSessionSocket);
+    window.LangoJoinPoll?.attach(roomSessionSocket);
+    window.LangoJoinTutor?.attach(roomSessionSocket);
 
     // Only a seated student needs telling; before that the join screen shows
     // its own status.
@@ -858,6 +864,9 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
         saveStoredParticipant(participant);
         roomParticipant = participant;
         rememberJoinDisplayName(participant.displayName);
+        window.LangoJoinReactions?.apply(data);
+        window.LangoJoinPoll?.apply(data);
+        window.LangoJoinTutor?.apply(data);
         updateJoinNameBadge(participant.displayName);
         if (typeof ensureRoomBuzzinSocket === "function") ensureRoomBuzzinSocket();
       if (typeof ensureStudentOpenAnswerSocket === "function") ensureStudentOpenAnswerSocket();
@@ -939,6 +948,9 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
             roomParticipant = participant;
             rememberJoinDisplayName(participant.displayName);
             updateJoinNameBadge(participant.displayName);
+            window.LangoJoinReactions?.apply(data);
+            window.LangoJoinPoll?.apply(data);
+            window.LangoJoinTutor?.apply(data);
             if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
             if (typeof scheduleStudentMediaPreload === "function") {
               scheduleStudentMediaPreload(data);

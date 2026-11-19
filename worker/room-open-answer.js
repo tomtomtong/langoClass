@@ -6,6 +6,15 @@
 // host gets every answer (and the answer key) through `hostData`; the frames
 // a student receives carry counts only, and `openanswer_result` is addressed
 // to the one student it belongs to (`toPlayer`).
+//
+// Practice (exercise.practice, only the autoclass page sends it): the students say a sentence
+// after Uncle Tommy. It is only encouragement, so it is kept apart from real answers:
+//   - no points and no semester scores, not even zeros (openAnswerExerciseId stays empty);
+//   - the recording is transcribed and dropped, never kept for replay (room.js);
+//   - no model marks it: the transcript is compared with the sentence here (practiceVerdict),
+//     so thirty students cost thirty transcriptions and nothing else;
+//   - a transcription that fails or hears nothing still counts as having a go ("tried");
+//   - the room does not read the sentence aloud: the lesson video already did.
 import { audioRef, clip, done, isHost, isStudent, languageOf } from "./room-core.js";
 import { awardOpenAnswer, openAnswerPoints } from "./room-scores.js";
 
@@ -16,6 +25,9 @@ const MAX_ANSWER_SECONDS = 120;
 // transcribed and sent; it counts if it arrives this soon after the close.
 const LATE_GRACE_MS = 8000;
 const RESPONSE_MAX = 500;
+// Share of the sentence's words the transcript must have for each practice verdict.
+const PRACTICE_GREAT = 0.8;
+const PRACTICE_ALMOST = 0.4;
 
 export function openAnswerTopics(exercise) {
   const items = Array.isArray(exercise?.items) ? exercise.items : [];
@@ -29,6 +41,7 @@ export function openAnswerTopics(exercise) {
         correctAnswer: clip(item?.correctAnswer || item?.answer || item?.expectedAnswer, 500),
         sttLanguage: languageOf(item?.sttLanguage),
         answerSeconds: secondsOf(item?.timeLimit ?? item?.answerSeconds),
+        practice: exercise?.practice === true,
       };
     })
     .filter(Boolean);
@@ -57,6 +70,7 @@ function newRound(topics, index, now) {
     endsAt: 0,
     closedAt: 0,
     closeReason: "",
+    practice: !!current.practice,
     responses: [],
   };
 }
@@ -65,8 +79,10 @@ export function startOpenAnswer(state, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can start an Everyone Answers round." } });
   const topics = openAnswerTopics(state.session.exercise);
   if (!topics.length) return done(state, { ack: { ok: false, error: "This Everyone Answers exercise has no questions." } });
-  // A fresh start is a fresh attempt: points from an earlier run are dropped.
-  state.session.openAnswerExerciseId = state.session.exercise?.id ?? null;
+  // A fresh start is a fresh attempt: points from an earlier run are dropped. Practice saves no
+  // scores at all, so it leaves no exercise for queueOpenScores to save.
+  const practice = state.session.exercise?.practice === true;
+  state.session.openAnswerExerciseId = practice ? null : state.session.exercise?.id ?? null;
   state.session.openAnswerPoints = {};
   state.open = newRound(topics, 0, ctx.now);
   return roundStarted(state, ctx);
@@ -87,7 +103,7 @@ export function nextOpenAnswer(state, ctx) {
 function roundStarted(state, ctx) {
   const round = state.open;
   const broadcasts = [frame("openanswer_round_started", state, round, ctx.now)];
-  if (!ctx.caps?.speech || !round.topic) {
+  if (!ctx.caps?.speech || !round.topic || round.practice) {
     return done(state, { ack: { ok: true, ...payload(state, round, ctx.now, true) }, broadcasts, clearTimer: true });
   }
   return done(state, {
@@ -167,7 +183,7 @@ export function openAnswerSubmitCheck(state, ctx) {
   if (round.phase === "ready") return { ok: false, error: "The question has not opened yet." };
   if (!accepting(round, ctx.now)) return { ok: false, error: "Time is up for this question." };
   if (responseOf(round, playerId)) return { ok: false, error: "You already submitted an answer." };
-  return { ok: true, sttLanguage: round.sttLanguage || "" };
+  return { ok: true, sttLanguage: round.sttLanguage || "", practice: !!round.practice };
 }
 
 export function submitOpenAnswer(state, data, ctx) {
@@ -176,6 +192,7 @@ export function submitOpenAnswer(state, data, ctx) {
   const round = state.open;
   const playerId = ctx.playerId;
   const text = String(data.text || "").trim();
+  if (round.practice) return submitPractice(state, data, ctx, text);
   if (!text) return done(state, { ack: { ok: false, error: "Record your answer before submitting." } });
   if (text.length > RESPONSE_MAX) {
     return done(state, { ack: { ok: false, error: `Answer must be ${RESPONSE_MAX} characters or fewer.` } });
@@ -231,6 +248,68 @@ export function submitOpenAnswer(state, data, ctx) {
   }
   result.ack = { ok: true, ...payload(state, round, ctx.now, false, playerId) };
   return result;
+}
+
+// A practice answer is marked on the spot, so the student and the host hear back at once.
+function submitPractice(state, data, ctx, text) {
+  const round = state.open;
+  const playerId = ctx.playerId;
+  // Nothing heard, or the transcription failed: still a go, as long as they recorded.
+  if (!text && !data.hadAudio) return done(state, { ack: { ok: false, error: "Record your answer before submitting." } });
+  round.responses.push({
+    playerId,
+    displayName: participantOf(state, playerId).displayName || "Student",
+    text: text.slice(0, RESPONSE_MAX),
+    at: ctx.now,
+    responseAudio: null,
+    responseAudioFormat: null,
+    analysis: "",
+    spokenFeedback: null,
+    answerVerdict: null,
+    practiceVerdict: practiceVerdict(round.correctAnswer || round.topic, text),
+    isCorrect: null,
+    points: 0,
+    analysisStatus: "done",
+  });
+  const result = done(state, { broadcasts: [frame("openanswer_update", state, round, ctx.now)] });
+  if (round.phase === "answering" && everyoneAnswered(state, round)) {
+    const closed = closeWindow(state, ctx.now, "all");
+    result.broadcasts.push(...closed.broadcasts);
+    result.clearTimer = closed.clearTimer;
+  }
+  result.ack = { ok: true, ...payload(state, round, ctx.now, false, playerId) };
+  return result;
+}
+
+// How much of the sentence the transcript has: "great", "almost" or "tried". Kind on purpose:
+// word order, case, punctuation and a dropped plural "s" do not matter, and a child is never told
+// they were wrong (the transcription is often unsure of young voices). Chinese is compared by
+// character, since it has no spaces.
+export function practiceVerdict(sentence, transcript) {
+  const target = practiceTokens(sentence);
+  const heard = practiceTokens(transcript);
+  if (!target.length || !heard.length) return "tried";
+  const left = [...heard];
+  let matched = 0;
+  for (const token of target) {
+    const index = left.indexOf(token);
+    if (index < 0) continue;
+    matched += 1;
+    left.splice(index, 1);
+  }
+  const share = matched / target.length;
+  if (share >= PRACTICE_GREAT) return "great";
+  if (share >= PRACTICE_ALMOST) return "almost";
+  return "tried";
+}
+
+function practiceTokens(text) {
+  const clean = String(text || "").toLowerCase().normalize("NFKC");
+  if (/[\u3400-\u9fff]/.test(clean)) return clean.match(/[\u3400-\u9fff]/g) || [];
+  return (clean.match(/[a-z0-9']+/g) || [])
+    .map((word) => word.replace(/'s$|'/g, ""))
+    .map((word) => (word.length > 3 && word.endsWith("s") && !word.endsWith("ss") ? word.slice(0, -1) : word))
+    .filter(Boolean);
 }
 
 export function applyOpenAnswerJob(state, job, outcome, now) {
@@ -334,6 +413,7 @@ function mineOf(round, playerId) {
     points: entry.points,
     analysisStatus: entry.analysisStatus,
     hasResponseAudio: Boolean(entry.responseAudio),
+    practiceVerdict: entry.practiceVerdict || null,
   };
 }
 
@@ -356,6 +436,7 @@ function payload(state, round, now, forHost, viewerId = null) {
     secondsRemaining: Math.ceil(remaining / 1000),
     closeReason: round.closeReason || "",
     submittedCount: round.responses.length,
+    practice: !!round.practice,
     totalStudents: Math.max(onlineParticipants(state).length, round.responses.length),
   };
   if (forHost) {

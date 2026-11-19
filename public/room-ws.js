@@ -88,6 +88,24 @@
       }
     }
 
+    // Moving to another room (the teacher ended one class and opened the
+    // next): frames still waiting were meant for the old room, so fail them
+    // rather than send them to the new one, and the first open of the new
+    // room is a connect, not a reconnect.
+    function leaveRoom() {
+      queue.length = 0;
+      for (const [id, entry] of pending) {
+        pending.delete(id);
+        try {
+          entry.fn({ ok: false, errorCode: "room_changed", error: "Moved to another class." });
+        } catch {
+          /* a callback should not break the socket */
+        }
+      }
+      openedOnce = false;
+      retries = 0;
+    }
+
     function stopHeartbeat() {
       clearInterval(heartbeatTimer);
       clearTimeout(pongTimer);
@@ -171,6 +189,7 @@
         return;
       }
       if (ws && roomId === pin && (connected || ws.readyState === WebSocket.CONNECTING)) return;
+      if (roomId && roomId !== pin) leaveRoom();
       manual = false;
       roomId = pin;
       clearTimeout(reconnectTimer);
@@ -268,7 +287,10 @@
         }
         payload = payload && typeof payload === "object" ? payload : {};
         const target = pinOf(payload.roomId || payload.pin) || roomId;
-        if (!connected) connect(target);
+        // One socket serves one room. A socket left open on a room that has
+        // since ended must move, or the event reaches the old room ("Room
+        // not found.").
+        if (!connected || target !== roomId) connect(target);
         const id = nextId++;
         if (typeof callback === "function") pending.set(id, { fn: callback, sent: false });
         send({ t: "emit", id, event, data: payload });

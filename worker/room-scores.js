@@ -96,6 +96,12 @@ export function awardOpenAnswer(state, playerId, displayName, points) {
 
 export function queueOpenAnswerScores(state, exercise, now) {
   if (exerciseKind(exercise) !== "openanswer") return false;
+  // Practice (autoclass "say it with me") is encouragement only: it saves nothing, not even zeros.
+  if (isPractice(state, exercise)) {
+    state.session.openAnswerExerciseId = null;
+    state.session.openAnswerPoints = {};
+    return false;
+  }
   const earned = state.session.openAnswerPoints || {};
   const scores = (state.session.participants || []).map((participant) => ({
     studentUserId: participant.userId,
@@ -110,6 +116,11 @@ export function queueOpenAnswerScores(state, exercise, now) {
   state.session.openAnswerExerciseId = null;
   state.session.openAnswerPoints = {};
   return queue(state, batchOf(state, exercise, state.session.courseId, scores, "openanswer"), now);
+}
+
+function isPractice(state, exercise) {
+  const current = state.session.exercise;
+  return exercise?.practice === true || (current?.practice === true && sameId(current.id, exercise?.id));
 }
 
 // Points already earned when a room stops without end_room_exercise: the next

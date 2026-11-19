@@ -1,0 +1,98 @@
+/* Emoji reactions on the join page (join-reactions.js). */
+.reaction-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 8px 24px rgba(40, 20, 60, 0.22);
+}
+
+/* Only on the screens where the student is watching or waiting. */
+body:not(:has(#screen-room-passive-waiting.active, #screen-room-waiting.active, #screen-player-finished.active, #screen-player-results.active)) .reaction-bar {
+  display: none;
+}
+
+.reaction-bar[hidden] {
+  display: none;
+}
+
+.reaction-btn {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.reaction-btn:active {
+  background: rgba(116, 60, 155, 0.12);
+}
+
+.reaction-btn.is-sent {
+  animation: reaction-sent 0.35s ease-out;
+}
+
+@keyframes reaction-sent {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* "I don't get it": sits above the emoji bar, on the watch screen only. */
+.lost-btn {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--emoji-h, 0px));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 22px;
+  border: 2px solid #743c9b;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 8px 24px rgba(40, 20, 60, 0.22);
+  color: #743c9b;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body:not(:has(#screen-room-passive-waiting.active)) .lost-btn,
+.lost-btn[hidden] {
+  display: none;
+}
+
+.lost-btn:active {
+  background: #f1e6f7;
+}
+
+.lost-btn.is-sent {
+  border-color: #007f78;
+  background: #d8f7f2;
+  color: #007f78;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction-btn.is-sent {
+    animation: none;
+  }
+}
