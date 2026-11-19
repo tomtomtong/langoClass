@@ -8,6 +8,9 @@
 import { readDoc, writeDoc } from "./d1-store.js";
 
 export const MEDIA_PREFIX = "uploads/autoclass";
+// Every line Tommy has said for any lesson, by voiceKey (video-container/voice.mjs). Lesson ids
+// cannot start with "_", so this never meets a lesson folder.
+export const VOICE_CACHE_PREFIX = `${MEDIA_PREFIX}/_voice`;
 
 export function lessonDocName(lessonId) {
   return `autoclass-lesson:${lessonId}`;

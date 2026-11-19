@@ -9,7 +9,9 @@ import { readLesson, writeLesson } from "./autoclass-lessons.js";
 import { memoryD1, memoryR2 } from "./test-env.js";
 import { validateLessonScript } from "../lib/autoclass-script.mjs";
 import { buildLesson } from "../video-container/autoclass/lesson.mjs";
-import { listFiles } from "../video-container/autoclass/job.mjs";
+import { badAutoclassRequest, listFiles, makeVoice } from "../video-container/autoclass/job.mjs";
+import { voiceKey } from "../video-container/voice.mjs";
+import { uploadKey } from "./uploads.js";
 
 globalThis.FixedLengthStream ??= class extends TransformStream {
   constructor() {
@@ -103,6 +105,79 @@ test("a finished render is copied into its R2 folder, cues last, then published"
   assert.equal(lesson.published.renderId, "r1");
   assert.equal(lesson.published.scriptHash, "abc");
   assert.equal(b.calls.stopped, 1);
+});
+
+test("lines voiced fresh go into the shared voice cache, not the render folder", async () => {
+  const listed = [{ name: "_voice/abc123.mp3", size: 3, type: "audio/mpeg" }, ...FILES];
+  const b = box(finishedRenderer({
+    "/autoclass/jobs/r1": () => Response.json({ status: "completed", files: listed }),
+    "/autoclass/jobs/r1/files/_voice/abc123.mp3": file("new", "audio/mpeg"),
+  }));
+  await started(b);
+  await poll(b);
+  assert.equal((await b.ctx.storage.get("job")).status, "completed");
+  assert.equal(await (await b.env.UPLOADS.get("uploads/autoclass/_voice/abc123.mp3")).text(), "new");
+  assert.equal(await b.env.UPLOADS.get("uploads/autoclass/animal-homes/r1/_voice/abc123.mp3"), null);
+  assert.equal(uploadKey("/uploads/autoclass/_voice/abc123.mp3"), "uploads/autoclass/_voice/abc123.mp3", "served by the uploads route");
+});
+
+test("the renderer reads lines from the cache and voices only the rest", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-voice-"));
+  try {
+    (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    const cached = voiceKey("Hello!", "en-US", 1);
+    const asked = [];
+    const fetchImpl = async (url) => {
+      asked.push(url);
+      if (url.endsWith(`/${cached}.mp3`)) return new Response("cached-mp3");
+      if (url.includes(voiceKey("Flaky.", "en-US", 1))) throw new Error("network");
+      return new Response("Not found", { status: 404 });
+    };
+    const spoken = [];
+    const stats = { cached: 0, voiced: 0 };
+    const voice = makeVoice({
+      dir,
+      language: "en-US",
+      rate: 1,
+      cacheUrl: "https://class.test/uploads/autoclass/_voice",
+      speakLine: async (text) => (spoken.push(text), Buffer.from(`tts:${text}`)),
+      stats,
+      fetchImpl,
+      seconds: () => 1.5,
+    });
+    const [hello, bye, again, flaky] = await Promise.all([voice("Hello!"), voice("Bye!"), voice("Bye!"), voice("Flaky.")]);
+    assert.deepEqual(spoken, ["Bye!", "Flaky."], "a miss or a cache error is voiced; each text once");
+    assert.deepEqual(stats, { cached: 1, voiced: 2, problem: "cache unreachable: network" }, "a 404 is a plain miss; other trouble is noted once");
+    assert.equal(asked[0], `https://class.test/uploads/autoclass/_voice/${cached}.mp3`);
+    assert.equal(readFileSync(path.join(dir, hello.file), "utf8"), "cached-mp3");
+    assert.equal(hello.seconds, 1.5);
+    assert.equal(bye, again);
+    const fresh = listFiles(path.join(dir, "out")).map((f) => f.name);
+    assert.deepEqual(fresh.sort(), [`_voice/${voiceKey("Bye!", "en-US", 1)}.mp3`, `_voice/${voiceKey("Flaky.", "en-US", 1)}.mp3`].sort());
+    assert.ok(flaky.file.endsWith(".mp3"));
+
+    // Without a cache URL every line is voiced.
+    const plain = makeVoice({ dir, language: "en-US", rate: 1, cacheUrl: "", speakLine: async () => Buffer.from("x"), fetchImpl: () => assert.fail("no cache"), seconds: () => 1 });
+    await plain("Hello!");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the cache key changes with anything that changes the sound", () => {
+  const base = voiceKey("Hello!", "en-US", 1);
+  assert.match(base, /^[a-f0-9]{24}$/);
+  assert.equal(voiceKey("Hello!", "en-US", 1), base);
+  assert.notEqual(voiceKey("Hello.", "en-US", 1), base);
+  assert.notEqual(voiceKey("Hello!", "en-GB", 1), base);
+  assert.notEqual(voiceKey("Hello!", "en-US", 1.1), base);
+});
+
+test("the renderer takes only the voice cache as its cache URL", () => {
+  const ok = { jobId: "r1", lessonId: "a", script: { id: "a" }, mediaUrl: "/uploads/autoclass/a/r1", routerBase: "https://cms.test/api/router" };
+  assert.equal(badAutoclassRequest(ok), "");
+  assert.equal(badAutoclassRequest({ ...ok, voiceCacheUrl: "https://class.lango.ai/uploads/autoclass/_voice" }), "");
+  assert.match(badAutoclassRequest({ ...ok, voiceCacheUrl: "https://evil.test/x" }), /voice cache/);
 });
 
 test("a save that fails part way picks up from the next file", async () => {

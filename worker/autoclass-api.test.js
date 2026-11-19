@@ -114,6 +114,7 @@ test("rendering sends the normalised script, every line and the render folder to
   assert.equal(sent.lessonId, "animal-homes");
   assert.equal(sent.mediaUrl, `/uploads/autoclass/animal-homes/${jobId}`);
   assert.equal(sent.routerBase, "https://cms.test/api/router");
+  assert.equal(sent.voiceCacheUrl, "https://class.lango.ai/uploads/autoclass/_voice");
   assert.ok(sent.script.analysis.allRight.length, "defaults filled in");
   assert.ok(sent.lines.includes(script.intro.say[0]));
   assert.equal(new Set(sent.lines).size, sent.lines.length);
@@ -136,6 +137,12 @@ test("rendering sends the normalised script, every line and the render folder to
   AUTOCLASS_VIDEO.jobs.get(jobId).status = "failed";
   const retry = await call("/api/autoclass/lessons/animal-homes/render", { method: "POST" });
   assert.notEqual(retry.body.jobId, jobId);
+
+  // PUBLIC_BASE_URL, when set, is where the renderer reads the voice cache.
+  env.PUBLIC_BASE_URL = "http://localhost:8792/";
+  AUTOCLASS_VIDEO.jobs.get(retry.body.jobId).status = "completed";
+  await call("/api/autoclass/lessons/animal-homes/render", { method: "POST" });
+  assert.equal(AUTOCLASS_VIDEO.calls.filter((c) => c.path === "/start").at(-1).body.voiceCacheUrl, "http://localhost:8792/uploads/autoclass/_voice");
 });
 
 test("the page gets the published cues, not a render still in progress", async () => {

@@ -1,9 +1,16 @@
 // Uncle Tommy's voice for each slide, from the newcms router's Inworld TTS with
 // the same voice and settings the Worker uses (worker/ai.js speakWithRouter).
+import { createHash } from "node:crypto";
 
 const VOICE = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
 const MODEL = "inworld-tts-1.5-max";
 const SPEAKING_RATE = 1.12;
+
+// The name a line is kept under in the autoclass voice cache (R2 uploads/autoclass/_voice/):
+// everything that changes how it sounds is in it, so a cached line is never the wrong one.
+export function voiceKey(text, language, speakingRate = SPEAKING_RATE) {
+  return createHash("sha1").update(`v1|${VOICE}|${MODEL}|${language}|${speakingRate}|${text}`).digest("hex").slice(0, 24);
+}
 
 export function speechLanguage(text) {
   if (/[぀-ヿ]/.test(text)) return "ja-JP";

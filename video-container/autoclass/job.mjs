@@ -2,14 +2,18 @@
 // voice every line of the lesson script in Uncle Tommy's voice, write the HyperFrames project
 // (lesson.mjs), render it, and list the files the Worker copies into R2
 // (worker/autoclass-job.js) under the job's mediaUrl.
-import { createHash } from "node:crypto";
+//
+// Voice cache: lines Tommy has said before (same text, voice, language and speed) are read from
+// the R2 cache at `voiceCacheUrl` instead of being voiced again. Lines voiced fresh go to out/_voice/
+// and the Worker adds them to the cache, so a re-render after a small edit only voices what changed.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { speak } from "../voice.mjs";
+import { speak, voiceKey } from "../voice.mjs";
 import { buildLesson } from "./lesson.mjs";
 
 const VOICE_WORKERS = 3;
+const MAX_CACHED_BYTES = 5 * 1024 * 1024;
 const TYPES = { mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", json: "application/json" };
 
 function audioSeconds(file) {
@@ -23,6 +27,7 @@ export function badAutoclassRequest(body) {
   if (!body?.script || typeof body.script !== "object" || body.script.id !== body.lessonId) return "A lesson script for lessonId is required.";
   if (!/^\/uploads\/autoclass\/[a-z0-9-]+\/[A-Za-z0-9_-]+$/.test(String(body?.mediaUrl || ""))) return "mediaUrl is required.";
   if (!/^https?:\/\//.test(String(body?.routerBase || ""))) return "routerBase is required.";
+  if (body?.voiceCacheUrl != null && !/^https?:\/\/[^/]+\/uploads\/autoclass\/_voice$/.test(String(body.voiceCacheUrl))) return "voiceCacheUrl is not the voice cache.";
   return "";
 }
 
@@ -33,21 +38,15 @@ export async function runAutoclassJob(job, request, { workDir, log, render }) {
   try {
     let phaseStart = Date.now();
     fs.mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
-    const language = script.voice?.language || "en-US";
-    const rate = script.voice?.speakingRate || 1;
-    const voiced = new Map(); // text → Promise<{ file, seconds }>
-    const voice = (text) => {
-      if (!voiced.has(text)) {
-        voiced.set(text, (async () => {
-          const key = createHash("sha1").update(`${language}|${rate}|${text}`).digest("hex").slice(0, 12);
-          const file = path.join("assets", "voice", `${key}.mp3`);
-          fs.writeFileSync(path.join(dir, file), await speak(routerBase, text, language, rate));
-          job.segmentsDone += 1;
-          return { file, seconds: audioSeconds(path.join(dir, file)) };
-        })());
-      }
-      return voiced.get(text);
-    };
+    const voice = makeVoice({
+      dir,
+      language: script.voice?.language || "en-US",
+      rate: script.voice?.speakingRate || 1,
+      cacheUrl: request.voiceCacheUrl || "",
+      speakLine: (text, language, rate) => speak(routerBase, text, language, rate),
+      onDone: () => (job.segmentsDone += 1),
+      stats: (job.voice = { cached: 0, voiced: 0 }),
+    });
 
     // Voice every line first, a few at a time (the Worker sends the list); the builder then only
     // looks them up, and voices any line the list missed on the way.
@@ -55,13 +54,13 @@ export async function runAutoclassJob(job, request, { workDir, log, render }) {
     const lines = [...new Set((Array.isArray(request.lines) ? request.lines : []).filter((t) => typeof t === "string" && t.trim()))];
     job.segmentCount = lines.length;
     job.segmentsDone = 0;
-    log(job, `Recording Uncle Tommy's voice (${lines.length} lines)…`);
+    log(job, `Recording Uncle Tommy's voice (${lines.length} lines; cache ${request.voiceCacheUrl || "off"})…`);
     let next = 0;
     const worker = async () => {
       while (next < lines.length) await voice(lines[next++]);
     };
     await Promise.all(Array.from({ length: VOICE_WORKERS }, worker));
-    log(job, `Voice took ${Math.round((Date.now() - phaseStart) / 1000)} s.`);
+    log(job, `Voice took ${Math.round((Date.now() - phaseStart) / 1000)} s (${job.voice.cached} from the cache, ${job.voice.voiced} new${job.voice.problem ? `; ${job.voice.problem}` : ""}).`);
 
     const built = await buildLesson(dir, script, { voice, mediaUrl });
     log(job, `Lesson is ${Math.round(built.total)} s long with ${built.cues.cues.length} pauses. Rendering…`);
@@ -80,6 +79,48 @@ export async function runAutoclassJob(job, request, { workDir, log, render }) {
     job.status = "failed";
     job.error = error instanceof Error ? error.message : String(error);
     log(job, `Failed: ${job.error}`);
+  }
+}
+
+// voice(text) → Promise<{ file, seconds }>, each distinct text once: from the cache when it has it,
+// otherwise from TTS, and then also copied to out/_voice/<key>.mp3 for the Worker to cache.
+export function makeVoice({ dir, language, rate, cacheUrl, speakLine, onDone = () => {}, stats = { cached: 0, voiced: 0 }, fetchImpl = fetch, seconds = audioSeconds }) {
+  const voiced = new Map();
+  return (text) => {
+    if (!voiced.has(text)) {
+      voiced.set(text, (async () => {
+        const key = voiceKey(text, language, rate);
+        const file = path.join("assets", "voice", `${key}.mp3`);
+        let bytes = cacheUrl ? await fromCache(fetchImpl, `${cacheUrl}/${key}.mp3`, stats) : null;
+        if (bytes) stats.cached += 1;
+        else {
+          bytes = await speakLine(text, language, rate);
+          stats.voiced += 1;
+          fs.mkdirSync(path.join(dir, "out", "_voice"), { recursive: true });
+          fs.writeFileSync(path.join(dir, "out", "_voice", `${key}.mp3`), bytes);
+        }
+        fs.writeFileSync(path.join(dir, file), bytes);
+        onDone();
+        return { file, seconds: seconds(path.join(dir, file)) };
+      })());
+    }
+    return voiced.get(text);
+  };
+}
+
+// A cached line, or null for a miss or any trouble reading it (the line is then voiced again).
+async function fromCache(fetchImpl, url, stats) {
+  try {
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) {
+      if (res.status !== 404) stats.problem ??= `cache answered ${res.status}`;
+      return null;
+    }
+    const bytes = Buffer.from(await res.arrayBuffer());
+    return bytes.length > 0 && bytes.length <= MAX_CACHED_BYTES ? bytes : null;
+  } catch (error) {
+    stats.problem ??= `cache unreachable: ${error?.cause?.code || error?.message || error}`;
+    return null;
   }
 }
 

@@ -8,7 +8,7 @@
 //   GET  /api/autoclass/lessons/:id/cues     anyone   the published cues, for /autoclass.html?lesson=<id>
 import { autoclassEnabled } from "./autoclass-page.js";
 import { json, readJson, requireTeacher, sameId } from "./d1-store.js";
-import { readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
+import { VOICE_CACHE_PREFIX, readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
 import { isLessonId, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
 
 const TERMINAL = new Set(["completed", "failed", "missing"]);
@@ -44,7 +44,7 @@ export async function handleAutoclassApi(request, env, url) {
   if (auth instanceof Response) return auth;
   if (route.kind === "save") return saveLesson(request, env, auth, route.id);
   if (route.kind === "read") return readLessonApi(env, auth, route.id);
-  if (route.kind === "render") return startRender(env, auth, route.id);
+  if (route.kind === "render") return startRender(env, auth, route.id, publicOrigin(env, url));
   return jobStatus(env, auth, route.jobId);
 }
 
@@ -69,7 +69,7 @@ async function readLessonApi(env, auth, id) {
   return json({ ok: true, lesson: await lessonView(env, lesson) });
 }
 
-async function startRender(env, auth, id) {
+async function startRender(env, auth, id, origin) {
   if (!env.AUTOCLASS_VIDEO) return json({ message: "The lesson renderer is not configured." }, 500);
   const lesson = await ownLesson(env, auth, id);
   if (lesson instanceof Response) return lesson;
@@ -99,6 +99,8 @@ async function startRender(env, auth, id) {
         lines: spokenLines(checked.script),
         mediaUrl,
         routerBase: routerBase(env),
+        // The renderer reads lines Tommy has said before from here (the public /uploads route).
+        voiceCacheUrl: `${origin}/${VOICE_CACHE_PREFIX}`,
       }),
     });
     const job = await res.json();
@@ -181,6 +183,13 @@ function publicJob(job) {
     videoUrl: job.videoUrl || null,
     cuesUrl: job.cuesUrl || null,
   };
+}
+
+// Where the renderer can reach this Worker's /uploads (for the voice cache). PUBLIC_BASE_URL wins,
+// as for join links: `wrangler dev` reports the production host in request URLs.
+function publicOrigin(env, url) {
+  const configured = String(env?.PUBLIC_BASE_URL || "").trim().replace(/\/$/, "");
+  return /^https?:\/\/[^/]+$/.test(configured) ? configured : url.origin;
 }
 
 function routerBase(env) {

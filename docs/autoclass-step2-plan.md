@@ -108,13 +108,21 @@ Retry = POST render again (a new job id). The page needs no login, like now.
 - **Steps in the container**: voice every distinct line (Inworld `uncle_tommy`, same settings
   as now, 3 in parallel, retry ×3) → write scenes + `index.html` → `hyperframes render` →
   a manifest of `video.mp4`, every mp3, `tommy-talking.webm`, `cues.json`.
+- **Voice cache**: every line Tommy has said is kept in R2 at `uploads/autoclass/_voice/<key>.mp3`,
+  the key a hash of voice, model, language, speed and text (`voiceKey` in `video-container/voice.mjs`).
+  The Worker gives the renderer the cache URL; it reads each line from there first and voices only
+  the misses, which it lists as `_voice/<key>.mp3` for the DO to add to the cache. A re-render after
+  a small edit voices only the changed lines. (Lesson ids cannot start with `_`, so the cache folder
+  never meets a lesson's.)
 - **Save**: the DO copies each file to R2 at `uploads/autoclass/<lessonId>/<renderId>/…`
   (cues URLs are written for that folder), then sets the lesson's `published`, then stops the
   container. A versioned folder means a re-render never breaks a class that is playing and
   needs no cache purge. Old render folders are left for now (clean-up is a follow-up).
 - **Local check without Docker**: `wrangler dev --enable-containers=false --var
-  AUTOCLASS_RENDERER_URL:http://localhost:8085` makes the DO call the renderer run as a plain
-  `node video-container/server.mjs` (localhost URLs only; unset in production).
+  AUTOCLASS_RENDERER_URL:http://localhost:8085 --var PUBLIC_BASE_URL:http://localhost:8792` makes the DO call the renderer run as a plain
+  `node video-container/server.mjs` (localhost URLs only; unset in production). `PUBLIC_BASE_URL`
+  is needed there because `wrangler dev` reports the production host, so the cache URL would point
+  at production.
 
 ## 6. The page
 
@@ -125,12 +133,11 @@ stays and also covers the new API. `public/autoclass/animal-homes.cues.json` and
 
 ## Not in this step
 
-AI-written scripts, the teacher editor, showing the item in CMS/host, a voice cache across
-renders (every render voices every line again, ~100 TTS calls), deleting old render folders.
+AI-written scripts, the teacher editor, showing the item in CMS/host, deleting old render folders.
 
 ## Open questions
 
 1. Audience (`build.mjs` young learners vs `PRODUCT.md` HK elderly): affects only the default
    banks and speaking rate; the script can set both, so it does not block this step.
-2. Full re-render on every edit: this plan does that (a few minutes per lesson). A voice cache
-   can come later if edits become frequent.
+2. Full re-render on every edit: this plan does that (a few minutes per lesson, mostly the video
+   render); the voice cache means only changed lines are voiced again.
