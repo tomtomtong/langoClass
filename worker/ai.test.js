@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { completeText, speak, speechProvider, speechReady, transcribe } from "./ai.js";
+import { completeText, speak, speakAsTommy, speechProvider, speechReady, transcribe } from "./ai.js";
 import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
 
 const originalFetch = globalThis.fetch;
@@ -43,6 +43,25 @@ test("English speech uses the UK voice and other languages keep the default voic
   await speak(env, "Hola Ada", { language: "es" });
   assert.equal(voices[0], "default-zylgts2tamenvybeti3z0w__uncle_tommy_uk");
   assert.equal(voices[1], "default-zylgts2tamenvybeti3z0w__uncle_tommy");
+});
+
+test("speakAsTommy uses the lesson videos' voice, even for English and Cantonese", async () => {
+  const bodies = [];
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "https://cms.example/api/router/tts");
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
+  };
+  const env = { CMS_API_BASE: "https://cms.example" };
+  assert.deepEqual(await speakAsTommy(env, "Hello Ada"), { audioContent: "SUQz", format: "mp3" });
+  await speakAsTommy(env, "你好", { language: "yue" });
+  for (const body of bodies) {
+    assert.equal(body.voice, "default-zylgts2tamenvybeti3z0w__uncle_tommy"); // not the _uk one
+    assert.equal(body.speakingRate, 1);
+    assert.equal(body.model, "inworld-tts-1.5-max");
+  }
+  assert.deepEqual(bodies.map((body) => body.language), ["en-US", "yue-HK"]);
+  await assert.rejects(() => speakAsTommy(env, "  "), /No text/);
 });
 
 test("ElevenLabs speech goes through the CMS router", async () => {

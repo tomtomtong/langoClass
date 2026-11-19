@@ -22,7 +22,12 @@ import {
   submitOpenAnswer,
 } from "./room-open-answer.js";
 
+import { REACTION_EMOJIS, sendLost, sendReaction, setEmoji, setReactions } from "./room-reactions.js";
+import { closePoll, endPoll, pollForStudent, sendPollVote, startPoll } from "./room-poll.js";
+import { applyTutorJob, askQuestion, setTutor, tutorForStudent } from "./room-tutor.js";
+
 export { openAnswerSubmitCheck } from "./room-open-answer.js";
+export { tutorAskCheck } from "./room-tutor.js";
 
 const PREVIEW_MS = 5000;
 const BUZZ_JOIN_MS = 20000;
@@ -99,6 +104,24 @@ export function applyRoomEvent(state, message, ctx) {
       return getOpenAnswer(state, ctx);
     case "submit_openanswer_response":
       return submitOpenAnswer(state, data, ctx);
+    case "set_reactions":
+      return setReactions(state, data, ctx);
+    case "set_emoji":
+      return setEmoji(state, data, ctx);
+    case "send_reaction":
+      return sendReaction(state, data, ctx);
+    case "send_lost":
+      return sendLost(state, data, ctx);
+    case "start_poll":
+      return startPoll(state, data, ctx);
+    case "send_poll_vote":
+      return sendPollVote(state, data, ctx);
+    case "end_poll":
+      return endPoll(state, data, ctx);
+    case "set_tutor":
+      return setTutor(state, data, ctx);
+    case "ask_question":
+      return askQuestion(state, data, ctx);
     default:
       return done(state, { ack: { ok: false, error: `Unknown event: ${event || "message"}` } });
   }
@@ -213,6 +236,11 @@ function joinSession(state, data, ctx) {
       displayName: name,
       sessionStatus: state.session.status,
       uiLocale: state.session.uiLocale || "en",
+      reactions: !!state.session.reactions,
+      reactionEmojis: REACTION_EMOJIS,
+      reactionEmojiOpen: !!state.session.reactions && !!state.session.emojiOpen,
+      poll: pollForStudent(state, playerId),
+      tutor: tutorForStudent(state, playerId, ctx.now),
       ...preload(state),
     },
     broadcasts: [lobby(state)],
@@ -263,6 +291,7 @@ function startNextExercise(state, data, ctx) {
   return done(state, {
     ack: { ok: true, roomId: state.session.roomId },
     broadcasts: [
+      ...closePoll(state),
       { event: "room_quiz_cleared", data: {} },
       { event: "session_started", data: preload(state) },
       lobby(state),
@@ -710,6 +739,7 @@ export function applyRoomJob(state, job, outcome, now) {
   if (job.kind === "buzz-announce") return announced(state, job, outcome, now);
   if (job.kind === "buzz-analyze") return analyzed(state, job, outcome, now);
   if (job.kind === "open-topic" || job.kind === "open-analyze") return applyOpenAnswerJob(state, job, outcome, now);
+  if (job.kind === "tutor-answer") return applyTutorJob(state, job, outcome);
   return done(state);
 }
 

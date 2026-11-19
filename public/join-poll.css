@@ -1,0 +1,76 @@
+/* A poll on the join page (join-poll.js). It covers whatever screen is showing. */
+.poll-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px 20px max(24px, env(safe-area-inset-bottom));
+  background: #eaf1ff;
+  color: #1f1a24;
+  overflow-y: auto;
+}
+
+.poll-panel[hidden] {
+  display: none;
+}
+
+.poll-card {
+  width: min(520px, 100%);
+}
+
+.poll-question {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.poll-hint {
+  margin: 0 0 20px;
+  color: #6b6478;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.poll-option {
+  min-height: 68px;
+  padding: 12px 20px;
+  border: 2px solid #d9cfe6;
+  border-radius: 18px;
+  background: #fffdf8;
+  color: inherit;
+  font: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.poll-option:active {
+  background: #f1e6f7;
+}
+
+.poll-option:disabled {
+  cursor: default;
+}
+
+.poll-option.is-mine {
+  border-color: #743c9b;
+  background: #743c9b;
+  color: #fff;
+}
+
+.poll-option.is-dim {
+  opacity: 0.45;
+}

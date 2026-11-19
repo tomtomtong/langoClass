@@ -1,0 +1,144 @@
+/* "Raise a hand" on the join page (join-tutor.js). */
+.tutor-ask-btn {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--emoji-h, 0px) + 62px);
+  transform: translateX(-50%);
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #a1268e, #743c9b);
+  box-shadow: 0 8px 24px rgba(40, 20, 60, 0.3);
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body:not(:has(#screen-room-passive-waiting.active)) .tutor-ask-btn,
+.tutor-ask-btn[hidden] {
+  display: none;
+}
+
+.tutor-ask-hand {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.tutor-ask-btn.is-waiting {
+  background: #b9b3c4;
+  box-shadow: none;
+  cursor: default;
+}
+
+.tutor-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: grid;
+  place-items: center;
+  padding: 24px 20px max(24px, env(safe-area-inset-bottom));
+  background: #eaf1ff;
+  color: #1f1a24;
+}
+
+.tutor-panel[hidden] {
+  display: none;
+}
+
+.tutor-card {
+  position: relative;
+  width: min(420px, 100%);
+  text-align: center;
+}
+
+.tutor-close {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #743c9b;
+  font-size: 22px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tutor-title {
+  margin: 0 0 28px;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.tutor-mic {
+  width: 132px;
+  height: 132px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a1268e, #743c9b);
+  box-shadow: 0 12px 30px rgba(116, 60, 155, 0.4);
+  font-size: 56px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tutor-mic:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tutor-panel.is-recording .tutor-mic {
+  background: #b92d4f;
+  box-shadow: 0 0 0 0 rgba(185, 45, 79, 0.5);
+  animation: tutor-pulse 1.4s ease-out infinite;
+}
+
+.tutor-panel.is-done .tutor-mic {
+  display: none;
+}
+
+.tutor-status {
+  margin: 24px 0 0;
+  color: #4b2a6b;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.tutor-heard {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #fffdf8;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.tutor-heard[hidden] {
+  display: none;
+}
+
+@keyframes tutor-pulse {
+  to { box-shadow: 0 0 0 28px rgba(185, 45, 79, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutor-panel.is-recording .tutor-mic {
+    animation: none;
+  }
+}

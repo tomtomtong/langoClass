@@ -148,6 +148,11 @@ function showStudentOpenAnswerResult(mine) {
   box.hidden = !mine;
   box.closest(".openanswer-card")?.classList.toggle("has-result", Boolean(mine));
   if (!mine) return;
+  box.classList.toggle("is-practice", Boolean(mine.practiceVerdict));
+  if (mine.practiceVerdict) {
+    showStudentPracticeResult(box, mine.practiceVerdict);
+    return;
+  }
   box.dataset.verdict = done ? mine.answerVerdict || (mine.analysisStatus === "error" ? "error" : "none") : "pending";
   const verdictKey = {
     correct: "openAnswer.verdictCorrect",
@@ -178,6 +183,25 @@ function showStudentOpenAnswerResult(mine) {
   const analysis = openAnswerEl("analysis");
   analysis.hidden = !(marked && !rows.length);
   analysis.textContent = marked && !rows.length ? mine.analysis : "";
+}
+
+// "Say it with me" practice (autoclass): only a kind word, never a score, and not what the
+// transcription heard, since it often mishears young voices (worker/room-open-answer.js).
+const PRACTICE_STYLE = { great: "correct", almost: "partial", tried: "none" };
+
+function showStudentPracticeResult(box, verdict) {
+  const key = PRACTICE_STYLE[verdict] ? verdict : "tried";
+  box.dataset.verdict = PRACTICE_STYLE[key];
+  const cap = key[0].toUpperCase() + key.slice(1);
+  openAnswerEl("verdict").textContent = uiT(`openAnswer.practice${cap}`);
+  const feedback = openAnswerEl("feedback");
+  feedback.hidden = false;
+  feedback.textContent = uiT(`openAnswer.practice${cap}Note`);
+  openAnswerEl("points").hidden = true;
+  openAnswerEl("said").textContent = "";
+  openAnswerEl("scores").hidden = true;
+  openAnswerEl("scores").replaceChildren();
+  openAnswerEl("analysis").hidden = true;
 }
 
 function renderStudentOpenAnswer() {
