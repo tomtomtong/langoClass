@@ -184,36 +184,32 @@
     el("class-step").hidden = false;
   }
 
-  // Load the whole lesson into memory first: the video must seek exactly to each cue, and a
-  // server without Range support (wrangler dev) cannot seek a streamed file. It also means the
-  // class never stalls on buffering mid-lesson.
-  async function loadVideo(url) {
+  // Stream the lesson instead of downloading it all first (a 25 MB render took most of a minute on
+  // a slow network). R2 serves ranges (worker/uploads.js) and the renders put the moov box first,
+  // so the video can seek exactly to each cue. Start is allowed once the browser expects to play
+  // through; it keeps buffering ahead with preload="auto", including while the video is paused on
+  // a quiz.
+  function loadVideo(url) {
     const label = el("setup-lesson");
     const base = label.textContent;
     const start = el("start-class");
     start.disabled = true;
     state.videoReady = false;
-    try {
-      const res = await fetch(url);
-      if (!res.ok || !res.body) throw new Error(`Could not load the lesson video (${res.status}).`);
-      const total = Number(res.headers.get("content-length")) || 0;
-      const reader = res.body.getReader();
-      const chunks = [];
-      let received = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (total) label.textContent = `${base} · loading video ${Math.round((received / total) * 100)}%`;
-      }
-      video.src = URL.createObjectURL(new Blob(chunks, { type: "video/mp4" }));
-      label.textContent = `${base} · video ready`;
+    const ready = () => {
+      if (state.videoReady) return;
       state.videoReady = true;
       start.disabled = false;
-    } catch (err) {
-      showError(err.message);
-    }
+      label.textContent = `${base} · video ready`;
+    };
+    video.addEventListener("canplaythrough", ready, { once: true });
+    video.addEventListener("progress", () => {
+      if (state.videoReady || !video.duration || !video.buffered.length) return;
+      const loaded = video.buffered.end(video.buffered.length - 1) / video.duration;
+      label.textContent = `${base} · loading video ${Math.round(loaded * 100)}%`;
+    });
+    video.addEventListener("error", () => showError(`Could not load the lesson video (${video.error?.code ?? "?"}).`), { once: true });
+    video.preload = "auto";
+    video.src = url;
   }
 
   function escapeText(value) {
