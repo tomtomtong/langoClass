@@ -9,6 +9,10 @@ test("upload keys stay inside the upload folders", () => {
     uploadKey("/uploads/lectures/lango-cambridge-s8-u1-1/voice/intro.mp3"),
     "uploads/lectures/lango-cambridge-s8-u1-1/voice/intro.mp3"
   );
+  assert.equal(
+    uploadKey("/uploads/autoclass/analysis/animal-homes-q1-wrong-1-1.mp3"),
+    "uploads/autoclass/analysis/animal-homes-q1-wrong-1-1.mp3"
+  );
   assert.equal(uploadKey("/uploads/courses/../../server.js"), "");
   assert.equal(uploadKey("/uploads/other/file.png"), "");
   assert.equal(uploadKey("/host.html"), "");

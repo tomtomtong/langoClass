@@ -1,0 +1,263 @@
+:root {
+  --page: #eaf1ff;
+  --page-deep: #dde9ff;
+  --cream: #fffdf8;
+  --ink: #1f1a24;
+  --muted: #6b6478;
+  --purple: #a1268e;
+  --purple-deep: #743c9b;
+  --teal: #007f78;
+  --teal-soft: #d8f7f2;
+  --gold: #f9b545;
+  --sky: #54adf4;
+  --font: "Nunito", sans-serif;
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--page);
+  font-family: var(--font);
+  color: var(--ink);
+}
+#root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+#ground {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(1200px 700px at 78% 18%, #f6f9ff 0%, var(--page) 55%, var(--page-deep) 100%);
+}
+
+/* Shared pieces used by every scene. */
+.eyebrow {
+  position: absolute;
+  left: 150px;
+  top: 96px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--purple-deep);
+}
+.word {
+  display: inline-block;
+  white-space: pre;
+}
+.hl {
+  color: var(--purple);
+}
+.pair {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 330px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 90px;
+}
+.animal {
+  width: 340px;
+  height: 340px;
+  border-radius: 60px;
+  background: var(--cream);
+  box-shadow: 0 24px 60px rgba(80, 40, 120, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 210px;
+  line-height: 1;
+}
+.arrow {
+  width: 200px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--gold);
+  position: relative;
+  transform-origin: left center;
+}
+.arrow::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  top: -17px;
+  border-left: 36px solid var(--gold);
+  border-top: 24px solid transparent;
+  border-bottom: 24px solid transparent;
+}
+.home {
+  min-width: 420px;
+  padding: 0 60px;
+  height: 230px;
+  border-radius: 48px;
+  background: linear-gradient(90deg, var(--purple), var(--purple-deep));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 130px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.sentence {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 760px;
+  text-align: center;
+  font-size: 64px;
+  font-weight: 800;
+}
+.section-title {
+  position: absolute;
+  left: 150px;
+  top: 150px;
+  font-size: 76px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.say {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 880px;
+  margin: 0 auto;
+  width: max-content;
+  padding: 14px 40px;
+  border-radius: 999px;
+  background: var(--teal-soft);
+  color: var(--teal);
+  font-size: 44px;
+  font-weight: 800;
+}
+.say b {
+  font-weight: 900;
+}
+
+/* Quiz scenes. The bottom 180px stays clear for the live overlay on the autoclass page. */
+.quiz-tag {
+  position: absolute;
+  left: 150px;
+  top: 90px;
+  padding: 10px 30px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #3b2a00;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+.quiz-q {
+  position: absolute;
+  left: 150px;
+  right: 150px;
+  top: 190px;
+  font-size: 84px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.options {
+  position: absolute;
+  left: 150px;
+  right: 150px;
+  top: 380px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 34px 40px;
+}
+.opt {
+  height: 170px;
+  border-radius: 40px;
+  background: var(--cream);
+  border: 6px solid #e2dcef;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  padding: 0 40px;
+  font-size: 66px;
+  font-weight: 800;
+}
+.opt .letter {
+  flex: 0 0 auto;
+  width: 100px;
+  height: 100px;
+  border-radius: 28px;
+  background: var(--purple-deep);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 58px;
+  font-weight: 900;
+}
+.opt .tick {
+  margin-left: auto;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  font-weight: 900;
+  opacity: 0;
+}
+.opt.correct-bg {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+.opt.correct-bg .letter {
+  background: var(--teal);
+}
+.phone-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 790px;
+  text-align: center;
+  font-size: 44px;
+  font-weight: 800;
+  color: var(--purple-deep);
+}
+.answer-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 790px;
+  text-align: center;
+  font-size: 58px;
+  font-weight: 900;
+  color: var(--teal);
+}
+
+/* Talking Uncle Tommy: one wrapper the root timeline moves between scenes. */
+#tommy {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 552px;
+  height: 648px;
+  transform-origin: 0 0;
+}
+#tommy video {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 552px;
+  height: 648px;
+}
+

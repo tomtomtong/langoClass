@@ -1,0 +1,547 @@
+{
+  "title": "Animal Homes",
+  "video": "/uploads/autoclass/animal-homes.mp4",
+  "source": "autoclass-video/build.mjs (rebuild there; do not edit by hand)",
+  "duration": 135.734,
+  "cues": [
+    {
+      "at": 48.092,
+      "resumeAt": 48.092,
+      "speak": {
+        "sentence": "A bird lives in a nest.",
+        "seconds": 15
+      },
+      "result": {
+        "at": 56.464,
+        "key": "say1",
+        "wrong": {}
+      },
+      "exercise": {
+        "id": "autoclass-animal-homes-say1",
+        "type": "openanswer",
+        "practice": true,
+        "title": "Animal Homes · Say it with me",
+        "items": [
+          {
+            "topic": "A bird lives in a nest.",
+            "correctAnswer": "A bird lives in a nest.",
+            "sttLanguage": "en",
+            "timeLimit": 15
+          }
+        ]
+      }
+    },
+    {
+      "at": 65.732,
+      "resumeAt": 65.732,
+      "result": {
+        "at": 73.924,
+        "key": "q1",
+        "wrong": {
+          "0": [
+            {
+              "text": "A nest is for a bird. A bee lives in a hive!",
+              "url": "/uploads/autoclass/analysis/animal-homes-q1-wrong-1-1.mp3"
+            },
+            {
+              "text": "Careful! Nests are for birds, but bees live in hives.",
+              "url": "/uploads/autoclass/analysis/animal-homes-q1-wrong-1-2.mp3"
+            }
+          ],
+          "2": [
+            {
+              "text": "A cave is for a bear. A bee lives in a hive!",
+              "url": "/uploads/autoclass/analysis/animal-homes-q1-wrong-3-1.mp3"
+            },
+            {
+              "text": "Caves are for bears, not bees. A bee lives in a hive.",
+              "url": "/uploads/autoclass/analysis/animal-homes-q1-wrong-3-2.mp3"
+            }
+          ],
+          "3": [
+            {
+              "text": "A pond is for a frog. A bee lives in a hive!",
+              "url": "/uploads/autoclass/analysis/animal-homes-q1-wrong-4-1.mp3"
+            },
+            {
+              "text": "Ponds are for frogs. Remember, a bee lives in a hive.",
+              "url": "/uploads/autoclass/analysis/animal-homes-q1-wrong-4-2.mp3"
+            }
+          ]
+        }
+      },
+      "exercise": {
+        "id": "autoclass-animal-homes-q1",
+        "type": "mcquiz",
+        "title": "Animal Homes · Question 1",
+        "items": [
+          {
+            "title": "Where does a bee live?",
+            "timeLimit": 20,
+            "options": [
+              {
+                "text": "nest"
+              },
+              {
+                "text": "hive",
+                "isCorrect": true
+              },
+              {
+                "text": "cave"
+              },
+              {
+                "text": "pond"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "at": 74.424,
+      "resumeAt": 74.424,
+      "poll": {
+        "id": "autoclass-animal-homes-poll1",
+        "question": "Which animal do you like best?",
+        "options": [
+          "🐦 bird",
+          "🐝 bee",
+          "🐟 fish"
+        ],
+        "seconds": 20,
+        "askAudio": "/uploads/autoclass/animal-homes-poll1-ask.mp3",
+        "doneAudio": "/uploads/autoclass/animal-homes-poll1-thanks.mp3"
+      }
+    },
+    {
+      "at": 114.022,
+      "resumeAt": 114.022,
+      "result": {
+        "at": 121.326,
+        "key": "q2",
+        "wrong": {
+          "0": [
+            {
+              "text": "A frog lives in a pond. A rabbit lives in a burrow!",
+              "url": "/uploads/autoclass/analysis/animal-homes-q2-wrong-1-1.mp3"
+            },
+            {
+              "text": "Frogs like ponds. The animal in a burrow is a rabbit.",
+              "url": "/uploads/autoclass/analysis/animal-homes-q2-wrong-1-2.mp3"
+            }
+          ],
+          "1": [
+            {
+              "text": "A bear lives in a cave. A rabbit lives in a burrow!",
+              "url": "/uploads/autoclass/analysis/animal-homes-q2-wrong-2-1.mp3"
+            },
+            {
+              "text": "Bears live in caves. It is the rabbit that lives in a burrow.",
+              "url": "/uploads/autoclass/analysis/animal-homes-q2-wrong-2-2.mp3"
+            }
+          ],
+          "3": [
+            {
+              "text": "A bird lives in a nest. A rabbit lives in a burrow!",
+              "url": "/uploads/autoclass/analysis/animal-homes-q2-wrong-4-1.mp3"
+            },
+            {
+              "text": "Birds have nests. The rabbit lives in a burrow.",
+              "url": "/uploads/autoclass/analysis/animal-homes-q2-wrong-4-2.mp3"
+            }
+          ]
+        }
+      },
+      "exercise": {
+        "id": "autoclass-animal-homes-q2",
+        "type": "mcquiz",
+        "title": "Animal Homes · Question 2",
+        "items": [
+          {
+            "title": "Which animal lives in a burrow?",
+            "timeLimit": 20,
+            "options": [
+              {
+                "text": "frog"
+              },
+              {
+                "text": "bear"
+              },
+              {
+                "text": "rabbit",
+                "isCorrect": true
+              },
+              {
+                "text": "bird"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "tutor": {
+    "enabled": true,
+    "maxAnswers": 3,
+    "language": "en",
+    "sttLanguage": "yue",
+    "outline": "Young children learn where animals live, in simple English. A bird lives in a nest. A bee lives in a hive. A fish lives in a river. A rabbit lives in a burrow. A bear lives in a cave. A frog lives in a pond. Quiz: Where does a bee live? Answer: hive. Quiz: Which animal lives in a burrow? Answer: rabbit.",
+    "tommyVideo": "/uploads/autoclass/tommy-talking.webm",
+    "anchor": {
+      "x": 1600,
+      "y": 735,
+      "w": 276,
+      "h": 324
+    },
+    "leadIns": [
+      "/uploads/autoclass/animal-homes-tutor-in1.mp3",
+      "/uploads/autoclass/animal-homes-tutor-in2.mp3",
+      "/uploads/autoclass/animal-homes-tutor-in3.mp3"
+    ],
+    "leadOuts": [
+      "/uploads/autoclass/animal-homes-tutor-out1.mp3",
+      "/uploads/autoclass/animal-homes-tutor-out2.mp3",
+      "/uploads/autoclass/animal-homes-tutor-out3.mp3"
+    ],
+    "breaks": [
+      23.47,
+      32.084,
+      39.642,
+      86.808,
+      94.726,
+      103.292
+    ]
+  },
+  "analysis": {
+    "leadIn": [
+      {
+        "text": "Let's see how we did!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-leadIn-1.mp3"
+      },
+      {
+        "text": "Okay, time to check our answers!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-leadIn-2.mp3"
+      },
+      {
+        "text": "Here come the results!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-leadIn-3.mp3"
+      },
+      {
+        "text": "Let's look at your answers together!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-leadIn-4.mp3"
+      }
+    ],
+    "allRight": [
+      {
+        "text": "Wow! Every one of you got it right! Amazing!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-allRight-1.mp3"
+      },
+      {
+        "text": "Perfect! You all got it right. Give yourselves a big clap!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-allRight-2.mp3"
+      },
+      {
+        "text": "Hooray! Everyone got it right. You are super stars!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-allRight-3.mp3"
+      },
+      {
+        "text": "Fantastic! Not one mistake. I am so proud of you!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-allRight-4.mp3"
+      },
+      {
+        "text": "You all got it! What a great class!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-allRight-5.mp3"
+      }
+    ],
+    "mostRight": [
+      {
+        "text": "Great job! Most of you got it right!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostRight-1.mp3"
+      },
+      {
+        "text": "Well done! Lots of you knew this one.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostRight-2.mp3"
+      },
+      {
+        "text": "Nice work! Most of the class got it.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostRight-3.mp3"
+      },
+      {
+        "text": "Very good! Many of you got it right.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostRight-4.mp3"
+      },
+      {
+        "text": "Super! Most of you are really getting this.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostRight-5.mp3"
+      }
+    ],
+    "mixed": [
+      {
+        "text": "Some of you got it, and some were not sure. That's okay!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mixed-1.mp3"
+      },
+      {
+        "text": "Hmm, the answers were mixed this time. Let's keep learning together.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mixed-2.mp3"
+      },
+      {
+        "text": "About half of you got it. Good try, everyone!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mixed-3.mp3"
+      },
+      {
+        "text": "It was a bit tricky, wasn't it? That's how we learn!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mixed-4.mp3"
+      },
+      {
+        "text": "Good thinking, everyone! Some of you were very close.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mixed-5.mp3"
+      }
+    ],
+    "mostWrong": [
+      {
+        "text": "That was a tricky one! Only a few of you got it. Let's remember it together.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostWrong-1.mp3"
+      },
+      {
+        "text": "Oh, that was hard! Don't worry, mistakes help us learn.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostWrong-2.mp3"
+      },
+      {
+        "text": "Not many got this one, but that's okay. Now we know it!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostWrong-3.mp3"
+      },
+      {
+        "text": "A tricky question! Let's remember the answer together.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostWrong-4.mp3"
+      },
+      {
+        "text": "Good try! This one is hard. We will practise more.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-mostWrong-5.mp3"
+      }
+    ],
+    "noneRight": [
+      {
+        "text": "Oh, that was a really tricky one! Nobody got it this time. But now we know the answer!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noneRight-1.mp3"
+      },
+      {
+        "text": "No worries! That was hard. Let's remember it together.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noneRight-2.mp3"
+      },
+      {
+        "text": "That's okay, everyone! Even I think it was tricky. Now we know!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noneRight-3.mp3"
+      },
+      {
+        "text": "Nobody got it this time, but you all tried. Good job trying!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noneRight-4.mp3"
+      }
+    ],
+    "noAnswers": [
+      {
+        "text": "Hmm, I didn't hear any answers this time. Let's try again on the next question!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noAnswers-1.mp3"
+      },
+      {
+        "text": "No answers this time. Don't be shy! Tap your answer next time.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noAnswers-2.mp3"
+      },
+      {
+        "text": "It looks like everyone was busy. Next time, tap your answer on your phone!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noAnswers-3.mp3"
+      },
+      {
+        "text": "I'm waiting for your answers! Let's try the next one.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-noAnswers-4.mp3"
+      }
+    ],
+    "singleRight": [
+      {
+        "text": "Nice one! You got it right!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-singleRight-1.mp3"
+      },
+      {
+        "text": "Well done! That's the right answer!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-singleRight-2.mp3"
+      },
+      {
+        "text": "You got it! Great job!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-singleRight-3.mp3"
+      }
+    ],
+    "singleWrong": [
+      {
+        "text": "Good try! Now you know the answer.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-singleWrong-1.mp3"
+      },
+      {
+        "text": "Not this time, but that's okay. Let's remember it together.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-singleWrong-2.mp3"
+      },
+      {
+        "text": "Nice try! Let's learn it together.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-singleWrong-3.mp3"
+      }
+    ],
+    "someSilent": [
+      {
+        "text": "Some friends didn't answer in time. That's okay. Try to be quick next time!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-someSilent-1.mp3"
+      },
+      {
+        "text": "A few of you missed this one. Next time, tap your answer before the time is up.",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-someSilent-2.mp3"
+      },
+      {
+        "text": "Don't forget to tap your answer on your phone, okay?",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-someSilent-3.mp3"
+      },
+      {
+        "text": "I think some friends were still thinking. Let's try a little faster next time!",
+        "url": "/uploads/autoclass/analysis/animal-homes-an-someSilent-4.mp3"
+      }
+    ]
+  },
+  "speakAnalysis": {
+    "leadIn": [
+      {
+        "text": "Thank you for speaking! Let's have a look.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-leadIn-1.mp3"
+      },
+      {
+        "text": "Let's see how your speaking went!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-leadIn-2.mp3"
+      },
+      {
+        "text": "I was listening! Let's see.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-leadIn-3.mp3"
+      }
+    ],
+    "allRight": [
+      {
+        "text": "Wow! You all said it so clearly!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-allRight-1.mp3"
+      },
+      {
+        "text": "Amazing speaking, everyone! Give yourselves a clap!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-allRight-2.mp3"
+      },
+      {
+        "text": "Perfect! Every one of you said it just right!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-allRight-3.mp3"
+      }
+    ],
+    "mostRight": [
+      {
+        "text": "Great speaking! Most of you said it really well.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mostRight-1.mp3"
+      },
+      {
+        "text": "Well done! I heard lots of clear voices.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mostRight-2.mp3"
+      },
+      {
+        "text": "Super! Most of you said it just right.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mostRight-3.mp3"
+      }
+    ],
+    "mixed": [
+      {
+        "text": "Good speaking, everyone! Some of you were very close.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mixed-1.mp3"
+      },
+      {
+        "text": "Nice try, everyone! Speaking gets easier every time.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mixed-2.mp3"
+      },
+      {
+        "text": "Good job speaking up! Let's keep practising.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mixed-3.mp3"
+      }
+    ],
+    "mostWrong": [
+      {
+        "text": "That was a long sentence! Good try, everyone.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mostWrong-1.mp3"
+      },
+      {
+        "text": "Speaking is hard, and you were brave to try!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mostWrong-2.mp3"
+      },
+      {
+        "text": "Nice work trying! Let's practise it again together.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-mostWrong-3.mp3"
+      }
+    ],
+    "noneRight": [
+      {
+        "text": "Good try, everyone! It was a long sentence. Let's practise more.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-noneRight-1.mp3"
+      },
+      {
+        "text": "That's okay! Speaking takes practice. You were brave to try!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-noneRight-2.mp3"
+      },
+      {
+        "text": "Sometimes the phone does not hear us well. Keep trying!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-noneRight-3.mp3"
+      }
+    ],
+    "noAnswers": [
+      {
+        "text": "Hmm, I didn't hear anyone this time. Next time, tap the microphone and say it!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-noAnswers-1.mp3"
+      },
+      {
+        "text": "Don't be shy! Next time, tap the microphone on your phone and speak.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-noAnswers-2.mp3"
+      },
+      {
+        "text": "I'm waiting to hear your voice! Let's try next time.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-noAnswers-3.mp3"
+      }
+    ],
+    "singleRight": [
+      {
+        "text": "Wonderful! You said it perfectly!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-singleRight-1.mp3"
+      },
+      {
+        "text": "Great speaking! That was so clear!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-singleRight-2.mp3"
+      },
+      {
+        "text": "Well done! You said it just right!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-singleRight-3.mp3"
+      }
+    ],
+    "singleWrong": [
+      {
+        "text": "Good try! You were very brave to speak.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-singleWrong-1.mp3"
+      },
+      {
+        "text": "Nice try! Keep practising and it gets easier.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-singleWrong-2.mp3"
+      },
+      {
+        "text": "Thank you for speaking! Let's practise it again.",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-singleWrong-3.mp3"
+      }
+    ],
+    "someSilent": [
+      {
+        "text": "Some friends didn't speak this time. Next time, tap the microphone and try!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-someSilent-1.mp3"
+      },
+      {
+        "text": "Don't forget to tap the microphone and speak, okay?",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-someSilent-2.mp3"
+      },
+      {
+        "text": "I hope to hear more voices next time!",
+        "url": "/uploads/autoclass/analysis/animal-homes-say-someSilent-3.mp3"
+      }
+    ]
+  }
+}

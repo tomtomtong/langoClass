@@ -76,7 +76,8 @@
     "directory": "./public",
     "binding": "ASSETS",
     "html_handling": "none",
-    "run_worker_first": ["/api/*", "/uploads/*"]
+    // /autoclass*: the internal autoclass test page, off unless AUTOCLASS=1 (worker/autoclass-page.js).
+    "run_worker_first": ["/api/*", "/uploads/*", "/autoclass*"]
   },
   "routes": [
     {

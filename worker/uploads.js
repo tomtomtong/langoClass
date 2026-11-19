@@ -10,6 +10,8 @@ const FOLDERS = new Set([
   "community",
   "lectures",
   "slides",
+  // Autoclass lesson media (autoclass-video/build.mjs, scripts/upload-autoclass.mjs).
+  "autoclass",
 ]);
 
 const CONTENT_TYPES = {
