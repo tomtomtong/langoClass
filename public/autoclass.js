@@ -1,6 +1,8 @@
 // Autoclass (internal test): a class that runs itself from one lesson video.
 //
-// The lesson is a HyperFrames render plus a cues file (public/autoclass/<lesson>.cues.json):
+// The lesson is a HyperFrames render plus a cues file, both made by the render container from a
+// saved lesson script (docs/autoclass-step2-plan.md) and loaded by id: ?lesson=<id> reads
+// /api/autoclass/lessons/<id>/cues, the render the lesson last published:
 //   { "video": "...mp4", "cues": [{ "at": 37, "exercise": { id, type: "mcquiz", title, items } }] }
 // A cue can be a poll instead of a question: { "at": 59, "poll": { id, question, options, seconds } }.
 // Or "say it with me": { "at": 48, "speak": { sentence, seconds }, "exercise": { type: "openanswer", practice: true } }
@@ -15,7 +17,7 @@
 
   const params = new URLSearchParams(location.search);
   const LESSON = params.get("lesson") || "animal-homes";
-  const CUES_URL = `/autoclass/${encodeURIComponent(LESSON)}.cues.json`;
+  const CUES_URL = `/api/autoclass/lessons/${encodeURIComponent(LESSON)}/cues`;
   const PREF_KEYS = ["lango_host_prefs", "lango_host_prefs_hk"];
   const RESULT_HOLD_MS = 1500;
   const CLOSE_WAIT_MS = 3000;
@@ -140,7 +142,10 @@
   async function init() {
     try {
       const res = await fetch(CUES_URL, { cache: "no-store" });
-      if (!res.ok) throw new Error(`No lesson "${LESSON}".`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `No lesson "${LESSON}".`);
+      }
       state.lesson = await res.json();
       const polls = state.lesson.cues.filter((cue) => cue.poll).length;
       const speaks = state.lesson.cues.filter((cue) => cue.speak).length;

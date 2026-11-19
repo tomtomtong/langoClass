@@ -1,7 +1,7 @@
 // What Uncle Tommy says about a question's results on the autoclass page.
 //
-// Nothing here is made up while the class waits. Build time (autoclass-video/build.mjs) records
-// many short lines in his voice, grouped by situation (the "banks" in cues.json); this module
+// Nothing here is made up while the class waits. The lesson render (video-container/autoclass/)
+// records many short lines in his voice, grouped by situation (the "banks" in cues.json); this module
 // only reads the numbers and picks which lines to play. So it is quick, free, never says
 // something nobody checked, and never says it wrong: each bank is written for one situation.
 //

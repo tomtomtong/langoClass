@@ -2,6 +2,10 @@
 //   POST /jobs { jobId, text, routerBase }  start making the video
 //   GET  /jobs/:id                           status, logs, progress
 //   GET  /jobs/:id/video                     the finished MP4
+// and autoclass lesson renders (autoclass/job.mjs):
+//   POST /autoclass/jobs { jobId, lessonId, script, lines, mediaUrl, routerBase }
+//   GET  /autoclass/jobs/:id                 status, logs, progress, and when done the file list
+//   GET  /autoclass/jobs/:id/files/<name>    one finished file
 // Steps: lesson plan (router LLM) -> Tommy's voice per slide (router TTS)
 // -> HyperFrames project -> render.
 import fs from "node:fs";
@@ -13,11 +17,15 @@ import { fileURLToPath } from "node:url";
 import { planLecture } from "./plan.mjs";
 import { speak, speechLanguage } from "./voice.mjs";
 import { lectureScenes, writeProject } from "./build.mjs";
+import { badAutoclassRequest, jobFile, runAutoclassJob } from "./autoclass/job.mjs";
 
 const PORT = Number(process.env.PORT || 8080);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WORK = process.env.VIDEO_WORK_DIR || path.join(os.tmpdir(), "lecture-jobs");
 const HF_BIN = process.env.HYPERFRAMES_BIN || "hyperframes";
+// The autoclass compositions were made with a newer HyperFrames than the lectures; the Dockerfile
+// installs it beside the lecture one so lecture renders do not change.
+const AUTOCLASS_HF_BIN = process.env.AUTOCLASS_HYPERFRAMES_BIN || HF_BIN;
 const MAX_LOGS = 60;
 const RENDER_FPS = process.env.RENDER_FPS || "24";
 const RENDER_QUALITY = process.env.RENDER_QUALITY || "standard";
@@ -102,13 +110,13 @@ async function runJob(job, text, routerBase) {
   }
 }
 
-function render(job, dir, output) {
+function render(job, dir, output, bin = HF_BIN) {
   return new Promise((resolve, reject) => {
     // Capture is nearly all of the time: 24 fps cuts a fifth of the frames, and
     // one Chrome per CPU keeps every core busy (each needs about 256 MB).
     const args = ["render", dir, "-o", output, "--fps", RENDER_FPS, "--quality", RENDER_QUALITY, "--workers", RENDER_WORKERS];
     // stdin closed: with it open the CLI can sit waiting for input.
-    const child = spawn(HF_BIN, args, { cwd: dir, env: { ...process.env, HYPERFRAMES_NO_TELEMETRY: "1" }, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(bin, args, { cwd: dir, env: { ...process.env, HYPERFRAMES_NO_TELEMETRY: "1" }, stdio: ["ignore", "pipe", "pipe"] });
     let tail = "";
     let lastOutputAt = Date.now();
     // A render that stops printing has stalled; stop it rather than hold the container.
@@ -168,7 +176,8 @@ function readBody(req) {
 }
 
 function publicJob(job) {
-  const { output, startedAt, ...rest } = job;
+  const { output, startedAt, files, ...rest } = job;
+  if (job.status === "completed" && files) rest.files = files;
   return { ...rest, elapsedSeconds: Math.round((Date.now() - startedAt) / 1000) };
 }
 
@@ -190,6 +199,27 @@ const server = http.createServer(async (req, res) => {
       log(job, "Queued.");
       runJob(job, text, routerBase);
       return sendJson(res, 202, publicJob(job));
+    }
+    if (req.method === "POST" && url.pathname === "/autoclass/jobs") {
+      const body = JSON.parse((await readBody(req)) || "{}");
+      const problem = badAutoclassRequest(body);
+      if (problem) return sendJson(res, 400, { message: problem });
+      const existing = jobs.get(body.jobId);
+      if (existing) return sendJson(res, 202, publicJob(existing));
+      const job = newJob(body.jobId);
+      log(job, "Queued.");
+      runAutoclassJob(job, body, { workDir: WORK, log, render: (j, dir, out) => render(j, dir, out, AUTOCLASS_HF_BIN) });
+      return sendJson(res, 202, publicJob(job));
+    }
+    const lesson = url.pathname.match(/^\/autoclass\/jobs\/([A-Za-z0-9_-]+)(?:\/files\/(.+))?$/);
+    if (req.method === "GET" && lesson) {
+      const job = jobs.get(lesson[1]);
+      if (!job) return sendJson(res, 404, { message: "Job not found." });
+      if (!lesson[2]) return sendJson(res, 200, publicJob(job));
+      const file = jobFile(job, decodeURIComponent(lesson[2]));
+      if (!file) return sendJson(res, 404, { message: "No such file." });
+      res.writeHead(200, { "content-type": file.type, "content-length": fs.statSync(file.path).size });
+      return fs.createReadStream(file.path).pipe(res);
     }
     const match = url.pathname.match(/^\/jobs\/([A-Za-z0-9_-]+)(\/video)?$/);
     if (req.method === "GET" && match) {

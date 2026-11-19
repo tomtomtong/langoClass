@@ -1,4 +1,4 @@
-// The autoclass page (public/autoclass*.{html,js,css} and its cues in public/autoclass/) is an
+// The autoclass page (public/autoclass*.{html,js,css}) and its API (autoclass-api.js) are an
 // internal test. wrangler.jsonc sends those paths here first, and they are served only while
 // the Worker has AUTOCLASS=1; without it they are a plain 404 and nothing else changes.
 // Turn it on with `wrangler dev --var AUTOCLASS:1`, or add "AUTOCLASS": "1" to the vars.

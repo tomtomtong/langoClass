@@ -12,7 +12,7 @@ export function speechLanguage(text) {
   return "en-US";
 }
 
-export async function speak(routerBase, text, language) {
+export async function speak(routerBase, text, language, speakingRate = SPEAKING_RATE) {
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -26,7 +26,7 @@ export async function speak(routerBase, text, language) {
           language,
           audioEncoding: "MP3",
           sampleRate: 24000,
-          speakingRate: SPEAKING_RATE,
+          speakingRate,
         }),
         signal: AbortSignal.timeout(90_000),
       });

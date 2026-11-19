@@ -130,7 +130,7 @@ export async function speak(env, text, { language = "en", purpose = "question", 
   return speakWithInworld(env, spoken, code);
 }
 
-// Uncle Tommy exactly as he sounds in the lesson videos (autoclass-video/build.mjs): the
+// Uncle Tommy exactly as he sounds in the lesson videos (video-container/autoclass/): the
 // plain uncle_tommy voice (not the UK one the room uses for English), at normal speed, in
 // English, Cantonese or Mandarin alike. Used where his voice must match a video he is in.
 const TOMMY_VIDEO_SPEAKING_RATE = 1.0;

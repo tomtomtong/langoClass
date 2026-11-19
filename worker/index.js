@@ -9,12 +9,14 @@ import { serveAutoclassPage } from "./autoclass-page.js";
 import { handleMaterialApi } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
+import { handleAutoclassApi } from "./autoclass-api.js";
 import { handleTurnstileConfig, turnstileGate } from "./turnstile.js";
 import { logRuntime, noteHost, observeApi } from "./lango-log.js";
 
 export { RoomDurableObject } from "./room.js";
 export { MediaContainer } from "./media-container.js";
 export { VideoContainer } from "./video-container.js";
+export { AutoclassContainer } from "./autoclass-container.js";
 
 const PAGE_REDIRECTS = new Map([
   ["/", "/host.html"],
@@ -73,6 +75,20 @@ const app = {
         })
       );
       return new Response("Video backend unavailable", { status: 502 });
+    }
+
+    try {
+      const autoclass = await handleAutoclassApi(request, env, incoming);
+      if (autoclass) return autoclass;
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          message: "autoclass_request_failed",
+          path: incoming.pathname,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      return Response.json({ message: "Autoclass backend unavailable." }, { status: 502 });
     }
 
     if (uploadKey(incoming.pathname)) {
