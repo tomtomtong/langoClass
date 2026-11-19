@@ -5,6 +5,7 @@ import { handleConfigApi, withSettings } from "./app-settings.js";
 import { handleRoomApi } from "./room-api.js";
 import { handleJoinLinks } from "./join-links.js";
 import { serveUpload, uploadKey } from "./uploads.js";
+import { serveAutoclassPage } from "./autoclass-page.js";
 import { handleMaterialApi } from "./material.js";
 import { handleModelRequest } from "./models.js";
 import { handleVideoRequest } from "./video.js";
@@ -31,6 +32,9 @@ const app = {
         return Response.redirect(incoming.toString(), 302);
       }
     }
+
+    const autoclass = await serveAutoclassPage(request, env, incoming.pathname);
+    if (autoclass) return autoclass;
 
     const roomId = roomSocketId(incoming.pathname);
     if (roomId) {

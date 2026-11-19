@@ -1,0 +1,802 @@
+/* Autoclass internal test page. Lango tokens from DESIGN.md. */
+:root {
+  --page: #eaf1ff;
+  --cream: #fffdf8;
+  --ink: #1f1a24;
+  --muted: #6b6478;
+  --purple: #a1268e;
+  --purple-deep: #743c9b;
+  --teal: #007f78;
+  --teal-soft: #d8f7f2;
+  --gold: #f9b545;
+  --error: #b92d4f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--page);
+  color: var(--ink);
+  font-family: "Nunito", system-ui, sans-serif;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.setup {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.setup-card {
+  width: min(640px, 100%);
+  background: var(--cream);
+  border-radius: 28px;
+  padding: 36px 40px;
+  box-shadow: 0 20px 50px rgba(80, 40, 120, 0.1);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--purple-deep);
+}
+
+h1 {
+  margin: 6px 0 4px;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 4px 0;
+}
+
+label {
+  display: block;
+  margin: 20px 0 6px;
+  font-weight: 800;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+}
+
+select {
+  flex: 1;
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid #ddd6ea;
+  background: #fff;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 800;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 2px solid var(--purple-deep);
+  background: #fff;
+  color: var(--purple-deep);
+  cursor: pointer;
+}
+
+.btn-primary {
+  margin-top: 18px;
+  width: 100%;
+  padding: 14px 22px;
+  border: 0;
+  color: #fff;
+  background: linear-gradient(90deg, var(--purple), var(--purple-deep));
+  font-size: 18px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.notice {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fff6e0;
+}
+
+.room {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  margin-top: 22px;
+}
+
+#room-qr {
+  width: 160px;
+  height: 160px;
+  background: #fff;
+  border-radius: 12px;
+}
+
+.pin {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.error {
+  color: var(--error);
+  font-weight: 700;
+  min-height: 1em;
+}
+
+/* Stage: the video fills the window at 16:9; the overlays are placed in the frame's own units. */
+.stage {
+  position: fixed;
+  inset: 0;
+  background: #0d0b12;
+  display: grid;
+  place-items: center;
+}
+
+.frame {
+  position: relative;
+  width: min(100vw, calc(100vh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  container-type: inline-size;
+  overflow: hidden;
+}
+
+#lesson-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--page);
+}
+
+/* The lesson video keeps its bottom 180 of 1080 px clear for this strip. */
+.live {
+  position: absolute;
+  left: 7.8cqw;
+  right: 7.8cqw;
+  bottom: 2.6cqw;
+  height: 6.2cqw;
+  padding: 0 2.2cqw;
+  border-radius: 999px;
+  background: var(--cream);
+  box-shadow: 0 1cqw 2.6cqw rgba(80, 40, 120, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 2.2cqw;
+  font-weight: 800;
+}
+
+.live-left,
+.live-right {
+  display: flex;
+  align-items: center;
+  gap: 1.2cqw;
+}
+
+.live.is-result {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.live-pin {
+  color: var(--muted);
+  font-size: 1.6cqw;
+}
+
+.live-timer {
+  min-width: 4.4cqw;
+  height: 4.4cqw;
+  border-radius: 50%;
+  background: var(--purple-deep);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 2.1cqw;
+  font-weight: 900;
+}
+
+.live-timer:empty {
+  display: none;
+}
+
+.final {
+  position: absolute;
+  inset: 0;
+  background: rgba(234, 241, 255, 0.96);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.final h2 {
+  margin: 0 0 2cqw;
+  font-size: 4.4cqw;
+  font-weight: 900;
+}
+
+.final ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  width: 46cqw;
+  counter-reset: rank;
+}
+
+.final li {
+  counter-increment: rank;
+  display: flex;
+  justify-content: space-between;
+  gap: 2cqw;
+  padding: 1.1cqw 2cqw;
+  margin-bottom: 0.9cqw;
+  border-radius: 1.6cqw;
+  background: var(--cream);
+  font-size: 2.3cqw;
+  font-weight: 800;
+}
+
+.final li::before {
+  content: counter(rank) ".";
+  color: var(--purple-deep);
+  width: 3cqw;
+}
+
+.final li .name {
+  flex: 1;
+}
+
+.final li .score {
+  color: var(--purple);
+}
+
+.controls {
+  position: absolute;
+  top: 1.2cqw;
+  right: 1.2cqw;
+  display: flex;
+  gap: 0.6cqw;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.frame:hover .controls,
+.controls:focus-within {
+  opacity: 1;
+}
+
+.ctl {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(31, 26, 36, 0.72);
+  color: #fff;
+  cursor: pointer;
+}
+
+/* A poll covers the paused video: the question, and one bar for each option that grows as
+   the phones vote. It leaves the bottom strip to .live, like the video does. */
+.poll {
+  position: absolute;
+  inset: 0;
+  padding: 5.4cqw 7.8cqw 11cqw;
+  background: var(--page);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.poll-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.poll-tag {
+  padding: 0.5cqw 1.5cqw;
+  border-radius: 999px;
+  background: var(--gold);
+  font-size: 1.5cqw;
+  font-weight: 900;
+}
+
+.poll-voters {
+  color: var(--muted);
+  font-size: 1.7cqw;
+  font-weight: 800;
+}
+
+.poll h2 {
+  margin: 1.8cqw 0 2.8cqw;
+  font-size: 4.2cqw;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.poll-bars {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1.5cqw;
+}
+
+.poll-bars li {
+  display: grid;
+  grid-template-columns: 20cqw 1fr 4.4cqw;
+  align-items: center;
+  gap: 1.6cqw;
+  font-size: 2.7cqw;
+  font-weight: 800;
+}
+
+.poll-track {
+  height: 4.8cqw;
+  border-radius: 1.3cqw;
+  background: rgba(116, 60, 155, 0.1);
+  overflow: hidden;
+}
+
+.poll-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--purple-deep);
+  transition: width 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.poll-bars li:nth-child(2) .poll-fill {
+  background: var(--teal);
+}
+
+.poll-bars li:nth-child(3) .poll-fill {
+  background: var(--gold);
+}
+
+.poll-bars li:nth-child(4) .poll-fill {
+  background: var(--purple);
+}
+
+.poll-count {
+  text-align: right;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poll-fill {
+    transition: none;
+  }
+}
+
+/* "I don't get it" count, with a replay. It uses the strip the video keeps clear, and moves
+   up while the live strip is showing. */
+.lost-chip {
+  position: absolute;
+  left: 7.8cqw;
+  bottom: 2.6cqw;
+  height: 4.8cqw;
+  padding: 0 0.7cqw 0 1.8cqw;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cream);
+  box-shadow: 0 1cqw 2.6cqw rgba(80, 40, 120, 0.16);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 1.2cqw;
+  font: inherit;
+  font-size: 1.9cqw;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.live:not([hidden]) ~ .lost-chip {
+  bottom: 9.8cqw;
+}
+
+.lost-replay {
+  padding: 0.7cqw 1.6cqw;
+  border-radius: 999px;
+  background: var(--purple-deep);
+  color: #fff;
+  font-size: 1.5cqw;
+}
+
+/* Emoji reactions from the phones float up over the video. */
+.reactions {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.reaction-float {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3cqw;
+  animation: reaction-rise 3.2s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+.reaction-emoji {
+  font-size: 4.6cqw;
+  line-height: 1;
+}
+
+.reaction-name {
+  padding: 0.2cqw 0.8cqw;
+  border-radius: 999px;
+  background: rgba(31, 26, 36, 0.62);
+  color: #fff;
+  font-size: 1.05cqw;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@keyframes reaction-rise {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  12% { transform: translate(0, -6cqw) scale(1.05); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(var(--drift, 0), -40cqw) scale(1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction-float {
+    animation-duration: 2s;
+  }
+}
+
+/* Hands up: how many students have a question waiting for Uncle Tommy. */
+.hands-chip {
+  position: absolute;
+  left: 7.8cqw;
+  bottom: 8.4cqw;
+  height: 4.2cqw;
+  padding: 0 2cqw;
+  border-radius: 999px;
+  background: var(--cream);
+  box-shadow: 0 1cqw 2.6cqw rgba(80, 40, 120, 0.16);
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+  font-size: 1.8cqw;
+  font-weight: 800;
+  color: var(--purple-deep);
+}
+
+.hands-chip[hidden] {
+  display: none;
+}
+
+/* Uncle Tommy answers a student. The card is anchored where the small Tommy stands in the
+   video (--ax/--ay: right and bottom offsets, --aw/--ah: his size, all set from the cues file),
+   starts exactly his size and colour, then grows left and up while a live Tommy stays put on
+   top of him. Closing runs the same steps backwards. */
+.tutor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tutor[hidden] {
+  display: none;
+}
+
+.tutor-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 26, 36, 0.22);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.tutor.is-open .tutor-scrim {
+  opacity: 1;
+}
+
+.tutor-card {
+  position: absolute;
+  right: var(--ar);
+  bottom: var(--ab);
+  width: var(--aw);
+  height: var(--ah);
+  border-radius: 0.6cqw;
+  background: #e6eeff;
+  box-shadow: 0 0 0 rgba(80, 40, 120, 0);
+  overflow: hidden;
+  transition:
+    width 0.6s cubic-bezier(0.22, 0.8, 0.2, 1),
+    height 0.6s cubic-bezier(0.22, 0.8, 0.2, 1),
+    border-radius 0.6s ease,
+    background-color 0.6s ease,
+    box-shadow 0.6s ease,
+    opacity 0.3s ease;
+}
+
+.tutor.is-open .tutor-card {
+  width: 70cqw;
+  height: 34cqw;
+  border-radius: 2.4cqw;
+  background: var(--cream);
+  box-shadow: 0 2cqw 6cqw rgba(80, 40, 120, 0.28);
+}
+
+.tutor.is-fading .tutor-card {
+  opacity: 0;
+}
+
+.tutor-tommy {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: var(--aw);
+  height: var(--ah);
+  object-fit: contain;
+}
+
+.tutor-body {
+  position: absolute;
+  left: 2.8cqw;
+  top: 2.4cqw;
+  bottom: 2.4cqw;
+  right: calc(var(--aw) + 1.6cqw);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1cqw;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tutor.is-text .tutor-body {
+  opacity: 1;
+}
+
+.tutor-who {
+  margin: 0;
+  font-size: 1.5cqw;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--purple-deep);
+}
+
+.tutor-question {
+  margin: 0;
+  font-size: 2cqw;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--muted);
+}
+
+.tutor-answer {
+  margin: 0;
+  font-size: 2.5cqw;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+/* The answer's words light up as Tommy says them. */
+.tutor-answer .w {
+  opacity: 0.22;
+  transition: opacity 0.2s ease;
+}
+
+.tutor-answer .w.on {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutor-card,
+  .tutor-scrim,
+  .tutor-body {
+    transition-duration: 0.01s;
+  }
+}
+
+/* Results of a question: bars for each option, then Uncle Tommy's words about them. It covers the
+   paused video the way the poll does, but fades in and out so the lesson never jumps. */
+.result {
+  position: absolute;
+  inset: 0;
+  padding: 4.6cqw 7.8cqw;
+  background: var(--page);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.result[hidden] {
+  display: none;
+}
+
+.result.is-open {
+  opacity: 1;
+}
+
+.result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 66cqw;
+}
+
+.result-tag {
+  padding: 0.5cqw 1.6cqw;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #3b2a00;
+  font-size: 1.8cqw;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.result-summary {
+  font-size: 2cqw;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.result-question {
+  width: 66cqw;
+  margin: 1.4cqw 0 2cqw;
+  font-size: 3.4cqw;
+  font-weight: 900;
+  line-height: 1.12;
+}
+
+.result-bars {
+  width: 66cqw;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2cqw;
+}
+
+.result-bars li {
+  display: grid;
+  grid-template-columns: 4.4cqw 14cqw 1fr 12cqw;
+  align-items: center;
+  gap: 1.4cqw;
+  height: 5cqw;
+  font-size: 2.3cqw;
+  font-weight: 800;
+}
+
+.result-letter {
+  width: 4.4cqw;
+  height: 4.4cqw;
+  border-radius: 1.2cqw;
+  background: var(--purple-deep);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+}
+
+.result-track {
+  height: 3.4cqw;
+  border-radius: 999px;
+  background: #e2dcef;
+  overflow: hidden;
+}
+
+.result-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--purple-deep);
+  transition: width 0.9s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.result-count {
+  text-align: right;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* The right answer is teal with a tick; the rest recede. A silent student is a grey row, not a mistake. */
+.result-bars li.is-right .result-letter,
+.result-bars li.is-right .result-fill {
+  background: var(--teal);
+}
+
+.result-bars li.is-right {
+  color: var(--teal);
+}
+
+.result-bars li.is-right .result-count {
+  color: var(--teal);
+}
+
+.result-bars li.is-silent {
+  color: var(--muted);
+}
+
+.result-bars li.is-silent .result-letter {
+  background: #b9b3c4;
+}
+
+.result-bars li.is-silent .result-fill {
+  background: #b9b3c4;
+}
+
+.result-got {
+  width: 66cqw;
+  margin: 1.8cqw 0 0;
+  font-size: 1.9cqw;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.result-got[hidden] {
+  display: none;
+}
+
+.result-caption {
+  position: absolute;
+  left: 7.8cqw;
+  bottom: 3.4cqw;
+  width: 64cqw;
+  min-height: 7cqw;
+  margin: 0;
+  display: flex;
+  align-items: flex-end;
+  font-size: 2.6cqw;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--purple-deep);
+  transition: opacity 0.25s ease;
+}
+
+.result-caption.is-swapping {
+  opacity: 0;
+}
+
+.result-tommy {
+  position: absolute;
+  right: var(--ar);
+  bottom: var(--ab);
+  width: var(--aw);
+  height: var(--ah);
+  object-fit: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result,
+  .result-fill,
+  .result-caption {
+    transition-duration: 0.01s;
+  }
+}

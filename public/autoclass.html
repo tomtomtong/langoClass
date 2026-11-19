@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Autoclass (internal test) · LangoClass</title>
+  <!--
+    Internal test page: a self-running class. Plays a HyperFrames lesson video, pauses at the
+    cue times in <lesson>.cues.json, sends that quiz to the students' phones over the normal room
+    events, then resumes. Students use the usual join page. Nothing in host.html depends on this.
+  -->
+  <link rel="stylesheet" href="/autoclass.css" />
+</head>
+<body>
+  <section id="setup" class="setup">
+    <div class="setup-card">
+      <p class="eyebrow">Internal test · Autoclass</p>
+      <h1>Self-running class</h1>
+      <p id="setup-lesson" class="muted">Loading lesson…</p>
+
+      <div id="signin-needed" class="notice" hidden>
+        Sign in on <a href="/host.html">the host page</a> first, then come back here.
+      </div>
+
+      <div id="class-step" hidden>
+        <label for="class-select">Class</label>
+        <div class="row">
+          <select id="class-select"></select>
+          <button id="open-room" class="btn">Open room</button>
+        </div>
+      </div>
+
+      <div id="room-step" hidden>
+        <div class="room">
+          <img id="room-qr" alt="Join QR code" />
+          <div>
+            <p class="muted">Students join at</p>
+            <p><a id="room-link" target="_blank" rel="noopener"></a></p>
+            <p class="muted">Room PIN</p>
+            <p id="room-pin" class="pin"></p>
+          </div>
+        </div>
+        <p class="muted"><span id="joined-count">0</span> joined: <span id="joined-names"></span></p>
+        <button id="start-class" class="btn btn-primary">Start class</button>
+      </div>
+
+      <p id="setup-error" class="error" role="alert"></p>
+    </div>
+  </section>
+
+  <section id="stage" class="stage" hidden>
+    <div id="frame" class="frame">
+      <video id="lesson-video" playsinline preload="auto"></video>
+
+      <div id="poll" class="poll" hidden>
+        <div class="poll-head">
+          <span class="poll-tag">Class vote · no wrong answer</span>
+          <span id="poll-voters" class="poll-voters" aria-live="polite"></span>
+        </div>
+        <h2 id="poll-question"></h2>
+        <ol id="poll-bars" class="poll-bars"></ol>
+      </div>
+
+      <div id="live" class="live" hidden>
+        <div class="live-left">
+          <span class="live-phone" aria-hidden="true">📱</span>
+          <span id="live-text"></span>
+        </div>
+        <div class="live-right">
+          <span id="live-pin" class="live-pin"></span>
+          <span id="live-timer" class="live-timer" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <button id="lost" class="lost-chip" type="button" hidden>
+        <span aria-hidden="true">🤔</span>
+        <span id="lost-text" aria-live="polite"></span>
+        <span class="lost-replay">Replay</span>
+      </button>
+
+      <!-- How the class answered a question, with Uncle Tommy's words about it (autoclass.js "Results"). -->
+      <div id="result" class="result" hidden>
+        <div class="result-head">
+          <span id="result-tag" class="result-tag"></span>
+          <span id="result-summary" class="result-summary" aria-live="polite"></span>
+        </div>
+        <h2 id="result-question" class="result-question"></h2>
+        <ol id="result-bars" class="result-bars"></ol>
+        <p id="result-got" class="result-got" hidden></p>
+        <p id="result-caption" class="result-caption" aria-live="polite"></p>
+        <video id="result-tommy" class="result-tommy" muted loop playsinline></video>
+      </div>
+
+      <div id="hands" class="hands-chip" hidden>
+        <span aria-hidden="true">✋</span>
+        <span id="hands-text" aria-live="polite"></span>
+      </div>
+
+      <!-- A student's question, answered by Uncle Tommy: the card grows out of the small Tommy
+           in the video and shrinks back into him (autoclass.js "Tutor"). -->
+      <div id="tutor" class="tutor" hidden>
+        <div class="tutor-scrim"></div>
+        <div class="tutor-card">
+          <div class="tutor-body">
+            <p class="tutor-who"><span aria-hidden="true">✋</span> <span id="tutor-name"></span></p>
+            <p id="tutor-question" class="tutor-question"></p>
+            <p id="tutor-answer" class="tutor-answer"></p>
+          </div>
+          <video id="tutor-tommy" class="tutor-tommy" muted loop playsinline></video>
+        </div>
+      </div>
+
+      <div id="reactions" class="reactions" aria-hidden="true"></div>
+
+      <div id="final" class="final" hidden>
+        <h2>Class leaderboard</h2>
+        <ol id="final-list"></ol>
+        <p id="final-empty" class="muted" hidden>No answers yet.</p>
+      </div>
+
+      <div class="controls">
+        <button id="btn-pause" class="ctl" type="button">Pause</button>
+        <button id="btn-skip" class="ctl" type="button" hidden>Skip question</button>
+        <button id="btn-end" class="ctl" type="button">End class</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="/room-ws.js"></script>
+  <script src="/common.js"></script>
+  <script src="/exercise-utils.js"></script>
+  <script src="/autoclass-analysis.js"></script>
+  <script src="/autoclass.js"></script>
+</body>
+</html>

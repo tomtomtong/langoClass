@@ -1,0 +1,74 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #outro-title {
+      position: absolute;
+      left: 900px;
+      top: 210px;
+      font-size: 120px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+    #outro-recap {
+      position: absolute;
+      left: 900px;
+      top: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+    .recap-row {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 54px;
+      font-weight: 800;
+    }
+    .recap-row .em {
+      font-size: 64px;
+      width: 80px;
+      text-align: center;
+    }
+    .recap-row .to {
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .recap-row .h {
+      color: var(--purple);
+      font-weight: 900;
+    }
+    #outro-bye {
+      position: absolute;
+      left: 900px;
+      top: 860px;
+      font-size: 56px;
+      font-weight: 900;
+      color: var(--purple-deep);
+    }
+  </style>
+  <div id="root" data-composition-id="outro" data-width="1920" data-height="1080">
+    <h2 id="outro-title"><span class="word">Great </span><span class="word hl">job!</span></h2>
+    <div id="outro-recap">
+      <div class="recap-row"><span class="em">🐦</span><span>bird</span><span class="to">lives in a</span><span class="h">nest</span></div>
+      <div class="recap-row"><span class="em">🐝</span><span>bee</span><span class="to">lives in a</span><span class="h">hive</span></div>
+      <div class="recap-row"><span class="em">🐇</span><span>rabbit</span><span class="to">lives in a</span><span class="h">burrow</span></div>
+      <div class="recap-row"><span class="em">🐻</span><span>bear</span><span class="to">lives in a</span><span class="h">cave</span></div>
+    </div>
+    <p id="outro-bye" data-hold>See you next time!</p>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#outro-title .word", { opacity: 0, filter: "blur(6px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.1 }, 0.5);
+      tl.fromTo("#outro-recap .recap-row", { opacity: 0, x: 40, filter: "blur(8px)" },
+        { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 1.681 }, 2.966);
+      tl.fromTo("#outro-bye", { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 10.027);
+      window.__timelines["outro"] = tl;
+    })();
+  </script>
+</template>
