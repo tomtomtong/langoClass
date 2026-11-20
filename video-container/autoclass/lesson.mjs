@@ -51,6 +51,13 @@ const TOMMY_POS = {
 
 const r3 = (n) => Math.round(n * 1000) / 1000;
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// Option text gets smaller as it gets longer, so two or three lines fit inside the box instead of
+// spilling out of it. Chinese characters count as one, Latin letters about half.
+const optWeight = (text) => [...String(text)].reduce((sum, ch) => sum + (ch.codePointAt(0) >= 0x2e80 ? 1 : 0.55), 0);
+const optSize = (text) => {
+  const w = optWeight(text);
+  return w <= 6 ? "" : w <= 16 ? "opt-md" : w <= 27 ? "opt-sm" : "opt-xs";
+};
 const words = (list, hl) => list.map((w, i) => `<span class="word${i === hl ? " hl" : ""}">${esc(w)}${i < list.length - 1 ? " " : ""}</span>`).join("");
 
 function sceneFile(id, body, script, extraCss = "") {
@@ -227,7 +234,7 @@ ${lines.join("\n")}
     placeVoice(vAsk, start + askAt);
     placeVoice(vReveal, start + revealAt + 0.1);
     audioClips.push({ id: `sfx-correct-${n}`, file: "assets/correct.mp3", at: r3(start + revealAt + 0.03), seconds: 2, volume: 0.7, track: 4 });
-    const opts = scene.options.map((o, i) => `      <div id="${id}-opt${i}" class="opt"><span class="letter">${LETTERS[i]}</span><span>${esc(o)}</span><span id="${id}-tick${i}" class="tick">✓</span></div>`).join("\n");
+    const opts = scene.options.map((o, i) => `      <div id="${id}-opt${i}" class="opt ${optSize(o)}"><span class="letter">${LETTERS[i]}</span><span class="opt-text">${esc(o)}</span><span id="${id}-tick${i}" class="tick">✓</span></div>`).join("\n");
     const body = `    <div id="${id}-tag" class="quiz-tag">Question ${n}</div>
     <h2 id="${id}-q" class="quiz-q">${words(scene.q.split(" "), -1)}</h2>
     <div id="${id}-options" class="options" data-hold>

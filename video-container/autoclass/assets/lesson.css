@@ -178,16 +178,32 @@ body {
   gap: 34px 40px;
 }
 .opt {
-  height: 170px;
+  min-height: 170px;
+  box-sizing: border-box;
   border-radius: 40px;
   background: var(--cream);
   border: 6px solid #e2dcef;
   display: flex;
   align-items: center;
   gap: 36px;
-  padding: 0 40px;
+  padding: 14px 40px;
   font-size: 66px;
   font-weight: 800;
+  line-height: 1.12;
+}
+/* Longer options get a smaller size (optSize in lesson.mjs) so they stay inside the box. */
+.opt.opt-md {
+  font-size: 54px;
+}
+.opt.opt-sm {
+  font-size: 44px;
+}
+.opt.opt-xs {
+  font-size: 38px;
+}
+.opt .opt-text {
+  min-width: 0;
+  text-wrap: balance;
 }
 .opt .letter {
   flex: 0 0 auto;
