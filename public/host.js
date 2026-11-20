@@ -16,6 +16,8 @@ const state = {
   selectedSection: null,
   exercises: [],
   selectedExercise: null,
+  // Id of an exercise the host tapped in the list. Start plays it instead of skipping ahead.
+  pickedExerciseId: null,
   hostProgress: null,
   hostProgressSaving: false,
   activeRoomId: null,
@@ -1324,9 +1326,12 @@ function resolveHostNextAction() {
 // Start on the last exercise of a finished section moves on to the next section, but
 // only when one is unlocked. Otherwise it replays the exercise, so the host is never
 // left with a Start button that only redraws the same list.
+// An exercise the host tapped is always played, so Buzz In (last in every section) can be
+// started in a finished section; only the preselected last exercise acts as "Next section".
 function shouldStartSkipToNextSection() {
   return (
     Boolean(state.selectedExercise) &&
+    state.pickedExerciseId !== state.selectedExercise.id &&
     isHostSectionComplete(state.selectedSection) &&
     shouldAdvanceToNextSection(state.selectedExercise, state.selectedSection)
   );
@@ -2767,6 +2772,7 @@ function renderExercises({ animate = false } = {}) {
       const exercise = exercises[exerciseIndex];
       if (!exercise || !isHostExerciseUnlocked(exercise, exerciseIndex, exercises)) return;
       state.selectedExercise = exercise;
+      state.pickedExerciseId = exercise.id;
       void markHostExerciseSelected(exercise.id);
       renderExercises();
       $("#btn-start-session").disabled = !state.selectedExercise;
@@ -3318,6 +3324,7 @@ async function showSectionExercises() {
     const exercises = getSelectedSectionExercises();
     if (exercises.length) {
       state.selectedExercise = preferredHostExercise(exercises);
+      state.pickedExerciseId = null;
       // Refresh skeleton count once we know the real list length.
       if (exercises.length !== expectedCount) {
         renderExerciseListSkeleton(exercises.length);
