@@ -786,11 +786,17 @@ let buzzinPlaybackFinish = null;
 let buzzinSpeechBgmDuckDepth = 0;
 let uncleTommySpeakToken = 0;
 const BUZZIN_SPEECH_BGM_VOLUME = 0.06;
-/** Raw TTS sits near -19 LUFS; +5 dB puts Uncle Tommy ~5 dB over the -20 LUFS host effects without clipping. */
-const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 1.8;
-/** Student recordings are raw mic captures; scale them so their peaks land near this level. */
-const BUZZIN_RESPONSE_TARGET_PEAK = 0.5;
-const BUZZIN_RESPONSE_MAX_GAIN = 8;
+/** Raw TTS sits near -19 LUFS; +11 dB puts Uncle Tommy well over the -20 LUFS host effects; the limiter catches the peaks. */
+const UNCLE_TOMMY_TTS_PLAYBACK_GAIN = 3.5;
+/**
+ * Student recordings are raw mic captures, often very quiet. Loudness is matched on RMS
+ * (peak matching is fooled by one click or breath pop); the limiter in
+ * attachBuzzinPlaybackGain catches the peaks that boost pushes over full scale.
+ */
+const BUZZIN_RESPONSE_TARGET_RMS = 0.12;
+const BUZZIN_RESPONSE_MAX_GAIN = 30;
+/** Boosted peaks above this multiple of full scale would be squashed too hard by the limiter. */
+const BUZZIN_RESPONSE_MAX_PEAK_AFTER_GAIN = 3;
 
 function getBuzzinSpeechBgmDuckVolume() {
   if (typeof getHostSpeechBgmDuckVolume === "function") {
@@ -1015,7 +1021,7 @@ function playBuzzinSpokenFeedbackAudio(item) {
   return playUncleTommyTts(item?.analysisAudio, item?.analysisAudioFormat || "mp3");
 }
 
-/** Gain that brings a recording's loudest sample to BUZZIN_RESPONSE_TARGET_PEAK. */
+/** Gain that brings a recording's speech loudness (RMS of non-silent samples) to BUZZIN_RESPONSE_TARGET_RMS. */
 async function buzzinResponseRecordingGain(base64, format) {
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextCtor) return 1;
@@ -1035,7 +1041,24 @@ async function buzzinResponseRecordingGain(base64, format) {
       }
     }
     if (peak < 0.001) return 1;
-    return Math.max(0.5, Math.min(BUZZIN_RESPONSE_MAX_GAIN, BUZZIN_RESPONSE_TARGET_PEAK / peak));
+    // Ignore the silent gaps so a short answer with long pauses is not over-boosted.
+    const speechFloor = peak * 0.05;
+    let sumSquares = 0;
+    let count = 0;
+    for (let c = 0; c < decoded.numberOfChannels; c += 1) {
+      const data = decoded.getChannelData(c);
+      for (let i = 0; i < data.length; i += 1) {
+        const abs = Math.abs(data[i]);
+        if (abs >= speechFloor) {
+          sumSquares += abs * abs;
+          count += 1;
+        }
+      }
+    }
+    const rms = count ? Math.sqrt(sumSquares / count) : peak;
+    const wanted = BUZZIN_RESPONSE_TARGET_RMS / Math.max(rms, 0.0005);
+    const peakLimited = BUZZIN_RESPONSE_MAX_PEAK_AFTER_GAIN / peak;
+    return Math.max(1, Math.min(BUZZIN_RESPONSE_MAX_GAIN, wanted, peakLimited));
   } catch {
     return 1;
   } finally {
