@@ -118,11 +118,20 @@ export function speechReady(env, variant) {
   return Boolean(elevenLabsEndpoint(env));
 }
 
+// An exercise saved with the default "en" speech language but written in Chinese would be read by the
+// English Uncle Tommy voice. Pick the language the text is written in: Cantonese when it has Cantonese
+// words, else Mandarin. Any other language setting is left as it is.
+export function speechLanguageFor(text, language) {
+  const code = speakLangCode(language) || "en";
+  if (code !== "en" || !/[\u3400-\u9fff]/.test(String(text || ""))) return language || "en";
+  return /[嘅咩唔喺噉乜哋佢睇冇咗啲嚟係]/.test(text) ? "yue" : "zh";
+}
+
 // Returns { audioContent, format } with base64 MP3 audio.
 export async function speak(env, text, { language = "en", purpose = "question", variant = "" } = {}) {
   const trimmed = String(text || "").trim();
   if (!trimmed) throw new Error("No text to synthesize.");
-  const code = speakLangCode(language) || "en";
+  const code = speakLangCode(speechLanguageFor(trimmed, language)) || "en";
   const spoken = await cantoneseSpeech(env, trimmed, code);
   const provider = code === "yue" ? "elevenlabs" : code === "zh" ? "inworld" : speechProvider(env, variant);
   if (provider === "elevenlabs") return speakWithElevenLabs(env, spoken, code);
@@ -138,6 +147,8 @@ export async function speakAsTommy(env, text, { language = "en" } = {}) {
   const trimmed = String(text || "").trim();
   if (!trimmed) throw new Error("No text to synthesize.");
   const code = speakLangCode(language) || "en";
+  // Cantonese is always ElevenLabs, so Tommy's Cantonese answers match the Cantonese videos.
+  if (code === "yue") return speakWithElevenLabs(env, trimmed, code);
   const body = {
     voice: INWORLD_TTS_VOICE,
     model: INWORLD_TTS_MODEL,
