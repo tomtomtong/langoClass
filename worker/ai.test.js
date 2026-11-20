@@ -45,7 +45,7 @@ test("English speech uses the UK voice and other languages keep the default voic
   assert.equal(voices[1], "default-zylgts2tamenvybeti3z0w__uncle_tommy");
 });
 
-test("speakAsTommy uses the lesson videos' voice, even for English and Cantonese", async () => {
+test("speakAsTommy uses the lesson videos' voice for English", async () => {
   const bodies = [];
   globalThis.fetch = async (url, init) => {
     assert.equal(url, "https://cms.example/api/router/tts");
@@ -54,14 +54,25 @@ test("speakAsTommy uses the lesson videos' voice, even for English and Cantonese
   };
   const env = { CMS_API_BASE: "https://cms.example" };
   assert.deepEqual(await speakAsTommy(env, "Hello Ada"), { audioContent: "SUQz", format: "mp3" });
-  await speakAsTommy(env, "你好", { language: "yue" });
   for (const body of bodies) {
     assert.equal(body.voice, "default-zylgts2tamenvybeti3z0w__uncle_tommy"); // not the _uk one
     assert.equal(body.speakingRate, 1);
     assert.equal(body.model, "inworld-tts-1.5-max");
   }
-  assert.deepEqual(bodies.map((body) => body.language), ["en-US", "yue-HK"]);
+  assert.deepEqual(bodies.map((body) => body.language), ["en-US"]);
   await assert.rejects(() => speakAsTommy(env, "  "), /No text/);
+});
+
+test("speakAsTommy reads Cantonese with the ElevenLabs Cantonese voice", async () => {
+  let body;
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "https://cms.example/api/router/elevenlabs-tts");
+    body = JSON.parse(init.body);
+    return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
+  };
+  await speakAsTommy({ CMS_API_BASE: "https://cms.example" }, "你好", { language: "yue" });
+  assert.equal(body.voiceId, "SPRXwABrRtJGzRFBpO1H");
+  assert.equal(body.languageCode, "yue");
 });
 
 test("ElevenLabs speech goes through the CMS router", async () => {
@@ -150,4 +161,16 @@ test("the Cantonese marking prompt is chosen for yue rooms", () => {
   assert.match(prompt, /香港廣東話老師助手/);
   assert.match(prompt, /預期正確答案（老師參考）：蘋果/);
   assert.match(buzzFeedbackPrompt({ topic: "Fruit", studentName: "Ada", responseText: "apple", language: "en" }), /No recording was supplied/);
+});
+
+test("Chinese text saved with the English speech language is read in Chinese, not by the English voice", async () => {
+  const urls = [];
+  globalThis.fetch = async (url) => {
+    urls.push(url);
+    return new Response(JSON.stringify({ audio: "data:audio/mpeg;base64,SUQz" }));
+  };
+  const env = { CMS_API_BASE: "https://cms.example" };
+  await speak(env, "深偽係指？", { language: "en" });
+  await speak(env, "Hello Ada", { language: "en" });
+  assert.deepEqual(urls, ["https://cms.example/api/router/elevenlabs-tts", "https://cms.example/api/router/tts"]);
 });

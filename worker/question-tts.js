@@ -1,11 +1,11 @@
 // CMS question speech previews, as server.js /api/cms/prefetch-question-tts and
 // /api/cms/question-tts/:cacheKey served them. Audio is made by ai.js and kept
 // in R2 under question-tts/, outside the public uploads folders.
-import { speak, speechProvider, speechReady } from "./ai.js";
+import { speak, speechLanguageFor, speechProvider, speechReady } from "./ai.js";
 import { json, readJson, requireTeacher } from "./d1-store.js";
 
 // Bump when provider, voice or styling changes should drop cached audio.
-const CACHE_VERSION = "w4";
+const CACHE_VERSION = "w5";
 const MAX_ITEMS = 200;
 const CONCURRENCY = 4;
 
@@ -35,6 +35,7 @@ async function prefetch(request, env) {
         force: Boolean(raw?.force),
       }))
       .filter((item) => item.text)
+      .map((item) => ({ ...item, speakLangCode: langCode(speechLanguageFor(item.text, item.speakLangCode)) }))
       .slice(0, MAX_ITEMS)
   );
 
@@ -76,7 +77,8 @@ async function prefetchOne(env, item, variant) {
 // only the first room to ask pays for the speech model. Storage trouble never
 // stops the question: it falls back to making the speech.
 export async function speakQuestion(env, text, { language = "en", variant = "" } = {}) {
-  const item = { text: String(text || "").trim(), speakLangCode: langCode(language), purpose: "question" };
+  const spoken = String(text || "").trim();
+  const item = { text: spoken, speakLangCode: langCode(speechLanguageFor(spoken, language)), purpose: "question" };
   let objectKey = null;
   try {
     objectKey = `question-tts/${await cacheKeyFor(item, speechProvider(env, variant))}.mp3`;

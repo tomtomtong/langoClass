@@ -1,14 +1,22 @@
 // Uncle Tommy's voice for each slide, from the newcms router's Inworld TTS with
 // the same voice and settings the Worker uses (worker/ai.js speakWithRouter).
+// Cantonese (yue-HK) is the exception: it is always ElevenLabs v4 with the Cantonese
+// voice below, via the router's /elevenlabs-tts, as in worker/ai.js.
 import { createHash } from "node:crypto";
 
 const VOICE = "default-zylgts2tamenvybeti3z0w__uncle_tommy";
 const MODEL = "inworld-tts-1.5-max";
 const SPEAKING_RATE = 1.12;
+const ELEVENLABS_CANTONESE_VOICE = "SPRXwABrRtJGzRFBpO1H";
+const ELEVENLABS_MODEL = "eleven_v4";
+const ELEVENLABS_STABILITY = 0.5;
 
 // The name a line is kept under in the autoclass voice cache (R2 uploads/autoclass/_voice/):
 // everything that changes how it sounds is in it, so a cached line is never the wrong one.
 export function voiceKey(text, language, speakingRate = SPEAKING_RATE) {
+  if (language === "yue-HK") {
+    return createHash("sha1").update(`v2|elevenlabs|${ELEVENLABS_CANTONESE_VOICE}|${ELEVENLABS_MODEL}|${text}`).digest("hex").slice(0, 24);
+  }
   return createHash("sha1").update(`v1|${VOICE}|${MODEL}|${language}|${speakingRate}|${text}`).digest("hex").slice(0, 24);
 }
 
@@ -23,18 +31,15 @@ export async function speak(routerBase, text, language, speakingRate = SPEAKING_
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(`${routerBase}/tts`, {
+      const cantonese = language === "yue-HK";
+      const res = await fetch(`${routerBase}/${cantonese ? "elevenlabs-tts" : "tts"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          text,
-          voice: VOICE,
-          model: MODEL,
-          language,
-          audioEncoding: "MP3",
-          sampleRate: 24000,
-          speakingRate,
-        }),
+        body: JSON.stringify(
+          cantonese
+            ? { text, voiceId: ELEVENLABS_CANTONESE_VOICE, modelId: ELEVENLABS_MODEL, languageCode: "yue", stability: ELEVENLABS_STABILITY }
+            : { text, voice: VOICE, model: MODEL, language, audioEncoding: "MP3", sampleRate: 24000, speakingRate }
+        ),
         signal: AbortSignal.timeout(90_000),
       });
       const data = await res.json().catch(() => ({}));
