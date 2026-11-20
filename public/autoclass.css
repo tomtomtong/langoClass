@@ -685,12 +685,13 @@ select {
 
 .result-bars li {
   display: grid;
-  grid-template-columns: 4.4cqw 14cqw 1fr 12cqw;
+  grid-template-columns: 4.4cqw 27cqw 1fr 11cqw;
   align-items: center;
   gap: 1.4cqw;
-  height: 5cqw;
-  font-size: 2.3cqw;
+  min-height: 5cqw;
+  font-size: 2.1cqw;
   font-weight: 800;
+  line-height: 1.15;
 }
 
 .result-letter {
