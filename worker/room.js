@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed, openAnswerSubmitCheck, tutorAskCheck } from "./room-events.js";
-import { parseTutorReply, tutorPrompt } from "./room-tutor.js";
+import { parseTutorReply, tutorLanguage, tutorPrompt } from "./room-tutor.js";
 import { completeText, speak, speakAsTommy, speechReady, textModelReady, transcribe } from "./ai.js";
 import { withSettings } from "./app-settings.js";
 import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
@@ -268,8 +268,8 @@ export class RoomDurableObject extends DurableObject {
       await completeText(env, [{ role: "user", content: tutorPrompt(job) }], 300, { title: "Lango Autoclass" })
     );
     if (!reply.ok) return { ok: true, declined: true };
-    // Answer in Cantonese when the question was asked in Chinese, else in the lesson's language.
-    const language = /[\u3400-\u9fff]/.test(job.question) ? "yue" : job.lesson?.language || "en";
+    // The same language the prompt asked for (room-tutor.js tutorLanguage).
+    const language = job.language || tutorLanguage(job.question, job.lesson);
     const outcome = { ok: true, question: reply.question, answer: reply.answer, language };
     try {
       // His voice in the lesson video, so the answer sounds like the same Tommy.

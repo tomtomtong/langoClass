@@ -297,7 +297,7 @@
 
   async function runCue(cue) {
     if (cue.poll) return runPoll(cue);
-    if (cue.speak) return runSpeak(cue);
+    if (cue.speak || cue.ask) return runSpeak(cue);
     const quiz = mcQuizPayloadFromExercise(cue.exercise);
     state.quiz = { cue, endsAt: 0, clockOffset: 0, timer: null };
     clearLost();
@@ -486,7 +486,12 @@
   // records it at once (Everyone Answers, in practice mode: worker/room-open-answer.js). There are
   // no points and nothing is kept; each phone hears back "great", "almost" or "tried" at once. Those
   // count as option 0, 1 or 2 of a three-option question, so the results page and Tommy's lines
-  // (cues.json `speakAnalysis`) work as they do for a quiz. ----
+  // (cues.json `speakAnalysis`) work as they do for a quiz.
+  //
+  // Ask (cue.ask) runs the same round for an open question: a real Everyone Answers round
+  // (exercise.autoclass: the room marks each answer with the model, saves no points and does not
+  // read the question again). The verdicts (correct, partial, incorrect) are options 0, 1 and 2, and
+  // Tommy uses the quiz banks. Marking takes a few seconds, so the results wait for it. ----
 
   const SPEAK_LATE_MS = 5000; // a recording stopped by the clock still has to be sent and read
   const SPEAK_ALL_IN_MS = 1000; // after the last student has had a go
@@ -496,12 +501,25 @@
     { text: "Almost", letter: "👍" },
     { text: "Good try", letter: "💪" },
   ];
+  const ASK_VERDICTS = ["correct", "partial", "incorrect"];
+  const ASK_OPTIONS = [
+    { text: "Got it", letter: "✅" },
+    { text: "Partly", letter: "👍" },
+    { text: "Not yet", letter: "💪" },
+  ];
+  const ASK_MARK_MAX_MS = 20000; // never wait longer than this for the model to mark the answers
+
+  // Every answer is in and marked (practice answers are marked as they arrive).
+  const marked = (run) => !run.ask || run.responses.every((r) => r.analysisStatus !== "pending");
 
   async function runSpeak(cue) {
-    const run = { cue, speak: true, timer: null, endsAt: 0, clockOffset: 0, closing: false, responses: [], finishTimer: null };
+    const ask = !!cue.ask;
+    const seconds = (ask ? cue.ask.seconds : cue.speak.seconds) || (ask ? 30 : 15);
+    const prompt = ask ? "Answer on your phone" : "Say it on your phone";
+    const run = { cue, speak: true, ask, timer: null, endsAt: 0, clockOffset: 0, closing: false, settled: false, responses: [], finishTimer: null, capTimer: null };
     state.quiz = run;
     clearLost();
-    el("btn-skip").textContent = "Skip speaking";
+    el("btn-skip").textContent = ask ? "Skip question" : "Skip speaking";
     el("btn-skip").hidden = false;
     setLive("Get ready…", "");
     try {
@@ -510,42 +528,59 @@
       const opened = await emit("open_openanswer_window");
       if (state.quiz !== run) return; // skipped meanwhile
       run.clockOffset = Number(opened.serverNow || Date.now()) - Date.now();
-      run.endsAt = Number(opened.endsAt) || Date.now() + (cue.speak.seconds || 15) * 1000;
+      run.endsAt = Number(opened.endsAt) || Date.now() + seconds * 1000;
     } catch (err) {
       console.warn("autoclass: could not start speaking", err);
       setLive(`Could not send it to the phones (${err.message}). Carrying on.`, "");
       setTimeout(() => finishSpeak(cue, false), 2500);
       return;
     }
-    setLive("Say it on your phone", "");
+    setLive(prompt, "");
     const tick = () => {
       const left = Math.max(0, Math.ceil((run.endsAt - (Date.now() + run.clockOffset)) / 1000));
       el("live-timer").textContent = String(left);
-      el("live-text").textContent = run.closing
-        ? "Thank you for speaking!"
-        : `Say it on your phone · ${run.responses.length} of ${Math.max(onlineCount(), run.responses.length)}`;
+      el("live-text").textContent = !run.closing
+        ? `${prompt} · ${run.responses.length} of ${Math.max(onlineCount(), run.responses.length)}`
+        : ask
+          ? "Thank you! Marking the answers…"
+          : "Thank you for speaking!";
       // Never wait on the room's close: if it is lost, the class still goes on.
-      if (!left && !run.finishTimer) run.finishTimer = setTimeout(() => finishSpeak(cue, true), SPEAK_LATE_MS + 1500);
+      if (!left && !run.finishTimer) run.finishTimer = setTimeout(() => finishSpeak(cue, true), (ask ? ASK_MARK_MAX_MS : SPEAK_LATE_MS) + 1500);
     };
     tick();
     run.timer = setInterval(tick, 250);
   }
 
-  function onSpeakUpdate(data = {}) {
+  // The round on screen, if this frame is about it: a speak round is practice, an ask round is not.
+  function openRun(data) {
     const run = state.quiz;
-    if (!run?.speak || !data.practice || !Array.isArray(data.responses)) return;
+    return run?.speak && !!data.practice === !run.ask ? run : null;
+  }
+
+  function onSpeakUpdate(data = {}) {
+    const run = openRun(data);
+    if (!run || !Array.isArray(data.responses)) return;
     run.responses = data.responses;
-    // Late recordings: once everyone online is in, there is nothing left to wait for.
-    if (run.closing && run.responses.length >= onlineCount()) scheduleSpeakFinish(run, SPEAK_ALL_IN_MS);
+    // Late recordings and late marks: once everything is in, there is nothing left to wait for.
+    if (run.closing) settleSpeak(run, "");
   }
 
   function onSpeakClosed(data = {}) {
-    const run = state.quiz;
-    if (!run?.speak || !data.practice) return;
+    const run = openRun(data);
+    if (!run) return;
     if (Array.isArray(data.responses)) run.responses = data.responses;
     run.closing = true;
     el("btn-skip").hidden = true;
-    scheduleSpeakFinish(run, data.closeReason === "all" ? SPEAK_ALL_IN_MS : SPEAK_LATE_MS);
+    if (run.ask) run.capTimer = setTimeout(() => finishSpeak(run.cue, true), ASK_MARK_MAX_MS);
+    settleSpeak(run, data.closeReason);
+  }
+
+  // After the close: wait for any answer still being marked, then for latecomers a little while.
+  function settleSpeak(run, closeReason) {
+    if (!marked(run)) return;
+    if (closeReason === "all" || run.responses.length >= onlineCount()) scheduleSpeakFinish(run, SPEAK_ALL_IN_MS);
+    else if (!run.settled) scheduleSpeakFinish(run, SPEAK_LATE_MS);
+    run.settled = true;
   }
 
   function scheduleSpeakFinish(run, ms) {
@@ -559,6 +594,7 @@
     if (!run?.speak || run.cue !== cue) return;
     clearInterval(run.timer);
     clearTimeout(run.finishTimer);
+    clearTimeout(run.capTimer);
     state.quiz = null;
     state.cueIndex += 1;
     el("btn-skip").hidden = true;
@@ -567,9 +603,11 @@
     const byId = new Map(run.responses.map((r) => [r.playerId, r]));
     const people = state.participants.filter((p) => p.online !== false).map((p) => ({ playerId: p.userId, name: p.displayName || p.name }));
     for (const r of run.responses) if (!people.some((p) => p.playerId === r.playerId)) people.push({ playerId: r.playerId, name: r.displayName });
+    // An answer the model could not mark (in time) still counts as a go: "good try" / "not yet".
     const results = people.map(({ playerId, name }) => {
-      const index = SPEAK_VERDICTS.indexOf(byId.get(playerId)?.practiceVerdict);
-      return { playerId, name, answerIndex: index < 0 ? (byId.has(playerId) ? 2 : null) : index, correct: index === 0 };
+      const answer = byId.get(playerId);
+      const index = run.ask ? ASK_VERDICTS.indexOf(answer?.answerVerdict) : SPEAK_VERDICTS.indexOf(answer?.practiceVerdict);
+      return { playerId, name, answerIndex: index < 0 ? (answer ? 2 : null) : index, correct: index === 0 };
     });
     const spoke = results.filter((r) => r.answerIndex !== null).length;
     setLive(results.length && heard ? `${spoke} of ${results.length} had a go` : "", "", true);
@@ -617,7 +655,7 @@
     state.asking = want;
     await emit("set_tutor", {
       enabled: want,
-      lesson: { title: state.lesson.title, outline: tutor.outline, language: tutor.language, sttLanguage: tutor.sttLanguage },
+      lesson: { title: state.lesson.title, outline: tutor.outline, audience: tutor.audience || "", language: tutor.language, sttLanguage: tutor.sttLanguage },
     }).catch((err) => {
       state.asking = !want;
       console.warn("autoclass: questions", err);
@@ -864,48 +902,94 @@
   }
 
   function resultOptions(cue) {
-    return cue.speak ? SPEAK_OPTIONS : cue.exercise.items[0].options;
+    if (cue.speak) return SPEAK_OPTIONS;
+    if (cue.ask) return ASK_OPTIONS;
+    return cue.exercise.items[0].options;
   }
 
+  const RESULT_SILENT_COLOR = "#cfc8da";
+
+  function t(key, vars, fallback) {
+    const text = typeof uiT === "function" ? uiT(key, vars) : key;
+    return text === key ? fallback : text;
+  }
+
+  function initialsOf(name) {
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return parts.slice(0, 2).map((part) => [...part][0]?.toUpperCase() || "").join("") || "?";
+  }
+
+  // Laid out like the host's quiz results: the question and its answer, then a donut of how the
+  // class answered, and the students who got it right.
   function renderResult(cue, payload, summary) {
     const item = cue.exercise.items[0];
     const speak = !!cue.speak;
-    el("result-tag").textContent = speak
-      ? "Speaking results"
-      : `Question ${String(cue.result.key || "").replace(/\D/g, "") || ""} results`.replace("Question  ", "");
-    el("result-question").textContent = speak ? `“${cue.speak.sentence}”` : item.title;
+    const ask = !!cue.ask;
+    const colors = typeof LANGO_MCQ_OPTION_COLORS !== "undefined" ? LANGO_MCQ_OPTION_COLORS : ["#E838A8", "#FFE566", "#5C3A9E", "#45E0E8"];
+    el("result-tag").textContent = speak ? "Speaking results" : t("mcq.resultsTitle", null, "Results");
+    el("result-question").textContent = speak ? `“${cue.speak.sentence}”` : ask ? cue.ask.question : item.title;
     el("result-summary").textContent = !summary.total
       ? ""
       : speak
-        ? `${summary.answered} of ${summary.total} had a go`
-        : `${summary.right} of ${summary.total} got it right`;
-    const answered = Math.max(summary.answered, 1);
-    const rows = resultOptions(cue).map((option, index) => {
-      const count = summary.counts[index] || 0;
-      return {
-        letter: option.letter || String.fromCharCode(65 + index),
-        text: option.text,
-        count,
-        right: index === payload.correctIndex,
-        share: count / answered,
-      };
+        ? `${summary.answered} / ${summary.total} had a go`
+        : `${summary.right} / ${summary.total} ✓`;
+
+    const options = resultOptions(cue);
+    const letterOf = (option, index) => (speak || ask ? option.letter : `${option.letter || String.fromCharCode(65 + index)}.`);
+    const right = options[payload.correctIndex];
+    const correct = el("result-correct");
+    correct.hidden = speak || !right;
+    if (ask) {
+      el("result-correct-text").innerHTML = `${escapeText(t("mcq.correctAnswer", null, "Correct Answer:"))} <span class="result-correct-highlight">${escapeText(cue.ask.answer)}</span>`;
+    } else if (!speak && right) {
+      el("result-correct-text").innerHTML = `${escapeText(t("mcq.correctAnswer", null, "Correct Answer:"))} <span class="result-correct-letter">${escapeText(letterOf(right, payload.correctIndex))}</span> <span class="result-correct-highlight">${escapeText(right.text)}</span>`;
+    }
+
+    const rows = options.map((option, index) => ({
+      letter: letterOf(option, index),
+      text: option.text,
+      count: summary.counts[index] || 0,
+      color: colors[index % colors.length],
+      right: !speak && index === payload.correctIndex,
+    }));
+    // Students who did not answer are a grey slice of their own: it is not a wrong answer.
+    if (summary.silent > 0) rows.push({ letter: "–", text: "No answer", count: summary.silent, color: RESULT_SILENT_COLOR, silent: true });
+
+    const whole = Math.max(rows.reduce((sum, row) => sum + row.count, 0), 1);
+    let offset = 0;
+    const stops = rows.map((row) => {
+      const start = offset;
+      offset += (row.count / whole) * 100;
+      return `${row.color} ${start}% ${offset}%`;
     });
-    // Students who did not answer are a grey row of their own: it is not a wrong answer.
-    if (summary.silent > 0) rows.push({ letter: "–", text: "No answer", count: summary.silent, silent: true, share: summary.silent / Math.max(summary.total, 1) });
-    el("result-bars").innerHTML = rows
-      .map((row) => `<li class="${row.right ? "is-right" : ""}${row.silent ? " is-silent" : ""}">
-        <span class="result-letter">${row.letter}</span><span>${escapeText(row.text)}${row.right && !speak ? " ✓" : ""}</span>
-        <span class="result-track"><span class="result-fill" data-share="${row.share}"></span></span>
-        <span class="result-count">${row.count}${row.silent ? "" : ` · ${Math.round(row.share * 100)}%`}</span></li>`)
+    const donut = el("result-donut");
+    donut.style.setProperty("--donut-fill", offset ? stops.join(", ") : `${RESULT_SILENT_COLOR} 0% 100%`);
+    el("result-donut-label").textContent = t("mcq.totalResponses", null, "Total Responses");
+    el("result-total").textContent = String(summary.answered);
+    el("result-distribution-title").textContent = t("mcq.answerDistribution", null, "Answer Distribution");
+    const countLabel = (n) => (n === 1 ? t("mcq.responseCountOne", { n }, `${n} Response`) : t("mcq.responseCount", { n }, `${n} Responses`));
+    el("result-legend").innerHTML = rows
+      .map((row, i) => `<li class="result-legend-item${row.right ? " is-right" : ""}${row.silent ? " is-silent" : ""}" style="--i: ${i}">
+        <span class="result-legend-dot" style="--dot-color: ${row.color}"></span>
+        <span class="result-legend-letter">${escapeText(row.letter)}</span>
+        <span class="result-legend-copy">${escapeText(row.text)}</span>
+        <strong>${escapeText(countLabel(row.count))}</strong></li>`)
       .join("");
 
     // Only the ones who got it right are named: nobody is named for a mistake or a silence.
-    const names = (payload.results || []).filter((r) => r && r.correct && r.name).map((r) => r.name);
+    const names = (payload.results || []).filter((r) => r && r.correct && r.name).map((r) => String(r.name));
     const got = el("result-got");
     got.hidden = !names.length;
     if (names.length) {
-      const shown = names.slice(0, RESULT_NAMES_MAX).map(escapeText).join(", ");
-      got.innerHTML = `${speak ? "🌟" : "✓"} ${shown}${names.length > RESULT_NAMES_MAX ? ` +${names.length - RESULT_NAMES_MAX} more` : ""}`;
+      el("result-got-title").textContent = speak ? "🌟 Great speaking" : t("mcq.correctResponses", null, "Correct Responses");
+      const shown = names.slice(0, RESULT_NAMES_MAX);
+      const extra = names.length - shown.length;
+      el("result-got-grid").innerHTML =
+        shown
+          .map((name, i) => `<div class="result-got-student" style="--i: ${i}" title="${escapeText(name)}">
+            <span class="result-got-avatar">${escapeText(initialsOf(name))}</span><span class="result-got-name">${escapeText(name)}</span></div>`)
+          .join("") +
+        (extra ? `<div class="result-got-student" style="--i: ${shown.length}"><span class="result-got-avatar is-more">+${extra}</span></div>` : "");
     }
     el("result-caption").textContent = "";
   }
@@ -958,7 +1042,7 @@
       renderResult(cue, payload, summary);
       setAnchor(layer, tutor);
       if (tutor?.tommyVideo && !tommy.src) tommy.src = tutor.tommyVideo;
-      layer.classList.remove("is-open");
+      layer.classList.remove("is-open", "is-revealed");
       layer.hidden = false;
       tommy.hidden = !tutor?.tommyVideo;
       tommy.currentTime = 0;
@@ -967,11 +1051,9 @@
       layer.classList.add("is-open");
       setEmojiOpen(true);
       await wait(run, 450);
-      // The bars grow from zero, one after another.
-      layer.querySelectorAll(".result-fill").forEach((fill, i) => {
-        setTimeout(() => (fill.style.width = `${Number(fill.dataset.share) * 100}%`), i * 120);
-      });
-      await wait(run, 900);
+      // The donut sweeps round and the answers come in one after another.
+      layer.classList.add("is-revealed");
+      await wait(run, 1100);
       for (const line of lines) await sayLine(run, line);
       if (!lines.length) await wait(run, 5000); // no recordings: the bars alone, for a few seconds
       await wait(run, 600);
@@ -1091,15 +1173,31 @@
     showFinalBoard();
   }
 
+  function fitFinalBoard() {
+    el("final").style.setProperty("--final-scale", String(el("frame").clientWidth / 1280));
+  }
+  window.addEventListener("resize", fitFinalBoard);
+
+  // The host's own end-of-round leaderboard: podium for the top three, a sheet for the rest.
   function showFinalBoard() {
-    const rows = [...state.totals.values()].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-    el("final-list").innerHTML = rows
-      .map((r) => `<li><span class="name">${escapeText(r.name)}</span><span class="score">${r.score}</span></li>`)
-      .join("");
-    el("final-empty").hidden = rows.length > 0;
-    el("final").hidden = false;
+    const rows = [...state.totals.entries()].map(([id, r]) => ({ id, name: r.name, score: r.score }));
+    const board = el("final");
+    board.hidden = false;
+    fitFinalBoard();
     el("live").hidden = true;
     clearLost();
+    el("final-cheer").textContent = t("leaderboard.tommyCheer", null, "Great work, class!");
+    showExerciseLeaderboards({
+      exerciseLeaderboard: rows,
+      semesterLeaderboard: [],
+      exerciseListEl: el("final-list"),
+      semesterListEl: el("final-list-overall"),
+      exerciseWrapEl: el("final-board"),
+      semesterWrapEl: el("final-board-overall"),
+    });
+    if (el("host-leaderboard-title").textContent === "leaderboard.exerciseResults") {
+      el("host-leaderboard-title").textContent = "Class complete!";
+    }
   }
 
   async function endClass() {

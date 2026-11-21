@@ -9,6 +9,11 @@
     cue times in the lesson's cues (/api/autoclass/lessons/<id>/cues), sends that quiz to the students' phones over the normal room
     events, then resumes. Students use the usual join page. Nothing in host.html depends on this.
   -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <!-- The results page and the leaderboard look like the host's (host.html): same art, same board. -->
+  <link rel="stylesheet" href="/uncle-tommy-sprite.css" />
+  <link rel="stylesheet" href="/host-leaderboard.css" />
   <link rel="stylesheet" href="/autoclass.css" />
 </head>
 <body>
@@ -78,15 +83,34 @@
         <span class="lost-replay">Replay</span>
       </button>
 
-      <!-- How the class answered a question, with Uncle Tommy's words about it (autoclass.js "Results"). -->
+      <!-- How the class answered a question, with Uncle Tommy's words about it (autoclass.js "Results").
+           Laid out like the host's quiz results (host.html #screen-host-quiz-results). -->
       <div id="result" class="result" hidden>
-        <div class="result-head">
-          <span id="result-tag" class="result-tag"></span>
-          <span id="result-summary" class="result-summary" aria-live="polite"></span>
+        <h2 id="result-tag" class="result-title"></h2>
+        <div class="result-left">
+          <section class="result-card result-question-box">
+            <p id="result-summary" class="result-summary" aria-live="polite"></p>
+            <h3 id="result-question" class="result-question"></h3>
+            <div id="result-correct" class="result-correct">
+              <span class="result-check" aria-hidden="true">✓</span>
+              <p id="result-correct-text"></p>
+            </div>
+          </section>
+          <section class="result-card result-distribution">
+            <h3 id="result-distribution-title" class="result-distribution-title"></h3>
+            <div class="result-distribution-body">
+              <div id="result-donut" class="result-donut">
+                <span id="result-donut-label" class="result-donut-label"></span>
+                <strong id="result-total">0</strong>
+              </div>
+              <ol id="result-legend" class="result-legend"></ol>
+            </div>
+          </section>
         </div>
-        <h2 id="result-question" class="result-question"></h2>
-        <ol id="result-bars" class="result-bars"></ol>
-        <p id="result-got" class="result-got" hidden></p>
+        <section id="result-got" class="result-card result-got" hidden>
+          <h3 id="result-got-title"></h3>
+          <div id="result-got-grid" class="result-got-grid"></div>
+        </section>
         <p id="result-caption" class="result-caption" aria-live="polite"></p>
         <video id="result-tommy" class="result-tommy" muted loop playsinline></video>
       </div>
@@ -112,11 +136,33 @@
 
       <div id="reactions" class="reactions" aria-hidden="true"></div>
 
-      <div id="final" class="final" hidden>
-        <h2>Class leaderboard</h2>
-        <ol id="final-list"></ol>
-        <p id="final-empty" class="muted" hidden>No answers yet.</p>
-      </div>
+      <!-- The end of class: the host's own leaderboard (common.js showExerciseLeaderboards). -->
+      <section id="final" class="host-leaderboard final" aria-labelledby="host-leaderboard-title" hidden>
+        <img class="host-leaderboard__bg" src="/assets/course/courseBG.png" alt="" />
+        <div class="host-leaderboard__overlay" aria-hidden="true"></div>
+        <header class="host-leaderboard__header">
+          <h1 class="host-leaderboard__title" id="host-leaderboard-title"></h1>
+          <div class="host-leaderboard__pulse" id="host-leaderboard-pulse" data-reveal="pulse" aria-live="polite"></div>
+        </header>
+        <div class="host-leaderboard__container">
+          <div class="host-leaderboard__stage">
+            <aside class="host-leaderboard__tommy" data-reveal="tommy" aria-hidden="true">
+              <p class="host-leaderboard__tommy-caption" id="final-cheer"></p>
+              <div class="uncle-tommy-sprite host-leaderboard__tommy-img" data-uncle-tommy-sprite aria-hidden="true">
+                <span class="uncle-tommy-sprite__clip"><span class="uncle-tommy-sprite__film"></span></span>
+              </div>
+            </aside>
+            <main class="host-leaderboard__main">
+              <section class="host-leaderboard__board" id="final-board">
+                <div id="final-list"></div>
+              </section>
+              <section class="host-leaderboard__board" id="final-board-overall" hidden>
+                <div id="final-list-overall"></div>
+              </section>
+            </main>
+          </div>
+        </div>
+      </section>
 
       <div class="controls">
         <button id="btn-pause" class="ctl" type="button">Pause</button>
@@ -126,8 +172,12 @@
     </div>
   </section>
 
+  <script src="/vendor/gsap/gsap.min.js"></script>
+  <script src="/lango-gsap.js"></script>
   <script src="/room-ws.js"></script>
   <script src="/common.js"></script>
+  <script src="/i18n.js"></script>
+  <script src="/i18n-exercise.js"></script>
   <script src="/exercise-utils.js"></script>
   <script src="/autoclass-analysis.js"></script>
   <script src="/autoclass.js"></script>

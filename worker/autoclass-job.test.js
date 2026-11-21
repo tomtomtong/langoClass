@@ -227,6 +227,35 @@ test("a render listing odd files or no cues fails", async () => {
   assert.match((await c.ctx.storage.get("job")).error, /cues/);
 });
 
+test("an ask scene becomes an unscored, marked Everyone Answers cue", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-ask-"));
+  try {
+    const input = structuredClone(animalHomes);
+    input.tutor = { ...(input.tutor || {}), sttLanguage: "yue" };
+    input.scenes.push({ kind: "ask", q: "What do you do first?", answer: "Call back on a number you know.", ask: "What do you do first?", reveal: "Call back first!", seconds: 25 });
+    const { script } = validateLessonScript(input);
+    (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    let n = 0;
+    const voice = async () => {
+      const name = `assets/voice/v${n++}.mp3`;
+      writeFileSync(path.join(dir, name), "mp3");
+      return { file: name, seconds: 2 };
+    };
+    const built = await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" });
+    const cue = JSON.parse(readFileSync(path.join(dir, "out", "cues.json"), "utf8")).cues.at(-1);
+    assert.deepEqual(cue.ask, { question: "What do you do first?", answer: "Call back on a number you know.", seconds: 25 });
+    assert.equal(cue.exercise.type, "openanswer");
+    assert.equal(cue.exercise.autoclass, true);
+    assert.equal(cue.exercise.practice, undefined);
+    assert.deepEqual(cue.exercise.items, [{ topic: "What do you do first?", correctAnswer: "Call back on a number you know.", sttLanguage: "yue", timeLimit: 25 }]);
+    assert.ok(cue.at < cue.result.at && cue.result.at < built.total);
+    assert.match(readFileSync(path.join(dir, "compositions", "ask1.html"), "utf8"), /class="ask-answer">Call back on a number you know.</);
+    assert.match(readFileSync(path.join(dir, "compositions", "ask1.html"), "utf8"), /\.ask-answer \{[^}]*text-wrap: balance;/, "no lone last character");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("the builder writes the project and cues from a script, timed to the voice", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "autoclass-build-"));
   try {
@@ -252,6 +281,7 @@ test("the builder writes the project and cues from a script, timed to the voice"
     assert.equal(cues.cues[1].exercise.items[0].options[1].isCorrect, true);
     assert.equal(cues.cues[1].result.wrong[0][0].url, "/uploads/autoclass/animal-homes/r1/analysis/q1-wrong-1-1.mp3");
     assert.equal(cues.tutor.breaks.length, 6);
+    assert.equal(cues.tutor.audience, "");
     assert.equal(cues.tutor.tommyVideo, "/uploads/autoclass/animal-homes/r1/tommy-talking.webm");
     assert.ok(cues.analysis.allRight.every((line) => line.url.startsWith("/uploads/autoclass/animal-homes/r1/analysis/")));
     const index = readFileSync(path.join(dir, "index.html"), "utf8");
@@ -270,4 +300,58 @@ test("the builder writes the project and cues from a script, timed to the voice"
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a teach pair without a repeat line has no say-it-with-me card", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-norepeat-"));
+  try {
+    const input = structuredClone(animalHomes);
+    for (const pair of input.scenes[0].pairs) delete pair.repeat;
+    const { script, errors } = validateLessonScript(input);
+    assert.deepEqual(errors, []);
+    (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    const voiced = [];
+    const voice = async (text) => {
+      const name = `assets/voice/v${voiced.length}.mp3`;
+      voiced.push(text);
+      writeFileSync(path.join(dir, name), "mp3");
+      return { file: name, seconds: 2 };
+    };
+    await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" });
+    const teach = readFileSync(path.join(dir, "compositions", "teach1.html"), "utf8");
+    assert.doesNotMatch(teach, /Say it with me/);
+    assert.match(readFileSync(path.join(dir, "compositions", "teach2.html"), "utf8"), /Say it with me/);
+    assert.equal(voiced.includes(animalHomes.scenes[0].pairs[0].repeat), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the video's own labels follow the lesson's language", async () => {
+  const build = async (language) => {
+    const dir = mkdtempSync(path.join(tmpdir(), "autoclass-labels-"));
+    try {
+      const input = structuredClone(animalHomes);
+      input.voice = { ...(input.voice || {}), language };
+      input.scenes.push({ kind: "ask", q: "Why?", answer: "Because.", ask: "Why?", reveal: "Because." });
+      const { script } = validateLessonScript(input);
+      (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+      let n = 0;
+      const voice = async () => {
+        const name = `assets/voice/v${n++}.mp3`;
+        writeFileSync(path.join(dir, name), "mp3");
+        return { file: name, seconds: 2 };
+      };
+      await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" });
+      const read = (id) => readFileSync(path.join(dir, "compositions", `${id}.html`), "utf8");
+      return ["teach1", "say1", "quiz1", "ask1", "outro"].map(read).join("\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const english = await build("en-US");
+  for (const text of ["Question 1", "Answer on your phone", "Your turn to speak", "Your turn to answer", "Say it with me", "Well done!", "job!"]) assert.ok(english.includes(text), text);
+  const cantonese = await build("yue-HK");
+  for (const text of ["第 1 題", "用手機作答", "到你講", "到你答", "跟我講", "做得好！"]) assert.ok(cantonese.includes(text), text);
+  assert.doesNotMatch(cantonese, /Question \d|Answer on your phone|Your turn|Say it with me|Well done|Great/);
 });

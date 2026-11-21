@@ -82,7 +82,40 @@ ${script}
 `;
 }
 
+// The words the video writes itself (not from the script), in the lesson's language: Cantonese for
+// a yue (or zh-HK) voice, else English. Values are HTML-safe; `word` is escaped by the caller.
+const LABELS = {
+  en: {
+    question: (n) => `Question ${n}`,
+    answerOnPhone: "📱 Answer on your phone",
+    speakTag: "Your turn to speak",
+    speakHint: "🎤 Say it on your phone",
+    wellDone: "Well done!",
+    askTag: "Your turn to answer",
+    askHint: "🎤 Answer on your phone",
+    sayWithMe: (word) => `Say it with me: <b>${word}</b>!`,
+    outroTitle: ["Great ", "job!"],
+  },
+  yue: {
+    question: (n) => `第 ${n} 題`,
+    answerOnPhone: "📱 用手機作答",
+    speakTag: "到你講",
+    speakHint: "🎤 用手機講出嚟",
+    wellDone: "做得好！",
+    askTag: "到你答",
+    askHint: "🎤 用手機講出你嘅答案",
+    sayWithMe: (word) => `跟我講：<b>${word}</b>！`,
+    outroTitle: ["做得", "好！"],
+  },
+};
+
+export function labelsFor(language) {
+  const tag = String(language || "").toLowerCase();
+  return tag.startsWith("yue") || tag === "zh-hk" ? LABELS.yue : LABELS.en;
+}
+
 export async function buildLesson(dir, lesson, { voice, mediaUrl }) {
+  const L = labelsFor(lesson.voice?.language);
   const OUT = path.join(dir, "out");
   const audioClips = []; // { id, file, at (absolute), seconds }
   let audioCount = 0;
@@ -178,23 +211,26 @@ export async function buildLesson(dir, lesson, { voice, mediaUrl }) {
     const breaks = [];
     for (const [i, pair] of scene.pairs.entries()) {
       const vSay = await voice(pair.say);
-      const vRepeat = await voice(pair.repeat);
+      // A pair without `repeat` is only explained: no "say it with me" line or card.
+      const vRepeat = pair.repeat ? await voice(pair.repeat) : null;
       const at = t;
       const sayAt = at + 0.2;
       const repeatAt = sayAt + vSay.seconds + 0.4;
-      const leaveAt = repeatAt + vRepeat.seconds + 1.4; // a beat for the class to say it back
+      const leaveAt = vRepeat
+        ? repeatAt + vRepeat.seconds + 1.4 // a beat for the class to say it back
+        : sayAt + vSay.seconds + 1.2;
       placeVoice(vSay, start + sayAt);
-      placeVoice(vRepeat, start + repeatAt);
-      // Quiet moment: Tommy has finished and the class is still saying the word; the pair leaves
+      if (vRepeat) placeVoice(vRepeat, start + repeatAt);
+      // Quiet moment: Tommy has finished (and the class is still saying the word); the pair leaves
       // 0.5 s after the video resumes.
-      breaks.push(r3(start + repeatAt + vRepeat.seconds + 0.9));
+      breaks.push(r3(start + leaveAt - 0.5));
       parts.push(`    <div id="${id}-pair${i}" class="pair">
       <div id="${id}-animal${i}" class="animal">${esc(pair.emoji)}</div>
       <div id="${id}-arrow${i}" class="arrow"></div>
       <div id="${id}-home${i}" class="home">${esc(pair.home)}</div>
     </div>
-    <p id="${id}-sentence${i}" class="sentence">${esc(pair.sentence)}</p>
-    <p id="${id}-say${i}" class="say">Say it with me: <b>${esc(pair.home)}</b>!</p>`);
+    <p id="${id}-sentence${i}" class="sentence">${esc(pair.sentence)}</p>${vRepeat ? `
+    <p id="${id}-say${i}" class="say">${L.sayWithMe(esc(pair.home))}</p>` : ""}`);
       // The home and its sentence land as Tommy reaches the second sentence (about halfway).
       const homeAt = sayAt + vSay.seconds * 0.45;
       lines.push(`      tl.fromTo("#${id}-pair${i}", { opacity: 0 }, { opacity: 1, duration: 0.01 }, ${r3(at)});
@@ -205,9 +241,9 @@ export async function buildLesson(dir, lesson, { voice, mediaUrl }) {
         { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, ${r3(homeAt)});
       tl.fromTo("#${id}-sentence${i}", { opacity: 0, filter: "blur(8px)" },
         { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(homeAt + 0.3)});
-      tl.fromTo("#${id}-say${i}", { opacity: 0, scale: 0.8 },
+${vRepeat ? `      tl.fromTo("#${id}-say${i}", { opacity: 0, scale: 0.8 },
         { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.6)" }, ${r3(repeatAt)});
-      tl.to(["#${id}-pair${i}", "#${id}-sentence${i}", "#${id}-say${i}"],
+` : ""}      tl.to(["#${id}-pair${i}", "#${id}-sentence${i}"${vRepeat ? `, "#${id}-say${i}"` : ""}],
         { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, ${r3(leaveAt)});`);
       t = leaveAt + 0.35;
     }
@@ -235,12 +271,12 @@ ${lines.join("\n")}
     placeVoice(vReveal, start + revealAt + 0.1);
     audioClips.push({ id: `sfx-correct-${n}`, file: "assets/correct.mp3", at: r3(start + revealAt + 0.03), seconds: 2, volume: 0.7, track: 4 });
     const opts = scene.options.map((o, i) => `      <div id="${id}-opt${i}" class="opt ${optSize(o)}"><span class="letter">${LETTERS[i]}</span><span class="opt-text">${esc(o)}</span><span id="${id}-tick${i}" class="tick">✓</span></div>`).join("\n");
-    const body = `    <div id="${id}-tag" class="quiz-tag">Question ${n}</div>
+    const body = `    <div id="${id}-tag" class="quiz-tag">${L.question(n)}</div>
     <h2 id="${id}-q" class="quiz-q">${words(scene.q.split(" "), -1)}</h2>
     <div id="${id}-options" class="options" data-hold>
 ${opts}
     </div>
-    <p id="${id}-hint" class="phone-hint">📱 Answer on your phone</p>
+    <p id="${id}-hint" class="phone-hint">${L.answerOnPhone}</p>
     <p id="${id}-answer" class="answer-line">${esc(scene.line)}</p>`;
     const dim = scene.options.map((_, i) => i).filter((i) => i !== scene.correct)
       .map((i) => `      tl.to("#${id}-opt${i}", { opacity: 0.3, duration: 0.3, ease: "power2.out" }, ${r3(revealAt)});`).join("\n");
@@ -275,7 +311,7 @@ ${dim}
       exercise: {
         id: `autoclass-${lesson.id}-q${n}`,
         type: "mcquiz",
-        title: `${lesson.title} · Question ${n}`,
+        title: `${lesson.title} · ${L.question(n)}`,
         items: [{
           title: scene.q,
           timeLimit: scene.timeLimit || 20,
@@ -300,11 +336,11 @@ ${dim}
     const end = againAt + vAgain.seconds + 1.4;
     placeVoice(vAsk, start + askAt);
     placeVoice(vAgain, start + againAt);
-    const body = `    <div id="${id}-tag" class="quiz-tag">Your turn to speak</div>
+    const body = `    <div id="${id}-tag" class="quiz-tag">${L.speakTag}</div>
     <div id="${id}-emoji" class="say-emoji">${esc(scene.emoji || "🎤")}</div>
     <h2 id="${id}-line" class="say-line">${words(scene.sentence.split(" "), -1)}</h2>
-    <p id="${id}-hint" class="phone-hint">🎤 Say it on your phone</p>
-    <p id="${id}-done" class="answer-line">Well done!</p>`;
+    <p id="${id}-hint" class="phone-hint">${L.speakHint}</p>
+    <p id="${id}-done" class="answer-line">${L.wellDone}</p>`;
     // Tommy reads the sentence about a third of the way into each line: light the words up then.
     const wordsAt = (lineAt, v) => r3(lineAt + v.seconds * 0.38);
     const script = `      tl.fromTo("#${id}-tag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.2);
@@ -353,6 +389,79 @@ ${dim}
     return { id, duration: r3(end), html: sceneFile(id, body, script, css), tommy: "hidden", cue };
   }
 
+  // An open question. The page pauses at `at` while every phone answers out loud (Everyone Answers,
+  // marked by the model against `answer`), plays on into Tommy giving a good answer, and pauses again
+  // at `result.at` for how the class did. Each answer's verdict (correct, partial, incorrect) counts
+  // as option 0, 1 or 2 of a three-option question, so the results page and the analysis picker work
+  // as they do for a quiz.
+  async function askScene(start, scene, n) {
+    const id = `ask${n}`;
+    const vAsk = await voice(scene.ask);
+    const vReveal = await voice(scene.reveal);
+    const askAt = 0.5;
+    const pauseAt = Math.max(2.4, askAt + vAsk.seconds + 0.3);
+    const revealAt = pauseAt + 0.8;
+    const end = revealAt + vReveal.seconds + 1.6;
+    placeVoice(vAsk, start + askAt);
+    placeVoice(vReveal, start + revealAt);
+    const body = `    <div id="${id}-tag" class="quiz-tag">${L.askTag}</div>
+    <h2 id="${id}-q" class="quiz-q">${words(scene.q.split(" "), -1)}</h2>
+    <div id="${id}-emoji" class="ask-emoji">${esc(scene.emoji || "💬")}</div>
+    <div id="${id}-answer" class="ask-answer">${esc(scene.answer)}</div>
+    <p id="${id}-hint" class="phone-hint">${L.askHint}</p>`;
+    const script = `      tl.fromTo("#${id}-tag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.2);
+      tl.fromTo("#${id}-q .word", { opacity: 0, filter: "blur(6px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.08 }, 0.5);
+      tl.fromTo("#${id}-emoji", { opacity: 0, scale: 0.6, filter: "blur(10px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.55, ease: "back.out(1.4)" }, 1.0);
+      tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(pauseAt - 0.6)});
+      // Paused at ${r3(pauseAt)} s while the class answers; Tommy gives a good answer from ${r3(revealAt)} s.
+      tl.to(["#${id}-hint", "#${id}-emoji"], { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, ${r3(revealAt - 0.4)});
+      tl.fromTo("#${id}-answer", { opacity: 0, y: 30, filter: "blur(8px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, ${r3(revealAt)});
+      tl.to(["#${id}-tag", "#${id}-q", "#${id}-answer"], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
+    const css = `
+    .ask-emoji {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 400px;
+      text-align: center;
+      font-size: 220px;
+    }
+    .ask-answer {
+      position: absolute;
+      left: 150px;
+      right: 150px;
+      top: 430px;
+      padding: 44px 56px;
+      border-radius: 36px;
+      background: var(--teal-soft);
+      border: 4px solid var(--teal);
+      color: var(--teal);
+      font-size: 60px;
+      font-weight: 900;
+      line-height: 1.3;
+      text-align: center;
+      /* Even lines, so a long answer never leaves one character alone on the last line. */
+      text-wrap: balance;
+    }`;
+    const cue = {
+      at: r3(start + pauseAt),
+      resumeAt: r3(start + pauseAt),
+      ask: { question: scene.q, answer: scene.answer, seconds: scene.seconds || 30 },
+      result: { at: r3(start + end - 0.5), key: id, wrong: {} },
+      exercise: {
+        id: `autoclass-${lesson.id}-${id}`,
+        type: "openanswer",
+        autoclass: true,
+        title: `${lesson.title} · ${scene.q}`,
+        items: [{ topic: scene.q, correctAnswer: scene.answer, sttLanguage: lesson.tutor?.sttLanguage || "en", timeLimit: scene.seconds || 30 }],
+      },
+    };
+    return { id, duration: r3(end), html: sceneFile(id, body, script, css), tommy: "hidden", cue };
+  }
+
   // A poll pauses the video at `at`, the boundary between two scenes, and resumes from there.
   async function pollCue(at, scene, n) {
     const audio = {};
@@ -382,6 +491,7 @@ ${dim}
       language: t.language,
       sttLanguage: t.sttLanguage,
       outline: t.outline,
+      audience: t.audience || "",
       tommyVideo: `${mediaUrl}/tommy-talking.webm`,
       // Where the small Tommy is, in the video's 1920×1080 pixels (the clip is 552×648).
       anchor: { x: small.x, y: small.y, w: r3(552 * small.scale), h: r3(648 * small.scale) },
@@ -400,7 +510,7 @@ ${dim}
     // Each recap row lands as Tommy says it: spread across the middle of his line.
     const rowStart = 0.5 + v.seconds * 0.22;
     const rowStep = (v.seconds * 0.6) / lesson.outro.rows.length;
-    const body = `    <h2 id="outro-title"><span class="word">Great </span><span class="word hl">job!</span></h2>
+    const body = `    <h2 id="outro-title"><span class="word">${L.outroTitle[0]}</span><span class="word hl">${L.outroTitle[1]}</span></h2>
     <div id="outro-recap">
 ${rows}
     </div>
@@ -473,12 +583,13 @@ ${rows}
     t += s.duration;
   };
   push(await introScene(t));
-  const count = { teach: 0, quiz: 0, speak: 0 };
+  const count = { teach: 0, quiz: 0, speak: 0, ask: 0 };
   const pollCues = [];
   for (const scene of lesson.scenes) {
     if (scene.kind === "teach") push(await teachScene(t, scene, ++count.teach));
     else if (scene.kind === "poll") pollCues.push(await pollCue(t, scene, pollCues.length + 1));
     else if (scene.kind === "speak") push(await speakScene(t, scene, ++count.speak));
+    else if (scene.kind === "ask") push(await askScene(t, scene, ++count.ask));
     else if (scene.kind === "quiz") push(await quizScene(t, scene, ++count.quiz));
     else throw new Error(`Unknown scene kind "${scene.kind}".`);
   }
