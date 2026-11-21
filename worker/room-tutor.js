@@ -74,6 +74,7 @@ export function askQuestion(state, data, ctx) {
       name,
       question,
       lesson: tutor.lesson,
+      language: tutorLanguage(question, tutor.lesson),
       variant: state.session.variant || "",
     }],
   });
@@ -131,9 +132,16 @@ export function applyTutorJob(state, job, outcome) {
   });
 }
 
+// The language Tommy answers in, for the words and the voice alike: Cantonese when the question
+// was asked in Chinese, else the lesson's language.
+export function tutorLanguage(question, lesson) {
+  return /[\u3400-\u9fff]/.test(String(question || "")) ? "yue" : lesson?.language || "en";
+}
+
 export function tutorPrompt(job) {
   const lesson = job.lesson || {};
-  const reply = job.language === "yue"
+  const language = job.language || tutorLanguage(job.question, job.lesson);
+  const reply = language === "yue"
     ? "Cantonese, in Traditional Chinese characters, the way people speak in Hong Kong"
     : "simple English";
   return [

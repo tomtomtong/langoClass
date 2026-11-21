@@ -141,3 +141,21 @@ test("only the JSON asked for becomes an answer, cleaned for speech", () => {
   assert.deepEqual(parseTutorReply("{not json}"), { ok: false });
   assert.equal(parseTutorReply(JSON.stringify({ ok: true, answer: "a".repeat(900) })).answer.length, 420);
 });
+
+test("a question asked in the room carries the language the answer is written and spoken in", () => {
+  const ask = (lessonLanguage, text) => {
+    const state = applyRoomEvent(room(), { event: "set_tutor", data: { enabled: true, lesson: { ...lesson, language: lessonLanguage } } }, host).state;
+    const job = applyRoomEvent(state, { event: "ask_question", data: { text } }, ada()).jobs[0];
+    return { job, prompt: tutorPrompt(job) };
+  };
+  // A Cantonese lesson: Cantonese, even for a question the recogniser wrote in English letters.
+  for (const text of ["點解 AI 可以扮人把聲？", "AI deepfake hai mat ye?"]) {
+    const { job, prompt } = ask("yue", text);
+    assert.equal(job.language, "yue");
+    assert.match(prompt, /Cantonese/);
+    assert.doesNotMatch(prompt, /simple English/);
+  }
+  // An English lesson: English, unless the question was asked in Chinese.
+  assert.match(ask("en", "Why do birds build nests?").prompt, /simple English/);
+  assert.equal(ask("en", "雀仔點解起竇？").job.language, "yue");
+});
