@@ -325,3 +325,32 @@ test("a teach pair without a repeat line has no say-it-with-me card", async () =
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the video's own labels follow the lesson's language", async () => {
+  const build = async (language) => {
+    const dir = mkdtempSync(path.join(tmpdir(), "autoclass-labels-"));
+    try {
+      const input = structuredClone(animalHomes);
+      input.voice = { ...(input.voice || {}), language };
+      input.scenes.push({ kind: "ask", q: "Why?", answer: "Because.", ask: "Why?", reveal: "Because." });
+      const { script } = validateLessonScript(input);
+      (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+      let n = 0;
+      const voice = async () => {
+        const name = `assets/voice/v${n++}.mp3`;
+        writeFileSync(path.join(dir, name), "mp3");
+        return { file: name, seconds: 2 };
+      };
+      await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" });
+      const read = (id) => readFileSync(path.join(dir, "compositions", `${id}.html`), "utf8");
+      return ["teach1", "say1", "quiz1", "ask1", "outro"].map(read).join("\n");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const english = await build("en-US");
+  for (const text of ["Question 1", "Answer on your phone", "Your turn to speak", "Your turn to answer", "Say it with me", "Well done!", "job!"]) assert.ok(english.includes(text), text);
+  const cantonese = await build("yue-HK");
+  for (const text of ["第 1 題", "用手機作答", "到你講", "到你答", "跟我講", "做得好！"]) assert.ok(cantonese.includes(text), text);
+  assert.doesNotMatch(cantonese, /Question \d|Answer on your phone|Your turn|Say it with me|Well done|Great/);
+});
