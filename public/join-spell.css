@@ -1,0 +1,236 @@
+/* A spelling race on the join page (join-spell.js). It covers whatever screen is showing. */
+.spell-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding: 20px 16px max(20px, env(safe-area-inset-bottom));
+  background: #eaf1ff;
+  color: #1f1a24;
+  overflow-y: auto;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.spell-panel[hidden],
+.spell-panel [hidden] {
+  display: none !important;
+}
+
+.spell-card {
+  width: min(520px, 100%);
+  text-align: center;
+}
+
+.spell-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  font-weight: 800;
+  color: #6b6478;
+}
+
+.spell-points {
+  color: #743c9b;
+}
+
+.spell-timer {
+  height: 10px;
+  margin: 10px 0 18px;
+  border-radius: 999px;
+  background: #d9cfe6;
+  overflow: hidden;
+}
+
+.spell-timer-fill {
+  display: block;
+  height: 100%;
+  background: #743c9b;
+  transform-origin: left center;
+  transition: transform 0.25s linear;
+}
+
+.spell-timer.is-low .spell-timer-fill {
+  background: #e0533d;
+}
+
+.spell-emoji {
+  font-size: 96px;
+  line-height: 1.1;
+}
+
+.spell-hint {
+  min-height: 1.35em;
+  margin: 6px 0 18px;
+  color: #6b6478;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.spell-slots,
+.spell-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spell-slots {
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-bottom: 26px;
+}
+
+/* A long word shrinks its boxes rather than wrapping onto two lines. */
+.spell-slots .spell-slot {
+  flex: 0 1 48px;
+  min-width: 0;
+  font-size: min(30px, 7vw);
+}
+
+.spell-slot,
+.spell-tile {
+  width: 48px;
+  height: 58px;
+  padding: 0;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 30px;
+  font-weight: 900;
+  text-transform: lowercase;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.spell-slot {
+  border: 2px dashed #b9a9cc;
+  background: #fffdf8;
+  color: #1f1a24;
+}
+
+.spell-slot:not(:disabled) {
+  border-style: solid;
+  border-color: #743c9b;
+  cursor: pointer;
+}
+
+.spell-slot:disabled {
+  opacity: 1;
+}
+
+.spell-tile {
+  border: 0;
+  background: #743c9b;
+  color: #fff;
+  box-shadow: 0 4px 0 #4f2670;
+  cursor: pointer;
+}
+
+.spell-tile:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #4f2670;
+}
+
+.spell-tile.is-used {
+  visibility: hidden;
+}
+
+.spell-slots.is-right .spell-slot {
+  border-color: #2f9e5b;
+  background: #2f9e5b;
+  color: #fff;
+  animation: spell-pop 0.35s ease-out;
+}
+
+.spell-slots.is-wrong {
+  animation: spell-shake 0.4s ease-in-out;
+}
+
+.spell-slots.is-wrong .spell-slot {
+  border-color: #e0533d;
+  color: #e0533d;
+}
+
+.spell-skip {
+  margin-top: 26px;
+  padding: 10px 22px;
+  border: 2px solid #d9cfe6;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b6478;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.spell-message:not(:empty) {
+  margin: 28px 0 14px;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.spell-answers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.spell-answers li {
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: #fffdf8;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.spell-answers li.is-solved {
+  background: #2f9e5b;
+  color: #fff;
+}
+
+.spell-answers li.is-solved::after {
+  content: " ✓";
+}
+
+@keyframes spell-pop {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes spell-shake {
+  20%,
+  60% {
+    transform: translateX(-10px);
+  }
+  40%,
+  80% {
+    transform: translateX(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spell-slots.is-right .spell-slot,
+  .spell-slots.is-wrong {
+    animation: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .spell-slot,
+  .spell-tile {
+    width: 40px;
+    height: 50px;
+    font-size: 26px;
+  }
+}

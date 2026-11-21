@@ -94,6 +94,8 @@ const LABELS = {
     askTag: "Your turn to answer",
     askHint: "🎤 Answer on your phone",
     sayWithMe: (word) => `Say it with me: <b>${word}</b>!`,
+    spellTag: "Spelling race!",
+    spellHint: "📱 Spell on your phone",
     outroTitle: ["Great ", "job!"],
   },
   yue: {
@@ -105,6 +107,8 @@ const LABELS = {
     askTag: "到你答",
     askHint: "🎤 用手機講出你嘅答案",
     sayWithMe: (word) => `跟我講：<b>${word}</b>！`,
+    spellTag: "串字比賽！",
+    spellHint: "📱 用手機串字",
     outroTitle: ["做得", "好！"],
   },
 };
@@ -462,6 +466,111 @@ ${dim}
     return { id, duration: r3(end), html: sceneFile(id, body, script, css), tommy: "hidden", cue };
   }
 
+  // A spelling race. Tommy asks, the words' emojis come in with a blank for each letter, and the
+  // page pauses at `at` while every phone spells (worker/room-spell.js). It plays on into the words
+  // being written in while Tommy says `reveal`, and pauses again at `result.at` for how the class did.
+  async function spellScene(start, scene, n) {
+    const id = `spell${n}`;
+    const vAsk = await voice(scene.ask);
+    const vReveal = await voice(scene.reveal);
+    const count = scene.words.length;
+    const askAt = 0.5;
+    const cardsAt = 0.9;
+    const pauseAt = Math.max(askAt + vAsk.seconds + 0.3, cardsAt + count * 0.12 + 0.8);
+    const revealAt = pauseAt + 0.8;
+    const end = revealAt + Math.max(vReveal.seconds, count * 0.18 + 1.2) + 1.6;
+    placeVoice(vAsk, start + askAt);
+    placeVoice(vReveal, start + revealAt);
+    // Four to a row; fewer words get bigger cards.
+    const cols = count <= 3 ? count : count === 4 ? 4 : count <= 6 ? 3 : 4;
+    const size = count <= 4 ? "spell-lg" : count <= 8 ? "spell-md" : "spell-sm";
+    const cards = scene.words.map((w, i) => `      <div id="${id}-card${i}" class="spell-card">
+        <div class="spell-emoji">${esc(w.emoji)}</div>
+        <div class="spell-word"><span id="${id}-blank${i}" class="spell-blank">${"_".repeat(w.word.length).split("").join(" ")}</span><span id="${id}-word${i}" class="spell-answer">${esc(w.word)}</span></div>
+      </div>`).join("\n");
+    const body = `    <div id="${id}-tag" class="quiz-tag">${L.spellTag}</div>
+    <div id="${id}-grid" class="spell-grid ${size}" style="--cols: ${cols}">
+${cards}
+    </div>
+    <p id="${id}-hint" class="phone-hint spell-hint">${L.spellHint}</p>`;
+    const script = `      tl.fromTo("#${id}-tag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.2);
+      tl.fromTo("#${id}-grid .spell-card", { opacity: 0, y: 30, scale: 0.85, filter: "blur(8px)" },
+        { opacity: 1, y: 0, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "back.out(1.4)", stagger: 0.12 }, ${cardsAt});
+      tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(pauseAt - 0.6)});
+      // Paused at ${r3(pauseAt)} s while the class spells; the words are written in from ${r3(revealAt)} s.
+      tl.to("#${id}-hint", { opacity: 0, filter: "blur(8px)", duration: 0.15, ease: "power3.in" }, ${r3(revealAt - 0.4)});
+      tl.to("#${id}-grid .spell-blank", { opacity: 0, duration: 0.15, ease: "power2.in", stagger: 0.18 }, ${r3(revealAt)});
+      tl.fromTo("#${id}-grid .spell-answer", { opacity: 0, scale: 0.6 },
+        { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(1.8)", stagger: 0.18 }, ${r3(revealAt + 0.1)});
+      tl.to(["#${id}-tag", "#${id}-grid"], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
+    const css = `
+    .spell-grid {
+      position: absolute;
+      left: 150px;
+      right: 150px;
+      top: 210px;
+      display: grid;
+      grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+      gap: 28px;
+      justify-content: center;
+    }
+    .spell-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 18px 12px 22px;
+      border-radius: 32px;
+      background: var(--cream);
+      box-shadow: 0 10px 0 var(--page-deep);
+    }
+    .spell-word {
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      color: var(--purple-deep);
+      white-space: nowrap;
+    }
+    .spell-blank,
+    .spell-answer {
+      grid-area: 1 / 1;
+    }
+    .spell-blank {
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .spell-answer {
+      opacity: 0;
+    }
+    .spell-grid.spell-lg { top: 290px; }
+    .spell-lg .spell-emoji { font-size: 170px; }
+    .spell-lg .spell-word { font-size: 72px; }
+    .spell-md .spell-emoji { font-size: 110px; }
+    .spell-md .spell-word { font-size: 54px; }
+    .spell-sm .spell-emoji { font-size: 84px; }
+    .spell-sm .spell-word { font-size: 44px; }
+    .spell-sm .spell-card { padding: 10px 10px 14px; }
+    .spell-hint {
+      top: 940px;
+    }`;
+    const cue = {
+      at: r3(start + pauseAt),
+      resumeAt: r3(start + pauseAt),
+      spell: {
+        id: `autoclass-${lesson.id}-${id}`,
+        seconds: scene.seconds || 60,
+        words: scene.words.map(({ word, emoji, hint }) => ({ word, emoji, hint })),
+      },
+      result: { at: r3(start + end - 0.5), key: id, wrong: {} },
+      exercise: {
+        id: `autoclass-${lesson.id}-${id}`,
+        type: "spellrace",
+        title: `${lesson.title} · ${L.spellTag}`,
+      },
+    };
+    return { id, duration: r3(end), html: sceneFile(id, body, script, css), tommy: "hidden", cue };
+  }
+
   // A poll pauses the video at `at`, the boundary between two scenes, and resumes from there.
   async function pollCue(at, scene, n) {
     const audio = {};
@@ -583,7 +692,7 @@ ${rows}
     t += s.duration;
   };
   push(await introScene(t));
-  const count = { teach: 0, quiz: 0, speak: 0, ask: 0 };
+  const count = { teach: 0, quiz: 0, speak: 0, ask: 0, spell: 0 };
   const pollCues = [];
   for (const scene of lesson.scenes) {
     if (scene.kind === "teach") push(await teachScene(t, scene, ++count.teach));
@@ -591,6 +700,7 @@ ${rows}
     else if (scene.kind === "speak") push(await speakScene(t, scene, ++count.speak));
     else if (scene.kind === "ask") push(await askScene(t, scene, ++count.ask));
     else if (scene.kind === "quiz") push(await quizScene(t, scene, ++count.quiz));
+    else if (scene.kind === "spell") push(await spellScene(t, scene, ++count.spell));
     else throw new Error(`Unknown scene kind "${scene.kind}".`);
   }
   push(await outroScene(t));

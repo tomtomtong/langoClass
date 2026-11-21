@@ -25,6 +25,7 @@ import {
 import { REACTION_EMOJIS, sendLost, sendReaction, setEmoji, setReactions } from "./room-reactions.js";
 import { closePoll, endPoll, pollForStudent, sendPollVote, startPoll } from "./room-poll.js";
 import { applyTutorJob, askQuestion, setTutor, tutorForStudent } from "./room-tutor.js";
+import { closeSpellRace, endSpellRace, resultsOf as spellResultsOf, sendSpell, spellForStudent, startSpellRace } from "./room-spell.js";
 
 export { openAnswerSubmitCheck } from "./room-open-answer.js";
 export { tutorAskCheck } from "./room-tutor.js";
@@ -118,6 +119,12 @@ export function applyRoomEvent(state, message, ctx) {
       return sendPollVote(state, data, ctx);
     case "end_poll":
       return endPoll(state, data, ctx);
+    case "start_spellrace":
+      return startSpellRace(state, data, ctx);
+    case "send_spell":
+      return sendSpell(state, data, ctx);
+    case "end_spellrace":
+      return endSpellRace(state, data, ctx);
     case "set_tutor":
       return setTutor(state, data, ctx);
     case "ask_question":
@@ -240,6 +247,7 @@ function joinSession(state, data, ctx) {
       reactionEmojis: REACTION_EMOJIS,
       reactionEmojiOpen: !!state.session.reactions && !!state.session.emojiOpen,
       poll: pollForStudent(state, playerId),
+      spell: spellForStudent(state, playerId, ctx.now),
       tutor: tutorForStudent(state, playerId, ctx.now),
       ...preload(state),
     },
@@ -292,6 +300,7 @@ function startNextExercise(state, data, ctx) {
     ack: { ok: true, roomId: state.session.roomId },
     broadcasts: [
       ...closePoll(state),
+      ...closeSpellRace(state, ctx.now),
       { event: "room_quiz_cleared", data: {} },
       { event: "session_started", data: preload(state) },
       lobby(state),
@@ -437,7 +446,9 @@ function endExercise(state, data, ctx) {
   else if (kind === "video") queueVideoScores(state, finished, ctx.now);
   else if (kind === "buzzin") queueBuzzScores(state, finished, ctx.now);
   else if (kind === "openanswer") queueOpenAnswerScores(state, finished, ctx.now);
-  const leaderboard = buzzBoard || (state.game ? leaderboardOf(state.game) : []);
+  const spellBoard = state.session.spell ? spellResultsOf(state, state.session.spell).players.map(({ id, name, score }) => ({ id, name, score })) : null;
+  const spellClosed = closeSpellRace(state, ctx.now);
+  const leaderboard = buzzBoard || spellBoard || (state.game ? leaderboardOf(state.game) : []);
   state.game = null;
   state.buzz = null;
   state.open = null;
@@ -447,6 +458,7 @@ function endExercise(state, data, ctx) {
     ack: { ok: true, exerciseLeaderboard: leaderboard, semesterLeaderboard: [] },
     ackSemester: true,
     broadcasts: [
+      ...spellClosed,
       { event: "room_quiz_cleared", data: {} },
       { event: "room_exercise_wrap_up", data: { exerciseLeaderboard: leaderboard, semesterLeaderboard: [] }, semester: true },
       lobby(state),

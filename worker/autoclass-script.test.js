@@ -12,7 +12,7 @@ test("the animal-homes lesson is a valid script", () => {
   assert.deepEqual(result.errors, []);
   assert.equal(result.ok, true);
   assert.equal(result.script.id, "animal-homes");
-  assert.deepEqual(result.script.scenes.map((s) => s.kind), ["teach", "speak", "quiz", "poll", "teach", "quiz"]);
+  assert.deepEqual(result.script.scenes.map((s) => s.kind), ["teach", "speak", "quiz", "poll", "teach", "quiz", "spell"]);
 });
 
 test("defaults are filled in: banks, tutor lines, outline, voice, timings", () => {
@@ -159,4 +159,40 @@ test("tutor.audience is optional text", () => {
   assert.equal(validateLessonScript(input).script.tutor.audience, "older adults in Hong Kong");
   input.tutor.audience = "x".repeat(201);
   assert.deepEqual(paths(validateLessonScript(input)), ["tutor.audience"]);
+});
+
+const SPELL = {
+  kind: "spell",
+  ask: "Let's play a spelling race!",
+  reveal: "Great spelling, everyone!",
+  words: [
+    { emoji: "🐦", word: "Bird", hint: "lives in a nest" },
+    { emoji: "🐝", word: "bee" },
+    { emoji: "🐟", word: "fish" },
+  ],
+};
+
+test("a spell scene: words lower-cased, seconds defaulted, lines spoken, words in the outline", () => {
+  const input = copy();
+  input.scenes.push(structuredClone(SPELL));
+  const result = validateLessonScript(input);
+  assert.deepEqual(result.errors, []);
+  const scene = result.script.scenes.at(-1);
+  assert.equal(scene.kind, "spell");
+  assert.equal(scene.seconds, 60);
+  assert.deepEqual(scene.words.map((w) => w.word), ["bird", "bee", "fish"]);
+  assert.equal(scene.words[1].hint, "");
+  const lines = spokenLines(result.script);
+  assert.ok(lines.includes(SPELL.ask) && lines.includes(SPELL.reveal));
+  assert.match(result.script.tutor.outline, /Spelling race: bird, bee, fish\./);
+});
+
+test("spell checks: 3 to 12 words, letters only, all different, seconds in range", () => {
+  const input = copy();
+  input.scenes.push(
+    { ...structuredClone(SPELL), words: SPELL.words.slice(0, 2) },
+    { ...structuredClone(SPELL), seconds: 5, words: [{ emoji: "🍦", word: "ice cream" }, { emoji: "🐝", word: "bee" }, { emoji: "🐝", word: "Bee" }] },
+  );
+  const result = validateLessonScript(input);
+  assert.deepEqual(paths(result), ["scenes[7].words", "scenes[8].words[0].word", "scenes[8].words", "scenes[8].seconds"]);
 });

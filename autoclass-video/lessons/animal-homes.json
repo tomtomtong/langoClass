@@ -173,6 +173,34 @@
           "Birds have nests. The rabbit lives in a burrow."
         ]
       }
+    },
+    {
+      "kind": "spell",
+      "ask": "Now, a spelling race! Look at your phone. Tap the letters to spell each animal's home. Spell as many as you can. Ready, go!",
+      "reveal": "Time's up! Let's check. Nest, hive, burrow, cave. Great spelling, everyone!",
+      "seconds": 60,
+      "words": [
+        {
+          "emoji": "🐦",
+          "word": "nest",
+          "hint": "A bird lives in a…"
+        },
+        {
+          "emoji": "🐝",
+          "word": "hive",
+          "hint": "A bee lives in a…"
+        },
+        {
+          "emoji": "🐇",
+          "word": "burrow",
+          "hint": "A rabbit lives in a…"
+        },
+        {
+          "emoji": "🐻",
+          "word": "cave",
+          "hint": "A bear lives in a…"
+        }
+      ]
     }
   ],
   "outro": {
