@@ -443,6 +443,8 @@ ${dim}
       font-weight: 900;
       line-height: 1.3;
       text-align: center;
+      /* Even lines, so a long answer never leaves one character alone on the last line. */
+      text-wrap: balance;
     }`;
     const cue = {
       at: r3(start + pauseAt),

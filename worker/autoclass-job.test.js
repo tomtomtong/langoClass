@@ -250,6 +250,7 @@ test("an ask scene becomes an unscored, marked Everyone Answers cue", async () =
     assert.deepEqual(cue.exercise.items, [{ topic: "What do you do first?", correctAnswer: "Call back on a number you know.", sttLanguage: "yue", timeLimit: 25 }]);
     assert.ok(cue.at < cue.result.at && cue.result.at < built.total);
     assert.match(readFileSync(path.join(dir, "compositions", "ask1.html"), "utf8"), /class="ask-answer">Call back on a number you know.</);
+    assert.match(readFileSync(path.join(dir, "compositions", "ask1.html"), "utf8"), /\.ask-answer \{[^}]*text-wrap: balance;/, "no lone last character");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
