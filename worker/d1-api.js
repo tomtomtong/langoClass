@@ -348,7 +348,8 @@ function engagementInsights(scores) {
   if (!scores.length) return { engagementScore: null, topStruggle: null };
   const byExercise = new Map();
   for (const record of scores) {
-    const key = Number(record.exerciseId);
+    // String, so a text (autoclass) id is its own exercise; 3 and "3" are still one.
+    const key = String(record.exerciseId);
     if (!byExercise.has(key)) byExercise.set(key, { title: record.exerciseTitle, scores: [] });
     byExercise.get(key).scores.push(Math.max(0, Number(record.score) || 0));
   }

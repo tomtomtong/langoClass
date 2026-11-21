@@ -5,9 +5,9 @@ export async function saveScoreBatch(db, batch, savedAt = new Date().toISOString
   const teacherId = idOf(batch?.teacherId);
   // A class ID may be text (e.g. "Demo"); class_id keeps it as given.
   const classId = idOf(batch?.classId);
-  const exerciseId = idOf(batch?.exerciseId) == null ? NaN : Number(batch.exerciseId);
+  const exerciseId = exerciseIdOf(batch?.exerciseId);
   const roomId = String(batch?.roomId || "");
-  if (teacherId == null || classId == null || !Number.isFinite(exerciseId) || !roomId || !Array.isArray(batch.scores)) {
+  if (teacherId == null || classId == null || exerciseId == null || !roomId || !Array.isArray(batch.scores)) {
     const skipped = Array.isArray(batch?.scores) ? batch.scores.length : 0;
     return { saved: 0, skipped, rejected: "teacherId, classId, exerciseId and roomId are required" };
   }
@@ -70,7 +70,17 @@ export async function readScoreRecords(db, teacherId, classId) {
 }
 
 export function recordKey(teacherId, classId, roomId, exerciseId, studentUserId) {
-  return `${idOf(teacherId)}:${idOf(classId)}:${String(roomId)}:${Number(exerciseId)}:${String(studentUserId)}`;
+  return `${idOf(teacherId)}:${idOf(classId)}:${String(roomId)}:${exerciseIdOf(exerciseId)}:${String(studentUserId)}`;
+}
+
+// Course exercises have number ids; autoclass ones are text ("autoclass-animal-homes-q1"), made
+// from the lesson id. A number stays a number, so older record keys are unchanged.
+const TEXT_EXERCISE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+
+function exerciseIdOf(value) {
+  const id = idOf(value);
+  if (typeof id === "number") return id;
+  return id != null && TEXT_EXERCISE_ID.test(id) ? id : null;
 }
 
 function idOf(value) {

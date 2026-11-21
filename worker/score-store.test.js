@@ -69,6 +69,23 @@ test("a batch without teacher, class, or exercise saves nothing", async () => {
   assert.equal((await readScoreRecords(db, 835, 62)).length, 0);
 });
 
+test("autoclass exercises with text ids are saved; odd ids are not", async () => {
+  const db = d1();
+  const saved = await saveScoreBatch(db, batch([{ studentUserId: "ada", displayName: "Ada", score: 268 }], {
+    exerciseId: "autoclass-animal-homes-spell1",
+    exerciseType: "spellrace",
+  }), "2026-11-21T01:00:00.000Z");
+  assert.deepEqual(saved, { saved: 1, skipped: 0 });
+  const [record] = await readScoreRecords(db, 835, 62);
+  assert.equal(record.exerciseId, "autoclass-animal-homes-spell1");
+  assert.equal(record.recordKey, "835:62:123456:autoclass-animal-homes-spell1:ada");
+  assert.equal(record.exerciseType, "spellrace");
+
+  assert.equal((await saveScoreBatch(db, batch([{ studentUserId: "ada", score: 1 }], { exerciseId: "a b:c" }))).saved, 0);
+  assert.equal((await saveScoreBatch(db, batch([{ studentUserId: "ada", score: 1 }], { exerciseId: "11" }))).saved, 1, "a number as text is a number");
+  assert.ok((await readScoreRecords(db, 835, 62)).some((r) => r.recordKey === "835:62:123456:11:ada" && r.exerciseId === 11));
+});
+
 test("reads fall back to no rows before the migration runs", async () => {
   assert.deepEqual(await readScoreRecords(d1({ migrate: false }), 835, 62), []);
 });
