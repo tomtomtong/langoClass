@@ -1,7 +1,7 @@
 // "Raise a hand": a student asks Uncle Tommy a question out loud and he answers it on
 // the big screen. Off unless the autoclass page turns it on.
 //
-//   set_tutor { enabled, lesson }   host only; lesson = { title, outline, language, sttLanguage }
+//   set_tutor { enabled, lesson }   host only; lesson = { title, outline, audience, language, sttLanguage }
 //   ask_question { audioBase64 }    student; room.js turns the recording into text first
 //
 // The question becomes a "tutor-answer" job (room.js): a model call writes a short answer,
@@ -30,6 +30,7 @@ export function setTutor(state, data, ctx) {
     lesson: {
       title: clip(lesson.title, 120),
       outline: clip(lesson.outline, 1500),
+      audience: clip(lesson.audience, 200),
       language: languageOf(lesson.language) || "en",
       sttLanguage: languageOf(lesson.sttLanguage) || "en",
     },
@@ -144,8 +145,10 @@ export function tutorPrompt(job) {
   const reply = language === "yue"
     ? "Cantonese, in Traditional Chinese characters, the way people speak in Hong Kong"
     : "simple English";
+  const audience = lesson.audience || "young children (about 6 to 10 years old)";
   return [
-    "You are Uncle Tommy, a warm, cheerful teacher talking to a class of young children (about 6 to 10 years old) in Hong Kong.",
+    `You are Uncle Tommy, a warm, cheerful teacher talking to a class in Hong Kong. The class: ${audience}.`,
+    "Talk to them the way a good teacher talks to this class. If they are grown-ups, speak to them as grown-ups, with respect: never call them children or little ones (小朋友), and never talk down to them.",
     `The class is watching a lesson called "${lesson.title || "today's lesson"}". What the lesson covers:`,
     lesson.outline || "(not given)",
     "",

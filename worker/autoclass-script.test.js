@@ -151,3 +151,12 @@ test("a section's autoclass item keeps only its lesson id through the course sto
   assert.deepEqual(item.items, [{ lessonId: "animal-homes" }]);
   assert.deepEqual(normalizeExercise({ type: "autoclass", items: [{ lessonId: "../x" }] }, 1).items, []);
 });
+
+test("tutor.audience is optional text", () => {
+  assert.equal(validateLessonScript(copy()).script.tutor.audience, "");
+  const input = copy();
+  input.tutor = { ...(input.tutor || {}), audience: "older adults in Hong Kong" };
+  assert.equal(validateLessonScript(input).script.tutor.audience, "older adults in Hong Kong");
+  input.tutor.audience = "x".repeat(201);
+  assert.deepEqual(paths(validateLessonScript(input)), ["tutor.audience"]);
+});

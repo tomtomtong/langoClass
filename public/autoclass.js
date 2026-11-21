@@ -655,7 +655,7 @@
     state.asking = want;
     await emit("set_tutor", {
       enabled: want,
-      lesson: { title: state.lesson.title, outline: tutor.outline, language: tutor.language, sttLanguage: tutor.sttLanguage },
+      lesson: { title: state.lesson.title, outline: tutor.outline, audience: tutor.audience || "", language: tutor.language, sttLanguage: tutor.sttLanguage },
     }).catch((err) => {
       state.asking = !want;
       console.warn("autoclass: questions", err);

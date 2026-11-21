@@ -456,6 +456,7 @@ ${dim}
       language: t.language,
       sttLanguage: t.sttLanguage,
       outline: t.outline,
+      audience: t.audience || "",
       tommyVideo: `${mediaUrl}/tommy-talking.webm`,
       // Where the small Tommy is, in the video's 1920×1080 pixels (the clip is 552×648).
       anchor: { x: small.x, y: small.y, w: r3(552 * small.scale), h: r3(648 * small.scale) },

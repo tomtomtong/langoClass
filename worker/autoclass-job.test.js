@@ -280,6 +280,7 @@ test("the builder writes the project and cues from a script, timed to the voice"
     assert.equal(cues.cues[1].exercise.items[0].options[1].isCorrect, true);
     assert.equal(cues.cues[1].result.wrong[0][0].url, "/uploads/autoclass/animal-homes/r1/analysis/q1-wrong-1-1.mp3");
     assert.equal(cues.tutor.breaks.length, 6);
+    assert.equal(cues.tutor.audience, "");
     assert.equal(cues.tutor.tommyVideo, "/uploads/autoclass/animal-homes/r1/tommy-talking.webm");
     assert.ok(cues.analysis.allRight.every((line) => line.url.startsWith("/uploads/autoclass/animal-homes/r1/analysis/")));
     const index = readFileSync(path.join(dir, "index.html"), "utf8");

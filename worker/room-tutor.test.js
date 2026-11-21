@@ -159,3 +159,15 @@ test("a question asked in the room carries the language the answer is written an
   assert.match(ask("en", "Why do birds build nests?").prompt, /simple English/);
   assert.equal(ask("en", "雀仔點解起竇？").job.language, "yue");
 });
+
+test("the prompt is written for the lesson's class: children by default, else who the lesson says", () => {
+  assert.match(tutorPrompt({ question: "hi", language: "en", lesson }), /young children \(about 6 to 10 years old\)/);
+  const audience = "older adults (長者) in Hong Kong learning to use AI safely";
+  const state = applyRoomEvent(room(), { event: "set_tutor", data: { enabled: true, lesson: { ...lesson, language: "yue", audience } } }, host).state;
+  assert.equal(state.session.tutor.lesson.audience, audience);
+  const job = applyRoomEvent(state, { event: "ask_question", data: { text: "AI 點樣扮人把聲？" } }, ada()).jobs[0];
+  const prompt = tutorPrompt(job);
+  assert.ok(prompt.includes(`The class: ${audience}.`));
+  assert.doesNotMatch(prompt, /6 to 10/);
+  assert.match(prompt, /never call them children/);
+});
