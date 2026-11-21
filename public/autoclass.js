@@ -7,6 +7,7 @@
 // A cue can be a poll instead of a question: { "at": 59, "poll": { id, question, options, seconds } }.
 // Or "say it with me": { "at": 48, "speak": { sentence, seconds }, "exercise": { type: "openanswer", practice: true } }
 // (see "Speak" below).
+// Or a spelling race: { "at": 70, "spell": { id, seconds, words: [{ word, emoji, hint }] } } (see "Spell" below).
 // The video does not show a poll; this page draws it over the paused video (see "Poll" below).
 // The video shows each question itself and pauses on it at `at`. This page sends that quiz to
 // the phones with the same room events host.html uses (start_next_exercise, create_room_game,
@@ -109,6 +110,7 @@
     socket.on("reaction", showReaction);
     socket.on("lost", onLost);
     socket.on("poll_votes", onPollVotes);
+    socket.on("spell_progress", onSpellProgress);
     socket.on("ask_received", onAskReceived);
     socket.on("tutor_answer", onTutorAnswer);
     socket.on("tutor_declined", onTutorDeclined);
@@ -149,9 +151,11 @@
       state.lesson = await res.json();
       const polls = state.lesson.cues.filter((cue) => cue.poll).length;
       const speaks = state.lesson.cues.filter((cue) => cue.speak).length;
+      const spells = state.lesson.cues.filter((cue) => cue.spell).length;
       el("setup-lesson").textContent =
-        `Lesson: ${state.lesson.title} · ${state.lesson.cues.length - polls - speaks} questions` +
+        `Lesson: ${state.lesson.title} · ${state.lesson.cues.length - polls - speaks - spells} questions` +
         (speaks ? ` · ${speaks} speaking` : "") +
+        (spells ? ` · ${spells} spelling race${spells > 1 ? "s" : ""}` : "") +
         (polls ? ` · ${polls} poll${polls > 1 ? "s" : ""}` : "");
       void loadVideo(state.lesson.video);
     } catch (err) {
@@ -297,6 +301,7 @@
 
   async function runCue(cue) {
     if (cue.poll) return runPoll(cue);
+    if (cue.spell) return runSpell(cue);
     if (cue.speak || cue.ask) return runSpeak(cue);
     const quiz = mcQuizPayloadFromExercise(cue.exercise);
     state.quiz = { cue, endsAt: 0, clockOffset: 0, timer: null };
@@ -480,6 +485,129 @@
     run.audio?.pause();
     run.audio = new Audio(url);
     run.audio.play().catch(() => {});
+  }
+
+  // ---- Spell: a spelling race. The video shows the words' emojis with blanks and pauses; every
+  // phone spells the words from scrambled tiles at its own pace (worker/room-spell.js), and each
+  // right word scores. Like a poll it runs over the "watch" exercise, so the phones go straight
+  // back to watching when it ends. The race ends when the time is up or everyone has spelled every
+  // word; then the video writes the words in, and the results page shows who spelled them all.
+  // Each student counts as option 0 (all spelled), 1 (some) or 2 (tried, none yet) of a
+  // three-option question, so the results page and Tommy's quiz lines work as they do for a quiz. ----
+
+  const SPELL_LATE_MS = 1500; // the room still takes answers sent just as the time runs out
+  const SPELL_ALL_IN_MS = 1200; // after the last student has spelled every word
+  const SPELL_OPTIONS = [
+    { text: "Spelled them all", letter: "🏆" },
+    { text: "Spelled some", letter: "✏️" },
+    { text: "None yet", letter: "💪" },
+  ];
+
+  async function runSpell(cue) {
+    const spell = cue.spell;
+    const run = { cue, spell: true, timer: null, endsAt: Date.now() + (spell.seconds || 60) * 1000, closing: false, progress: null, allInTimer: null };
+    state.quiz = run;
+    clearLost();
+    el("btn-skip").textContent = "Skip spelling";
+    el("btn-skip").hidden = false;
+    setLive("Get ready…", "");
+    try {
+      const started = await emit("start_spellrace", {
+        id: spell.id,
+        title: cue.exercise?.title || "Spelling race",
+        seconds: spell.seconds,
+        words: spell.words,
+      });
+      if (state.quiz !== run) return; // skipped meanwhile
+      // The time left, not the room's clock: this computer's clock may be off.
+      run.endsAt = Date.now() + (Number(started?.msLeft) || (spell.seconds || 60) * 1000);
+    } catch (err) {
+      console.warn("autoclass: could not start the spelling race", err);
+      setLive(`Could not send the race (${err.message}). Carrying on.`, "");
+      setTimeout(() => finishSpell(cue, null), 2500);
+      return;
+    }
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((run.endsAt - Date.now()) / 1000));
+      el("live-timer").textContent = String(left);
+      const p = run.progress;
+      el("live-text").textContent = run.closing
+        ? "Time's up!"
+        : `Spell on your phone · ${p?.spelled || 0} words spelled` + (p?.finished ? ` · ${p.finished} spelled them all` : "");
+      if (!left && !run.closing) setTimeout(() => closeSpell(cue), SPELL_LATE_MS);
+    };
+    tick();
+    run.timer = setInterval(tick, 250);
+  }
+
+  function onSpellProgress(data = {}) {
+    const run = state.quiz;
+    if (!run?.spell || data.id !== run.cue.spell.id) return;
+    run.progress = data;
+    const online = onlineCount();
+    if (online && data.finished >= online && !run.allInTimer) run.allInTimer = setTimeout(() => closeSpell(run.cue), SPELL_ALL_IN_MS);
+  }
+
+  // Time is up, or everyone has spelled every word: end the race and keep its results.
+  async function closeSpell(cue) {
+    const run = state.quiz;
+    if (!run?.spell || run.cue !== cue || run.closing) return;
+    run.closing = true;
+    clearInterval(run.timer);
+    clearTimeout(run.allInTimer);
+    el("btn-skip").hidden = true;
+    let results = null;
+    try {
+      results = await emit("end_spellrace");
+    } catch (err) {
+      console.warn("autoclass: could not end the spelling race", err);
+    }
+    finishSpell(cue, results);
+  }
+
+  // `ended` is the room's results ({ players, words }), or null for a skipped or failed race.
+  function finishSpell(cue, ended) {
+    const run = state.quiz;
+    if (!run?.spell || run.cue !== cue) return;
+    clearInterval(run.timer);
+    clearTimeout(run.allInTimer);
+    if (!run.closing) emit("end_spellrace").catch(() => {}); // skipped: stop the phones
+    state.quiz = null;
+    state.cueIndex += 1;
+    el("btn-skip").hidden = true;
+
+    const players = ended?.players || [];
+    const total = cue.spell.words.length;
+    for (const p of players) {
+      if (!p.score) continue;
+      const entry = state.totals.get(p.id) || { name: p.name, score: 0 };
+      entry.name = p.name || entry.name;
+      entry.score += p.score;
+      state.totals.set(p.id, entry);
+    }
+    const online = new Set(state.participants.filter((p) => p.online !== false).map((p) => p.userId));
+    const results = players
+      .filter((p) => p.tried || online.has(p.id))
+      .map((p) => ({
+        playerId: p.id,
+        name: p.name,
+        solved: p.solved,
+        answerIndex: p.solved >= total ? 0 : p.solved > 0 ? 1 : p.tried ? 2 : null,
+        correct: p.solved >= total,
+      }));
+    const done = results.filter((r) => r.correct).length;
+    setLive(results.length ? `${done} of ${results.length} spelled them all` : "", "", true);
+    state.pendingResult = ended && results.length && cue.result && window.LangoAutoclassAnalysis
+      ? { cue, payload: { results, correctIndex: 0, words: ended.words || [] } }
+      : null;
+    setTimeout(() => {
+      if (state.ended) return;
+      video.currentTime = cue.resumeAt ?? cue.at;
+      video.play().catch(() => {});
+      setTimeout(() => {
+        if (!state.quiz) el("live").hidden = true;
+      }, 6000);
+    }, RESULT_HOLD_MS);
   }
 
   // ---- Speak: "say it with me". The video has just asked the class to say a sentence; every phone
@@ -904,6 +1032,7 @@
   function resultOptions(cue) {
     if (cue.speak) return SPEAK_OPTIONS;
     if (cue.ask) return ASK_OPTIONS;
+    if (cue.spell) return SPELL_OPTIONS;
     return cue.exercise.items[0].options;
   }
 
@@ -922,24 +1051,38 @@
   // Laid out like the host's quiz results: the question and its answer, then a donut of how the
   // class answered, and the students who got it right.
   function renderResult(cue, payload, summary) {
-    const item = cue.exercise.items[0];
+    const item = cue.exercise.items?.[0];
     const speak = !!cue.speak;
     const ask = !!cue.ask;
+    const spell = !!cue.spell;
     const colors = typeof LANGO_MCQ_OPTION_COLORS !== "undefined" ? LANGO_MCQ_OPTION_COLORS : ["#E838A8", "#FFE566", "#5C3A9E", "#45E0E8"];
-    el("result-tag").textContent = speak ? "Speaking results" : t("mcq.resultsTitle", null, "Results");
-    el("result-question").textContent = speak ? `“${cue.speak.sentence}”` : ask ? cue.ask.question : item.title;
+    el("result-tag").textContent = speak ? "Speaking results" : spell ? "Spelling race" : t("mcq.resultsTitle", null, "Results");
+    el("result-question").textContent = speak
+      ? `“${cue.speak.sentence}”`
+      : ask
+        ? cue.ask.question
+        : spell
+          ? cue.spell.words.map((w) => `${w.emoji} ${w.word}`).join("  ·  ")
+          : item.title;
     el("result-summary").textContent = !summary.total
       ? ""
       : speak
         ? `${summary.answered} / ${summary.total} had a go`
-        : `${summary.right} / ${summary.total} ✓`;
+        : `${summary.right} / ${summary.total} ${spell ? "🏆" : "✓"}`;
 
     const options = resultOptions(cue);
-    const letterOf = (option, index) => (speak || ask ? option.letter : `${option.letter || String.fromCharCode(65 + index)}.`);
+    const letterOf = (option, index) => (speak || ask || spell ? option.letter : `${option.letter || String.fromCharCode(65 + index)}.`);
     const right = options[payload.correctIndex];
     const correct = el("result-correct");
     correct.hidden = speak || !right;
-    if (ask) {
+    const hardest = spell ? hardestWord(payload) : null;
+    if (spell) {
+      // The word the class found hardest is worth a look; if everyone got every word, nothing is.
+      correct.hidden = !hardest;
+      if (hardest) {
+        el("result-correct-text").innerHTML = `Hardest word: <span class="result-correct-highlight">${escapeText(`${hardest.emoji || ""} ${hardest.word}`.trim())}</span>`;
+      }
+    } else if (ask) {
       el("result-correct-text").innerHTML = `${escapeText(t("mcq.correctAnswer", null, "Correct Answer:"))} <span class="result-correct-highlight">${escapeText(cue.ask.answer)}</span>`;
     } else if (!speak && right) {
       el("result-correct-text").innerHTML = `${escapeText(t("mcq.correctAnswer", null, "Correct Answer:"))} <span class="result-correct-letter">${escapeText(letterOf(right, payload.correctIndex))}</span> <span class="result-correct-highlight">${escapeText(right.text)}</span>`;
@@ -976,22 +1119,37 @@
         <strong>${escapeText(countLabel(row.count))}</strong></li>`)
       .join("");
 
-    // Only the ones who got it right are named: nobody is named for a mistake or a silence.
-    const names = (payload.results || []).filter((r) => r && r.correct && r.name).map((r) => String(r.name));
+    // Only the ones who got it right are named: nobody is named for a mistake or a silence. A race
+    // names its top spellers, most words first, with how many each spelled.
+    const names = spell
+      ? (payload.results || [])
+        .filter((r) => r && r.solved > 0 && r.name)
+        .sort((a, b) => b.solved - a.solved)
+        .map((r) => ({ name: String(r.name), label: `${r.name} · ${r.solved}` }))
+      : (payload.results || []).filter((r) => r && r.correct && r.name).map((r) => ({ name: String(r.name), label: String(r.name) }));
     const got = el("result-got");
     got.hidden = !names.length;
     if (names.length) {
-      el("result-got-title").textContent = speak ? "🌟 Great speaking" : t("mcq.correctResponses", null, "Correct Responses");
+      el("result-got-title").textContent = speak ? "🌟 Great speaking" : spell ? "🏆 Top spellers" : t("mcq.correctResponses", null, "Correct Responses");
       const shown = names.slice(0, RESULT_NAMES_MAX);
       const extra = names.length - shown.length;
       el("result-got-grid").innerHTML =
         shown
-          .map((name, i) => `<div class="result-got-student" style="--i: ${i}" title="${escapeText(name)}">
-            <span class="result-got-avatar">${escapeText(initialsOf(name))}</span><span class="result-got-name">${escapeText(name)}</span></div>`)
+          .map(({ name, label }, i) => `<div class="result-got-student" style="--i: ${i}" title="${escapeText(label)}">
+            <span class="result-got-avatar">${escapeText(initialsOf(name))}</span><span class="result-got-name">${escapeText(label)}</span></div>`)
           .join("") +
         (extra ? `<div class="result-got-student" style="--i: ${shown.length}"><span class="result-got-avatar is-more">+${extra}</span></div>` : "");
     }
     el("result-caption").textContent = "";
+  }
+
+  // The word fewest students spelled (most wrong tries breaks a tie), or null when everyone who
+  // took part spelled every word.
+  function hardestWord(payload) {
+    const tried = (payload.results || []).filter((r) => r.answerIndex !== null).length;
+    const words = (payload.words || []).filter((w) => w.right < tried || w.misses > 0);
+    if (!tried || !words.length) return null;
+    return words.reduce((worst, w) => (w.right < worst.right || (w.right === worst.right && w.misses > worst.misses) ? w : worst));
   }
 
   async function sayLine(run, line) {
@@ -1232,6 +1390,7 @@
   el("btn-skip").addEventListener("click", () => {
     if (state.quiz?.tutor || state.quiz?.result) skipTutor();
     else if (state.quiz?.poll) finishPoll(state.quiz.cue);
+    else if (state.quiz?.spell) finishSpell(state.quiz.cue, null);
     else if (state.quiz?.speak) finishSpeak(state.quiz.cue, false);
     else finishCue(null);
   });

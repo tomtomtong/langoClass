@@ -12,6 +12,7 @@ export function exerciseKind(exercise) {
   if (type === "video") return "video";
   if (type === "buzzin") return "buzzin";
   if (type === "openanswer") return "openanswer";
+  if (type === "spellrace") return "spellrace";
   return "";
 }
 
@@ -138,7 +139,32 @@ export function queueOpenScores(state, now) {
   const open = state.session.openAnswerExerciseId != null && sameId(state.session.openAnswerExerciseId, exercise?.id)
     ? queueOpenAnswerScores(state, exercise, now)
     : false;
-  return quiz || buzz || open;
+  const spell = queueSpellScores(state, now);
+  return quiz || buzz || open || spell;
+}
+
+// A spelling race's points (worker/room-spell.js), once per race: everyone in the room, with the
+// points each right word earned. Practice and autoclass-only races save nothing.
+export function queueSpellScores(state, now) {
+  const race = state?.session?.spell;
+  if (!race || race.scoresQueued) return false;
+  race.scoresQueued = true;
+  const current = state.session.exercise;
+  const exercise = current && sameId(current.id, race.exerciseId)
+    ? current
+    : { id: race.exerciseId, type: "spellrace", title: race.title };
+  if (exercise.practice === true) return false;
+  const scores = (state.session.participants || []).map((participant) => ({
+    studentUserId: participant.userId,
+    displayName: participant.displayName || "Student",
+    score: race.players[participant.userId]?.points || 0,
+  }));
+  for (const [playerId, entry] of Object.entries(race.players)) {
+    if (!scores.some((item) => item.studentUserId === playerId)) {
+      scores.push({ studentUserId: playerId, displayName: entry.name || "Student", score: entry.points });
+    }
+  }
+  return queue(state, batchOf(state, exercise, state.session.courseId, scores, "spellrace"), now);
 }
 
 export function awardBuzz(state, playerId, displayName) {

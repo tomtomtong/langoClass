@@ -256,6 +256,43 @@ test("an ask scene becomes an unscored, marked Everyone Answers cue", async () =
   }
 });
 
+test("a spell scene becomes a spelling race cue, with blanks in the video until the reveal", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-spell-"));
+  try {
+    const input = structuredClone(animalHomes);
+    input.scenes.push({
+      kind: "spell",
+      ask: "Spelling race!",
+      reveal: "Bird, bee, fish!",
+      seconds: 45,
+      words: [{ emoji: "🐦", word: "bird", hint: "lives in a nest" }, { emoji: "🐝", word: "bee" }, { emoji: "🐟", word: "fish" }],
+    });
+    const { script } = validateLessonScript(input);
+    (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    let n = 0;
+    const voice = async () => {
+      const name = `assets/voice/v${n++}.mp3`;
+      writeFileSync(path.join(dir, name), "mp3");
+      return { file: name, seconds: 2 };
+    };
+    const built = await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" });
+    const cue = JSON.parse(readFileSync(path.join(dir, "out", "cues.json"), "utf8")).cues.at(-1);
+    assert.deepEqual(cue.spell, {
+      id: "autoclass-animal-homes-spell2",
+      seconds: 45,
+      words: [{ word: "bird", emoji: "🐦", hint: "lives in a nest" }, { word: "bee", emoji: "🐝", hint: "" }, { word: "fish", emoji: "🐟", hint: "" }],
+    });
+    assert.deepEqual(cue.exercise, { id: "autoclass-animal-homes-spell2", type: "spellrace", title: "Animal Homes · Spelling race!" });
+    assert.ok(cue.at < cue.result.at && cue.result.at < built.total);
+    const html = readFileSync(path.join(dir, "compositions", "spell2.html"), "utf8");
+    assert.match(html, /class="spell-blank">_ _ _ _</);
+    assert.match(html, /class="spell-answer">bird</);
+    assert.match(html, /--cols: 3/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("the builder writes the project and cues from a script, timed to the voice", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "autoclass-build-"));
   try {
@@ -273,7 +310,7 @@ test("the builder writes the project and cues from a script, timed to the voice"
     const cues = JSON.parse(readFileSync(path.join(dir, "out", "cues.json"), "utf8"));
     assert.equal(cues.video, "/uploads/autoclass/animal-homes/r1/animal-homes.mp4");
     assert.equal(cues.duration, built.total);
-    assert.deepEqual(cues.cues.map((c) => (c.poll ? "poll" : c.speak ? "speak" : "quiz")), ["speak", "quiz", "poll", "quiz"]);
+    assert.deepEqual(cues.cues.map((c) => (c.poll ? "poll" : c.speak ? "speak" : c.spell ? "spell" : "quiz")), ["speak", "quiz", "poll", "quiz", "spell"]);
     const times = cues.cues.map((c) => c.at);
     assert.deepEqual(times, [...times].sort((a, b) => a - b));
     assert.ok(cues.cues.every((c) => c.at < built.total));
