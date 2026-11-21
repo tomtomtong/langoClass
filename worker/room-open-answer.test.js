@@ -384,3 +384,33 @@ function createRoomWith() {
   ];
   return state;
 }
+
+test("an autoclass question is marked but not re-read, and saves no points", () => {
+  let state = createRoomState({ roomId: "123456", teacherId: 835, classItem: { id: 62, name: "5A" }, now: 1000 });
+  state.sockets = { "host-1": { role: "host", playerId: null } };
+  state.session.exercise = { id: "autoclass-x-ask1", type: "openanswer", autoclass: true, items: [{ topic: "What do you do first?", correctAnswer: "Call back on a number you know.", timeLimit: 20 }] };
+  state.session.participants = [
+    { userId: "ada", displayName: "Ada", online: true, joinedAt: 1 },
+    { userId: "bo", displayName: "Bo", online: true, joinedAt: 2 },
+  ];
+  const started = host(state, "start_openanswer_round", {}, 2000);
+  assert.ok(!started.deferAck, "the video already asked: no reading");
+  assert.deepEqual(started.jobs || [], []);
+  assert.equal(started.ack.ok, true);
+  state = host(started.state, "open_openanswer_window", {}, 3000).state;
+
+  const ada = answer(state, "ada", "I call my son back", 4000);
+  assert.deepEqual(ada.jobs.map((job) => job.kind), ["open-analyze"], "still marked by the model");
+  assert.equal(ada.jobs[0].correctAnswer, "Call back on a number you know.");
+  state = ada.state;
+  const marked = applyRoomJob(state, ada.jobs[0], { ok: true, analysis: "", spokenFeedback: "Good, Ada!", answerVerdict: "correct", isCorrect: true }, 5000);
+  const entry = marked.state.open.responses[0];
+  assert.equal(entry.answerVerdict, "correct");
+  assert.equal(entry.points, 0);
+  assert.equal(marked.state.open.practice, false);
+  assert.deepEqual(marked.state.session.openAnswerPoints, {});
+
+  const ended = host(marked.state, "end_room_exercise", { exerciseId: "autoclass-x-ask1", exerciseType: "openanswer" }, 9000);
+  assert.equal(ended.ack.ok, true);
+  assert.deepEqual(ended.state.pendingScores || [], [], "not even zeros");
+});

@@ -15,6 +15,10 @@
 //     so thirty students cost thirty transcriptions and nothing else;
 //   - a transcription that fails or hears nothing still counts as having a go ("tried");
 //   - the room does not read the sentence aloud: the lesson video already did.
+//
+// Autoclass questions (exercise.autoclass, also only from the autoclass page): a real open question
+// the lesson video has just asked. Each answer is marked by the model as usual, but the room does
+// not read the question aloud again (the video did) and no points or semester scores are saved.
 import { audioRef, clip, done, isHost, isStudent, languageOf } from "./room-core.js";
 import { awardOpenAnswer, openAnswerPoints } from "./room-scores.js";
 
@@ -42,6 +46,7 @@ export function openAnswerTopics(exercise) {
         sttLanguage: languageOf(item?.sttLanguage),
         answerSeconds: secondsOf(item?.timeLimit ?? item?.answerSeconds),
         practice: exercise?.practice === true,
+        quiet: exercise?.practice === true || exercise?.autoclass === true,
       };
     })
     .filter(Boolean);
@@ -71,6 +76,7 @@ function newRound(topics, index, now) {
     closedAt: 0,
     closeReason: "",
     practice: !!current.practice,
+    quiet: !!current.quiet,
     responses: [],
   };
 }
@@ -79,10 +85,11 @@ export function startOpenAnswer(state, ctx) {
   if (!isHost(ctx)) return done(state, { ack: { ok: false, error: "Only the host can start an Everyone Answers round." } });
   const topics = openAnswerTopics(state.session.exercise);
   if (!topics.length) return done(state, { ack: { ok: false, error: "This Everyone Answers exercise has no questions." } });
-  // A fresh start is a fresh attempt: points from an earlier run are dropped. Practice saves no
-  // scores at all, so it leaves no exercise for queueOpenScores to save.
-  const practice = state.session.exercise?.practice === true;
-  state.session.openAnswerExerciseId = practice ? null : state.session.exercise?.id ?? null;
+  // A fresh start is a fresh attempt: points from an earlier run are dropped. Practice and
+  // autoclass questions save no scores at all, so they leave no exercise for queueOpenScores to save.
+  const exercise = state.session.exercise;
+  const unscored = exercise?.practice === true || exercise?.autoclass === true;
+  state.session.openAnswerExerciseId = unscored ? null : exercise?.id ?? null;
   state.session.openAnswerPoints = {};
   state.open = newRound(topics, 0, ctx.now);
   return roundStarted(state, ctx);
@@ -103,7 +110,7 @@ export function nextOpenAnswer(state, ctx) {
 function roundStarted(state, ctx) {
   const round = state.open;
   const broadcasts = [frame("openanswer_round_started", state, round, ctx.now)];
-  if (!ctx.caps?.speech || !round.topic || round.practice) {
+  if (!ctx.caps?.speech || !round.topic || round.quiet) {
     return done(state, { ack: { ok: true, ...payload(state, round, ctx.now, true) }, broadcasts, clearTimer: true });
   }
   return done(state, {
@@ -332,10 +339,12 @@ function topicSpoken(state, job, outcome, now) {
 }
 
 function analyzed(state, job, outcome, now) {
-  const points = outcome?.ok ? openAnswerPoints(outcome.answerVerdict) : 0;
+  // An unscored round (practice, autoclass) has no exercise id here, so it earns nothing.
+  const scored = state.session.openAnswerExerciseId != null && String(state.session.openAnswerExerciseId) === String(job.exerciseId);
+  const points = outcome?.ok && scored ? openAnswerPoints(outcome.answerVerdict) : 0;
   // The host may have moved to the next question while the model worked; the
   // points still count for the exercise even though the round is gone.
-  if (points && String(state.session.openAnswerExerciseId) === String(job.exerciseId)) {
+  if (points) {
     awardOpenAnswer(state, job.playerId, job.studentName, points);
   }
   const round = state.open;

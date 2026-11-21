@@ -90,6 +90,23 @@ test("a lesson needs a scene that is not a poll, and not too many scenes", () =>
   assert.deepEqual(paths(validateLessonScript(many)), ["scenes"]);
 });
 
+test("an ask scene: an open question marked against its answer", () => {
+  const input = copy();
+  const ask = { kind: "ask", q: "What do you do first?", answer: "Stop and check with a number you know.", ask: "Your turn! What do you do first?", reveal: "Stop, and check first!" };
+  input.scenes.push(ask);
+  const result = validateLessonScript(input);
+  assert.deepEqual(result.errors, []);
+  const scene = result.script.scenes.at(-1);
+  assert.deepEqual(scene, { ...ask, emoji: "", seconds: 30 });
+  assert.ok(spokenLines(result.script).includes(ask.reveal));
+  assert.match(result.script.tutor.outline, /Question: What do you do first\? Answer: Stop and check/);
+
+  input.scenes[input.scenes.length - 1] = { kind: "ask", q: "Why?", seconds: 5 };
+  const bad = validateLessonScript(input);
+  const last = `scenes[${input.scenes.length - 1}]`;
+  assert.deepEqual(paths(bad), [`${last}.answer`, `${last}.ask`, `${last}.reveal`, `${last}.seconds`]);
+});
+
 test("highlight index and ranges", () => {
   const input = copy();
   input.intro.hl = 3;

@@ -178,23 +178,26 @@ export async function buildLesson(dir, lesson, { voice, mediaUrl }) {
     const breaks = [];
     for (const [i, pair] of scene.pairs.entries()) {
       const vSay = await voice(pair.say);
-      const vRepeat = await voice(pair.repeat);
+      // A pair without `repeat` is only explained: no "say it with me" line or card.
+      const vRepeat = pair.repeat ? await voice(pair.repeat) : null;
       const at = t;
       const sayAt = at + 0.2;
       const repeatAt = sayAt + vSay.seconds + 0.4;
-      const leaveAt = repeatAt + vRepeat.seconds + 1.4; // a beat for the class to say it back
+      const leaveAt = vRepeat
+        ? repeatAt + vRepeat.seconds + 1.4 // a beat for the class to say it back
+        : sayAt + vSay.seconds + 1.2;
       placeVoice(vSay, start + sayAt);
-      placeVoice(vRepeat, start + repeatAt);
-      // Quiet moment: Tommy has finished and the class is still saying the word; the pair leaves
+      if (vRepeat) placeVoice(vRepeat, start + repeatAt);
+      // Quiet moment: Tommy has finished (and the class is still saying the word); the pair leaves
       // 0.5 s after the video resumes.
-      breaks.push(r3(start + repeatAt + vRepeat.seconds + 0.9));
+      breaks.push(r3(start + leaveAt - 0.5));
       parts.push(`    <div id="${id}-pair${i}" class="pair">
       <div id="${id}-animal${i}" class="animal">${esc(pair.emoji)}</div>
       <div id="${id}-arrow${i}" class="arrow"></div>
       <div id="${id}-home${i}" class="home">${esc(pair.home)}</div>
     </div>
-    <p id="${id}-sentence${i}" class="sentence">${esc(pair.sentence)}</p>
-    <p id="${id}-say${i}" class="say">Say it with me: <b>${esc(pair.home)}</b>!</p>`);
+    <p id="${id}-sentence${i}" class="sentence">${esc(pair.sentence)}</p>${vRepeat ? `
+    <p id="${id}-say${i}" class="say">Say it with me: <b>${esc(pair.home)}</b>!</p>` : ""}`);
       // The home and its sentence land as Tommy reaches the second sentence (about halfway).
       const homeAt = sayAt + vSay.seconds * 0.45;
       lines.push(`      tl.fromTo("#${id}-pair${i}", { opacity: 0 }, { opacity: 1, duration: 0.01 }, ${r3(at)});
@@ -205,9 +208,9 @@ export async function buildLesson(dir, lesson, { voice, mediaUrl }) {
         { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, ${r3(homeAt)});
       tl.fromTo("#${id}-sentence${i}", { opacity: 0, filter: "blur(8px)" },
         { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(homeAt + 0.3)});
-      tl.fromTo("#${id}-say${i}", { opacity: 0, scale: 0.8 },
+${vRepeat ? `      tl.fromTo("#${id}-say${i}", { opacity: 0, scale: 0.8 },
         { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.6)" }, ${r3(repeatAt)});
-      tl.to(["#${id}-pair${i}", "#${id}-sentence${i}", "#${id}-say${i}"],
+` : ""}      tl.to(["#${id}-pair${i}", "#${id}-sentence${i}"${vRepeat ? `, "#${id}-say${i}"` : ""}],
         { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, ${r3(leaveAt)});`);
       t = leaveAt + 0.35;
     }
@@ -353,6 +356,77 @@ ${dim}
     return { id, duration: r3(end), html: sceneFile(id, body, script, css), tommy: "hidden", cue };
   }
 
+  // An open question. The page pauses at `at` while every phone answers out loud (Everyone Answers,
+  // marked by the model against `answer`), plays on into Tommy giving a good answer, and pauses again
+  // at `result.at` for how the class did. Each answer's verdict (correct, partial, incorrect) counts
+  // as option 0, 1 or 2 of a three-option question, so the results page and the analysis picker work
+  // as they do for a quiz.
+  async function askScene(start, scene, n) {
+    const id = `ask${n}`;
+    const vAsk = await voice(scene.ask);
+    const vReveal = await voice(scene.reveal);
+    const askAt = 0.5;
+    const pauseAt = Math.max(2.4, askAt + vAsk.seconds + 0.3);
+    const revealAt = pauseAt + 0.8;
+    const end = revealAt + vReveal.seconds + 1.6;
+    placeVoice(vAsk, start + askAt);
+    placeVoice(vReveal, start + revealAt);
+    const body = `    <div id="${id}-tag" class="quiz-tag">Your turn to answer</div>
+    <h2 id="${id}-q" class="quiz-q">${words(scene.q.split(" "), -1)}</h2>
+    <div id="${id}-emoji" class="ask-emoji">${esc(scene.emoji || "💬")}</div>
+    <div id="${id}-answer" class="ask-answer">${esc(scene.answer)}</div>
+    <p id="${id}-hint" class="phone-hint">🎤 Answer on your phone</p>`;
+    const script = `      tl.fromTo("#${id}-tag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.2);
+      tl.fromTo("#${id}-q .word", { opacity: 0, filter: "blur(6px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.08 }, 0.5);
+      tl.fromTo("#${id}-emoji", { opacity: 0, scale: 0.6, filter: "blur(10px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.55, ease: "back.out(1.4)" }, 1.0);
+      tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(pauseAt - 0.6)});
+      // Paused at ${r3(pauseAt)} s while the class answers; Tommy gives a good answer from ${r3(revealAt)} s.
+      tl.to(["#${id}-hint", "#${id}-emoji"], { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, ${r3(revealAt - 0.4)});
+      tl.fromTo("#${id}-answer", { opacity: 0, y: 30, filter: "blur(8px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, ${r3(revealAt)});
+      tl.to(["#${id}-tag", "#${id}-q", "#${id}-answer"], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
+    const css = `
+    .ask-emoji {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 400px;
+      text-align: center;
+      font-size: 220px;
+    }
+    .ask-answer {
+      position: absolute;
+      left: 150px;
+      right: 150px;
+      top: 430px;
+      padding: 44px 56px;
+      border-radius: 36px;
+      background: var(--teal-soft);
+      border: 4px solid var(--teal);
+      color: var(--teal);
+      font-size: 60px;
+      font-weight: 900;
+      line-height: 1.3;
+      text-align: center;
+    }`;
+    const cue = {
+      at: r3(start + pauseAt),
+      resumeAt: r3(start + pauseAt),
+      ask: { question: scene.q, answer: scene.answer, seconds: scene.seconds || 30 },
+      result: { at: r3(start + end - 0.5), key: id, wrong: {} },
+      exercise: {
+        id: `autoclass-${lesson.id}-${id}`,
+        type: "openanswer",
+        autoclass: true,
+        title: `${lesson.title} · ${scene.q}`,
+        items: [{ topic: scene.q, correctAnswer: scene.answer, sttLanguage: lesson.tutor?.sttLanguage || "en", timeLimit: scene.seconds || 30 }],
+      },
+    };
+    return { id, duration: r3(end), html: sceneFile(id, body, script, css), tommy: "hidden", cue };
+  }
+
   // A poll pauses the video at `at`, the boundary between two scenes, and resumes from there.
   async function pollCue(at, scene, n) {
     const audio = {};
@@ -473,12 +547,13 @@ ${rows}
     t += s.duration;
   };
   push(await introScene(t));
-  const count = { teach: 0, quiz: 0, speak: 0 };
+  const count = { teach: 0, quiz: 0, speak: 0, ask: 0 };
   const pollCues = [];
   for (const scene of lesson.scenes) {
     if (scene.kind === "teach") push(await teachScene(t, scene, ++count.teach));
     else if (scene.kind === "poll") pollCues.push(await pollCue(t, scene, pollCues.length + 1));
     else if (scene.kind === "speak") push(await speakScene(t, scene, ++count.speak));
+    else if (scene.kind === "ask") push(await askScene(t, scene, ++count.ask));
     else if (scene.kind === "quiz") push(await quizScene(t, scene, ++count.quiz));
     else throw new Error(`Unknown scene kind "${scene.kind}".`);
   }
