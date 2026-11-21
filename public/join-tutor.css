@@ -2,7 +2,7 @@
 .tutor-ask-btn {
   position: fixed;
   left: 50%;
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--emoji-h, 0px) + 62px);
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--emoji-h, 0px) + 66px); /* the "I don't get it" button (52px) and a 14px gap */
   transform: translateX(-50%);
   z-index: 60;
   display: inline-flex;

@@ -54,7 +54,7 @@
         .join("");
     }
     bar.hidden = !emojiOpen;
-    document.body.style.setProperty("--emoji-h", emojiOpen ? "64px" : "0px");
+    document.body.style.setProperty("--emoji-h", emojiOpen ? "82px" : "0px"); // the bar (68px) and a 14px gap
 
     if (!lostButton) {
       lostButton = document.createElement("button");
