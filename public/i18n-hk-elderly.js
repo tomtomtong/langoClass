@@ -1,10 +1,10 @@
 /**
- * HK elderly Cantonese overlays. Loaded only on /hk pages after i18n.js.
+ * HK elderly Cantonese overlays, used only when the host picks elderly mode.
  * Does not change the main app's yue strings.
  */
 (function (global) {
   const i18n = global.LangoI18n;
-  if (!i18n?.addMessages) return;
+  if (!i18n?.addMessages || global.LANGO_VARIANT !== "hk-elderly") return;
 
   i18n.addMessages("yue", {
     "login.title": "LangoClass 登入",

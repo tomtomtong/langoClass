@@ -118,11 +118,11 @@
     socket.on("openanswer_update", onSpeakUpdate);
     socket.on("openanswer_closed", onSpeakClosed);
     socket.on("openanswer_highlights", onHighlights);
-    socket.io?.on?.("reconnect", () => emit("host_session", { uiLocale: "en" }).catch(() => {}));
+    socket.io?.on?.("reconnect", () => emit("host_session", hostSessionData()).catch(() => {}));
 
     return new Promise((resolve, reject) => {
       socket.once("connect", () => {
-        emit("host_session", { uiLocale: "en" })
+        emit("host_session", hostSessionData())
           .then((res) => {
             renderParticipants(res.participants || []);
             resolve();
@@ -139,6 +139,11 @@
     const online = list.filter((p) => p.online !== false);
     el("joined-count").textContent = String(online.length);
     el("joined-names").textContent = online.map((p) => p.displayName || p.name).join(", ") || "nobody yet";
+  }
+
+  // The students' join page takes the lesson's look (for example big type for older learners).
+  function hostSessionData() {
+    return { uiLocale: "en", theme: state.lesson?.theme || "" };
   }
 
   // ---- Setup ----

@@ -23,10 +23,10 @@ if [ "$should_bump" != "1" ]; then
   exit 0
 fi
 
-host_pages="public/host.html public/hk/host.html"
+host_pages="public/host.html"
 
 if ! git diff --quiet -- $host_pages || ! git diff --cached --quiet -- $host_pages; then
-  echo "pre-push: public/host.html or public/hk/host.html has uncommitted changes."
+  echo "pre-push: public/host.html has uncommitted changes."
   echo "pre-push: commit or stash them first so the login version bump stays clean."
   exit 1
 fi

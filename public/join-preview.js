@@ -1,10 +1,14 @@
 /**
  * Join page layout preview — enable with ?preview=1 on join.html
+ * Add &theme=elderly to preview the elderly look (join-elderly.css).
  * Switch between exercise screens with sample data for design/dev.
  */
 (function initJoinLayoutPreview() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has("preview")) return;
+  if (params.get("theme") === "elderly" && typeof applyJoinRoomLook === "function") {
+    applyJoinRoomLook({ theme: "elderly" });
+  }
 
   const STORAGE_KEY = "lango_join_preview_layout";
   const TOOLBAR_OPEN_KEY = "lango_join_preview_toolbar_open";

@@ -14,14 +14,18 @@
   <link rel="stylesheet" href="/host-video.css" />
   <link rel="stylesheet" href="/slides-player.css" />
   <link rel="stylesheet" href="/open-answer.css" />
-  <link rel="stylesheet" href="/host-lango3-theme.css" />
+  <script src="/host-theme.js"></script>
   <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-idle.webp" />
   <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-talk.webp" />
   <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-idle-head.webp" />
   <link rel="preload" as="image" href="/assets/buzzin/uncle-tommy-talk-head.webp" />
 </head>
 <body>
+  <script>if (window.LANGO_HOST_THEME === "elderly") document.body.classList.add("hk-elderly");</script>
   <div id="app" class="lango-host">
+    <div class="host-brand-mark" hidden>
+      <img class="host-brand-logo" src="/assets/login/langoclass_logo.svg" alt="Lango Class" width="160" height="160" />
+    </div>
     <div class="host-utility-controls" id="host-utility-controls">
       <div class="host-utility-dock">
         <div class="host-utility-meta">
@@ -258,6 +262,28 @@
                   <span class="settings-toggle-state" id="host-exercise-transition-state">On</span>
                 </button>
               </div>
+
+              <div class="settings-card">
+                <div class="settings-card-copy">
+                  <h2 class="settings-card-title" data-i18n="settings.theme.title">Elderly mode</h2>
+                  <p class="settings-card-desc" id="host-theme-desc">
+                    Bigger text and a calmer look for older learners, on this screen and on students' phones.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="settings-toggle"
+                  id="btn-host-theme"
+                  role="switch"
+                  aria-checked="false"
+                  aria-describedby="host-theme-desc"
+                >
+                  <span class="settings-toggle-track" aria-hidden="true">
+                    <span class="settings-toggle-thumb"></span>
+                  </span>
+                  <span class="settings-toggle-state" id="host-theme-state">Off</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -435,6 +461,10 @@
               </div>
               <p class="course-step" data-i18n="course.step">Step 2 · Pick your course</p>
               <h1 class="course-page-title" data-i18n="course.title">Select Your Course</h1>
+              <p class="class-teacher-chip" id="course-header-class-chip" hidden>
+                <span data-i18n="course.classPrefix">Class</span>
+                <strong id="course-header-class-name"></strong>
+              </p>
               <p class="course-count-badge" id="course-count-badge" hidden></p>
               <div class="course-search" id="course-search-wrap" hidden>
                 <input type="search" id="course-search" class="course-search__input" autocomplete="off" spellcheck="false" data-i18n-placeholder="course.searchPlaceholder" placeholder="Search courses…" aria-label="Search courses" />
@@ -1309,6 +1339,7 @@
   <script src="/i18n.js"></script>
   <script src="/i18n-exercise.js"></script>
   <script src="/i18n-world.js"></script>
+  <script src="/i18n-hk-elderly.js"></script>
   <script src="/exercise-utils.js"></script>
   <script src="/host-room-quiz.js"></script>
   <script src="/host-open-answer.js"></script>

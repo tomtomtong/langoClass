@@ -826,6 +826,7 @@ ${videoFades}
   const cues = {
     title: lesson.title,
     lessonId: lesson.id,
+    theme: lesson.theme || "",
     video: `${mediaUrl}/${lesson.id}.mp4`, // render into out/<id>.mp4
     source: "video-container/autoclass/lesson.mjs, from the lesson script (do not edit by hand)",
     duration: total,

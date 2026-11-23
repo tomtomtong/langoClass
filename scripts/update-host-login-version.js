@@ -1,10 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const targets = [
-  path.join(__dirname, "..", "public", "host.html"),
-  path.join(__dirname, "..", "public", "hk", "host.html"),
-];
+const targets = [path.join(__dirname, "..", "public", "host.html")];
 
 const now = new Date();
 const parts = new Intl.DateTimeFormat("en-CA", {

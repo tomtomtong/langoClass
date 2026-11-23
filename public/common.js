@@ -8,8 +8,9 @@ function isHkElderlyVariant() {
   return window.LANGO_VARIANT === "hk-elderly";
 }
 
+// One join page for every class; the room tells it which look to use (join.js applyJoinTheme).
 function langoJoinPagePath() {
-  return isHkElderlyVariant() ? "/hk/join.html" : "/join.html";
+  return "/join.html";
 }
 
 function uiT(key, vars) {
@@ -863,6 +864,8 @@ function renderOptions(
 ) {
   const useShapes = shapeOnly || (isHkElderlyVariant() && clickable);
   const useKahootGrid = Boolean((kahootGrid || listLayout) && isHkElderlyVariant());
+  // The join page's elderly look (join-elderly.css) shows each answer as a letter badge + its words.
+  const useBadges = useKahootGrid || (typeof document !== "undefined" && Boolean(document.body?.classList.contains("theme-elderly")));
   container.classList.toggle("options-kahoot-grid", useKahootGrid);
   container.innerHTML = options
     .map((opt, i) => {
@@ -873,8 +876,8 @@ function renderOptions(
       const classes = ["option"];
       if (clickable) classes.push("player-btn");
       if (correctIndex === i) classes.push("correct");
-      const labelInner = useKahootGrid
-        ? `<span class="option-index">${escapeHtml(optionLabel)}</span><span class="option-copy">${escapeHtml(opt)}</span>`
+      const labelInner = useBadges
+        ? `<span class="option-index">${escapeHtml(String(optionLabel).replace(/\.$/, ""))}</span><span class="option-copy">${escapeHtml(opt)}</span>`
         : useShapes
           ? `<span class="option-shape" aria-hidden="true">${optionLabel}</span>`
           : `<span>${optionLabel} ${escapeHtml(opt)}</span>`;

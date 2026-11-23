@@ -13,7 +13,7 @@ HK older adults (長者) attending community centres, playing LangoClass as a gr
 LangoClass hk-elderly is a live quiz/lesson game for seniors: the host runs questions, participants answer, questions are read aloud with TTS. Success: every participant can follow and answer without help.
 
 ## Operating Context
-Host screen on a classroom projector viewed from several metres; participants on personal phones/tablets (`/hk/join.html`, `/hk/host.html`, `public/hk/elderly.css`). Question speech via ElevenLabs eleven_v4.
+Host screen on a classroom projector viewed from several metres; participants on personal phones/tablets (`/join.html` with the room's elderly theme, `public/join-elderly.css`; host `/host.html` with Settings → Elderly mode, `public/hk/elderly.css`). Question speech via ElevenLabs eleven_v4.
 
 ## Capabilities and Constraints
 Supported languages: English, Cantonese (yue), Mandarin Traditional (zh). Strings in `public/i18n-hk-elderly.js`. Separate deploy via `APP_VARIANT=hk-elderly`; the main classroom app must not change.

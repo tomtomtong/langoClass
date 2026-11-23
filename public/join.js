@@ -1,6 +1,4 @@
-const ROOM_STORAGE_KEY = window.LANGO_VARIANT === "hk-elderly"
-  ? "lango_join_participant_hk"
-  : "lango_join_participant";
+const ROOM_STORAGE_KEY = "lango_join_participant";
 
 const urlParams = new URLSearchParams(window.location.search);
 const urlRoom = (urlParams.get("room") || urlParams.get("roomId") || "").trim();
@@ -284,6 +282,19 @@ function applyJoinUiLocale(locale, { persist = false } = {}) {
   refreshJoinLocalizedUi();
 }
 
+// The room says which look this page takes (worker/room-events.js themeOf): "elderly" gives big
+// type and buttons (join-elderly.css) and Cantonese unless the class is set to another language.
+let joinRoomTheme = "";
+function applyJoinRoomLook(data) {
+  if (data?.theme != null) {
+    joinRoomTheme = data.theme === "elderly" ? "elderly" : "";
+    document.body.classList.toggle("theme-elderly", joinRoomTheme === "elderly");
+  }
+  const locale = data?.uiLocale;
+  if (joinRoomTheme === "elderly" && (!locale || locale === "en")) applyJoinUiLocale("yue");
+  else if (locale) applyJoinUiLocale(locale);
+}
+
 function setJoinWaitingStatus(key) {
   joinWaitingStatusKey = key || "join.waitingStatus";
   const el = $("#room-waiting-status");
@@ -478,11 +489,11 @@ function getRoomSessionSocket() {
     roomSessionSocket.on("connect", () => setRoomConnectionBanner(false));
 
     roomSessionSocket.on("session_locale", ({ uiLocale }) => {
-      if (uiLocale) applyJoinUiLocale(uiLocale);
+      applyJoinRoomLook({ uiLocale });
     });
 
     roomSessionSocket.on("session_lobby_update", (data) => {
-      if (data?.uiLocale) applyJoinUiLocale(data.uiLocale);
+      if (data) applyJoinRoomLook(data);
     });
 
     roomSessionSocket.on("session_media_preload", (payload) => {
@@ -876,7 +887,7 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
         clearJoinEndedState();
         setEndedSubmitBusy(false);
 
-        if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
+        applyJoinRoomLook(data);
         if (typeof scheduleStudentMediaPreload === "function") {
           scheduleStudentMediaPreload(data);
         }
@@ -955,7 +966,7 @@ function doJoinRoom(roomId, displayNameOverride, { userId: forcedUserId, keepUrl
             window.LangoJoinPoll?.apply(data);
             window.LangoJoinSpell?.apply(data);
             window.LangoJoinTutor?.apply(data);
-            if (data.uiLocale) applyJoinUiLocale(data.uiLocale);
+            applyJoinRoomLook(data);
             if (typeof scheduleStudentMediaPreload === "function") {
               scheduleStudentMediaPreload(data);
             }

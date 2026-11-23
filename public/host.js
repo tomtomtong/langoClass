@@ -1,4 +1,6 @@
-const STORAGE_KEY = window.LANGO_VARIANT === "hk-elderly" ? "lango_host_prefs_hk" : "lango_host_prefs";
+const STORAGE_KEY = "lango_host_prefs";
+// Where /hk/host.html kept its prefs before the elderly look became a setting.
+const OLD_HK_STORAGE_KEY = "lango_host_prefs_hk";
 const LEGACY_STORAGE_KEY = "lango_host_session";
 const HOST_STAGE_WIDTH = 1920;
 const HOST_STAGE_HEIGHT = 1080;
@@ -400,6 +402,17 @@ function updateHostSettingsControls() {
   const menu = $("#host-ui-language-menu");
   const current = window.LangoI18n?.getLocale?.();
   const transToggle = $("#btn-host-exercise-transition");
+  const themeToggle = $("#btn-host-theme");
+
+  if (themeToggle) {
+    const elderly = window.LANGO_HOST_THEME === "elderly";
+    themeToggle.classList.toggle("is-on", elderly);
+    themeToggle.setAttribute("aria-checked", elderly ? "true" : "false");
+    const themeState = $("#host-theme-state");
+    if (themeState) themeState.textContent = elderly ? hostT("settings.on") : hostT("settings.off");
+    const themeDesc = $("#host-theme-desc");
+    if (themeDesc) themeDesc.textContent = hostT("settings.theme.desc");
+  }
 
   if (transToggle) {
     transToggle.classList.toggle("is-on", hostExerciseTransitionEnabled);
@@ -524,6 +537,11 @@ function setupHostSettings() {
 
   $("#btn-host-audio-isolation")?.addEventListener("click", () => {
     setHostAudioIsolationEnabled(!hostAudioIsolationEnabled);
+  });
+
+  $("#btn-host-theme")?.addEventListener("click", () => {
+    savePrefs();
+    window.setLangoHostTheme?.(window.LANGO_HOST_THEME === "elderly" ? "standard" : "elderly");
   });
 
   $("#btn-host-exercise-transition")?.addEventListener("click", () => {
@@ -911,6 +929,7 @@ fitHostStage();
 function loadPrefs() {
   try {
     let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw && isHkElderlyVariant()) raw = localStorage.getItem(OLD_HK_STORAGE_KEY);
     if (!raw) raw = sessionStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return;
     const data = JSON.parse(raw);
@@ -2921,7 +2940,7 @@ function syncHostClassLabel(screenId = getActiveHostScreenId()) {
     else courseChipName.removeAttribute("title");
   }
   if (courseChipWrap) {
-    courseChipWrap.hidden = !text || screenId !== "course";
+    courseChipWrap.hidden = !text || screenId !== "course" || !isHkElderlyVariant();
   }
   const hideOn = new Set([
     "login",
