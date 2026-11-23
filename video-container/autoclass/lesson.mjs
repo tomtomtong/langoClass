@@ -135,7 +135,7 @@ export async function buildLesson(dir, lesson, { voice, mediaUrl, media = noMedi
   const L = labelsFor(lesson.voice?.language);
   const OUT = path.join(dir, "out");
   const audioClips = []; // { id, file, at (absolute), seconds }
-  const revealVideos = []; // { id, file, at (absolute), seconds, from }: played full size after a quiz's answer
+  const revealVideos = []; // { id, file, at (absolute), seconds, from }: played over the whole frame after a quiz's answer
   let audioCount = 0;
   const placeVoice = (v, at) => {
     audioCount += 1;
@@ -765,7 +765,7 @@ ${rows}
         data-track-index="${a.track ?? 3}" data-volume="${a.volume ?? 1}"${a.from ? ` data-media-start="${a.from}"` : ""}${a.fade ? ' data-fade-in="0.3" data-fade-out="1"' : ""}></audio>`).join("\n");
   const videos = revealVideos.map((v) => `      <video id="${v.id}" class="clip reveal-video" src="${v.file}" data-start="${v.at}" data-duration="${v.seconds}"
         data-track-index="6"${v.from ? ` data-media-start="${v.from}"` : ""} data-has-audio="true" data-fade-in="0.3" data-fade-out="0.8" playsinline style="z-index: 4"></video>`).join("\n");
-  const videoFades = revealVideos.map((v) => `      tl.fromTo("#${v.id}", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power2.out" }, ${v.at});
+  const videoFades = revealVideos.map((v) => `      tl.fromTo("#${v.id}", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, ${v.at});
       tl.to("#${v.id}", { opacity: 0, duration: 0.35, ease: "power2.in" }, ${r3(v.at + v.seconds - 0.35)});`).join("\n");
   const first = TOMMY_POS[scenes[0].tommy];
   const moves = [];
