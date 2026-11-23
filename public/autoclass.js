@@ -45,6 +45,7 @@
     usedBreaks: new Set(),
     asking: false, // whether the phones currently show the hand button
     pendingResult: null, // { cue, payload }: a question's results, shown when the video reaches cue.result.at
+    highlights: null, // { cue, picks, ready }: the best answers to an open question, read out on its results page
     picker: window.LangoAutoclassAnalysis ? window.LangoAutoclassAnalysis.makePicker() : null,
   };
 
@@ -116,6 +117,7 @@
     socket.on("tutor_declined", onTutorDeclined);
     socket.on("openanswer_update", onSpeakUpdate);
     socket.on("openanswer_closed", onSpeakClosed);
+    socket.on("openanswer_highlights", onHighlights);
     socket.io?.on?.("reconnect", () => emit("host_session", { uiLocale: "en" }).catch(() => {}));
 
     return new Promise((resolve, reject) => {
@@ -745,6 +747,7 @@
       ? { cue, payload: { results, correctIndex: 0 }, watchLater: true }
       : null;
     if (run.closing === false) emit("close_openanswer_window").catch(() => {}); // skipped: stop the phones recording
+    if (run.ask && state.pendingResult && spoke) askHighlights(cue);
     if (!state.pendingResult) phonesToWatch();
     setTimeout(() => {
       if (state.ended) return;
@@ -754,6 +757,56 @@
         if (!state.quiz) el("live").hidden = true;
       }, 6000);
     }, RESULT_HOLD_MS);
+  }
+
+  // ---- Best answers: after an open question (cue.ask), the room has a model pick a few of the
+  // class's answers and write Uncle Tommy's line about each, by name (worker/room-highlights.js).
+  // It is asked for as soon as the answers are in, so it is usually ready by the time Tommy has
+  // given the answer; the results page reads them out after its usual lines, and waits a little for
+  // them at most. Nothing picked, or too slow: the class just carries on. ----
+
+  const HIGHLIGHTS_WAIT_MS = 12000;
+
+  function askHighlights(cue) {
+    let resolve;
+    const ready = new Promise((r) => (resolve = r));
+    state.highlights = { cue, picks: null, ready, resolve };
+    const tutor = state.lesson?.tutor || {};
+    emit("openanswer_highlights", {
+      question: cue.ask.question,
+      lesson: { title: state.lesson?.title || "", audience: tutor.audience || "", language: tutor.language || "en" },
+    })
+      .then((res) => {
+        if (res?.pending === false) onHighlights({ picks: res.picks || [] });
+      })
+      .catch(() => onHighlights({ picks: [] }));
+  }
+
+  function onHighlights(data) {
+    const h = state.highlights;
+    if (!h || h.picks) return;
+    h.picks = Array.isArray(data?.picks) ? data.picks.filter((p) => p?.quote && p?.say) : [];
+    h.resolve();
+  }
+
+  async function sayHighlights(run, cue) {
+    const h = state.highlights;
+    if (!h || h.cue !== cue) return;
+    state.highlights = null;
+    await Promise.race([h.ready, wait(run, HIGHLIGHTS_WAIT_MS)]);
+    const caption = el("result-caption");
+    for (const pick of h.picks || []) {
+      caption.classList.add("is-swapping");
+      await wait(run, 200);
+      caption.textContent = `💬 ${pick.name ? `${pick.name}：` : ""}「${pick.quote}」`;
+      caption.classList.remove("is-swapping");
+      await wait(run, 900); // time to read whose answer it is
+      const started = Date.now();
+      if (pick.audioContent) await playClip(run, `data:audio/mpeg;base64,${pick.audioContent}`);
+      const left = Math.max(2500, pick.say.length * 120) - (Date.now() - started);
+      if (!pick.audioContent && left > 0) await wait(run, left);
+      await wait(run, 500);
+    }
   }
 
   // ---- Tutor: a student raises a hand and asks Uncle Tommy a question out loud. The worker makes
@@ -1174,7 +1227,7 @@
     const run = { result: true, aborted: false, audio: null, wake: null, cue };
     state.quiz = run; // like a question, this holds the video
     resultBusy = true;
-    const limit = setTimeout(skipTutor, RESULT_MAX_S * 1000);
+    const limit = setTimeout(skipTutor, (cue.ask ? RESULT_MAX_S + 45 : RESULT_MAX_S) * 1000 /* an open question also reads out the best answers */);
     clearLost();
     el("live").hidden = true;
     el("hands").hidden = true;
@@ -1213,6 +1266,7 @@
       layer.classList.add("is-revealed");
       await wait(run, 1100);
       for (const line of lines) await sayLine(run, line);
+      if (cue.ask) await sayHighlights(run, cue);
       if (!lines.length) await wait(run, 5000); // no recordings: the bars alone, for a few seconds
       await wait(run, 600);
     } catch (error) {

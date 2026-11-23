@@ -69,28 +69,11 @@
         "維他奶": [
           "維他奶都好出名，不過呢句係人頭馬嘅口號。"
         ]
-      }
-    },
-    {
-      "kind": "quiz",
-      "q": "「點只汽水咁簡單」係邊隻飲品嘅廣告？",
-      "options": [
-        "可口可樂",
-        "維他奶",
-        "沙士"
-      ],
-      "correct": 1,
-      "line": "維他奶，點只汽水咁簡單！",
-      "ask": "第二題！點只汽水咁簡單。係邊隻飲品？A，可口可樂。B，維他奶。C，沙士。",
-      "reveal": "答案係 B，維他奶！佢話自己有營養，點只係汽水咁簡單。",
-      "timeLimit": 40,
-      "wrongLines": {
-        "可口可樂": [
-          "可樂真係汽水嚟，呢句係維他奶話自己唔止係汽水。"
-        ],
-        "沙士": [
-          "差少少！呢句係維他奶嘅口號。"
-        ]
+      },
+      "revealVideo": {
+        "src": "/uploads/autoclass/_media/remy-martin-ad.mp4",
+        "from": 0,
+        "seconds": 15.3
       }
     },
     {
@@ -103,7 +86,7 @@
       ],
       "correct": 0,
       "line": "鐵達時：只在乎曾經擁有。",
-      "ask": "第三題！不在乎天長地久，只在乎曾經擁有。係邊個手錶牌子？A，鐵達時。B，勞力士。C，精工。",
+      "ask": "第二題！不在乎天長地久，只在乎曾經擁有。係邊個手錶牌子？A，鐵達時。B，勞力士。C，精工。",
       "reveal": "答案係 A，鐵達時！周潤發同吳倩蓮拍嘅廣告，好多人都記得。",
       "timeLimit": 40,
       "wrongLines": {
@@ -113,6 +96,11 @@
         "精工": [
           "差少少！呢句係鐵達時手錶嘅廣告。"
         ]
+      },
+      "revealVideo": {
+        "src": "/uploads/autoclass/_media/solvil-titus-ad.mp4",
+        "from": 0,
+        "seconds": 16.5
       }
     },
     {
@@ -449,7 +437,7 @@
     "maxAnswers": 3,
     "language": "yue",
     "sttLanguage": "yue",
-    "outline": "呢節係懷舊估估遊戲「香港老友記」，有三個回合。經典廣告：人頭馬「人頭馬一開，好事自然來」；維他奶「點只汽水咁簡單」；鐵達時「不在乎天長地久，只在乎曾經擁有」（周潤發、吳倩蓮）。經典金曲：《上海灘》（葉麗儀唱，1980 年無綫劇集主題曲）；《獅子山下》（羅文唱）；《半斤八兩》（許冠傑）。經典地方：啟德機場（九龍城，1998 年關閉，搬去赤鱲角）；荔園（荔枝角遊樂場，有大笨象天奴，1997 年結業）；舊中環天星碼頭（有鐘樓，2006 年拆卸）。",
+    "outline": "呢節係懷舊估估遊戲「香港老友記」，有三個回合。經典廣告：人頭馬「人頭馬一開，好事自然來」；鐵達時「不在乎天長地久，只在乎曾經擁有」（周潤發、吳倩蓮）。經典金曲：《上海灘》（葉麗儀唱，1980 年無綫劇集主題曲）；《獅子山下》（羅文唱）；《半斤八兩》（許冠傑）。經典地方：啟德機場（九龍城，1998 年關閉，搬去赤鱲角）；荔園（荔枝角遊樂場，有大笨象天奴，1997 年結業）；舊中環天星碼頭（有鐘樓，2006 年拆卸）。",
     "audience": "older adults (長者, aged 60–80) in Hong Kong playing a nostalgia guessing game; speak slowly, warmly and simply",
     "leadIns": [
       "哦，我見到有人舉手！等我聽下你嘅問題。",
@@ -466,6 +454,7 @@
     "kai-tak.jpg: “Cathay Pacific Spirit of Hong Kong B742 Kai Tak Final Approach” by Ywchow, public domain, Wikimedia Commons",
     "lai-yuen.jpg: “Lai Yuen giraffe 1992” by Probophilic, CC BY-SA 3.0, Wikimedia Commons",
     "star-ferry-pier.jpg: “Edinburgh Place Ferry Pier Clock Tower 200611” by WiNG, CC BY 3.0, Wikimedia Commons",
-    "Songs: 15-second clips cut from the user's own files (上海灘 from 0:16.5, 獅子山下 from 0:28.6, 半斤八兩 from 0:01); internal use only, not licensed for public use"
+    "Songs: 15-second clips cut from the user's own files (上海灘 from 0:16.5, 獅子山下 from 0:28.6, 半斤八兩 from 0:01); internal use only, not licensed for public use",
+    "Ads: short clips cut from the user's own files (人頭馬 0:17–0:32, 鐵達時 0:41–0:57); internal use only"
   ]
 }

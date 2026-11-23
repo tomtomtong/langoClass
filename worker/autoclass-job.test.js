@@ -444,3 +444,30 @@ test("the renderer takes only the media folder as its media URL, and needs it wh
   assert.match(badAutoclassRequest({ ...base, script, mediaFilesUrl: "https://evil.test/x" }), /not the media folder/);
   assert.equal(badAutoclassRequest({ ...base, script, mediaFilesUrl: "https://class.test/uploads/autoclass/_media" }), "");
 });
+
+test("a reveal video plays full size after Tommy gives the answer, before the results pause", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-reveal-"));
+  try {
+    const input = structuredClone(animalHomes);
+    input.scenes[2].revealVideo = { src: "/uploads/autoclass/_media/bees.mp4", from: 3, seconds: 20 };
+    const { script, errors } = validateLessonScript(input);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(mediaFiles(script), ["bees.mp4"]);
+    const fs = await import("node:fs");
+    fs.mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    writeFileSync(path.join(dir, "assets", "voice", "x.mp3"), "mp3");
+    const voice = async () => ({ file: "assets/voice/x.mp3", seconds: 2 });
+    const media = await fetchMedia({ dir, baseUrl: "https://class.test/uploads/autoclass/_media", names: mediaFiles(script), fetchImpl: async () => new Response("mp4") });
+    const built = await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1", media });
+    const scene = built.scenes.find((s) => s.id === "quiz1");
+    const cue = built.cues.cues.find((c) => c.result?.key === "q1");
+    // reveal at pause + 1, Tommy's 2 s answer from +0.1, the video 0.6 s later.
+    const videoAt = scene.pauseAt + 1 + 0.1 + 2 + 0.6;
+    assert.ok(cue.result.at > videoAt + 20, "the results pause comes after the video");
+    const index = readFileSync(path.join(dir, "index.html"), "utf8");
+    assert.match(index, new RegExp(`<video id="reveal-video-1" class="clip reveal-video" src="assets/media/bees.mp4" data-start="${Math.round(videoAt * 1000) / 1000}" data-duration="20"[^>]*data-media-start="3" data-has-audio="true"`));
+    assert.match(readFileSync(path.join(dir, "compositions", "quiz1.html"), "utf8"), /id="quiz1-adtag"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

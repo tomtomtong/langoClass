@@ -223,3 +223,14 @@ test("quiz media must be the right kind of file in the media folder, and a short
     "scenes[5].clip.src",
   ]);
 });
+
+test("a quiz may play a video (e.g. the ad) after the answer, up to a minute", () => {
+  const input = copy();
+  input.scenes[2].revealVideo = { src: "/uploads/autoclass/_media/remy-martin-ad.mp4", from: 2, seconds: 30 };
+  const ok = validateLessonScript(input);
+  assert.deepEqual(ok.errors, []);
+  assert.deepEqual(ok.script.scenes[2].revealVideo, { src: "/uploads/autoclass/_media/remy-martin-ad.mp4", from: 2, seconds: 30 });
+  input.scenes[2].revealVideo = { src: "/uploads/autoclass/_media/song.mp3", seconds: 90 };
+  input.scenes[5].clip = { src: "/uploads/autoclass/_media/ad.mp4" };
+  assert.deepEqual(paths(validateLessonScript(input)), ["scenes[2].revealVideo.seconds", "scenes[2].revealVideo.src", "scenes[5].clip.src"]);
+});
