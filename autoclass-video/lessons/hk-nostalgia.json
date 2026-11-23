@@ -78,33 +78,6 @@
     },
     {
       "kind": "quiz",
-      "q": "「滴滴香濃，意猶未盡」係邊隻咖啡嘅廣告？",
-      "options": [
-        "雀巢咖啡",
-        "麥斯威爾咖啡",
-        "UCC 咖啡"
-      ],
-      "correct": 1,
-      "line": "麥斯威爾咖啡：滴滴香濃，意猶未盡！",
-      "ask": "第二題！滴滴香濃，意猶未盡。係邊隻咖啡嘅廣告？A，雀巢咖啡。B，麥斯威爾咖啡。C，UCC 咖啡。",
-      "reveal": "答案係 B，麥斯威爾咖啡！飲到最後一滴都咁香，呢句口號好多人都識講。",
-      "timeLimit": 40,
-      "wrongLines": {
-        "雀巢咖啡": [
-          "雀巢都好出名，不過呢句係麥斯威爾嘅口號。"
-        ],
-        "UCC 咖啡": [
-          "差少少！呢句係麥斯威爾咖啡嘅廣告。"
-        ]
-      },
-      "revealVideo": {
-        "src": "/uploads/autoclass/_media/maxwell-house-ad.mp4",
-        "from": 0,
-        "seconds": 13.7
-      }
-    },
-    {
-      "kind": "quiz",
       "q": "「不在乎天長地久，只在乎曾經擁有」係邊個牌子？",
       "options": [
         "鐵達時",
@@ -113,7 +86,7 @@
       ],
       "correct": 0,
       "line": "鐵達時：只在乎曾經擁有。",
-      "ask": "第三題！不在乎天長地久，只在乎曾經擁有。係邊個手錶牌子？A，鐵達時。B，勞力士。C，精工。",
+      "ask": "第二題！不在乎天長地久，只在乎曾經擁有。係邊個手錶牌子？A，鐵達時。B，勞力士。C，精工。",
       "reveal": "答案係 A，鐵達時！周潤發同吳倩蓮拍嘅廣告，好多人都記得。",
       "timeLimit": 40,
       "wrongLines": {
@@ -464,7 +437,7 @@
     "maxAnswers": 3,
     "language": "yue",
     "sttLanguage": "yue",
-    "outline": "呢節係懷舊估估遊戲「香港老友記」，有三個回合。經典廣告：人頭馬「人頭馬一開，好事自然來」；麥斯威爾咖啡「滴滴香濃，意猶未盡」；鐵達時「不在乎天長地久，只在乎曾經擁有」（周潤發、吳倩蓮）。經典金曲：《上海灘》（葉麗儀唱，1980 年無綫劇集主題曲）；《獅子山下》（羅文唱）；《半斤八兩》（許冠傑）。經典地方：啟德機場（九龍城，1998 年關閉，搬去赤鱲角）；荔園（荔枝角遊樂場，有大笨象天奴，1997 年結業）；舊中環天星碼頭（有鐘樓，2006 年拆卸）。",
+    "outline": "呢節係懷舊估估遊戲「香港老友記」，有三個回合。經典廣告：人頭馬「人頭馬一開，好事自然來」；鐵達時「不在乎天長地久，只在乎曾經擁有」（周潤發、吳倩蓮）。經典金曲：《上海灘》（葉麗儀唱，1980 年無綫劇集主題曲）；《獅子山下》（羅文唱）；《半斤八兩》（許冠傑）。經典地方：啟德機場（九龍城，1998 年關閉，搬去赤鱲角）；荔園（荔枝角遊樂場，有大笨象天奴，1997 年結業）；舊中環天星碼頭（有鐘樓，2006 年拆卸）。",
     "audience": "older adults (長者, aged 60–80) in Hong Kong playing a nostalgia guessing game; speak slowly, warmly and simply",
     "leadIns": [
       "哦，我見到有人舉手！等我聽下你嘅問題。",
@@ -482,6 +455,6 @@
     "lai-yuen.jpg: “Lai Yuen giraffe 1992” by Probophilic, CC BY-SA 3.0, Wikimedia Commons",
     "star-ferry-pier.jpg: “Edinburgh Place Ferry Pier Clock Tower 200611” by WiNG, CC BY 3.0, Wikimedia Commons",
     "Songs: 15-second clips cut from the user's own files (上海灘 from 0:16.5, 獅子山下 from 0:28.6, 半斤八兩 from 0:01); internal use only, not licensed for public use",
-    "Ads: short clips cut from the user's own files (人頭馬 0:17–0:32, 麥斯威爾 0:16.5–0:30, 鐵達時 0:41–0:57); internal use only"
+    "Ads: short clips cut from the user's own files (人頭馬 0:17–0:32, 鐵達時 0:41–0:57); internal use only"
   ]
 }
