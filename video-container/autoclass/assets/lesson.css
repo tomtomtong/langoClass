@@ -301,14 +301,15 @@ body {
   height: 72px;
   font-size: 48px;
 }
-/* A quiz's reveal video (the original ad): the whole frame, on black, so the class sees it big. */
+/* A quiz's reveal video (the original ad): big, under the tag, with room around it. A 4:3 ad
+   comes out about 1070x800, a 16:9 one 1420x800 (the old box was 1152x648). */
 .reveal-video {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: 1920px;
-  height: 1080px;
-  background: #000;
+  left: 249px;
+  top: 170px;
+  width: 1422px;
+  height: 800px;
+  border-radius: 32px;
   object-fit: contain;
 }
 .listen-chip {

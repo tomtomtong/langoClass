@@ -135,7 +135,7 @@ export async function buildLesson(dir, lesson, { voice, mediaUrl, media = noMedi
   const L = labelsFor(lesson.voice?.language);
   const OUT = path.join(dir, "out");
   const audioClips = []; // { id, file, at (absolute), seconds }
-  const revealVideos = []; // { id, file, at (absolute), seconds, from }: played over the whole frame after a quiz's answer
+  const revealVideos = []; // { id, file, at (absolute), seconds, from }: played big after a quiz's answer
   let audioCount = 0;
   const placeVoice = (v, at) => {
     audioCount += 1;
