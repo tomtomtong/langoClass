@@ -279,12 +279,13 @@ ${lines.join("\n")}
     const id = `quiz${n}`;
     const vAsk = await voice(scene.ask);
     const vReveal = await voice(scene.reveal);
-    const askAt = 0.5;
-    // A clip plays once Tommy has asked; the page pauses when it ends, so nothing plays over it.
-    const clipAt = askAt + vAsk.seconds + 0.5;
-    const pauseAt = scene.clip
-      ? clipAt + scene.clip.seconds + 0.4
-      : Math.max(2.9, askAt + vAsk.seconds + 0.3); // the page pauses here
+    // With a clip the class listens first: Tommy's short `intro` ("listen to this"), the clip, and
+    // only then the question and options, which Tommy asks. Without one he asks straight away.
+    const vIntro = scene.clip && scene.intro ? await voice(scene.intro) : null;
+    const clipAt = scene.clip ? 0.6 + (vIntro ? vIntro.seconds + 0.3 : 0.4) : 0;
+    const askAt = scene.clip ? clipAt + scene.clip.seconds + 0.6 : 0.5;
+    const pauseAt = Math.max(2.9, askAt + vAsk.seconds + 0.3); // the page pauses here
+    const showAt = scene.clip ? askAt : 0; // when the question and options come on
     const revealAt = pauseAt + 1.0;
     // A reveal video (e.g. the ad itself) plays once Tommy has given the answer; the results pause
     // comes after it, so the class sees the ad before how they did.
@@ -294,6 +295,7 @@ ${lines.join("\n")}
       revealVideos.push({ id: `reveal-video-${n}`, file: await media(scene.revealVideo.src), at: r3(start + videoAt),
         seconds: scene.revealVideo.seconds, from: scene.revealVideo.from });
     }
+    if (vIntro) placeVoice(vIntro, start + 0.6);
     placeVoice(vAsk, start + askAt);
     placeVoice(vReveal, start + revealAt + 0.1);
     audioClips.push({ id: `sfx-correct-${n}`, file: "assets/correct.mp3", at: r3(start + revealAt + 0.03), seconds: 2, volume: 0.7, track: 4 });
@@ -320,10 +322,10 @@ ${opts}
       .map((i) => `      tl.to("#${id}-opt${i}", { opacity: 0.3, duration: 0.3, ease: "power2.out" }, ${r3(revealAt)});`).join("\n");
     const script = `      tl.fromTo("#${id}-tag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.2);
       tl.fromTo("#${id}-q .word", { opacity: 0, filter: "blur(6px)" },
-        { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.08 }, 0.5);
+        { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.08 }, ${r3(showAt + 0.5)});
       tl.fromTo("#${id}-options .opt", { opacity: 0, y: 30, filter: "blur(8px)" },
-        { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 0.07 }, 1.4);
-${withMedia ? `      tl.fromTo("#${id}-media", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 1.2);\n` : ""}${scene.clip ? `      tl.fromTo("#${id}-listen", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, ${r3(clipAt)});
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 0.07 }, ${r3(showAt + 1.4)});
+${withMedia ? `      tl.fromTo("#${id}-media", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, ${scene.clip ? 0.4 : 1.2});\n` : ""}${scene.clip ? `      tl.fromTo("#${id}-listen", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, ${r3(Math.max(0.5, clipAt - 0.2))});
       tl.to("#${id}-listen", { opacity: 0, duration: 0.2, ease: "power2.in" }, ${r3(clipAt + scene.clip.seconds)});
       tl.fromTo("#${id}-media .record", { rotation: 0 }, { rotation: ${Math.round(scene.clip.seconds * 90)}, duration: ${scene.clip.seconds}, ease: "none" }, ${r3(clipAt)});
 ` : ""}      tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${scene.clip ? r3(pauseAt - 0.3) : 2.3});
