@@ -25,6 +25,7 @@ import {
 import { REACTION_EMOJIS, sendLost, sendReaction, setEmoji, setReactions } from "./room-reactions.js";
 import { closePoll, endPoll, pollForStudent, sendPollVote, startPoll } from "./room-poll.js";
 import { applyTutorJob, askQuestion, setTutor, tutorForStudent } from "./room-tutor.js";
+import { applyHighlightsJob, requestHighlights } from "./room-highlights.js";
 import { closeSpellRace, endSpellRace, resultsOf as spellResultsOf, sendSpell, spellForStudent, startSpellRace } from "./room-spell.js";
 
 export { openAnswerSubmitCheck } from "./room-open-answer.js";
@@ -101,6 +102,8 @@ export function applyRoomEvent(state, message, ctx) {
       return openAnswerWindow(state, ctx);
     case "close_openanswer_window":
       return closeOpenAnswerEarly(state, ctx);
+    case "openanswer_highlights":
+      return requestHighlights(state, data, ctx);
     case "get_openanswer_state":
       return getOpenAnswer(state, ctx);
     case "submit_openanswer_response":
@@ -752,6 +755,7 @@ export function applyRoomJob(state, job, outcome, now) {
   if (job.kind === "buzz-analyze") return analyzed(state, job, outcome, now);
   if (job.kind === "open-topic" || job.kind === "open-analyze") return applyOpenAnswerJob(state, job, outcome, now);
   if (job.kind === "tutor-answer") return applyTutorJob(state, job, outcome);
+  if (job.kind === "open-highlights") return applyHighlightsJob(state, job, outcome);
   return done(state);
 }
 

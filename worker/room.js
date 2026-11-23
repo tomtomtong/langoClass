@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed, openAnswerSubmitCheck, tutorAskCheck } from "./room-events.js";
 import { parseTutorReply, tutorLanguage, tutorPrompt } from "./room-tutor.js";
+import { highlightsPrompt, parseHighlights } from "./room-highlights.js";
 import { completeText, speak, speakAsTommy, speechReady, textModelReady, transcribe } from "./ai.js";
 import { withSettings } from "./app-settings.js";
 import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
@@ -232,6 +233,7 @@ export class RoomDurableObject extends DurableObject {
         return { audioId: this.#saveAudio(speech.audioContent), format: speech.format };
       }
       if (job.kind === "tutor-answer") return await this.#tutorAnswer(env, job);
+      if (job.kind === "open-highlights") return await this.#highlights(env, job);
       if (job.kind === "buzz-analyze" || job.kind === "open-analyze") {
         const reply = await completeText(
           env,
@@ -279,6 +281,25 @@ export class RoomDurableObject extends DurableObject {
       logJobError(job, error, "speech");
       return outcome;
     }
+  }
+
+  // The class's best answers to an open question: a model picks them and writes Tommy's line for
+  // each, then his voice reads the lines (all at once). A line whose voice fails is still shown.
+  async #highlights(env, job) {
+    const picks = parseHighlights(
+      await completeText(env, [{ role: "user", content: highlightsPrompt(job) }], 600, { title: "Lango Autoclass" }),
+      job
+    );
+    const voiced = await Promise.all(picks.map(async (pick) => {
+      try {
+        const speech = await speakAsTommy(env, pick.say, { language: job.language });
+        return { ...pick, audioId: this.#saveAudio(speech.audioContent) };
+      } catch (error) {
+        logJobError(job, error, "speech");
+        return pick;
+      }
+    }));
+    return { ok: true, picks: voiced };
   }
 
   // A spoken answer becomes text before the room sees it; the recording is
@@ -351,6 +372,9 @@ export class RoomDurableObject extends DurableObject {
     }
     if (typeof next.announcementAudio === "string") next.announcementAudio = this.#loadAudio(next.announcementAudio);
     if (typeof next.topicAudio === "string") next.topicAudio = this.#loadAudio(next.topicAudio);
+    if (Array.isArray(next.picks)) {
+      next.picks = next.picks.map((item) => ({ ...item, audioContent: this.#loadAudio(item.audioContent) }));
+    }
     if (Array.isArray(next.responses)) {
       next.responses = next.responses.map((item) => ({
         ...item,
