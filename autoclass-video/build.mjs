@@ -7,9 +7,11 @@
 // The scenes come from ../video-container/autoclass/lesson.mjs, the same code the container runs,
 // and the script is checked with ../lib/autoclass-script.mjs, as the Worker does before saving.
 // Tommy's lines are voiced with the router's Inworld TTS and cached in assets/voice/ by text.
+// Quiz pictures and sound clips (/uploads/autoclass/_media/<name>) are read from media/<name> here
+// (not in git: upload the same files with PUT /api/autoclass/media/<name> for the real render).
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { validateLessonScript } from "../lib/autoclass-script.mjs";
 import { buildLesson } from "../video-container/autoclass/lesson.mjs";
 import { speak } from "../video-container/voice.mjs";
@@ -36,8 +38,16 @@ async function voice(text) {
   return { file: path, seconds };
 }
 
+function media(url) {
+  const name = url.split("/").pop();
+  if (!existsSync(`media/${name}`)) throw new Error(`The lesson uses ${url}: put the file at autoclass-video/media/${name}.`);
+  mkdirSync("assets/media", { recursive: true });
+  copyFileSync(`media/${name}`, `assets/media/${name}`);
+  return `assets/media/${name}`;
+}
+
 mkdirSync("assets/voice", { recursive: true });
-const built = await buildLesson(".", lesson, { voice, mediaUrl: `/uploads/autoclass/${lesson.id}/local` });
+const built = await buildLesson(".", lesson, { voice, mediaUrl: `/uploads/autoclass/${lesson.id}/local`, media });
 console.log(`total ${built.total}s`);
 for (const s of built.scenes) console.log(`  ${s.id.padEnd(7)} ${String(s.start).padStart(7)}  +${s.duration}${s.pauseAt ? `   pause at ${s.pauseAt}` : ""}`);
 console.log(`  tutor breaks: ${built.cues.tutor.breaks.join(", ")}`);

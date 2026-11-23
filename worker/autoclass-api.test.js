@@ -193,3 +193,24 @@ test("the local renderer switch takes only a localhost URL", () => {
   assert.equal(devRenderer({ AUTOCLASS_RENDERER_URL: "http://localhost.evil.example" }), "");
   assert.equal(devRenderer({}), "");
 });
+
+test("a teacher uploads quiz media to the shared folder; odd names and empty files are refused", async () => {
+  const { env } = await setup();
+  const token = await developerToken(handleStoreApi, env);
+  const put = async (name, body, auth = true) => {
+    const url = new URL(`/api/autoclass/media/${name}`, "https://class.lango.ai");
+    const headers = auth ? { authorization: `Bearer ${token}` } : {};
+    const res = await handleAutoclassApi(new Request(url, { method: "PUT", headers, body }), env, url);
+    return { status: res.status, body: await res.json() };
+  };
+  assert.equal((await put("kai-tak.jpg", "jpeg", false)).status, 401);
+  const saved = await put("kai-tak.jpg", "jpeg");
+  assert.equal(saved.status, 201);
+  assert.equal(saved.body.url, "/uploads/autoclass/_media/kai-tak.jpg");
+  const object = await env.UPLOADS.get("uploads/autoclass/_media/kai-tak.jpg");
+  assert.equal(await object.text(), "jpeg");
+  assert.equal(object.httpMetadata.contentType, "image/jpeg");
+  assert.equal((await put("Kai Tak.jpg", "x")).status, 400);
+  assert.equal((await put("song.wav", "x")).status, 400);
+  assert.equal((await put("empty.mp3", "")).status, 400);
+});

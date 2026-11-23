@@ -3,8 +3,11 @@
 // (video-container/autoclass/job.mjs) and by the laptop preview (autoclass-video/build.mjs), so the
 // two cannot drift.
 //
-//   buildLesson(dir, script, { voice, mediaUrl })
+//   buildLesson(dir, script, { voice, mediaUrl, media })
 //     voice(text) → { file, seconds }   an mp3 of Tommy saying `text`, `file` relative to `dir`
+//     media(url) → file                 a quiz picture or sound clip (/uploads/autoclass/_media/…)
+//                                       already in the project, `file` relative to `dir`; needed
+//                                       only when a quiz has an `image` or a `clip`
 //     mediaUrl                          where the media will be served, e.g. /uploads/autoclass/<id>/<renderId>
 //   writes  dir/index.html, dir/compositions/*.html, dir/assets/{lesson.css,correct.mp3,tommy-talking.webm}
 //           dir/out/  everything the page plays besides the video: analysis/*.mp3, poll and tutor mp3s,
@@ -96,6 +99,7 @@ const LABELS = {
     sayWithMe: (word) => `Say it with me: <b>${word}</b>!`,
     spellTag: "Spelling race!",
     spellHint: "📱 Spell on your phone",
+    listen: "🎵 Listen…",
     outroTitle: ["Great ", "job!"],
   },
   yue: {
@@ -109,16 +113,21 @@ const LABELS = {
     sayWithMe: (word) => `跟我講：<b>${word}</b>！`,
     spellTag: "串字比賽！",
     spellHint: "📱 用手機串字",
+    listen: "🎵 聽下呢段…",
     outroTitle: ["做得", "好！"],
   },
 };
+
+function noMedia(url) {
+  throw new Error(`This build has no media files, but the lesson uses ${url}.`);
+}
 
 export function labelsFor(language) {
   const tag = String(language || "").toLowerCase();
   return tag.startsWith("yue") || tag === "zh-hk" ? LABELS.yue : LABELS.en;
 }
 
-export async function buildLesson(dir, lesson, { voice, mediaUrl }) {
+export async function buildLesson(dir, lesson, { voice, mediaUrl, media = noMedia }) {
   const L = labelsFor(lesson.voice?.language);
   const OUT = path.join(dir, "out");
   const audioClips = []; // { id, file, at (absolute), seconds }
@@ -268,16 +277,30 @@ ${lines.join("\n")}
     const vAsk = await voice(scene.ask);
     const vReveal = await voice(scene.reveal);
     const askAt = 0.5;
-    const pauseAt = Math.max(2.9, askAt + vAsk.seconds + 0.3); // the page pauses here
+    // A clip plays once Tommy has asked; the page pauses when it ends, so nothing plays over it.
+    const clipAt = askAt + vAsk.seconds + 0.5;
+    const pauseAt = scene.clip
+      ? clipAt + scene.clip.seconds + 0.4
+      : Math.max(2.9, askAt + vAsk.seconds + 0.3); // the page pauses here
     const revealAt = pauseAt + 1.0;
     const end = revealAt + 0.1 + vReveal.seconds + 1.4;
     placeVoice(vAsk, start + askAt);
     placeVoice(vReveal, start + revealAt + 0.1);
     audioClips.push({ id: `sfx-correct-${n}`, file: "assets/correct.mp3", at: r3(start + revealAt + 0.03), seconds: 2, volume: 0.7, track: 4 });
-    const opts = scene.options.map((o, i) => `      <div id="${id}-opt${i}" class="opt ${optSize(o)}"><span class="letter">${LETTERS[i]}</span><span class="opt-text">${esc(o)}</span><span id="${id}-tick${i}" class="tick">✓</span></div>`).join("\n");
+    if (scene.clip) {
+      audioClips.push({ id: `clip-${n}`, file: await media(scene.clip.src), at: r3(start + clipAt), seconds: scene.clip.seconds,
+        from: scene.clip.from, fade: true, track: 5 });
+    }
+    // A picture or a clip puts a media panel on the left and the options in one column beside it.
+    const withMedia = Boolean(scene.image || scene.clip);
+    const panel = !withMedia ? "" : scene.image
+      ? `    <div id="${id}-media" class="quiz-media"><img src="${esc(await media(scene.image))}" alt="" /></div>\n`
+      : `    <div id="${id}-media" class="quiz-media quiz-record"><span class="record">🎵</span></div>\n`;
+    const listen = scene.clip ? `    <p id="${id}-listen" class="listen-chip">${L.listen}</p>\n` : "";
+    const opts = scene.options.map((o, i) => `      <div id="${id}-opt${i}" class="opt ${withMedia ? "opt-sm" : optSize(o)}"><span class="letter">${LETTERS[i]}</span><span class="opt-text">${esc(o)}</span><span id="${id}-tick${i}" class="tick">✓</span></div>`).join("\n");
     const body = `    <div id="${id}-tag" class="quiz-tag">${L.question(n)}</div>
-    <h2 id="${id}-q" class="quiz-q">${words(scene.q.split(" "), -1)}</h2>
-    <div id="${id}-options" class="options" data-hold>
+    <h2 id="${id}-q" class="quiz-q${withMedia ? " quiz-q-short" : ""}">${words(scene.q.split(" "), -1)}</h2>
+${panel}${listen}    <div id="${id}-options" class="options${withMedia ? " options-beside" : ""}" data-hold>
 ${opts}
     </div>
     <p id="${id}-hint" class="phone-hint">${L.answerOnPhone}</p>
@@ -289,7 +312,10 @@ ${opts}
         { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.08 }, 0.5);
       tl.fromTo("#${id}-options .opt", { opacity: 0, y: 30, filter: "blur(8px)" },
         { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 0.07 }, 1.4);
-      tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 2.3);
+${withMedia ? `      tl.fromTo("#${id}-media", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 1.2);\n` : ""}${scene.clip ? `      tl.fromTo("#${id}-listen", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, ${r3(clipAt)});
+      tl.to("#${id}-listen", { opacity: 0, duration: 0.2, ease: "power2.in" }, ${r3(clipAt + scene.clip.seconds)});
+      tl.fromTo("#${id}-media .record", { rotation: 0 }, { rotation: ${Math.round(scene.clip.seconds * 90)}, duration: ${scene.clip.seconds}, ease: "none" }, ${r3(clipAt)});
+` : ""}      tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${scene.clip ? r3(pauseAt - 0.3) : 2.3});
       // Paused at ${r3(pauseAt)} s while the class answers; the reveal starts at ${r3(revealAt)} s.
       tl.to("#${id}-hint", { opacity: 0, filter: "blur(8px)", duration: 0.15, ease: "power3.in" }, ${r3(revealAt - 0.4)});
 ${dim}
@@ -298,7 +324,7 @@ ${dim}
       tl.to("#${id}-opt${scene.correct}", { scale: 1, duration: 0.35, ease: "power2.inOut" }, ${r3(revealAt + 0.25)});
       tl.fromTo("#${id}-tick${scene.correct}", { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.8)" }, ${r3(revealAt + 0.05)});
       tl.fromTo("#${id}-answer", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(revealAt + 0.8)});
-      tl.to(["#${id}-tag", "#${id}-q", "#${id}-options", "#${id}-answer"], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
+      tl.to(["#${id}-tag", "#${id}-q", "#${id}-options", "#${id}-answer"${withMedia ? `, "#${id}-media"` : ""}], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
     // The wrong-answer lines, keyed by the option's index (the page counts picks by index).
     const wrong = {};
     for (const [text, lines] of Object.entries(scene.wrongLines || {})) {
@@ -319,6 +345,7 @@ ${dim}
         items: [{
           title: scene.q,
           timeLimit: scene.timeLimit || 20,
+          ...(scene.image ? { image: scene.image } : {}),
           options: scene.options.map((text, i) => (i === scene.correct ? { text, isCorrect: true } : { text })),
         }],
       },
@@ -716,7 +743,7 @@ ${rows}
     tommyClips.push(`        <video id="tommy-${n}" class="clip" src="assets/tommy-talking.webm" data-start="${r3(at)}" data-duration="${r3(Math.min(TOMMY_LOOP, total - at))}" data-track-index="2" muted playsinline></video>`);
   }
   const audio = audioClips.map((a) => `      <audio id="${a.id}" class="clip" src="${a.file}" data-start="${a.at}" data-duration="${a.seconds}"
-        data-track-index="${a.track ?? 3}" data-volume="${a.volume ?? 1}"></audio>`).join("\n");
+        data-track-index="${a.track ?? 3}" data-volume="${a.volume ?? 1}"${a.from ? ` data-media-start="${a.from}"` : ""}${a.fade ? ' data-fade-in="0.3" data-fade-out="1"' : ""}></audio>`).join("\n");
   const first = TOMMY_POS[scenes[0].tommy];
   const moves = [];
   for (let i = 1; i < scenes.length; i += 1) {

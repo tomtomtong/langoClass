@@ -196,3 +196,30 @@ test("spell checks: 3 to 12 words, letters only, all different, seconds in range
   const result = validateLessonScript(input);
   assert.deepEqual(paths(result), ["scenes[7].words", "scenes[8].words[0].word", "scenes[8].words", "scenes[8].seconds"]);
 });
+
+test("a quiz may have a picture and a sound clip from the shared media folder", () => {
+  const input = copy();
+  input.scenes[2].image = "/uploads/autoclass/_media/kai-tak.jpg";
+  input.scenes[2].clip = { src: "/uploads/autoclass/_media/song_1.mp3", from: 12.5 };
+  const result = validateLessonScript(input);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.script.scenes[2].image, "/uploads/autoclass/_media/kai-tak.jpg");
+  assert.deepEqual(result.script.scenes[2].clip, { src: "/uploads/autoclass/_media/song_1.mp3", from: 12.5, seconds: 15 });
+  assert.equal("image" in result.script.scenes[5], false, "no media unless asked for");
+});
+
+test("quiz media must be the right kind of file in the media folder, and a short clip", () => {
+  const input = copy();
+  input.scenes[2].image = "https://example.com/kai-tak.jpg";
+  input.scenes[2].clip = { src: "/uploads/autoclass/_media/song.jpg", from: -1, seconds: 90 };
+  input.scenes[5].image = "/uploads/autoclass/_media/song.mp3";
+  input.scenes[5].clip = { src: "/uploads/autoclass/_media/../x.mp3" };
+  assert.deepEqual(paths(validateLessonScript(input)), [
+    "scenes[2].image",
+    "scenes[2].clip.from",
+    "scenes[2].clip.seconds",
+    "scenes[2].clip.src",
+    "scenes[5].image",
+    "scenes[5].clip.src",
+  ]);
+});
