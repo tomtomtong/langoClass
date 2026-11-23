@@ -5,7 +5,7 @@
 //
 //   buildLesson(dir, script, { voice, mediaUrl, media })
 //     voice(text) → { file, seconds }   an mp3 of Tommy saying `text`, `file` relative to `dir`
-//     media(url) → file                 a quiz picture or sound clip (/uploads/autoclass/_media/…)
+//     media(url) → file                 a quiz picture, sound clip or reveal video (/uploads/autoclass/_media/…)
 //                                       already in the project, `file` relative to `dir`; needed
 //                                       only when a quiz has an `image` or a `clip`
 //     mediaUrl                          where the media will be served, e.g. /uploads/autoclass/<id>/<renderId>
@@ -100,6 +100,7 @@ const LABELS = {
     spellTag: "Spelling race!",
     spellHint: "📱 Spell on your phone",
     listen: "🎵 Listen…",
+    adTag: "📺 The original ad",
     outroTitle: ["Great ", "job!"],
   },
   yue: {
@@ -114,6 +115,7 @@ const LABELS = {
     spellTag: "串字比賽！",
     spellHint: "📱 用手機串字",
     listen: "🎵 聽下呢段…",
+    adTag: "📺 當年嘅廣告",
     outroTitle: ["做得", "好！"],
   },
 };
@@ -131,6 +133,7 @@ export async function buildLesson(dir, lesson, { voice, mediaUrl, media = noMedi
   const L = labelsFor(lesson.voice?.language);
   const OUT = path.join(dir, "out");
   const audioClips = []; // { id, file, at (absolute), seconds }
+  const revealVideos = []; // { id, file, at (absolute), seconds, from }: played full size after a quiz's answer
   let audioCount = 0;
   const placeVoice = (v, at) => {
     audioCount += 1;
@@ -283,7 +286,14 @@ ${lines.join("\n")}
       ? clipAt + scene.clip.seconds + 0.4
       : Math.max(2.9, askAt + vAsk.seconds + 0.3); // the page pauses here
     const revealAt = pauseAt + 1.0;
-    const end = revealAt + 0.1 + vReveal.seconds + 1.4;
+    // A reveal video (e.g. the ad itself) plays once Tommy has given the answer; the results pause
+    // comes after it, so the class sees the ad before how they did.
+    const videoAt = revealAt + 0.1 + vReveal.seconds + 0.6;
+    const end = scene.revealVideo ? videoAt + scene.revealVideo.seconds + 0.8 : revealAt + 0.1 + vReveal.seconds + 1.4;
+    if (scene.revealVideo) {
+      revealVideos.push({ id: `reveal-video-${n}`, file: await media(scene.revealVideo.src), at: r3(start + videoAt),
+        seconds: scene.revealVideo.seconds, from: scene.revealVideo.from });
+    }
     placeVoice(vAsk, start + askAt);
     placeVoice(vReveal, start + revealAt + 0.1);
     audioClips.push({ id: `sfx-correct-${n}`, file: "assets/correct.mp3", at: r3(start + revealAt + 0.03), seconds: 2, volume: 0.7, track: 4 });
@@ -299,12 +309,13 @@ ${lines.join("\n")}
     const listen = scene.clip ? `    <p id="${id}-listen" class="listen-chip">${L.listen}</p>\n` : "";
     const opts = scene.options.map((o, i) => `      <div id="${id}-opt${i}" class="opt ${withMedia ? "opt-sm" : optSize(o)}"><span class="letter">${LETTERS[i]}</span><span class="opt-text">${esc(o)}</span><span id="${id}-tick${i}" class="tick">✓</span></div>`).join("\n");
     const body = `    <div id="${id}-tag" class="quiz-tag">${L.question(n)}</div>
-    <h2 id="${id}-q" class="quiz-q${withMedia ? " quiz-q-short" : ""}">${words(scene.q.split(" "), -1)}</h2>
+    <h2 id="${id}-q" class="quiz-q${withMedia || optWeight(scene.q) > 18 ? " quiz-q-short" : ""}">${words(scene.q.split(" "), -1)}</h2>
 ${panel}${listen}    <div id="${id}-options" class="options${withMedia ? " options-beside" : ""}" data-hold>
 ${opts}
     </div>
     <p id="${id}-hint" class="phone-hint">${L.answerOnPhone}</p>
-    <p id="${id}-answer" class="answer-line">${esc(scene.line)}</p>`;
+    <p id="${id}-answer" class="answer-line">${esc(scene.line)}</p>${scene.revealVideo ? `
+    <div id="${id}-adtag" class="quiz-tag">${L.adTag}</div>` : ""}`;
     const dim = scene.options.map((_, i) => i).filter((i) => i !== scene.correct)
       .map((i) => `      tl.to("#${id}-opt${i}", { opacity: 0.3, duration: 0.3, ease: "power2.out" }, ${r3(revealAt)});`).join("\n");
     const script = `      tl.fromTo("#${id}-tag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.2);
@@ -324,7 +335,10 @@ ${dim}
       tl.to("#${id}-opt${scene.correct}", { scale: 1, duration: 0.35, ease: "power2.inOut" }, ${r3(revealAt + 0.25)});
       tl.fromTo("#${id}-tick${scene.correct}", { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.8)" }, ${r3(revealAt + 0.05)});
       tl.fromTo("#${id}-answer", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(revealAt + 0.8)});
-      tl.to(["#${id}-tag", "#${id}-q", "#${id}-options", "#${id}-answer"${withMedia ? `, "#${id}-media"` : ""}], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
+${scene.revealVideo ? `      // The reveal video takes the screen at ${r3(videoAt)} s (the root timeline shows it).
+      tl.to(["#${id}-tag", "#${id}-q", "#${id}-options", "#${id}-answer"${withMedia ? `, "#${id}-media"` : ""}], { opacity: 0, duration: 0.3, ease: "power2.in" }, ${r3(videoAt - 0.4)});
+      tl.fromTo("#${id}-adtag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.6)" }, ${r3(videoAt - 0.1)});
+` : ""}      tl.to(["#${id}-tag", "#${id}-q", "#${id}-options", "#${id}-answer"${withMedia ? `, "#${id}-media"` : ""}${scene.revealVideo ? `, "#${id}-adtag"` : ""}], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
     // The wrong-answer lines, keyed by the option's index (the page counts picks by index).
     const wrong = {};
     for (const [text, lines] of Object.entries(scene.wrongLines || {})) {
@@ -744,6 +758,10 @@ ${rows}
   }
   const audio = audioClips.map((a) => `      <audio id="${a.id}" class="clip" src="${a.file}" data-start="${a.at}" data-duration="${a.seconds}"
         data-track-index="${a.track ?? 3}" data-volume="${a.volume ?? 1}"${a.from ? ` data-media-start="${a.from}"` : ""}${a.fade ? ' data-fade-in="0.3" data-fade-out="1"' : ""}></audio>`).join("\n");
+  const videos = revealVideos.map((v) => `      <video id="${v.id}" class="clip reveal-video" src="${v.file}" data-start="${v.at}" data-duration="${v.seconds}"
+        data-track-index="6"${v.from ? ` data-media-start="${v.from}"` : ""} data-has-audio="true" data-fade-in="0.3" data-fade-out="0.8" playsinline style="z-index: 4"></video>`).join("\n");
+  const videoFades = revealVideos.map((v) => `      tl.fromTo("#${v.id}", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power2.out" }, ${v.at});
+      tl.to("#${v.id}", { opacity: 0, duration: 0.35, ease: "power2.in" }, ${r3(v.at + v.seconds - 0.35)});`).join("\n");
   const first = TOMMY_POS[scenes[0].tommy];
   const moves = [];
   for (let i = 1; i < scenes.length; i += 1) {
@@ -782,6 +800,8 @@ ${hosts}
 ${tommyClips.join("\n")}
       </div>
 
+${videos}
+
 ${audio}
     </div>
     <script>
@@ -789,6 +809,7 @@ ${audio}
       tl.fromTo("#tommy", { x: ${first.x + 160}, y: ${first.y}, scale: ${first.scale}, opacity: 0 },
         { x: ${first.x}, y: ${first.y}, scale: ${first.scale}, opacity: 1, duration: 0.8, ease: "expo.out" }, 0.2);
 ${moves.join("\n")}
+${videoFades}
       tl.to("#tommy", { opacity: 0, duration: 0.4, ease: "power2.in" }, ${r3(total - 0.5)});
       window.__timelines["main"] = tl;
     </script>

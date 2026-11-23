@@ -17,11 +17,11 @@ const MAX_CACHED_BYTES = 5 * 1024 * 1024;
 const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
 // The same as lib/autoclass-script.mjs (the image holds only video-container/, so it cannot import it).
 const MEDIA_FOLDER = "/uploads/autoclass/_media";
-const MEDIA_NAME = /^[a-z0-9][a-z0-9_-]{0,59}\.(?:jpg|jpeg|png|webp|mp3|m4a)$/;
+const MEDIA_NAME = /^[a-z0-9][a-z0-9_-]{0,59}\.(?:jpg|jpeg|png|webp|mp3|m4a|mp4)$/;
 
-// Every quiz picture and sound clip a (checked) script uses, as names in MEDIA_FOLDER.
+// Every quiz picture, sound clip and reveal video a (checked) script uses, as names in MEDIA_FOLDER.
 export function mediaFiles(script) {
-  const urls = (script?.scenes || []).filter((s) => s?.kind === "quiz").flatMap((s) => [s.image, s.clip?.src]).filter(Boolean);
+  const urls = (script?.scenes || []).filter((s) => s?.kind === "quiz").flatMap((s) => [s.image, s.clip?.src, s.revealVideo?.src]).filter(Boolean);
   return [...new Set(urls.filter((u) => typeof u === "string" && u.startsWith(`${MEDIA_FOLDER}/`)).map((u) => u.slice(MEDIA_FOLDER.length + 1)))];
 }
 const TYPES = { mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", json: "application/json" };

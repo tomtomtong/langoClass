@@ -8,7 +8,7 @@
 //   GET  /api/autoclass/jobs/:jobId          teacher  render status (as the lecture video jobs)
 //   GET  /api/autoclass/lessons/:id/cues     anyone   the published cues, for /autoclass.html?lesson=<id>
 //   PUT  /api/autoclass/media/:name          teacher  upload a quiz picture or sound clip (the raw
-//                                                     bytes) to /uploads/autoclass/_media/<name>
+//                                                     bytes) to /uploads/autoclass/_media/<name>; up to 20 MB
 import { autoclassEnabled } from "./autoclass-page.js";
 import { json, readJson, requireTeacher, sameId } from "./d1-store.js";
 import { VOICE_CACHE_PREFIX, readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
@@ -81,7 +81,7 @@ const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
 
 // One shared folder for every lesson's quiz media; a new upload under the same name replaces the old.
 async function saveMedia(request, env, name) {
-  if (!MEDIA_NAME.test(name)) return json({ message: "Name it like kai-tak.jpg: lowercase letters, digits, - or _, then .jpg .jpeg .png .webp .mp3 or .m4a." }, 400);
+  if (!MEDIA_NAME.test(name)) return json({ message: "Name it like kai-tak.jpg: lowercase letters, digits, - or _, then .jpg .jpeg .png .webp .mp3 .m4a or .mp4." }, 400);
   if (!env.UPLOADS) return json({ message: "File storage is not configured." }, 500);
   const bytes = await request.arrayBuffer();
   if (!bytes.byteLength) return json({ message: "The file is empty." }, 400);

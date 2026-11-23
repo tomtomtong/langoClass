@@ -168,6 +168,10 @@ body {
   line-height: 1.1;
   letter-spacing: -0.01em;
 }
+/* A question in Chinese is one "word" (no spaces), so let it wrap instead of running off the right. */
+.quiz-q .word {
+  white-space: pre-wrap;
+}
 .options {
   position: absolute;
   left: 150px;
@@ -296,6 +300,17 @@ body {
   width: 72px;
   height: 72px;
   font-size: 48px;
+}
+/* A quiz's reveal video (the original ad): big in the middle, under the tag, above the bottom strip. */
+.reveal-video {
+  position: absolute;
+  left: 384px;
+  top: 180px;
+  width: 1152px;
+  height: 648px;
+  border-radius: 32px;
+  background: #000;
+  object-fit: contain;
 }
 .listen-chip {
   position: absolute;
