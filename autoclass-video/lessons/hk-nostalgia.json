@@ -69,6 +69,11 @@
         "維他奶": [
           "維他奶都好出名，不過呢句係人頭馬嘅口號。"
         ]
+      },
+      "revealVideo": {
+        "src": "/uploads/autoclass/_media/remy-martin-ad.mp4",
+        "from": 0,
+        "seconds": 15.3
       }
     },
     {
@@ -91,6 +96,11 @@
         "UCC 咖啡": [
           "差少少！呢句係麥斯威爾咖啡嘅廣告。"
         ]
+      },
+      "revealVideo": {
+        "src": "/uploads/autoclass/_media/maxwell-house-ad.mp4",
+        "from": 0,
+        "seconds": 13.7
       }
     },
     {
@@ -113,6 +123,11 @@
         "精工": [
           "差少少！呢句係鐵達時手錶嘅廣告。"
         ]
+      },
+      "revealVideo": {
+        "src": "/uploads/autoclass/_media/solvil-titus-ad.mp4",
+        "from": 0,
+        "seconds": 16.5
       }
     },
     {
@@ -466,6 +481,7 @@
     "kai-tak.jpg: “Cathay Pacific Spirit of Hong Kong B742 Kai Tak Final Approach” by Ywchow, public domain, Wikimedia Commons",
     "lai-yuen.jpg: “Lai Yuen giraffe 1992” by Probophilic, CC BY-SA 3.0, Wikimedia Commons",
     "star-ferry-pier.jpg: “Edinburgh Place Ferry Pier Clock Tower 200611” by WiNG, CC BY 3.0, Wikimedia Commons",
-    "Songs: 15-second clips cut from the user's own files (上海灘 from 0:16.5, 獅子山下 from 0:28.6, 半斤八兩 from 0:01); internal use only, not licensed for public use"
+    "Songs: 15-second clips cut from the user's own files (上海灘 from 0:16.5, 獅子山下 from 0:28.6, 半斤八兩 from 0:01); internal use only, not licensed for public use",
+    "Ads: short clips cut from the user's own files (人頭馬 0:17–0:32, 麥斯威爾 0:16.5–0:30, 鐵達時 0:41–0:57); internal use only"
   ]
 }
