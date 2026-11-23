@@ -990,3 +990,11 @@ select {
   }
 }
 
+
+/* A warm-up question: no marks, just the question and the answers Tommy reads out by name. */
+.result.is-warmup .result-distribution,
+.result.is-warmup #result-correct,
+.result.is-warmup #result-summary,
+.result.is-warmup #result-got {
+  display: none;
+}

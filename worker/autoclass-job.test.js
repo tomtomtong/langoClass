@@ -256,6 +256,35 @@ test("an ask scene becomes an unscored, marked Everyone Answers cue", async () =
   }
 });
 
+test("a warm-up ask needs no answer, shows no answer card and tells the page it is a warm-up", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-warmup-"));
+  try {
+    const input = structuredClone(animalHomes);
+    input.scenes.unshift({ kind: "ask", warmup: true, q: "Say hello and your name!", ask: "Say hello and your name!", reveal: "So many voices!" });
+    const { script, errors } = validateLessonScript(input);
+    assert.deepEqual(errors, []);
+    assert.equal(script.scenes[0].warmup, true);
+    assert.equal(script.scenes[0].seconds, 15, "a warm-up is quick by default");
+    assert.ok(script.scenes[0].answer, "marked against 'any answer counts'");
+    // Only true or false; an ordinary ask still needs its answer.
+    assert.ok(validateLessonScript({ ...input, scenes: [{ ...input.scenes[0], warmup: "yes" }, ...input.scenes.slice(1)] }).errors.some((e) => /warmup/.test(e.path)));
+    assert.ok(validateLessonScript({ ...input, scenes: [{ ...input.scenes[0], warmup: false }, ...input.scenes.slice(1)] }).errors.some((e) => /answer/.test(e.path)));
+
+    (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    writeFileSync(path.join(dir, "assets", "voice", "x.mp3"), "mp3");
+    const voice = async () => ({ file: "assets/voice/x.mp3", seconds: 2 });
+    await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" });
+    const cue = JSON.parse(readFileSync(path.join(dir, "out", "cues.json"), "utf8")).cues[0];
+    assert.equal(cue.ask.warmup, true);
+    assert.equal(cue.ask.seconds, 15);
+    assert.ok(cue.ask.tag);
+    const html = readFileSync(path.join(dir, "compositions", "ask1.html"), "utf8");
+    assert.doesNotMatch(html, /class="ask-answer"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a spell scene becomes a spelling race cue, with blanks in the video until the reveal", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "autoclass-spell-"));
   try {

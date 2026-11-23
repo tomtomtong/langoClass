@@ -95,6 +95,7 @@ const LABELS = {
     speakHint: "🎤 Say it on your phone",
     wellDone: "Well done!",
     askTag: "Your turn to answer",
+    warmupTag: "Warm-up",
     askHint: "🎤 Answer on your phone",
     sayWithMe: (word) => `Say it with me: <b>${word}</b>!`,
     spellTag: "Spelling race!",
@@ -110,6 +111,7 @@ const LABELS = {
     speakHint: "🎤 用手機講出嚟",
     wellDone: "做得好！",
     askTag: "到你答",
+    warmupTag: "熱身",
     askHint: "🎤 用手機講出你嘅答案",
     sayWithMe: (word) => `跟我講：<b>${word}</b>！`,
     spellTag: "串字比賽！",
@@ -445,17 +447,18 @@ ${scene.revealVideo ? `      // The reveal video takes the screen at ${r3(videoA
     const id = `ask${n}`;
     const vAsk = await voice(scene.ask);
     const vReveal = await voice(scene.reveal);
+    // A warm-up keeps it short: no answer card after the pause, just Tommy's line, and on.
+    const warm = Boolean(scene.warmup);
     const askAt = 0.5;
     const pauseAt = Math.max(2.4, askAt + vAsk.seconds + 0.3);
-    const revealAt = pauseAt + 0.8;
-    const end = revealAt + vReveal.seconds + 1.6;
+    const revealAt = pauseAt + (warm ? 0.5 : 0.8);
+    const end = revealAt + vReveal.seconds + (warm ? 0.9 : 1.6);
     placeVoice(vAsk, start + askAt);
     placeVoice(vReveal, start + revealAt);
-    const body = `    <div id="${id}-tag" class="quiz-tag">${L.askTag}</div>
+    const body = `    <div id="${id}-tag" class="quiz-tag">${warm ? L.warmupTag : L.askTag}</div>
     <h2 id="${id}-q" class="quiz-q">${words(scene.q.split(" "), -1)}</h2>
     <div id="${id}-emoji" class="ask-emoji">${esc(scene.emoji || "💬")}</div>
-    <div id="${id}-answer" class="ask-answer">${esc(scene.answer)}</div>
-    <p id="${id}-hint" class="phone-hint">${L.askHint}</p>`;
+${warm ? "" : `    <div id="${id}-answer" class="ask-answer">${esc(scene.answer)}</div>\n`}    <p id="${id}-hint" class="phone-hint">${L.askHint}</p>`;
     const script = `      tl.fromTo("#${id}-tag", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.6)" }, 0.2);
       tl.fromTo("#${id}-q .word", { opacity: 0, filter: "blur(6px)" },
         { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.08 }, 0.5);
@@ -464,9 +467,9 @@ ${scene.revealVideo ? `      // The reveal video takes the screen at ${r3(videoA
       tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${r3(pauseAt - 0.6)});
       // Paused at ${r3(pauseAt)} s while the class answers; Tommy gives a good answer from ${r3(revealAt)} s.
       tl.to(["#${id}-hint", "#${id}-emoji"], { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" }, ${r3(revealAt - 0.4)});
-      tl.fromTo("#${id}-answer", { opacity: 0, y: 30, filter: "blur(8px)" },
+${warm ? "" : `      tl.fromTo("#${id}-answer", { opacity: 0, y: 30, filter: "blur(8px)" },
         { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, ${r3(revealAt)});
-      tl.to(["#${id}-tag", "#${id}-q", "#${id}-answer"], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
+`}      tl.to(["#${id}-tag", "#${id}-q"${warm ? "" : `, "#${id}-answer"`}], { opacity: 0, filter: "blur(10px)", duration: 0.25, ease: "power3.in" }, ${r3(end - 0.35)});`;
     const css = `
     .ask-emoji {
       position: absolute;
@@ -496,7 +499,7 @@ ${scene.revealVideo ? `      // The reveal video takes the screen at ${r3(videoA
     const cue = {
       at: r3(start + pauseAt),
       resumeAt: r3(start + pauseAt),
-      ask: { question: scene.q, answer: scene.answer, seconds: scene.seconds || 30 },
+      ask: { question: scene.q, answer: scene.answer, seconds: scene.seconds || 30, ...(warm ? { warmup: true, tag: L.warmupTag } : {}) },
       result: { at: r3(start + end - 0.5), key: id, wrong: {} },
       exercise: {
         id: `autoclass-${lesson.id}-${id}`,

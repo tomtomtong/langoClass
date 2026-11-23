@@ -748,7 +748,9 @@
     setLive(results.length && heard ? `${spoke} of ${results.length} had a go` : "", "", true);
     // The phones keep showing each student's "great speaking!" while Tommy says the sentence again,
     // and go back to "watch" when the results page opens (runResult).
-    state.pendingResult = heard && results.length && cue.result && window.LangoAutoclassAnalysis
+    // A warm-up has no marks to show: only the answers Tommy reads out, so nobody spoke, no page.
+    const warm = Boolean(run.ask && cue.ask?.warmup);
+    state.pendingResult = heard && results.length && cue.result && window.LangoAutoclassAnalysis && (!warm || spoke)
       ? { cue, payload: { results, correctIndex: 0 }, watchLater: true }
       : null;
     if (run.closing === false) emit("close_openanswer_window").catch(() => {}); // skipped: stop the phones recording
@@ -1243,22 +1245,34 @@
     const tommy = el("result-tommy");
     let lines = [];
 
+    const warm = Boolean(cue.ask?.warmup);
     try {
       video.pause();
       // If this loop was late the video has run a little into the next scene: go back to the answer.
       if (video.currentTime > cue.result.at) video.currentTime = cue.result.at;
+      // A warm-up shows only the answers Tommy reads out by name; with none picked it just plays on.
+      if (warm) {
+        const h = state.highlights;
+        if (h?.cue === cue) await Promise.race([h.ready, wait(run, HIGHLIGHTS_WAIT_MS)]);
+        if (!h || h.cue !== cue || !h.picks?.length) {
+          state.highlights = null;
+          throw ABORT;
+        }
+      }
       const options = resultOptions(cue);
       const analysis = window.LangoAutoclassAnalysis;
       const summary = analysis.summarize(payload.results, options.length, payload.correctIndex);
       // Speaking has its own lines: nothing there may sound like a mistake.
       const banks = (cue.speak ? state.lesson.speakAnalysis : state.lesson.analysis) || {};
-      lines = state.picker
+      lines = state.picker && !warm
         ? analysis.plan(summary, banks, cue.result.wrong || {}, state.picker, { questionKey: cue.result.key }).lines
         : [];
       renderResult(cue, payload, summary);
+      if (warm) el("result-tag").textContent = `👋 ${cue.ask.tag || "Warm-up"}`;
       setAnchor(layer, tutor);
       if (tutor?.tommyVideo && !tommy.src) tommy.src = tutor.tommyVideo;
       layer.classList.remove("is-open", "is-revealed");
+      layer.classList.toggle("is-warmup", warm);
       layer.hidden = false;
       tommy.hidden = !tutor?.tommyVideo;
       tommy.currentTime = 0;
@@ -1272,7 +1286,7 @@
       await wait(run, 1100);
       for (const line of lines) await sayLine(run, line);
       if (cue.ask) await sayHighlights(run, cue);
-      if (!lines.length) await wait(run, 5000); // no recordings: the bars alone, for a few seconds
+      if (!lines.length && !warm) await wait(run, 5000); // no recordings: the bars alone, for a few seconds
       await wait(run, 600);
     } catch (error) {
       if (error !== ABORT) console.warn("autoclass: could not show the results", error);
