@@ -393,12 +393,13 @@ test("the video's own labels follow the lesson's language", async () => {
   assert.doesNotMatch(cantonese, /Question \d|Answer on your phone|Your turn|Say it with me|Well done|Great/);
 });
 
-test("a quiz with a picture and a clip: panel in the video, clip before the pause, picture on the phones", async () => {
+test("a quiz with a picture and a clip: panel in the video, clip before the question, picture on the phones", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "autoclass-media-"));
   try {
     const input = structuredClone(animalHomes);
     input.scenes[2].image = "/uploads/autoclass/_media/hive.jpg";
     input.scenes[2].clip = { src: "/uploads/autoclass/_media/bees.mp3", from: 5, seconds: 10 };
+    input.scenes[2].intro = "Listen to this.";
     input.scenes[5].clip = { src: "/uploads/autoclass/_media/bees.mp3", seconds: 4 };
     const { script, errors } = validateLessonScript(input);
     assert.deepEqual(errors, []);
@@ -420,10 +421,14 @@ test("a quiz with a picture and a clip: panel in the video, clip before the paus
     const quiz = built.cues.cues.find((c) => c.exercise?.type === "mcquiz");
     assert.equal(quiz.exercise.items[0].image, "/uploads/autoclass/_media/hive.jpg");
     const scene = built.scenes.find((s) => s.id === "quiz1");
-    // ask at 0.5 for 2 s, the clip 0.5 s later for 10 s, then the pause.
-    assert.equal(scene.pauseAt, scene.start + 0.5 + 2 + 0.5 + 10 + 0.4);
+    // The class listens first: the intro at 0.6 for 2 s, the clip 0.3 s later for 10 s, then
+    // the question (asked 0.6 s after the clip, for 2 s), then the pause.
+    const r3 = (x) => Math.round(x * 1000) / 1000;
+    const clipAt = 0.6 + 2 + 0.3;
+    assert.equal(scene.pauseAt, r3(scene.start + clipAt + 10 + 0.6 + 2 + 0.3));
+    assert.equal(script.scenes[2].intro, "Listen to this.");
     const index = readFileSync(path.join(dir, "index.html"), "utf8");
-    assert.match(index, new RegExp(`<audio id="clip-1" class="clip" src="assets/media/bees.mp3" data-start="${scene.start + 3}" data-duration="10"[^>]*data-media-start="5"`));
+    assert.match(index, new RegExp(`<audio id="clip-1" class="clip" src="assets/media/bees.mp3" data-start="${r3(scene.start + clipAt)}" data-duration="10"[^>]*data-media-start="5"`));
     assert.match(index, /<audio id="clip-2" class="clip" src="assets\/media\/bees.mp3"[^>]*data-duration="4"/);
     const html = readFileSync(path.join(dir, "compositions", "quiz1.html"), "utf8");
     assert.match(html, /<img src="assets\/media\/hive.jpg"/);
