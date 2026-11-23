@@ -67,7 +67,7 @@ const PORT = process.env.PORT || 3000;
 const APP_VARIANT = String(process.env.APP_VARIANT || "").trim();
 const IS_HK_ELDERLY_VARIANT = APP_VARIANT === "hk-elderly";
 const HOST_PAGE_PATH = IS_HK_ELDERLY_VARIANT ? "/hk/host.html" : "/host.html";
-const JOIN_PAGE_PATH = IS_HK_ELDERLY_VARIANT ? "/hk/join.html" : "/join.html";
+const JOIN_PAGE_PATH = "/join.html";
 const CMS_API_BASE = String(process.env.CMS_API_BASE || "https://newcms.lango.ai").replace(
   /\/$/,
   ""
@@ -6674,22 +6674,15 @@ app.get("/", (req, res) => {
   redirectWithQuery(res, getHostPagePath(), req);
 });
 
-app.get("/hk", (_req, res) => {
-  res.redirect("/hk/host.html");
+// The old elderly host page: elderly mode is now a host setting; ?theme=elderly turns it on.
+app.get(["/hk", "/hk/", "/hk/host.html"], (req, res) => {
+  const url = new URL(req.originalUrl, "http://local");
+  url.searchParams.set("theme", "elderly");
+  res.redirect(`/host.html${url.search}`);
 });
-
-app.get("/hk/", (_req, res) => {
-  res.redirect("/hk/host.html");
+app.get("/hk/join.html", (req, res) => {
+  redirectWithQuery(res, "/join.html", req);
 });
-
-if (IS_HK_ELDERLY_VARIANT) {
-  app.get("/host.html", (req, res) => {
-    redirectWithQuery(res, "/hk/host.html", req);
-  });
-  app.get("/join.html", (req, res) => {
-    redirectWithQuery(res, "/hk/join.html", req);
-  });
-}
 
 app.use("/uploads", express.static(paths.uploadsRoot));
 app.use(

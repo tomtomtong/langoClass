@@ -177,6 +177,8 @@ function hostSession(state, data, ctx) {
   state.session.hostSocketId = ctx.socketId;
   if (data.uiLocale) state.session.uiLocale = clip(data.uiLocale, 16) || "en";
   if (data.variant) state.session.variant = clip(data.variant, 32);
+  const theme = themeOf(data);
+  if (theme !== null) state.session.theme = theme;
   rememberSocket(state, ctx.socketId, { role: "host", playerId: null });
   const ack = {
     ok: true,
@@ -189,6 +191,16 @@ function hostSession(state, data, ctx) {
   const broadcasts = [lobby(state), localeEvent(state)];
   if (state.timer?.kind !== "host-grace") return done(state, { attachment, ack, broadcasts });
   return resumeAfterHostGrace(state, ctx.now, { attachment, ack, broadcasts });
+}
+
+// The look of the students' join page for this room: "elderly" (big type and buttons, for older
+// learners) or "" (the default). The hk host page asks for it with its variant; the autoclass page
+// with the lesson's theme. null when the host did not say, so a reconnect keeps the room's theme.
+export const JOIN_THEMES = ["elderly"];
+function themeOf(data) {
+  if (data.theme != null) return JOIN_THEMES.includes(data.theme) ? data.theme : "";
+  if (data.variant === "hk-elderly") return "elderly";
+  return null;
 }
 
 function setLocale(state, data, ctx) {
@@ -246,6 +258,7 @@ function joinSession(state, data, ctx) {
       displayName: name,
       sessionStatus: state.session.status,
       uiLocale: state.session.uiLocale || "en",
+      theme: state.session.theme || "",
       reactions: !!state.session.reactions,
       reactionEmojis: REACTION_EMOJIS,
       reactionEmojiOpen: !!state.session.reactions && !!state.session.emojiOpen,
@@ -1244,6 +1257,7 @@ function lobby(state) {
       participants: participantPayload(state),
       count: (state.session.participants || []).length,
       uiLocale: state.session.uiLocale || "en",
+      theme: state.session.theme || "",
     },
   };
 }

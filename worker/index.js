@@ -21,17 +21,24 @@ export { AutoclassContainer } from "./autoclass-container.js";
 
 const PAGE_REDIRECTS = new Map([
   ["/", "/host.html"],
-  ["/hk", "/hk/host.html"],
-  ["/hk/", "/hk/host.html"],
+  // The old elderly join page: one join page now takes the room's look. Keeps ?room= etc.
+  ["/hk/join.html", "/join.html"],
+  // The old elderly host page: elderly mode is now a host setting; ?theme=elderly turns it on.
+  ["/hk", "/host.html"],
+  ["/hk/", "/host.html"],
+  ["/hk/host.html", "/host.html"],
 ]);
+const ELDERLY_HOST_PATHS = new Set(["/hk", "/hk/", "/hk/host.html"]);
 
 const app = {
   async fetch(request, env, ctx) {
     const incoming = new URL(request.url);
     if (request.method === "GET" || request.method === "HEAD") {
-      const destination = PAGE_REDIRECTS.get(incoming.pathname);
+      const asked = incoming.pathname;
+      const destination = PAGE_REDIRECTS.get(asked);
       if (destination) {
         incoming.pathname = destination;
+        if (ELDERLY_HOST_PATHS.has(asked)) incoming.searchParams.set("theme", "elderly");
         return Response.redirect(incoming.toString(), 302);
       }
     }

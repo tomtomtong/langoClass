@@ -1,0 +1,797 @@
+/* LangoClass 老友記 — the "elderly" look of the students' join page (phones, aged 60–80).
+ *
+ * join.js applyJoinRoomLook puts body.theme-elderly on when the room asks for it; every rule is
+ * scoped to that class, so the default (kids') look is untouched. Rules inside #app are written
+ * as `body.theme-elderly #app …` so they outrank style.css's #screen-… selectors without a pile
+ * of !important.
+ *
+ * Brand: Lango 3.0 (DESIGN.md) — mist-blue page, warm cream cards with soft ink shadows, the
+ * purple gradient pill for the one main action, Nunito black for titles, the parrot logo on the
+ * join card. Quiz meaning: blue = my pick, teal = right, red = wrong, always with words too.
+ * For older eyes and hands: body 22px, questions 28px+, every target 64px+, answers in one
+ * column with a letter badge (A/B/C/D, as on the hk big screen), 7:1 ink, no glow or blur, and
+ * almost no motion. */
+
+body.theme-elderly {
+  --el-page: #eaf1ff;
+  --el-page-deep: #dde9ff;
+  --el-card: #fffdf8;
+  --el-white: #ffffff;
+  --el-ink: #26323f;          /* 12:1 on cream */
+  --el-muted: #44566a;        /* 7.3:1 on cream */
+  --el-line: #c8d5e6;
+  --el-primary: #a1268e;
+  --el-primary-deep: #743c9b;
+  --el-primary-soft: #fbe1eb;
+  --el-pick: #2d73b5;
+  --el-pick-soft: #dcefff;
+  --el-right: #007f78;
+  --el-right-soft: #d8f7f2;
+  --el-wrong: #b92d4f;
+  --el-wrong-soft: #fde5ec;
+  --el-gold: #f9b545;
+  --el-focus: #f9b545;
+  --el-shadow: 0 10px 20px rgba(52, 67, 86, 0.14);
+  --el-shadow-press: 0 4px 10px rgba(52, 67, 86, 0.16);
+  --el-radius-card: 32px;
+  --el-radius-tile: 20px;
+  --el-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --el-font: "Nunito", "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", ui-rounded, system-ui, sans-serif;
+
+  background: var(--el-page);
+  background-image: none;
+  color: var(--el-ink);
+  font-family: var(--el-font);
+  font-size: 22px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* The page: plain mist blue with one soft sky band at the top. No photo, no blur. */
+body.theme-elderly::before {
+  background: linear-gradient(180deg, var(--el-page-deep) 0, var(--el-page) 320px) !important;
+  filter: none !important;
+  inset: 0 !important;
+}
+
+body.theme-elderly ::selection {
+  background: var(--el-primary-soft);
+  color: var(--el-ink);
+}
+
+/* ---------- Calm: no glows, text shadows, sparkles or looping motion ---------- */
+
+body.theme-elderly #app *,
+body.theme-elderly #app *::before,
+body.theme-elderly #app *::after {
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+  animation-iteration-count: 1 !important;
+}
+body.theme-elderly #app .player-mcq-backdrop,
+body.theme-elderly #app .player-mcq-result-backdrop,
+body.theme-elderly #app .player-leaderboard__backdrop,
+body.theme-elderly #app .player-leaderboard__me-sparkle {
+  display: none !important;
+}
+/* The kids' burst moments: the screen-change portal with Uncle Tommy, and the flashing
+   "ANSWER LOCKED!" banner with rays (English-only, and it flashes). The pick turning blue and
+   the "selected" line say the same thing calmly. */
+body.theme-elderly #app .host-page-transition,
+body.theme-elderly #app #screen-player-question.is-answered::before,
+body.theme-elderly #app #screen-player-question.is-answered::after {
+  display: none !important;
+}
+body.theme-elderly #app .screen {
+  background: transparent !important;
+  color: var(--el-ink);
+  font-family: var(--el-font);
+}
+
+/* ---------- Type ---------- */
+
+body.theme-elderly #app h1,
+body.theme-elderly #app h2,
+body.theme-elderly #app .player-mcq-title,
+body.theme-elderly #app .player-mcq-result-title,
+body.theme-elderly #app .player-leaderboard__title,
+body.theme-elderly #app .openanswer-title,
+body.theme-elderly #app .buzzin-interaction-title,
+body.theme-elderly #app .player-fast-result__title {
+  margin: 0;
+  color: var(--el-ink) !important;
+  font-family: var(--el-font);
+  font-weight: 900;
+  font-size: 30px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+body.theme-elderly #app p,
+body.theme-elderly #app label,
+body.theme-elderly #app .connection-status {
+  color: var(--el-ink);
+  font-size: 22px;
+  line-height: 1.5;
+}
+body.theme-elderly #app .error {
+  color: var(--el-wrong) !important;
+  font-weight: 800;
+  font-size: 22px;
+}
+body.theme-elderly #app .error:empty {
+  display: none;
+}
+
+/* ---------- Surfaces: cream cards, soft ink shadow, 32px corners ---------- */
+
+body.theme-elderly #app [class*="card"]:not(.player-mcq-timer-card),
+body.theme-elderly #app .openanswer-card,
+body.theme-elderly #app .general-waiting-ui__content,
+body.theme-elderly #app .player-mcq-result-card,
+body.theme-elderly #app .player-leaderboard__panel,
+body.theme-elderly #app .player-fast-result__panel,
+body.theme-elderly #app .poll-panel,
+body.theme-elderly #app .tutor-panel {
+  background: var(--el-card) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: var(--el-radius-card) !important;
+  box-shadow: var(--el-shadow) !important;
+  color: var(--el-ink) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.theme-elderly #app [class*="card"]::before,
+body.theme-elderly #app [class*="card"]::after {
+  display: none !important;
+}
+/* A card inside a card stays flat. */
+body.theme-elderly #app [class*="card"] [class*="card"] {
+  box-shadow: none !important;
+}
+
+/* ---------- Buttons: the one main action is the purple gradient pill ---------- */
+
+body.theme-elderly #app .btn,
+body.theme-elderly #app .player-leaderboard__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 68px;
+  padding: 14px 28px;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: linear-gradient(90deg, var(--el-primary), var(--el-primary-deep)) !important;
+  color: #fff !important;
+  font-family: var(--el-font);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  box-shadow: var(--el-shadow-press) !important;
+  transition: transform 160ms var(--el-ease), opacity 160ms var(--el-ease);
+}
+body.theme-elderly #app .btn::before,
+body.theme-elderly #app .btn::after {
+  display: none !important;
+}
+body.theme-elderly #app .btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+body.theme-elderly #app .btn:disabled {
+  background: #b9c3cf !important;
+  color: #26323f !important;
+  box-shadow: none !important;
+  opacity: 1;
+}
+
+/* Focus: a thick gold ring that is easy to see. */
+body.theme-elderly #app :focus-visible {
+  outline: 4px solid var(--el-focus) !important;
+  outline-offset: 3px;
+}
+
+/* ---------- Join card: the parrot logo stays on top ---------- */
+
+body.theme-elderly #app #screen-join.active {
+  width: min(460px, calc(100% - 32px));
+  margin: 88px auto 24px;
+  padding: 96px 24px 28px;
+  gap: 18px;
+  color: var(--el-ink);
+  background: var(--el-card) !important;
+  border: 0 !important;
+  border-radius: var(--el-radius-card);
+  box-shadow: var(--el-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.theme-elderly #app #screen-join.active::before {
+  width: min(200px, 60%);
+  transform: translate(-50%, -42%);
+  filter: drop-shadow(0 8px 12px rgba(52, 67, 86, 0.18));
+}
+body.theme-elderly #app #screen-join > div:not([hidden]) {
+  gap: 18px;
+}
+body.theme-elderly #app #screen-join h2 {
+  font-size: 32px;
+  letter-spacing: 0;
+  text-align: center;
+}
+body.theme-elderly #app #screen-join .connection-status {
+  color: var(--el-muted) !important;
+  text-align: center;
+  font-size: 21px;
+}
+body.theme-elderly #app #screen-join .field span {
+  padding-left: 4px;
+  color: var(--el-ink) !important;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+body.theme-elderly #app #screen-join .field input,
+body.theme-elderly #app input,
+body.theme-elderly #app textarea {
+  width: 100%;
+  min-height: 68px;
+  box-sizing: border-box;
+  padding: 14px 20px;
+  border: 3px solid var(--el-line) !important;
+  border-radius: var(--el-radius-tile);
+  background: var(--el-white) !important;
+  color: var(--el-ink) !important;
+  font-family: var(--el-font);
+  font-size: 26px;
+  font-weight: 800;
+  caret-color: var(--el-primary);
+}
+body.theme-elderly #app input::placeholder {
+  color: #6b7c8f !important;
+  font-weight: 600;
+}
+body.theme-elderly #app input:focus {
+  border-color: var(--el-primary) !important;
+  outline: none !important;
+}
+body.theme-elderly #app #join-room-code {
+  text-align: center;
+  font-size: 32px;
+  letter-spacing: 0.12em;
+}
+body.theme-elderly #app #screen-join .btn.primary {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* ---------- Waiting: one sentence, said big ---------- */
+
+body.theme-elderly #app .general-waiting-ui__content {
+  width: min(460px, calc(100% - 32px));
+  margin: 24px auto;
+  padding: 32px 24px;
+  box-sizing: border-box;
+  min-height: 0 !important;
+  height: auto !important;
+}
+body.theme-elderly #app .general-waiting-ui__header {
+  margin-bottom: 16px;
+}
+body.theme-elderly #app .general-waiting-ui__message-card {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 24px 20px !important;
+  background: var(--el-page) !important;
+  box-shadow: none !important;
+  border-radius: var(--el-radius-tile) !important;
+}
+body.theme-elderly #app .general-waiting-ui__message-card p {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* ---------- Question ---------- */
+
+body.theme-elderly #app .player-mcq-shell,
+body.theme-elderly #app .player-mcq-result-shell,
+body.theme-elderly #app .player-leaderboard__shell,
+body.theme-elderly #app .player-fast-result__shell {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding-inline: 16px;
+}
+body.theme-elderly #app .player-mcq-header {
+  padding-top: 8px;
+}
+body.theme-elderly #app .player-mcq-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--el-muted) !important;
+}
+body.theme-elderly #app .player-mcq-timer-card {
+  position: relative;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 26px 20px 22px !important;
+  background: var(--el-card) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: var(--el-radius-card) !important;
+  box-shadow: var(--el-shadow) !important;
+}
+body.theme-elderly #app .player-mcq-timer-card::before,
+body.theme-elderly #app .player-mcq-timer-card::after {
+  display: none !important;
+}
+body.theme-elderly #app .player-mcq-question {
+  color: var(--el-ink) !important;
+  font-family: var(--el-font);
+  font-size: 28px !important;
+  font-weight: 900;
+  line-height: 1.4;
+  text-align: left;
+  text-wrap: pretty;
+}
+/* Seconds left: a plain gold chip, not a glowing badge. */
+body.theme-elderly #app .player-mcq-countdown {
+  top: -18px !important;
+  right: 16px !important;
+}
+body.theme-elderly #app .timer-ring {
+  width: 64px !important;
+  height: 64px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: var(--el-gold) !important;
+  box-shadow: var(--el-shadow-press) !important;
+  color: var(--el-ink) !important;
+}
+body.theme-elderly #app .timer-ring::before,
+body.theme-elderly #app .timer-ring::after {
+  display: none !important;
+}
+body.theme-elderly #app #timer-text {
+  color: var(--el-ink) !important;
+  font-size: 28px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+body.theme-elderly #app .timer-ring.urgent {
+  background: var(--el-wrong) !important;
+}
+body.theme-elderly #app .timer-ring.urgent #timer-text {
+  color: #fff !important;
+}
+body.theme-elderly #app .question-image-wrap {
+  border-radius: var(--el-radius-tile);
+  overflow: hidden;
+}
+
+/* ---------- Answers: one column, letter badge + words ---------- */
+
+body.theme-elderly #app #player-options,
+body.theme-elderly #app .poll-options {
+  display: flex !important;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0;
+}
+body.theme-elderly #app .option,
+body.theme-elderly #app .poll-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 76px !important;
+  height: auto !important;
+  padding: 10px 18px 10px 12px;
+  border: 3px solid var(--el-line) !important;
+  border-radius: var(--el-radius-tile) !important;
+  background: var(--el-white) !important;
+  color: var(--el-ink) !important;
+  font-family: var(--el-font);
+  font-size: 26px;
+  font-weight: 800;
+  text-align: left;
+  box-shadow: var(--el-shadow-press) !important;
+  transition: transform 160ms var(--el-ease), border-color 160ms var(--el-ease), background-color 160ms var(--el-ease);
+}
+body.theme-elderly #app .option::before,
+body.theme-elderly #app .option::after {
+  display: none !important;
+}
+body.theme-elderly #app .option:active:not(:disabled),
+body.theme-elderly #app .poll-option:active:not(:disabled) {
+  transform: scale(0.98);
+}
+body.theme-elderly #app .option .label {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  color: inherit !important;
+}
+body.theme-elderly #app .option .option-index {
+  flex: 0 0 52px;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--el-primary-soft);
+  color: var(--el-primary-deep);
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1;
+}
+body.theme-elderly #app .option .option-copy {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* My pick: blue, with the badge turned white so it reads without colour too. */
+body.theme-elderly #app .option.selected,
+body.theme-elderly #app .poll-option.is-mine {
+  border-color: var(--el-pick) !important;
+  background: var(--el-pick) !important;
+  color: #fff !important;
+  opacity: 1 !important;
+}
+body.theme-elderly #app .option.selected .option-index {
+  background: #fff;
+  color: var(--el-pick);
+}
+/* The others, once answered, step back but stay readable. */
+body.theme-elderly #app .is-answered .option:not(.selected),
+body.theme-elderly #app .poll-option.is-dim {
+  opacity: 0.55 !important;
+  box-shadow: none !important;
+}
+body.theme-elderly #app .option.correct {
+  border-color: var(--el-right) !important;
+  background: var(--el-right-soft) !important;
+  color: var(--el-ink) !important;
+}
+body.theme-elderly #app .option.correct .option-index {
+  background: var(--el-right);
+  color: #fff;
+}
+body.theme-elderly #app .player-mcq-selected-label,
+body.theme-elderly #app #answer-feedback {
+  color: var(--el-pick) !important;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+body.theme-elderly #app .player-mcq-options-wrap::before,
+body.theme-elderly #app .player-mcq-options-wrap::after {
+  display: none !important;
+}
+
+/* ---------- Result: words first, then colour ---------- */
+
+body.theme-elderly #app .player-mcq-result-card {
+  padding: 28px 22px !important;
+  text-align: center;
+}
+body.theme-elderly #app .result-msg {
+  font-size: 34px !important;
+  font-weight: 900;
+  line-height: 1.2;
+}
+body.theme-elderly #app .result-msg.correct {
+  color: var(--el-right) !important;
+}
+body.theme-elderly #app .result-msg.wrong,
+body.theme-elderly #app .result-msg.incorrect {
+  color: var(--el-wrong) !important;
+}
+body.theme-elderly #app .player-mcq-result-points {
+  color: var(--el-primary-deep) !important;
+  font-size: 28px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+body.theme-elderly #app .player-mcq-result-encouragement,
+body.theme-elderly #app .player-mcq-result-question {
+  color: var(--el-muted) !important;
+  font-size: 22px;
+}
+body.theme-elderly #app .player-mcq-result-correct {
+  margin-top: 8px;
+  padding: 14px 16px;
+  border-radius: var(--el-radius-tile);
+  background: var(--el-right-soft);
+  color: var(--el-ink) !important;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+/* ---------- Everyone answers / buzz in: the record button is the whole width ---------- */
+
+body.theme-elderly #app .openanswer-stage {
+  background: transparent !important;
+  padding-inline: 16px;
+}
+body.theme-elderly #app .openanswer-card,
+body.theme-elderly #app .buzzin-interaction-card {
+  padding: 28px 22px !important;
+}
+body.theme-elderly #app .buzzin-record-btn,
+body.theme-elderly #app .openanswer-record-btn {
+  width: 100%;
+  min-height: 92px;
+  font-size: 28px;
+}
+body.theme-elderly #app .openanswer-recording-panel {
+  padding: 14px 18px;
+  border-radius: var(--el-radius-tile);
+  background: var(--el-wrong-soft) !important;
+  color: var(--el-wrong) !important;
+  font-size: 24px;
+  font-weight: 800;
+}
+body.theme-elderly #app .openanswer-recording-time {
+  color: var(--el-wrong) !important;
+  font-size: 26px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+body.theme-elderly #app .openanswer-record-status,
+body.theme-elderly #app .openanswer-feedback {
+  color: var(--el-muted) !important;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* ---------- Poll ---------- */
+
+body.theme-elderly #app .poll-panel {
+  padding: 24px 20px !important;
+}
+body.theme-elderly #app .poll-question {
+  color: var(--el-ink) !important;
+  font-size: 26px;
+  font-weight: 900;
+}
+body.theme-elderly #app .poll-hint {
+  color: var(--el-muted) !important;
+  font-size: 20px;
+}
+
+/* ---------- Ask Uncle Tommy: always labelled, full width, secondary (ghost) pill ---------- */
+
+body.theme-elderly #app .tutor-ask-btn {
+  width: 100%;
+  min-height: 68px;
+  padding: 12px 24px;
+  border: 3px solid var(--el-primary) !important;
+  border-radius: 999px !important;
+  background: var(--el-white) !important;
+  color: var(--el-primary) !important;
+  font-family: var(--el-font);
+  font-size: 24px;
+  font-weight: 900;
+  box-shadow: var(--el-shadow-press) !important;
+}
+body.theme-elderly #app .tutor-ask-label {
+  display: inline !important;
+  font-size: 24px;
+}
+body.theme-elderly #app .tutor-panel {
+  padding: 24px 20px !important;
+}
+body.theme-elderly #app .tutor-title {
+  font-size: 26px;
+  font-weight: 900;
+}
+body.theme-elderly #app .tutor-status,
+body.theme-elderly #app .tutor-heard {
+  color: var(--el-muted) !important;
+  font-size: 22px;
+}
+body.theme-elderly #app .tutor-close {
+  min-width: 64px;
+  min-height: 64px;
+  font-size: 28px;
+}
+
+/* ---------- Emoji bar and "I'm lost" ---------- */
+
+body.theme-elderly #app .reaction-bar {
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: var(--el-card) !important;
+  box-shadow: var(--el-shadow) !important;
+}
+body.theme-elderly #app .reaction-btn {
+  min-width: 64px;
+  min-height: 64px;
+  font-size: 32px;
+  background: transparent !important;
+  border-radius: 999px;
+}
+body.theme-elderly #app .lost-btn {
+  min-height: 64px;
+  padding: 10px 22px;
+  border: 3px solid var(--el-line) !important;
+  border-radius: 999px;
+  background: var(--el-white) !important;
+  color: var(--el-ink) !important;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+/* ---------- Leaderboard ---------- */
+
+body.theme-elderly #app .player-leaderboard__panel {
+  padding: 24px 18px !important;
+}
+body.theme-elderly #app .player-leaderboard__tab {
+  min-height: 56px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--el-muted) !important;
+}
+body.theme-elderly #app .player-leaderboard__tab.is-active {
+  background: var(--el-page) !important;
+  color: var(--el-primary-deep) !important;
+}
+body.theme-elderly #app .player-leaderboard__me {
+  background: var(--el-page) !important;
+  border-radius: var(--el-radius-tile) !important;
+  color: var(--el-ink) !important;
+}
+body.theme-elderly #app .player-leaderboard__rank-summary,
+body.theme-elderly #app .player-leaderboard__points {
+  color: var(--el-primary-deep) !important;
+  font-size: 30px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+body.theme-elderly #app .player-leaderboard__row {
+  min-height: 60px;
+  font-size: 22px;
+  color: var(--el-ink) !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--el-line);
+}
+body.theme-elderly #app .player-leaderboard__name {
+  font-weight: 800;
+  color: var(--el-ink) !important;
+}
+body.theme-elderly #app .player-leaderboard__score {
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--el-primary-deep) !important;
+}
+
+/* ---------- Reduced motion: no transitions at all ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-elderly #app *,
+  body.theme-elderly #app *::before,
+  body.theme-elderly #app *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---------- Fixes from the 375px check ---------- */
+
+/* Solid colour for the result words and score (no gradient text), no glow on the tick. */
+body.theme-elderly #app .result-msg,
+body.theme-elderly #app .result-msg *,
+body.theme-elderly #app .player-mcq-result-points,
+body.theme-elderly #app .player-mcq-result-points * {
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+body.theme-elderly #app .player-mcq-result-points,
+body.theme-elderly #app .player-mcq-result-points * {
+  color: var(--el-primary-deep) !important;
+}
+body.theme-elderly #app .player-mcq-result-icon {
+  filter: none !important;
+}
+body.theme-elderly #app .player-mcq-result-info {
+  border-top: 2px solid var(--el-line) !important;
+}
+
+/* Room for the parrot above the join title. */
+body.theme-elderly #app #screen-join.active {
+  padding-top: 118px;
+}
+
+/* Buzz in: the same paper-and-card look as the other screens. */
+body.theme-elderly #app .buzzin-interaction-screen,
+body.theme-elderly #app .buzzin-interaction-stage,
+body.theme-elderly #app .buzzin-interaction-main {
+  background: transparent !important;
+}
+body.theme-elderly #app .buzzin-play-area,
+body.theme-elderly #app .buzzin-turn-area {
+  padding: 28px 22px !important;
+  background: var(--el-card) !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-radius: var(--el-radius-card) !important;
+  box-shadow: var(--el-shadow) !important;
+}
+body.theme-elderly #app [class*="buzzin-"]::before,
+body.theme-elderly #app [class*="buzzin-"]::after,
+body.theme-elderly #app [class*="player-leaderboard__"]::before,
+body.theme-elderly #app [class*="player-leaderboard__"]::after {
+  display: none !important;
+}
+body.theme-elderly #app .buzzin-card-title,
+body.theme-elderly #app .buzzin-status,
+body.theme-elderly #app .buzzin-turn-status {
+  background: none !important;
+  color: var(--el-ink) !important;
+  font-size: 26px;
+  font-weight: 900;
+}
+body.theme-elderly #app .buzzin-recording-panel {
+  padding: 14px 18px;
+  border-radius: var(--el-radius-tile);
+  background: var(--el-wrong-soft) !important;
+}
+body.theme-elderly #app .buzzin-recording-time {
+  color: var(--el-wrong) !important;
+  font-size: 26px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+body.theme-elderly #app .buzzin-btn {
+  width: 100%;
+  min-height: 92px;
+  font-size: 28px;
+}
+
+/* Leaderboard: plain cards, no gradient rings. */
+body.theme-elderly #app .player-leaderboard__panel,
+body.theme-elderly #app .player-leaderboard__me,
+body.theme-elderly #app .player-leaderboard__tab,
+body.theme-elderly #app .player-leaderboard__row {
+  border-image: none !important;
+}
+body.theme-elderly #app .player-leaderboard__tab {
+  border: 2px solid var(--el-line) !important;
+  border-radius: 999px !important;
+  background: var(--el-white) !important;
+  box-shadow: none !important;
+}
+body.theme-elderly #app .player-leaderboard__tab.is-active {
+  border-color: var(--el-primary-deep) !important;
+}
+body.theme-elderly #app .player-leaderboard__me {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body.theme-elderly #app .player-leaderboard__avatar {
+  background: var(--el-primary-soft) !important;
+  color: var(--el-primary-deep) !important;
+}
+body.theme-elderly #app .player-leaderboard__row--me,
+body.theme-elderly #app .player-leaderboard__row.is-me {
+  border: 2px solid var(--el-primary) !important;
+  border-radius: var(--el-radius-tile);
+}
