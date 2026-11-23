@@ -7,11 +7,14 @@
 //   POST /api/autoclass/lessons/:id/cleanup  teacher  remove old render folders now (autoclass-cleanup.js)
 //   GET  /api/autoclass/jobs/:jobId          teacher  render status (as the lecture video jobs)
 //   GET  /api/autoclass/lessons/:id/cues     anyone   the published cues, for /autoclass.html?lesson=<id>
+//   PUT  /api/autoclass/media/:name          teacher  upload a quiz picture or sound clip (the raw
+//                                                     bytes) to /uploads/autoclass/_media/<name>
 import { autoclassEnabled } from "./autoclass-page.js";
 import { json, readJson, requireTeacher, sameId } from "./d1-store.js";
 import { VOICE_CACHE_PREFIX, readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
-import { isLessonId, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
+import { MEDIA_FOLDER, MEDIA_NAME, isLessonId, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
 import { cleanLessonRenders } from "./autoclass-cleanup.js";
+import { storeUpload } from "./course-files.js";
 
 const TERMINAL = new Set(["completed", "failed", "missing"]);
 const JOB_ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -27,6 +30,8 @@ export function autoclassRoute(method, pathname) {
     if (sub === "cues" && (method === "GET" || method === "HEAD")) return { kind: "cues", id };
     return { kind: "method" };
   }
+  m = path.match(/^\/api\/autoclass\/media\/([^/]+)$/);
+  if (m) return method === "PUT" ? { kind: "media", name: m[1] } : { kind: "method" };
   m = path.match(/^\/api\/autoclass\/jobs\/([^/]+)$/);
   if (m) return method === "GET" ? { kind: "job", jobId: m[1] } : { kind: "method" };
   if (path === "/api/autoclass" || path.startsWith("/api/autoclass/")) return { kind: "missing" };
@@ -45,6 +50,7 @@ export async function handleAutoclassApi(request, env, url) {
 
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
+  if (route.kind === "media") return saveMedia(request, env, route.name);
   if (route.kind === "save") return saveLesson(request, env, auth, route.id);
   if (route.kind === "read") return readLessonApi(env, auth, route.id);
   if (route.kind === "cleanup") {
@@ -69,6 +75,20 @@ async function saveLesson(request, env, auth, id) {
   const lesson = { ...(existing || { id, teacherId: auth.teacherId, createdAt: now }), script: input, updatedAt: now };
   await writeLesson(env, lesson);
   return json({ ok: true, lesson: await lessonView(env, lesson) }, existing ? 200 : 201);
+}
+
+const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+
+// One shared folder for every lesson's quiz media; a new upload under the same name replaces the old.
+async function saveMedia(request, env, name) {
+  if (!MEDIA_NAME.test(name)) return json({ message: "Name it like kai-tak.jpg: lowercase letters, digits, - or _, then .jpg .jpeg .png .webp .mp3 or .m4a." }, 400);
+  if (!env.UPLOADS) return json({ message: "File storage is not configured." }, 500);
+  const bytes = await request.arrayBuffer();
+  if (!bytes.byteLength) return json({ message: "The file is empty." }, 400);
+  if (bytes.byteLength > MAX_MEDIA_BYTES) return json({ message: "At most 20 MB." }, 413);
+  const url = `${MEDIA_FOLDER}/${name}`;
+  await storeUpload(env, url, bytes);
+  return json({ ok: true, url, size: bytes.byteLength }, 201);
 }
 
 async function readLessonApi(env, auth, id) {
@@ -109,6 +129,8 @@ async function startRender(env, auth, id, origin) {
         routerBase: routerBase(env),
         // The renderer reads lines Tommy has said before from here (the public /uploads route).
         voiceCacheUrl: `${origin}/${VOICE_CACHE_PREFIX}`,
+        // Quiz pictures and sound clips (PUT /api/autoclass/media/:name), read the same way.
+        mediaFilesUrl: `${origin}${MEDIA_FOLDER}`,
       }),
     });
     const job = await res.json();

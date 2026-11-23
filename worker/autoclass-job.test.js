@@ -9,7 +9,7 @@ import { readLesson, writeLesson } from "./autoclass-lessons.js";
 import { memoryD1, memoryR2 } from "./test-env.js";
 import { validateLessonScript } from "../lib/autoclass-script.mjs";
 import { buildLesson } from "../video-container/autoclass/lesson.mjs";
-import { badAutoclassRequest, listFiles, makeVoice } from "../video-container/autoclass/job.mjs";
+import { badAutoclassRequest, fetchMedia, listFiles, makeVoice, mediaFiles } from "../video-container/autoclass/job.mjs";
 import { voiceKey } from "../video-container/voice.mjs";
 import { uploadKey } from "./uploads.js";
 
@@ -391,4 +391,56 @@ test("the video's own labels follow the lesson's language", async () => {
   const cantonese = await build("yue-HK");
   for (const text of ["第 1 題", "用手機作答", "到你講", "到你答", "跟我講", "做得好！"]) assert.ok(cantonese.includes(text), text);
   assert.doesNotMatch(cantonese, /Question \d|Answer on your phone|Your turn|Say it with me|Well done|Great/);
+});
+
+test("a quiz with a picture and a clip: panel in the video, clip before the pause, picture on the phones", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-media-"));
+  try {
+    const input = structuredClone(animalHomes);
+    input.scenes[2].image = "/uploads/autoclass/_media/hive.jpg";
+    input.scenes[2].clip = { src: "/uploads/autoclass/_media/bees.mp3", from: 5, seconds: 10 };
+    input.scenes[5].clip = { src: "/uploads/autoclass/_media/bees.mp3", seconds: 4 };
+    const { script, errors } = validateLessonScript(input);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(mediaFiles(script), ["hive.jpg", "bees.mp3"]);
+
+    const fetched = [];
+    const fetchImpl = async (url) => {
+      fetched.push(url);
+      return new Response("bytes");
+    };
+    const media = await fetchMedia({ dir, baseUrl: "https://class.test/uploads/autoclass/_media", names: mediaFiles(script), fetchImpl });
+    assert.deepEqual(fetched, ["https://class.test/uploads/autoclass/_media/hive.jpg", "https://class.test/uploads/autoclass/_media/bees.mp3"]);
+    assert.equal(readFileSync(path.join(dir, "assets", "media", "hive.jpg"), "utf8"), "bytes");
+
+    (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    writeFileSync(path.join(dir, "assets", "voice", "x.mp3"), "mp3");
+    const voice = async () => ({ file: "assets/voice/x.mp3", seconds: 2 });
+    const built = await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1", media });
+    const quiz = built.cues.cues.find((c) => c.exercise?.type === "mcquiz");
+    assert.equal(quiz.exercise.items[0].image, "/uploads/autoclass/_media/hive.jpg");
+    const scene = built.scenes.find((s) => s.id === "quiz1");
+    // ask at 0.5 for 2 s, the clip 0.5 s later for 10 s, then the pause.
+    assert.equal(scene.pauseAt, scene.start + 0.5 + 2 + 0.5 + 10 + 0.4);
+    const index = readFileSync(path.join(dir, "index.html"), "utf8");
+    assert.match(index, new RegExp(`<audio id="clip-1" class="clip" src="assets/media/bees.mp3" data-start="${scene.start + 3}" data-duration="10"[^>]*data-media-start="5"`));
+    assert.match(index, /<audio id="clip-2" class="clip" src="assets\/media\/bees.mp3"[^>]*data-duration="4"/);
+    const html = readFileSync(path.join(dir, "compositions", "quiz1.html"), "utf8");
+    assert.match(html, /<img src="assets\/media\/hive.jpg"/);
+    assert.match(html, /class="options options-beside"/);
+    assert.match(readFileSync(path.join(dir, "compositions", "quiz2.html"), "utf8"), /quiz-record/);
+
+    await assert.rejects(fetchMedia({ dir, baseUrl: "https://x", names: ["gone.jpg"], fetchImpl: async () => new Response("", { status: 404 }) }), /gone\.jpg.*404/);
+    await assert.rejects(buildLesson(mkdtempSync(path.join(tmpdir(), "autoclass-nomedia-")), script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" }), /no media files/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the renderer takes only the media folder as its media URL, and needs it when the script uses media", () => {
+  const base = { jobId: "j1", lessonId: "animal-homes", mediaUrl: "/uploads/autoclass/animal-homes/j1", routerBase: "https://r.test" };
+  const script = { id: "animal-homes", scenes: [{ kind: "quiz", image: "/uploads/autoclass/_media/a.jpg" }] };
+  assert.match(badAutoclassRequest({ ...base, script }), /mediaFilesUrl is missing/);
+  assert.match(badAutoclassRequest({ ...base, script, mediaFilesUrl: "https://evil.test/x" }), /not the media folder/);
+  assert.equal(badAutoclassRequest({ ...base, script, mediaFilesUrl: "https://class.test/uploads/autoclass/_media" }), "");
 });

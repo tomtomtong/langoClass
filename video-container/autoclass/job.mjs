@@ -14,6 +14,16 @@ import { buildLesson } from "./lesson.mjs";
 
 const VOICE_WORKERS = 3;
 const MAX_CACHED_BYTES = 5 * 1024 * 1024;
+const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+// The same as lib/autoclass-script.mjs (the image holds only video-container/, so it cannot import it).
+const MEDIA_FOLDER = "/uploads/autoclass/_media";
+const MEDIA_NAME = /^[a-z0-9][a-z0-9_-]{0,59}\.(?:jpg|jpeg|png|webp|mp3|m4a)$/;
+
+// Every quiz picture and sound clip a (checked) script uses, as names in MEDIA_FOLDER.
+export function mediaFiles(script) {
+  const urls = (script?.scenes || []).filter((s) => s?.kind === "quiz").flatMap((s) => [s.image, s.clip?.src]).filter(Boolean);
+  return [...new Set(urls.filter((u) => typeof u === "string" && u.startsWith(`${MEDIA_FOLDER}/`)).map((u) => u.slice(MEDIA_FOLDER.length + 1)))];
+}
 const TYPES = { mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", json: "application/json" };
 
 function audioSeconds(file) {
@@ -28,6 +38,8 @@ export function badAutoclassRequest(body) {
   if (!/^\/uploads\/autoclass\/[a-z0-9-]+\/[A-Za-z0-9_-]+$/.test(String(body?.mediaUrl || ""))) return "mediaUrl is required.";
   if (!/^https?:\/\//.test(String(body?.routerBase || ""))) return "routerBase is required.";
   if (body?.voiceCacheUrl != null && !/^https?:\/\/[^/]+\/uploads\/autoclass\/_voice$/.test(String(body.voiceCacheUrl))) return "voiceCacheUrl is not the voice cache.";
+  if (body?.mediaFilesUrl != null && !/^https?:\/\/[^/]+\/uploads\/autoclass\/_media$/.test(String(body.mediaFilesUrl))) return "mediaFilesUrl is not the media folder.";
+  if (mediaFiles(body.script).length && !body?.mediaFilesUrl) return "The lesson uses pictures or sound clips but mediaFilesUrl is missing.";
   return "";
 }
 
@@ -62,7 +74,10 @@ export async function runAutoclassJob(job, request, { workDir, log, render }) {
     await Promise.all(Array.from({ length: VOICE_WORKERS }, worker));
     log(job, `Voice took ${Math.round((Date.now() - phaseStart) / 1000)} s (${job.voice.cached} from the cache, ${job.voice.voiced} new${job.voice.problem ? `; ${job.voice.problem}` : ""}).`);
 
-    const built = await buildLesson(dir, script, { voice, mediaUrl });
+    const names = mediaFiles(script);
+    if (names.length) log(job, `Fetching ${names.length} picture and sound files…`);
+    const media = await fetchMedia({ dir, baseUrl: request.mediaFilesUrl, names });
+    const built = await buildLesson(dir, script, { voice, mediaUrl, media });
     log(job, `Lesson is ${Math.round(built.total)} s long with ${built.cues.cues.length} pauses. Rendering…`);
     job.status = "rendering";
     job.segmentCount = 0;
@@ -105,6 +120,27 @@ export function makeVoice({ dir, language, rate, cacheUrl, speakLine, onDone = (
       })());
     }
     return voiced.get(text);
+  };
+}
+
+// Downloads each quiz picture and sound clip into assets/media/ and returns media(url) → the file,
+// relative to dir, for buildLesson. A missing file fails the render with its name.
+export async function fetchMedia({ dir, baseUrl, names, fetchImpl = fetch }) {
+  const files = new Map();
+  if (names.length) fs.mkdirSync(path.join(dir, "assets", "media"), { recursive: true });
+  for (const name of names) {
+    if (!MEDIA_NAME.test(name)) throw new Error(`Not a media file name: ${name}`);
+    const res = await fetchImpl(`${baseUrl}/${name}`, { signal: AbortSignal.timeout(60_000) });
+    if (!res.ok) throw new Error(`Could not fetch ${MEDIA_FOLDER}/${name} (${res.status}). Upload it first.`);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (!bytes.length || bytes.length > MAX_MEDIA_BYTES) throw new Error(`${MEDIA_FOLDER}/${name} is empty or over 20 MB.`);
+    const file = path.join("assets", "media", name);
+    fs.writeFileSync(path.join(dir, file), bytes);
+    files.set(`${MEDIA_FOLDER}/${name}`, file.split(path.sep).join("/"));
+  }
+  return (url) => {
+    if (!files.has(url)) throw new Error(`${url} was not fetched.`);
+    return files.get(url);
   };
 }
 

@@ -239,6 +239,74 @@ body {
 .opt.correct-bg .letter {
   background: var(--teal);
 }
+/* A quiz with a picture or a sound clip: the media panel on the left, the options in one column
+   beside it, the question one line shorter. Everything ends above the hint line at 790px. */
+.quiz-q.quiz-q-short {
+  font-size: 68px;
+}
+.quiz-media {
+  position: absolute;
+  left: 150px;
+  top: 330px;
+  width: 760px;
+  height: 430px;
+  border-radius: 36px;
+  overflow: hidden;
+  background: var(--cream);
+  border: 6px solid #e2dcef;
+  box-sizing: border-box;
+}
+.quiz-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.quiz-media.quiz-record {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--purple-deep);
+}
+.quiz-media .record {
+  font-size: 220px;
+  line-height: 1;
+}
+.options.options-beside {
+  left: 960px;
+  top: 330px;
+  grid-template-columns: 1fr;
+  grid-auto-rows: 1fr;
+  height: 430px;
+  gap: 18px;
+}
+.options-beside .opt {
+  min-height: 0;
+  border-radius: 30px;
+  gap: 24px;
+  padding: 8px 28px;
+}
+.options-beside .opt .letter {
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  font-size: 44px;
+}
+.options-beside .opt .tick {
+  width: 72px;
+  height: 72px;
+  font-size: 48px;
+}
+.listen-chip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 790px;
+  text-align: center;
+  font-size: 50px;
+  font-weight: 900;
+  color: var(--purple-deep);
+}
 .phone-hint {
   position: absolute;
   left: 0;
