@@ -1226,6 +1226,72 @@
     await wait(run, 250);
   }
 
+  // ---- Results sound: when the answers come in, a short sound that matches how the class did.
+  // A fanfare when everyone got it, a bright chime when most did, and something warm and
+  // rising when it was hard: never a buzzer, so a wrong answer never feels like a telling-off.
+  // The chimes are made here (Web Audio); the fanfare and the ding are the app's own files. ----
+
+  const RESULT_SOUND_FILES = {
+    fanfare: { src: "/assets/soundeffect/login_success.mp3", volume: 0.4 },
+    ding: { src: "/assets/soundeffect/user_correct_answer.mp3", volume: 0.55 },
+  };
+  // Notes (Hz) and when each starts (s): a bright run up, a softer two-note lift, a warm rise.
+  const RESULT_CHIMES = {
+    sparkle: [[784, 0], [988, 0.09], [1175, 0.18], [1568, 0.27]],
+    lift: [[523, 0], [659, 0.16], [784, 0.32]],
+    warm: [[392, 0], [494, 0.22], [587, 0.44], [784, 0.7]],
+  };
+  const RESULT_SOUNDS = {
+    allRight: ["fanfare", "sparkle"],
+    singleRight: ["fanfare", "sparkle"],
+    mostRight: ["ding", "lift"],
+    mixed: ["lift"],
+    mostWrong: ["warm"],
+    noneRight: ["warm"],
+    singleWrong: ["warm"],
+    warmup: ["sparkle"],
+  };
+  let resultAudioContext = null;
+
+  function playResultSound(situation) {
+    for (const name of RESULT_SOUNDS[situation] || []) {
+      if (RESULT_SOUND_FILES[name]) {
+        const { src, volume } = RESULT_SOUND_FILES[name];
+        const audio = new Audio(src);
+        audio.volume = volume;
+        audio.play().catch(() => {});
+      } else if (RESULT_CHIMES[name]) {
+        playChime(RESULT_CHIMES[name]);
+      }
+    }
+  }
+
+  function playChime(notes) {
+    try {
+      resultAudioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = resultAudioContext;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const start = ctx.currentTime + 0.05;
+      for (const [freq, at] of notes) {
+        // A soft bell: a sine with a little of its octave, a quick attack and a long fade.
+        for (const [mult, level] of [[1, 0.18], [2, 0.05]]) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq * mult;
+          gain.gain.setValueAtTime(0, start + at);
+          gain.gain.linearRampToValueAtTime(level, start + at + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + at + 1.1);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(start + at);
+          osc.stop(start + at + 1.2);
+        }
+      }
+    } catch {
+      /* no Web Audio: the results just show */
+    }
+  }
+
   async function runResult() {
     const { cue, payload, watchLater } = state.pendingResult;
     state.pendingResult = null;
@@ -1283,6 +1349,7 @@
       await wait(run, 450);
       // The donut sweeps round and the answers come in one after another.
       layer.classList.add("is-revealed");
+      playResultSound(warm ? "warmup" : summary.situation);
       await wait(run, 1100);
       for (const line of lines) await sayLine(run, line);
       if (cue.ask) await sayHighlights(run, cue);
