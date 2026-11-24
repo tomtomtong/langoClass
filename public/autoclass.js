@@ -1189,6 +1189,9 @@
       : (payload.results || []).filter((r) => r && r.correct && r.name).map((r) => ({ name: String(r.name), label: String(r.name) }));
     const got = el("result-got");
     got.hidden = !names.length;
+    const count = el("result-got-count");
+    count.hidden = !summary.total;
+    count.textContent = `${speak ? summary.answered : summary.right} / ${summary.total}`;
     if (names.length) {
       el("result-got-title").textContent = speak ? "🌟 Great speaking" : spell ? "🏆 Top spellers" : t("mcq.correctResponses", null, "Correct Responses");
       const shown = names.slice(0, RESULT_NAMES_MAX);
