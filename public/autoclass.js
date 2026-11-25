@@ -1310,11 +1310,16 @@
   // ---- Results sound: when the answers come in, a short sound that matches how the class did.
   // A fanfare when everyone got it, a bright chime when most did, and something warm and
   // rising when it was hard: never a buzzer, so a wrong answer never feels like a telling-off.
-  // The chimes are made here (Web Audio); the fanfare and the ding are the app's own files. ----
+  // The chimes are made here (Web Audio); the fanfare, the ding and the applause are sound files. ----
 
   const RESULT_SOUND_FILES = {
     fanfare: { src: "/assets/soundeffect/login_success.mp3", volume: 0.4 },
     ding: { src: "/assets/soundeffect/user_correct_answer.mp3", volume: 0.55 },
+    // Applause made with earshot (MIT): big, medium and soft. They are equally loud in the files,
+    // so the volume sets how big the room sounds.
+    applauseBig: { src: "/assets/soundeffect/applause-big.mp3", volume: 0.7 },
+    applauseMid: { src: "/assets/soundeffect/applause-mid.mp3", volume: 0.55 },
+    applauseSoft: { src: "/assets/soundeffect/applause-soft.mp3", volume: 0.4 },
   };
   // Notes (Hz) and when each starts (s): a bright run up, a softer two-note lift, a warm rise.
   const RESULT_CHIMES = {
@@ -1332,12 +1337,6 @@
     singleWrong: ["warm"],
     warmup: ["sparkle", "applauseMid"],
   };
-  // Applause: a crowd of short noise claps. [claps, seconds it lasts, loudness].
-  const RESULT_APPLAUSE = {
-    applauseBig: [70, 2.6, 1],
-    applauseMid: [40, 1.8, 0.75],
-    applauseSoft: [18, 1.3, 0.5],
-  };
   let resultAudioContext = null;
 
   function playResultSound(situation) {
@@ -1349,41 +1348,7 @@
         audio.play().catch(() => {});
       } else if (RESULT_CHIMES[name]) {
         playChime(RESULT_CHIMES[name]);
-      } else if (RESULT_APPLAUSE[name]) {
-        playApplause(...RESULT_APPLAUSE[name]);
       }
-    }
-  }
-
-  function playApplause(claps, seconds, loudness) {
-    try {
-      resultAudioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = resultAudioContext;
-      if (ctx.state === "suspended") ctx.resume().catch(() => {});
-      const length = Math.floor(ctx.sampleRate * 0.12);
-      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 3);
-      const start = ctx.currentTime + 0.2;
-      for (let i = 0; i < claps; i++) {
-        // Claps pile up, peak around the middle, then thin out, like a real room.
-        const t = Math.random();
-        const at = t * seconds;
-        const swell = Math.sin(Math.PI * Math.min(1, 0.15 + t * 0.85));
-        const src = ctx.createBufferSource();
-        src.buffer = buffer;
-        src.playbackRate.value = 0.8 + Math.random() * 0.5;
-        const filter = ctx.createBiquadFilter();
-        filter.type = "bandpass";
-        filter.frequency.value = 1400 + Math.random() * 2200;
-        filter.Q.value = 0.9;
-        const gain = ctx.createGain();
-        gain.gain.value = (0.35 + Math.random() * 0.45) * swell * loudness * 0.5;
-        src.connect(filter).connect(gain).connect(ctx.destination);
-        src.start(start + at);
-      }
-    } catch {
-      /* no Web Audio: the results just show */
     }
   }
 
