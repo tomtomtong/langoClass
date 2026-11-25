@@ -533,7 +533,10 @@
     } else if (cue && !state.quiz && !video.paused && video.currentTime >= cue.at) {
       video.pause();
       video.currentTime = cue.at;
-      void runCue(cue);
+      // Tommy has just finished asking: a student's question can be answered first, then the question
+      // opens. Not when the phones already have this question (view only): their clock is running.
+      if (answerWaiting() && !state.preview) void runTutor();
+      else void runCue(cue);
     } else {
       const quietAt = takeBreak();
       if (quietAt !== null) void runTutor();
@@ -1184,7 +1187,7 @@
   // lead-out and plays on. The card grows out of the small Tommy in the video and goes back into
   // him, so the screen never jumps. ----
 
-  const TUTOR_CUE_CLEARANCE_S = 1.5; // no answer starts this close before the next cue
+  const TUTOR_WINDOW_S = 0.6; // a break is used if the video is this close after it
   const TUTOR_MAX_S = 75; // an answer never holds the class longer than this
   const ABORT = Symbol("tutor aborted");
   let tutorBusy = false; // from the card opening until it has fully gone
@@ -1238,17 +1241,23 @@
     void syncAsking();
   }
 
-  // True when an answer is ready and the class is simply playing, so it can be given straight away:
-  // the student asked a moment ago and should still remember the question. (It used to wait for a
-  // quiet moment in a teaching scene, which could be a minute away.) Not when a question is about
-  // to open, and a quiz, poll or results page in progress finishes first.
+  // True when the video has just reached a quiet moment in a teaching scene (Tommy has finished a
+  // line) and an answer is ready to play. The answer never cuts in mid-sentence: it also plays when the
+  // page pauses for a question (Tommy has just asked it) and when a results page closes, whichever
+  // comes first. See answerWaiting().
   function takeBreak() {
     const tutor = tutorConfig();
     if (!tutor || state.quiz || state.ended || video.paused || !state.answers.length) return null;
     const now = video.currentTime;
-    const next = state.lesson.cues[state.cueIndex];
-    if (next && next.at - now < TUTOR_CUE_CLEARANCE_S) return null;
-    return now;
+    const index = tutor.breaks.findIndex((at, i) => !state.usedBreaks.has(i) && now >= at && now < at + TUTOR_WINDOW_S);
+    if (index < 0) return null;
+    state.usedBreaks.add(index);
+    return tutor.breaks[index];
+  }
+
+  // An answer is ready and nothing is holding the class: play it at this scene change.
+  function answerWaiting() {
+    return Boolean(tutorConfig() && state.answers.length && !tutorBusy && !state.ended);
   }
 
   function wait(run, ms) {
@@ -1826,7 +1835,11 @@
       if (state.quiz === run) {
         state.quiz = null;
         el("btn-skip").hidden = true;
-        if (!state.ended) video.play().catch(() => {});
+        // A scene change: a waiting answer plays now, then the lesson goes on.
+        if (!state.ended) {
+          if (answerWaiting()) void runTutor();
+          else video.play().catch(() => {});
+        }
       }
     }
   }
