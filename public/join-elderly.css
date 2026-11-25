@@ -795,3 +795,26 @@ body.theme-elderly #app .player-leaderboard__row.is-me {
   border: 2px solid var(--el-primary) !important;
   border-radius: var(--el-radius-tile);
 }
+
+/* ---------- The "You: <name>" badge: it has its own strip, so it never sits on a card ---------- */
+
+body.theme-elderly .join-name-badge {
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  max-width: calc(100vw - 32px);
+  padding: 8px 20px;
+  background: var(--el-primary-deep);
+  color: #fff;
+  font-family: var(--el-font);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.2;
+  box-shadow: var(--el-shadow);
+}
+/* The space goes on the body: each screen sets its own #app padding (often 0), so a rule on
+   #app would lose to them. */
+body.theme-elderly:has(.join-name-badge:not([hidden])) {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 60px);
+}
+body.theme-elderly:has(.join-name-badge:not([hidden])) #app {
+  min-height: calc(100vh - 60px - env(safe-area-inset-top, 0px));
+}

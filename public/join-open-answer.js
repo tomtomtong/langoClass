@@ -148,7 +148,11 @@ function showStudentOpenAnswerResult(mine) {
   box.hidden = !mine;
   box.closest(".openanswer-card")?.classList.toggle("has-result", Boolean(mine));
   if (!mine) return;
-  box.classList.toggle("is-practice", Boolean(mine.practiceVerdict));
+  box.classList.toggle("is-practice", Boolean(mine.practiceVerdict || mine.warmup));
+  if (mine.warmup) {
+    showStudentWarmupResult(box);
+    return;
+  }
   if (mine.practiceVerdict) {
     showStudentPracticeResult(box, mine.practiceVerdict);
     return;
@@ -188,6 +192,20 @@ function showStudentOpenAnswerResult(mine) {
 // "Say it with me" practice (autoclass): only a kind word, never a score, and not what the
 // transcription heard, since it often mishears young voices (worker/room-open-answer.js).
 const PRACTICE_STYLE = { great: "correct", almost: "partial", tried: "none" };
+
+// A warm-up has no marks at all: just a thank you.
+function showStudentWarmupResult(box) {
+  box.dataset.verdict = "correct";
+  openAnswerEl("verdict").textContent = uiT("openAnswer.warmupThanks");
+  const feedback = openAnswerEl("feedback");
+  feedback.hidden = false;
+  feedback.textContent = uiT("openAnswer.warmupNote");
+  openAnswerEl("points").hidden = true;
+  openAnswerEl("said").textContent = "";
+  openAnswerEl("scores").hidden = true;
+  openAnswerEl("scores").replaceChildren();
+  openAnswerEl("analysis").hidden = true;
+}
 
 function showStudentPracticeResult(box, verdict) {
   const key = PRACTICE_STYLE[verdict] ? verdict : "tried";

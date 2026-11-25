@@ -309,7 +309,7 @@ ${lines.join("\n")}
     const withMedia = Boolean(scene.image || scene.clip);
     const panel = !withMedia ? "" : scene.image
       ? `    <div id="${id}-media" class="quiz-media"><img src="${esc(await media(scene.image))}" alt="" /></div>\n`
-      : `    <div id="${id}-media" class="quiz-media quiz-record"><span class="record">🎵</span></div>\n`;
+      : `    <div id="${id}-media" class="quiz-media quiz-record"><div class="vinyl"><span class="vinyl-label"></span></div><span class="tonearm-base"></span><span class="tonearm"></span></div>\n`;
     const listen = scene.clip ? `    <p id="${id}-listen" class="listen-chip">${L.listen}</p>\n` : "";
     const opts = scene.options.map((o, i) => `      <div id="${id}-opt${i}" class="opt ${withMedia ? "opt-sm" : optSize(o)}"><span class="letter">${LETTERS[i]}</span><span class="opt-text">${esc(o)}</span><span id="${id}-tick${i}" class="tick">✓</span></div>`).join("\n");
     const body = `    <div id="${id}-tag" class="quiz-tag">${L.question(n)}</div>
@@ -327,9 +327,19 @@ ${opts}
         { opacity: 1, filter: "blur(0px)", duration: 0.14, ease: "power4.out", stagger: 0.08 }, ${r3(showAt + 0.5)});
       tl.fromTo("#${id}-options .opt", { opacity: 0, y: 30, filter: "blur(8px)" },
         { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "expo.out", stagger: 0.07 }, ${r3(showAt + 1.4)});
-${withMedia ? `      tl.fromTo("#${id}-media", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, ${scene.clip ? 0.4 : 1.2});\n` : ""}${scene.clip ? `      tl.fromTo("#${id}-listen", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, ${r3(Math.max(0.5, clipAt - 0.2))});
+${withMedia ? (scene.clip
+        // The turntable sits big in the middle while the song plays (there is no question yet),
+        // then slides left to its place beside the question and the options.
+        ? `      tl.fromTo("#${id}-media", { opacity: 0, scale: 1.24, x: 430, y: 20 }, { opacity: 1, scale: 1.3, x: 430, y: 20, duration: 0.5, ease: "expo.out" }, 0.4);
+      tl.to("#${id}-media", { scale: 1, x: 0, y: 0, duration: 0.8, ease: "power3.inOut" }, ${r3(clipAt + scene.clip.seconds + 0.2)});\n`
+        : `      tl.fromTo("#${id}-media", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "expo.out" }, 1.2);\n`) : ""}${scene.clip ? `      tl.fromTo("#${id}-listen", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, ${r3(Math.max(0.5, clipAt - 0.2))});
       tl.to("#${id}-listen", { opacity: 0, duration: 0.2, ease: "power2.in" }, ${r3(clipAt + scene.clip.seconds)});
-      tl.fromTo("#${id}-media .record", { rotation: 0 }, { rotation: ${Math.round(scene.clip.seconds * 90)}, duration: ${scene.clip.seconds}, ease: "none" }, ${r3(clipAt)});
+      // Like a real record player: the arm swings onto the record, the record turns while the song
+      // plays, then the arm lifts off and the record slows to a stop.
+      tl.fromTo("#${id}-media .tonearm", { rotation: 14 }, { rotation: 47, transformOrigin: "9px 0px", duration: 0.7, ease: "power2.inOut" }, ${r3(Math.max(0.5, clipAt - 0.8))});
+      tl.fromTo("#${id}-media .vinyl", { rotation: 0 }, { rotation: ${Math.round(scene.clip.seconds * 200)}, duration: ${scene.clip.seconds}, ease: "none" }, ${r3(clipAt)});
+      tl.to("#${id}-media .vinyl", { rotation: ${Math.round(scene.clip.seconds * 200) + 150}, duration: 1, ease: "power2.out" }, ${r3(clipAt + scene.clip.seconds)});
+      tl.to("#${id}-media .tonearm", { rotation: 14, transformOrigin: "9px 0px", duration: 0.6, ease: "power2.inOut" }, ${r3(clipAt + scene.clip.seconds)});
 ` : ""}      tl.fromTo("#${id}-hint", { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, ${scene.clip ? r3(pauseAt - 0.3) : 2.3});
       // Paused at ${r3(pauseAt)} s while the class answers; the reveal starts at ${r3(revealAt)} s.
       tl.to("#${id}-hint", { opacity: 0, filter: "blur(8px)", duration: 0.15, ease: "power3.in" }, ${r3(revealAt - 0.4)});
