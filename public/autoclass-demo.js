@@ -101,6 +101,7 @@
   function updateCountdown() {
     const sec = nowSeconds();
     const next = SCHEDULE.find((s) => statusAt(s, sec) === "upcoming");
+    el("cd-hint").hidden = !next;
     if (!next) {
       el("cd-label").textContent = "今日嘅課堂完咗";
       el("cd-title").textContent = "多謝大家，下次見！";

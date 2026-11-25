@@ -156,9 +156,45 @@
       void count.offsetWidth; // restart the pop
       count.classList.add("pop");
     }
-    // The newest few, so the screen shows people arriving; the rest are counted.
-    const names = online.map((p) => p.displayName || p.name).filter(Boolean);
-    el("lobby-names").textContent = names.slice(-8).reverse().join("、") + (names.length > 8 ? `⋯⋯ 等 ${names.length} 位` : "");
+    renderLobbyPlayers(online);
+  }
+
+  // The waiting room's player row: a name chip for each person in, newest first, the newest popping
+  // in with a ding. Names beyond the first dozen are only counted.
+  const lobbySeen = new Set();
+  let lobbyPrimed = false;
+  function renderLobbyPlayers(online) {
+    const row = el("lobby-players");
+    const people = online.map((p) => ({ id: String(p.userId ?? p.id ?? p.displayName ?? p.name), name: p.displayName || p.name || "?" }));
+    const fresh = people.filter((p) => !lobbySeen.has(p.id));
+    fresh.forEach((p) => lobbySeen.add(p.id));
+    if (fresh.length && lobbyPrimed && !el("setup").hidden) playLobbySound("/assets/soundeffect/login_success.mp3", 0.5);
+    lobbyPrimed = true;
+    const shown = people.slice(-12).reverse();
+    row.textContent = "";
+    shown.forEach((p) => {
+      const li = document.createElement("li");
+      li.textContent = p.name;
+      if (fresh.some((f) => f.id === p.id)) li.classList.add("pop");
+      row.appendChild(li);
+    });
+    if (people.length > shown.length) {
+      const more = document.createElement("li");
+      more.className = "more";
+      more.textContent = `+${people.length - shown.length}`;
+      row.appendChild(more);
+    }
+  }
+
+  // Short sounds in the waiting room. The browser may refuse until someone has clicked the page; then it is silent.
+  function playLobbySound(src, volume) {
+    try {
+      const audio = new Audio(src);
+      audio.volume = volume;
+      audio.play().catch(() => {});
+    } catch {
+      /* no sound */
+    }
   }
 
   // The students' join page takes the lesson's look (for example big type for older learners).
@@ -381,6 +417,7 @@
       if (left <= 0 && state.videoReady) break;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
+    playLobbySound("/assets/soundeffect/uncletommy_letsgo_1.mp3", 0.9);
     await startClass();
     if (video.paused) {
       document.addEventListener("click", () => video.play().catch(() => {}), { once: true });

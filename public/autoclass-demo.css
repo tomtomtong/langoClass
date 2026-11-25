@@ -12,6 +12,7 @@
   --teal-soft: #d8f7f2;
   --selection: #2d73b5;
   --selection-soft: #dcefff;
+  --gold: #f9b545;
   --gold-soft: #fff1cf;
   --gold-ink: #6b4700;
   --stage: #141c2b;
@@ -63,27 +64,37 @@ body {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: clamp(1rem, 3vw, 3rem);
   padding: 2rem;
-  text-align: center;
-  background: radial-gradient(120% 90% at 50% 0%, var(--cream) 0%, var(--page) 60%, var(--page-deep) 100%);
+  color: #fff;
+  background:
+    radial-gradient(1.5px 1.5px at 12% 18%, #fff8 50%, transparent 52%),
+    radial-gradient(2px 2px at 84% 14%, #fffc 50%, transparent 52%),
+    radial-gradient(1.5px 1.5px at 66% 82%, #fff8 50%, transparent 52%),
+    radial-gradient(2px 2px at 28% 88%, #fffc 50%, transparent 52%),
+    linear-gradient(160deg, #181b46 0%, #2f1d63 55%, #6b2a8c 100%);
 }
+.cd-tommy { flex: 0 1 auto; width: min(46%, 34rem); height: auto; filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.35)); animation: cd-bob 3.6s ease-in-out infinite; }
+@keyframes cd-bob { 50% { transform: translateY(-0.6rem); } }
+.cd-text { flex: 0 1 auto; text-align: center; }
 .countdown p { margin: 0; }
-.cd-label { font-size: 1.6rem; font-weight: 700; color: var(--muted); }
-.cd-title { max-width: 18ch; font-size: clamp(2rem, 3.6vw, 3.6rem); font-weight: 900; line-height: 1.15; text-wrap: balance; }
+.cd-label { font-size: 1.6rem; font-weight: 700; color: #d9d2f4; }
+.cd-title { max-width: 14ch; margin: 0 auto !important; font-size: clamp(2rem, 3.4vw, 3.4rem); font-weight: 900; line-height: 1.15; text-wrap: balance; }
 .cd-time {
-  margin: 0.4rem 0;
-  font-size: clamp(5rem, 12vw, 11rem);
+  margin: 0.3rem 0 !important;
+  font-size: clamp(4.5rem, 10vw, 10rem);
   font-weight: 900;
   line-height: 1;
   letter-spacing: -0.02em;
-  color: var(--purple-deep);
+  color: var(--gold);
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
 }
-.cd-at { font-size: 1.6rem; font-weight: 700; color: var(--muted); }
+.cd-at { font-size: 1.6rem; font-weight: 700; color: #d9d2f4; }
+.cd-hint { margin-top: 1.2rem !important; padding: 0.6rem 1.2rem; font-size: 1.15rem; font-weight: 800; color: var(--ink); background: #fff; border-radius: 999px; }
+@media (max-width: 700px) { .cd-tommy { display: none; } }
 
 /* ---- Top right: the timetable ---- */
 .pane-head {
@@ -176,6 +187,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .slot, .promo-tabs button { transition: none; }
+  .cd-tommy { animation: none; }
 }
 
 /* A phone or a narrow window: the three panes stack. */

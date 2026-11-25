@@ -18,6 +18,11 @@
 </head>
 <body>
   <section id="setup" class="setup">
+    <!-- Waiting room only (?autostart=1): Uncle Tommy invites people in. -->
+    <div class="lobby-only lobby-tommy" aria-hidden="true">
+      <p class="lobby-bubble">快啲 scan QR code，一齊嚟玩啦！</p>
+      <img src="/assets/transitions/user_uncletommy_2.png" alt="" />
+    </div>
     <div class="setup-card">
       <p class="eyebrow">Internal test · Autoclass</p>
       <h1>Self-running class</h1>
@@ -70,7 +75,7 @@
         <!-- Waiting room (?autostart=1): who is in so far, and how long until the class starts by itself. -->
         <div class="lobby-only lobby-joined" aria-live="polite">
           <p><b id="lobby-count">0</b> 位已經入咗課堂</p>
-          <p id="lobby-names" class="lobby-names"></p>
+          <ul id="lobby-players" class="lobby-players"></ul>
         </div>
         <div class="lobby-only lobby-wait">
           <p id="lobby-timer" class="lobby-timer" role="timer"></p>

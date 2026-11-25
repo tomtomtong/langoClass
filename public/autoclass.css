@@ -1276,10 +1276,66 @@ select {
 .lobby-joined p:first-child { font-size: clamp(22px, 2.4vw, 34px); font-weight: 800; }
 .lobby-joined b.pop { animation: lobby-pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes lobby-pop { from { transform: scale(1.35); } to { transform: scale(1); } }
-.lobby-names { margin-top: 6px !important; min-height: 1.4em; font-size: clamp(16px, 1.6vw, 22px); font-weight: 700; color: var(--muted); overflow-wrap: anywhere; }
 .lobby-wait { margin: 18px auto 0; max-width: 640px; }
 .lobby-timer { margin: 0 0 10px; font-size: clamp(20px, 2.2vw, 30px); font-weight: 800; font-variant-numeric: tabular-nums; }
 .lobby-bar { height: 12px; overflow: hidden; border-radius: 999px; background: var(--teal-soft); }
 .lobby-bar i { display: block; height: 100%; width: 100%; background: var(--teal); transform-origin: left; }
 .lobby #start-class { display: block; width: auto; margin: 18px auto 0; padding-inline: 48px; }
 @media (prefers-reduced-motion: reduce) { .lobby-joined b.pop { animation: none; } }
+
+/* Waiting room, game look: a night-sky stage, Uncle Tommy beside the card, players popping in. */
+.setup.lobby {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2vw, 32px);
+  background:
+    radial-gradient(1.5px 1.5px at 12% 18%, #fff8 50%, transparent 52%),
+    radial-gradient(2px 2px at 82% 12%, #fffc 50%, transparent 52%),
+    radial-gradient(1.5px 1.5px at 64% 78%, #fff8 50%, transparent 52%),
+    radial-gradient(2px 2px at 30% 86%, #fffc 50%, transparent 52%),
+    radial-gradient(1.5px 1.5px at 92% 54%, #fff8 50%, transparent 52%),
+    linear-gradient(160deg, #181b46 0%, #2f1d63 55%, #6b2a8c 100%);
+}
+.lobby-tommy { display: none; position: relative; flex: 0 0 auto; width: min(34vw, 420px); }
+.lobby .lobby-tommy { display: block; }
+.lobby-tommy img { display: block; width: 100%; height: auto; filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.35)); animation: lobby-bob 3.6s ease-in-out infinite; }
+@keyframes lobby-bob { 50% { transform: translateY(-10px); } }
+.lobby-bubble {
+  position: absolute;
+  top: -4%;
+  left: 50%;
+  z-index: 1;
+  width: max-content;
+  max-width: 92%;
+  margin: 0;
+  padding: 12px 20px;
+  transform: translateX(-50%);
+  font-size: clamp(18px, 1.9vw, 28px);
+  font-weight: 900;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--ink);
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.lobby-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 20px;
+  height: 20px;
+  transform: translateX(-50%) rotate(45deg);
+  background: #fff;
+  border-radius: 0 0 6px 0;
+}
+.lobby .setup-card { width: min(920px, 100%); flex: 1 1 auto; padding: 32px 44px; }
+.lobby-players { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 14px; margin: 14px 0 0; padding: 0; list-style: none; min-height: 48px; }
+.lobby-players li { max-width: 12em; padding: 8px 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(17px, 1.6vw, 24px); font-weight: 800; color: #04544f; background: var(--teal-soft); border: 2px solid var(--teal); border-radius: 999px; }
+.lobby-players li.pop { animation: lobby-pop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.lobby-players .more { align-self: center; padding: 8px 14px; font-size: 22px; color: var(--teal); background: none; border: 0; }
+@media (max-width: 900px) { .lobby-tommy { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { .lobby-tommy img, .lobby-players li.pop { animation: none; } }
