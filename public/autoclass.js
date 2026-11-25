@@ -113,6 +113,7 @@
       state.socket.emit("question_tts_done", { questionIndex: data?.questionIndex });
     });
     socket.on("question_start", onQuestionStart);
+    socket.on("answer_count", onAnswerCount);
     socket.on("question_results", onQuestionResults);
     socket.on("reaction", showReaction);
     socket.on("poll_votes", onPollVotes);
@@ -596,7 +597,7 @@
     if (!state.quiz) return;
     state.quiz.clockOffset = Number(data.serverNow || Date.now()) - Date.now();
     state.quiz.endsAt = Number(data.endsAt) || Date.now() + (data.timeLimit || 15) * 1000;
-    setLive("Answers are open", "");
+    setLive(`0 of ${Math.max(1, onlineCount())} answered`, "");
     clearInterval(state.quiz.timer);
     const tick = () => {
       const left = Math.max(0, Math.ceil((state.quiz.endsAt - (Date.now() + state.quiz.clockOffset)) / 1000));
@@ -604,6 +605,21 @@
     };
     tick();
     state.quiz.timer = setInterval(tick, 250);
+  }
+
+  // The strip counts the answers as they come in, with a pop each time that climbs as more arrive,
+  // and a little fanfare when the last student is in.
+  function onAnswerCount({ answered = 0, total = 0 } = {}) {
+    const run = state.quiz;
+    if (!run || run.speak || run.tutor || run.result || !total) return;
+    const text = answered >= total ? `Everyone answered! ${answered} of ${total} 🎉` : `${answered} of ${total} answered`;
+    const label = el("live-text");
+    label.textContent = text;
+    const live = el("live");
+    live.classList.remove("is-bump");
+    void live.offsetWidth;
+    live.classList.add("is-bump");
+    playAnswerSound(answered, total);
   }
 
   function onQuestionResults(payload) {
@@ -1601,6 +1617,7 @@
     noneRight: ["warm"],
     singleWrong: ["warm"],
     warmup: ["sparkle", "applauseMid"],
+    everyoneIn: ["ding", "sparkle"],
   };
   let resultAudioContext = null;
 
@@ -1617,7 +1634,18 @@
     }
   }
 
-  function playChime(notes) {
+  // One answer came in: a short bright pop that climbs as more students answer. When the last one
+  // is in: a ding and a run of bells.
+  function playAnswerSound(answered, total) {
+    if (answered >= total) {
+      playResultSound("everyoneIn");
+      return;
+    }
+    const base = 620 + 640 * (answered / total);
+    playChime([[base, 0], [base * 1.5, 0.06]], { decay: 0.35, level: 1.4 });
+  }
+
+  function playChime(notes, { decay = 1.1, level = 1 } = {}) {
     try {
       resultAudioContext ||= new (window.AudioContext || window.webkitAudioContext)();
       const ctx = resultAudioContext;
@@ -1625,17 +1653,17 @@
       const start = ctx.currentTime + 0.05;
       for (const [freq, at] of notes) {
         // A soft bell: a sine with a little of its octave, a quick attack and a long fade.
-        for (const [mult, level] of [[1, 0.18], [2, 0.05]]) {
+        for (const [mult, amp] of [[1, 0.18 * level], [2, 0.05 * level]]) {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           osc.type = "sine";
           osc.frequency.value = freq * mult;
           gain.gain.setValueAtTime(0, start + at);
-          gain.gain.linearRampToValueAtTime(level, start + at + 0.015);
-          gain.gain.exponentialRampToValueAtTime(0.0001, start + at + 1.1);
+          gain.gain.linearRampToValueAtTime(amp, start + at + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + at + decay);
           osc.connect(gain).connect(ctx.destination);
           osc.start(start + at);
-          osc.stop(start + at + 1.2);
+          osc.stop(start + at + decay + 0.1);
         }
       }
     } catch {

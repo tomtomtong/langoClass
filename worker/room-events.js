@@ -437,11 +437,19 @@ function submitAnswer(state, data, ctx) {
   const optionCount = question?.options?.length || 0;
   if (!Number.isInteger(idx) || idx < 0 || idx >= optionCount) return done(state);
   game.answers[playerId] = { answerIndex: idx, timeMs: Math.max(0, ctx.now - (game.questionStartedAt || ctx.now)) };
-  const everyone = game.players.length > 0 && Object.keys(game.answers).length >= game.players.length;
+  const answeredNow = Object.keys(game.answers).length;
+  const everyone = game.players.length > 0 && answeredNow >= game.players.length;
+  // The host's screen counts the answers as they come in (no names, no choices): answer_count.
+  const count = {
+    event: "answer_count",
+    hostOnly: true,
+    data: { questionIndex: game.currentQuestionIndex, answered: answeredNow, total: game.players.length },
+  };
   if (!everyone) {
-    return done(state, { attachment, direct: [{ event: "answer_received", data: {} }] });
+    return done(state, { attachment, direct: [{ event: "answer_received", data: {} }], broadcasts: [count] });
   }
   const finished = finishQuestion(state, ctx.now);
+  finished.broadcasts = [count, ...(finished.broadcasts || [])];
   finished.direct = [{ event: "answer_received", data: {} }, ...(finished.direct || [])];
   finished.attachment = attachment;
   return finished;

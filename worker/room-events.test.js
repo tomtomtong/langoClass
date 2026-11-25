@@ -69,6 +69,29 @@ test("submit_answer scores the question and closes it when everyone has answered
   assert.equal(answered.state.game.status, "results");
   assert.equal(answered.state.game.players[0].score, 300);
   assert.equal(answered.broadcasts.at(-1).event, "question_results");
+  // The host's screen is told how many have answered (no names or choices), then the results.
+  const count = answered.broadcasts.find((frame) => frame.event === "answer_count");
+  assert.deepEqual(count.data, { questionIndex: 0, answered: 1, total: 1 });
+  assert.equal(count.hostOnly, true);
+});
+
+test("each answer tells the host the running count while the question is open", () => {
+  let state = room();
+  state.session.participants = [
+    { userId: "ada", displayName: "Ada", online: true, joinedAt: 1 },
+    { userId: "bo", displayName: "Bo", online: true, joinedAt: 2 },
+  ];
+  state = applyRoomEvent(state, {
+    event: "create_room_game",
+    data: { quiz: { title: "Demo", questions: [{ text: "2+2", options: ["3", "4"], correctIndex: 1, timeLimit: 15 }] } },
+  }, { socketId: "quiz-host", role: null, now: 4000, pick: () => 0 }).state;
+  state = applyRoomEvent(state, { event: "start_room_game", data: {} }, { socketId: "quiz-host", role: "host", now: 4000, pick: () => 0 }).state;
+  state = applyRoomTimer(state, state.timer.at).state;
+  const first = applyRoomEvent(state, { event: "submit_answer", data: { answerIndex: 1 } }, {
+    socketId: "quiz-student", role: "player", playerId: "ada", now: 6000, pick: () => 0,
+  });
+  assert.equal(first.state.game.status, "question");
+  assert.deepEqual(first.broadcasts.find((frame) => frame.event === "answer_count").data, { questionIndex: 0, answered: 1, total: 2 });
 });
 
 test("submit_answer counts a room student whose quiz socket missed join_room_game", () => {
