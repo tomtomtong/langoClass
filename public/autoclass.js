@@ -513,6 +513,7 @@
     state.cueIndex = 0;
     video.currentTime = 0;
     startBgm();
+    preloadTommyMoods();
     await video.play().catch(() => {});
     requestAnimationFrame(watchForCue);
   }
@@ -1161,7 +1162,9 @@
       caption.classList.remove("is-swapping");
       await wait(run, 900); // time to read whose answer it is
       const started = Date.now();
+      setTommyMood(run.speakMood || "happy");
       if (pick.audioContent) await playClip(run, `data:audio/mpeg;base64,${pick.audioContent}`);
+      setTommyMood("neutral");
       const left = Math.max(2500, pick.say.length * 120) - (Date.now() - started);
       if (!pick.audioContent && left > 0) await wait(run, left);
       await wait(run, 500);
@@ -1574,6 +1577,36 @@
     return words.reduce((worst, w) => (w.right < worst.right || (w.right === worst.right && w.misses > worst.misses) ? w : worst));
   }
 
+  // ---- Tommy's moods on the results page: calm while he waits, happy while he talks, and cheering
+  // (arms wide) when he celebrates a good result. Each is a short loop (public/assets/tommy/),
+  // made from the Lottie animations the team supplied. ----
+
+  const TOMMY_MOODS = {
+    neutral: "/assets/tommy/tommy-neutral.webm",
+    happy: "/assets/tommy/tommy-happy.webm",
+    excited: "/assets/tommy/tommy-excited.webm",
+  };
+  const moodVideos = [];
+
+  function preloadTommyMoods() {
+    if (moodVideos.length) return;
+    for (const src of Object.values(TOMMY_MOODS)) {
+      const v = document.createElement("video");
+      v.preload = "auto";
+      v.muted = true;
+      v.src = src;
+      moodVideos.push(v);
+    }
+  }
+
+  function setTommyMood(mood) {
+    const v = el("result-tommy");
+    const src = TOMMY_MOODS[mood];
+    if (!src) return;
+    if (!v.src.endsWith(src)) v.src = src;
+    v.play().catch(() => {});
+  }
+
   async function sayLine(run, line) {
     const caption = el("result-caption");
     caption.classList.add("is-swapping");
@@ -1581,7 +1614,9 @@
     caption.textContent = line.text;
     caption.classList.remove("is-swapping");
     const started = Date.now();
+    setTommyMood(run.speakMood || "happy");
     await playClip(run, line.url);
+    setTommyMood("neutral");
     // If the recording is missing the words still stay long enough to read.
     const left = Math.max(1800, line.text.length * 55) - (Date.now() - started);
     if (left > 0) await wait(run, left);
@@ -1715,7 +1750,7 @@
       renderResult(cue, payload, summary);
       if (warm) el("result-tag").textContent = `👋 ${cue.ask.tag || "Warm-up"}`;
       setAnchor(layer, tutor);
-      if (tutor?.tommyVideo && !tommy.src) tommy.src = tutor.tommyVideo;
+      setTommyMood("neutral");
       layer.classList.remove("is-open", "is-revealed", "is-step-2");
       layer.classList.toggle("is-warmup", warm);
       // Students who got it right get a page of their own, after the question and the donut.
@@ -1723,7 +1758,7 @@
       if (board) askCheer(payload);
       layer.classList.toggle("is-step-1", board);
       layer.hidden = false;
-      tommy.hidden = !tutor?.tommyVideo;
+      tommy.hidden = false;
       tommy.currentTime = 0;
       tommy.play().catch(() => {});
       await frame();
@@ -1750,6 +1785,9 @@
         el("result-caption").textContent = "";
         layer.classList.remove("is-step-1");
         layer.classList.add("is-step-2");
+        // A good result is cheered with arms wide; otherwise he stays warm.
+        run.speakMood = ["allRight", "singleRight", "mostRight"].includes(summary.situation) ? "excited" : "happy";
+        setTommyMood(run.speakMood);
         playResultSound(summary.situation);
         await wait(run, 1300);
         if (cheer) await sayLine(run, cheer);
