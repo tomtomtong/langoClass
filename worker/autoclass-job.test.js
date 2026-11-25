@@ -19,7 +19,7 @@ globalThis.FixedLengthStream ??= class extends TransformStream {
   }
 };
 
-const animalHomes = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/animal-homes.json", import.meta.url), "utf8"));
+const animalHomes = JSON.parse(readFileSync(new URL("./fixtures/animal-homes.json", import.meta.url), "utf8"));
 
 // An AutoclassContainer stand-in: storage, schedule, and a renderer answering from `routes`.
 function box(routes) {

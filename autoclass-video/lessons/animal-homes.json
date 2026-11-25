@@ -21,10 +21,19 @@
     ],
     "say": [
       "Hello everyone, I'm Uncle Tommy! Today, let's find out where animals live.",
-      "Watch with me, and when a question pops up, answer on your phone. Ready? Let's go!"
+      "Watch with me, and when a question pops up, answer on your phone. But first, let's warm up!"
     ]
   },
   "scenes": [
+    {
+      "kind": "ask",
+      "warmup": true,
+      "emoji": "👋",
+      "q": "Say good morning to Uncle Tommy, then say your name!",
+      "ask": "Let's warm up! Tap the microphone, say good morning to me, and tell me your name!",
+      "reveal": "Lovely! So many friendly voices. Let me hear a few of your names!",
+      "seconds": 15
+    },
     {
       "kind": "teach",
       "title": [

@@ -1,0 +1,241 @@
+{
+  "version": 1,
+  "id": "animal-homes",
+  "title": "Animal Homes",
+  "eyebrow": "Lango English · Animal Homes",
+  "intro": {
+    "title": [
+      "Where do",
+      "animals",
+      "live?"
+    ],
+    "hl": 1,
+    "sub": "Watch, then answer each question on your phone.",
+    "emojis": [
+      "🐦",
+      "🐝",
+      "🐟",
+      "🐇",
+      "🐻",
+      "🐸"
+    ],
+    "say": [
+      "Hello everyone, I'm Uncle Tommy! Today, let's find out where animals live.",
+      "Watch with me, and when a question pops up, answer on your phone. Ready? Let's go!"
+    ]
+  },
+  "scenes": [
+    {
+      "kind": "teach",
+      "title": [
+        "Every",
+        "animal",
+        "needs",
+        "a",
+        "home."
+      ],
+      "hl": 1,
+      "say": "Every animal needs a home.",
+      "pairs": [
+        {
+          "emoji": "🐦",
+          "home": "nest",
+          "sentence": "A bird lives in a nest.",
+          "say": "This is a bird. A bird lives in a nest.",
+          "repeat": "Say it with me: nest!"
+        },
+        {
+          "emoji": "🐝",
+          "home": "hive",
+          "sentence": "A bee lives in a hive.",
+          "say": "Look, a bee! A bee lives in a hive.",
+          "repeat": "Say it with me: hive!"
+        },
+        {
+          "emoji": "🐟",
+          "home": "river",
+          "sentence": "A fish lives in a river.",
+          "say": "And here is a fish. A fish lives in a river.",
+          "repeat": "Say it with me: river!"
+        }
+      ]
+    },
+    {
+      "kind": "speak",
+      "emoji": "🐦",
+      "sentence": "A bird lives in a nest.",
+      "ask": "Now it's your turn to speak! Tap the microphone on your phone, and say: A bird lives in a nest.",
+      "again": "Let's say it together one more time. A bird lives in a nest. Well done for speaking!",
+      "seconds": 15
+    },
+    {
+      "kind": "quiz",
+      "q": "Where does a bee live?",
+      "options": [
+        "nest",
+        "hive",
+        "cave",
+        "pond"
+      ],
+      "correct": 1,
+      "line": "A bee lives in a hive.",
+      "ask": "Question one! Where does a bee live? A nest, a hive, a cave, or a pond? Answer on your phone now!",
+      "reveal": "The answer is B, hive! A bee lives in a hive. Well done!",
+      "timeLimit": 20,
+      "wrongLines": {
+        "nest": [
+          "A nest is for a bird. A bee lives in a hive!",
+          "Careful! Nests are for birds, but bees live in hives."
+        ],
+        "cave": [
+          "A cave is for a bear. A bee lives in a hive!",
+          "Caves are for bears, not bees. A bee lives in a hive."
+        ],
+        "pond": [
+          "A pond is for a frog. A bee lives in a hive!",
+          "Ponds are for frogs. Remember, a bee lives in a hive."
+        ]
+      }
+    },
+    {
+      "kind": "poll",
+      "q": "Which animal do you like best?",
+      "options": [
+        "🐦 bird",
+        "🐝 bee",
+        "🐟 fish"
+      ],
+      "ask": "Now, one just for fun. Which animal do you like best? The bird, the bee, or the fish? There is no wrong answer. Tap on your phone!",
+      "thanks": "Thank you, everyone! Now, let's keep going.",
+      "seconds": 20
+    },
+    {
+      "kind": "teach",
+      "title": [
+        "Some",
+        "homes",
+        "are",
+        "on",
+        "the",
+        "ground."
+      ],
+      "hl": 1,
+      "say": "Some homes are on the ground, or even under it.",
+      "pairs": [
+        {
+          "emoji": "🐇",
+          "home": "burrow",
+          "sentence": "A rabbit lives in a burrow.",
+          "say": "This is a rabbit. A rabbit lives in a burrow, under the ground.",
+          "repeat": "Say it with me: burrow!"
+        },
+        {
+          "emoji": "🐻",
+          "home": "cave",
+          "sentence": "A bear lives in a cave.",
+          "say": "Here is a big bear. A bear lives in a cave.",
+          "repeat": "Say it with me: cave!"
+        },
+        {
+          "emoji": "🐸",
+          "home": "pond",
+          "sentence": "A frog lives in a pond.",
+          "say": "And a little frog. A frog lives in a pond.",
+          "repeat": "Say it with me: pond!"
+        }
+      ]
+    },
+    {
+      "kind": "quiz",
+      "q": "Which animal lives in a burrow?",
+      "options": [
+        "frog",
+        "bear",
+        "rabbit",
+        "bird"
+      ],
+      "correct": 2,
+      "line": "A rabbit lives in a burrow.",
+      "ask": "Question two! Which animal lives in a burrow? A frog, a bear, a rabbit, or a bird? Answer on your phone now!",
+      "reveal": "The answer is C, rabbit! A rabbit lives in a burrow. Great job!",
+      "timeLimit": 20,
+      "wrongLines": {
+        "frog": [
+          "A frog lives in a pond. A rabbit lives in a burrow!",
+          "Frogs like ponds. The animal in a burrow is a rabbit."
+        ],
+        "bear": [
+          "A bear lives in a cave. A rabbit lives in a burrow!",
+          "Bears live in caves. It is the rabbit that lives in a burrow."
+        ],
+        "bird": [
+          "A bird lives in a nest. A rabbit lives in a burrow!",
+          "Birds have nests. The rabbit lives in a burrow."
+        ]
+      }
+    },
+    {
+      "kind": "spell",
+      "ask": "Now, a spelling race! Look at your phone. Tap the letters to spell each animal's home. Spell as many as you can. Ready, go!",
+      "reveal": "Time's up! Let's check. Nest, hive, burrow, cave. Great spelling, everyone!",
+      "seconds": 60,
+      "words": [
+        {
+          "emoji": "🐦",
+          "word": "nest",
+          "hint": "A bird lives in a…"
+        },
+        {
+          "emoji": "🐝",
+          "word": "hive",
+          "hint": "A bee lives in a…"
+        },
+        {
+          "emoji": "🐇",
+          "word": "burrow",
+          "hint": "A rabbit lives in a…"
+        },
+        {
+          "emoji": "🐻",
+          "word": "cave",
+          "hint": "A bear lives in a…"
+        }
+      ]
+    }
+  ],
+  "outro": {
+    "rows": [
+      [
+        "🐦",
+        "bird",
+        "lives in a",
+        "nest"
+      ],
+      [
+        "🐝",
+        "bee",
+        "lives in a",
+        "hive"
+      ],
+      [
+        "🐇",
+        "rabbit",
+        "lives in a",
+        "burrow"
+      ],
+      [
+        "🐻",
+        "bear",
+        "lives in a",
+        "cave"
+      ]
+    ],
+    "say": "Great job today, everyone! A bird lives in a nest. A bee lives in a hive. A rabbit lives in a burrow. And a bear lives in a cave. See you next time. Bye-bye!",
+    "bye": "See you next time!"
+  },
+  "tutor": {
+    "maxAnswers": 3,
+    "language": "en",
+    "sttLanguage": "yue"
+  }
+}

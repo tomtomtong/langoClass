@@ -7,7 +7,14 @@ import { handleAutoclassApi } from "./autoclass-api.js";
 import { lessonDocName, publishRender, readLesson, writeLesson } from "./autoclass-lessons.js";
 import { devRenderer } from "./autoclass-job.js";
 
-const script = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/animal-homes.json", import.meta.url), "utf8"));
+// FixedLengthStream is Workers-only; a pass-through stream stands in for it.
+globalThis.FixedLengthStream ??= class extends TransformStream {
+  constructor() {
+    super();
+  }
+};
+
+const script = JSON.parse(readFileSync(new URL("./fixtures/animal-homes.json", import.meta.url), "utf8"));
 
 // A stand-in for the AUTOCLASS_VIDEO namespace: one job state per job id.
 function renderNamespace() {
@@ -213,4 +220,45 @@ test("a teacher uploads quiz media to the shared folder; odd names and empty fil
   assert.equal((await put("Kai Tak.jpg", "x")).status, 400);
   assert.equal((await put("song.wav", "x")).status, 400);
   assert.equal((await put("empty.mp3", "")).status, 400);
+});
+
+test("a render made on the teacher's computer is uploaded file by file and then published", async () => {
+  const { env, call } = await setup();
+  const token = await developerToken(handleStoreApi, env);
+  assert.equal((await call("/api/autoclass/lessons/animal-homes", { method: "PUT", json: script })).status, 201);
+  const renderId = "localrender1";
+  const folder = `/uploads/autoclass/animal-homes/${renderId}`;
+  const put = async (name, body, auth = true) => {
+    const url = new URL(`/api/autoclass/lessons/animal-homes/local-render/${renderId}/files/${name}`, "https://class.lango.ai");
+    const headers = new Headers(auth ? { authorization: `Bearer ${token}` } : {});
+    headers.set("content-length", String(new TextEncoder().encode(body).length));
+    const res = await handleAutoclassApi(new Request(url, { method: "PUT", headers, body, duplex: "half" }), env, url);
+    return { status: res.status, body: await res.json() };
+  };
+  const publish = async () => {
+    const url = new URL(`/api/autoclass/lessons/animal-homes/local-render/${renderId}/publish`, "https://class.lango.ai");
+    const res = await handleAutoclassApi(new Request(url, { method: "POST", headers: { authorization: `Bearer ${token}` } }), env, url);
+    return { status: res.status, body: await res.json() };
+  };
+
+  assert.equal((await put("animal-homes.mp4", "video", false)).status, 401);
+  assert.equal((await put("evil.exe", "x")).status, 400);
+  assert.equal((await publish()).status, 400, "nothing uploaded yet");
+
+  assert.equal((await put("animal-homes.mp4", "video")).status, 201);
+  assert.equal((await put("_voice/abc123.mp3", "mp3")).status, 201);
+  assert.equal(await (await env.UPLOADS.get("uploads/autoclass/_voice/abc123.mp3")).text(), "mp3", "fresh voice goes to the shared cache");
+  const cues = { lessonId: "animal-homes", video: `${folder}/animal-homes.mp4`, videoAlpha: `${folder}/animal-homes-alpha.webm`, cues: [] };
+  assert.equal((await put("cues.json", JSON.stringify(cues))).status, 201);
+  assert.equal((await publish()).body.message, "Upload animal-homes-alpha.webm first.");
+  assert.equal((await put("animal-homes-alpha.webm", "webm")).status, 201);
+  const done = await publish();
+  assert.equal(done.status, 200);
+  assert.equal((await readLesson(env, "animal-homes")).published.renderId, renderId);
+  const played = await call("/api/autoclass/lessons/animal-homes/cues");
+  assert.equal(played.body.videoAlpha, `${folder}/animal-homes-alpha.webm`);
+
+  // Cues for another lesson are refused.
+  const url = new URL(`/api/autoclass/lessons/animal-homes/local-render/otherrender1/publish`, "https://class.lango.ai");
+  assert.equal((await handleAutoclassApi(new Request(url, { method: "POST", headers: { authorization: `Bearer ${token}` } }), env, url)).status, 400);
 });

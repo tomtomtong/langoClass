@@ -7,14 +7,19 @@
 //   POST /api/autoclass/lessons/:id/cleanup  teacher  remove old render folders now (autoclass-cleanup.js)
 //   GET  /api/autoclass/jobs/:jobId          teacher  render status (as the lecture video jobs)
 //   GET  /api/autoclass/lessons/:id/cues     anyone   the published cues, for /autoclass.html?lesson=<id>
+//   PUT  /api/autoclass/lessons/:id/local-render/:renderId/files/<path>   teacher  one file of a render made
+//        on the teacher's own computer (scripts/autoclass-render-local.mjs): the video, mp3s, cues.json
+//   POST /api/autoclass/lessons/:id/local-render/:renderId/publish        teacher  point the lesson at it
 //   PUT  /api/autoclass/media/:name          teacher  upload a quiz picture or sound clip (the raw
 //                                                     bytes) to /uploads/autoclass/_media/<name>; up to 20 MB
 import { autoclassEnabled } from "./autoclass-page.js";
 import { json, readJson, requireTeacher, sameId } from "./d1-store.js";
-import { VOICE_CACHE_PREFIX, readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
+import { VOICE_CACHE_PREFIX, publishRender, readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
 import { MEDIA_FOLDER, MEDIA_NAME, isLessonId, lessonWarnings, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
 import { cleanLessonRenders } from "./autoclass-cleanup.js";
 import { storeUpload } from "./course-files.js";
+import { SAFE_NAME } from "./autoclass-job.js";
+import { putStream } from "./video-job.js";
 
 const TERMINAL = new Set(["completed", "failed", "missing"]);
 const JOB_ID = /^[A-Za-z0-9_-]{1,80}$/;
@@ -29,6 +34,12 @@ export function autoclassRoute(method, pathname) {
     if (sub === "cleanup" && method === "POST") return { kind: "cleanup", id };
     if (sub === "cues" && (method === "GET" || method === "HEAD")) return { kind: "cues", id };
     return { kind: "method" };
+  }
+  m = path.match(/^\/api\/autoclass\/lessons\/([^/]+)\/local-render\/([A-Za-z0-9_-]{8,80})\/(files\/.+|publish)$/);
+  if (m) {
+    const [, id, renderId, rest] = m;
+    if (rest === "publish") return method === "POST" ? { kind: "local-publish", id, renderId } : { kind: "method" };
+    return method === "PUT" ? { kind: "local-file", id, renderId, name: decodeSafe(rest.slice("files/".length)) } : { kind: "method" };
   }
   m = path.match(/^\/api\/autoclass\/media\/([^/]+)$/);
   if (m) return method === "PUT" ? { kind: "media", name: m[1] } : { kind: "method" };
@@ -51,6 +62,8 @@ export async function handleAutoclassApi(request, env, url) {
   const auth = await requireTeacher(request, env);
   if (auth instanceof Response) return auth;
   if (route.kind === "media") return saveMedia(request, env, route.name);
+  if (route.kind === "local-file") return saveLocalRenderFile(request, env, auth, route);
+  if (route.kind === "local-publish") return publishLocalRender(env, auth, route);
   if (route.kind === "save") return saveLesson(request, env, auth, route.id);
   if (route.kind === "read") return readLessonApi(env, auth, route.id);
   if (route.kind === "cleanup") {
@@ -79,6 +92,69 @@ async function saveLesson(request, env, auth, id) {
 }
 
 const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+// One file of a render made on the teacher's computer: the see-through video is about 65 MB.
+const MAX_LOCAL_FILE_BYTES = 150 * 1024 * 1024;
+const LOCAL_TYPES = { mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", json: "application/json" };
+
+function decodeSafe(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+}
+
+// A render made on the teacher's own computer (much faster than the container) is uploaded file by
+// file, then published. The names are the ones the renderer lists (SAFE_NAME); lines Tommy voiced
+// fresh (_voice/<key>.mp3) go into the shared voice cache, as for a container render.
+async function saveLocalRenderFile(request, env, auth, { id, renderId, name }) {
+  const lesson = await ownLesson(env, auth, id);
+  if (lesson instanceof Response) return lesson;
+  if (!env.UPLOADS) return json({ message: "File storage is not configured." }, 500);
+  if (!SAFE_NAME.test(name)) return json({ message: "That file name is not allowed." }, 400);
+  const size = Number(request.headers.get("content-length") || 0);
+  if (!size) return json({ message: "The file is empty (send a Content-Length)." }, 400);
+  if (size > MAX_LOCAL_FILE_BYTES) return json({ message: "At most 150 MB per file." }, 413);
+  const key = name.startsWith("_voice/")
+    ? `${VOICE_CACHE_PREFIX}/${name.slice("_voice/".length)}`
+    : `${renderFolder(id, renderId).key}/${name}`;
+  const type = LOCAL_TYPES[name.split(".").pop()] || "application/octet-stream";
+  await putStream(env.UPLOADS, key, request, type);
+  return json({ ok: true, name, size }, 201);
+}
+
+async function publishLocalRender(env, auth, { id, renderId }) {
+  const lesson = await ownLesson(env, auth, id);
+  if (lesson instanceof Response) return lesson;
+  if (!env.UPLOADS) return json({ message: "File storage is not configured." }, 500);
+  const folder = renderFolder(id, renderId);
+  const cuesObject = await env.UPLOADS.get(`${folder.key}/cues.json`);
+  if (!cuesObject) return json({ message: "Upload cues.json first." }, 400);
+  let cues;
+  try {
+    cues = JSON.parse(await cuesObject.text());
+  } catch {
+    return json({ message: "cues.json is not valid." }, 400);
+  }
+  if (cues?.lessonId !== id) return json({ message: "These cues are for another lesson." }, 400);
+  // The video the cues point at must be there before anyone plays it.
+  for (const url of [cues.video, cues.videoAlpha].filter(Boolean)) {
+    const here = String(url).startsWith(`${folder.url}/`);
+    const found = here ? await env.UPLOADS.get(String(url).slice(1)) : null;
+    if (!found) return json({ message: `Upload ${String(url).split("/").pop()} first.` }, 400);
+  }
+  const now = new Date().toISOString();
+  await publishRender(env, id, {
+    renderId,
+    scriptHash: await scriptHash(lesson.script),
+    mediaUrl: folder.url,
+    startedAt: now,
+    at: now,
+  });
+  await cleanLessonRenders(env, id).catch((error) =>
+    console.error(JSON.stringify({ message: "autoclass_clean_failed", lessonId: id, error: String(error?.message || error) })));
+  return json({ ok: true, playUrl: `/autoclass.html?lesson=${encodeURIComponent(id)}` });
+}
 
 // One shared folder for every lesson's quiz media; a new upload under the same name replaces the old.
 async function saveMedia(request, env, name) {
