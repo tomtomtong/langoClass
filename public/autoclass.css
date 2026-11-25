@@ -171,6 +171,7 @@ select {
 
 /* The lesson video keeps its bottom 180 of 1080 px clear for this strip. */
 .live {
+  overflow: hidden;
   position: absolute;
   left: 7.8cqw;
   right: 7.8cqw;
@@ -189,6 +190,8 @@ select {
 
 .live-left,
 .live-right {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 1.2cqw;
@@ -1196,6 +1199,61 @@ select {
 
 @media (prefers-reduced-motion: reduce) {
   .live.is-bump {
+    animation: none;
+  }
+}
+
+
+/* The strip is a progress bar: it fills up as the students answer (autoclass.js onAnswerCount). */
+.live-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill, 0%);
+  z-index: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffe27a, #ffb347);
+  transition: width 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25), background 0.4s ease;
+  overflow: hidden;
+}
+
+/* A shine that keeps sweeping across the filled part. */
+.live-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.7) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: live-shine 1.6s ease-in-out infinite;
+}
+
+.live[data-level="mid"] .live-fill {
+  background: linear-gradient(90deg, #ffb347, #ff6fae);
+}
+
+.live[data-level="full"] .live-fill {
+  background: linear-gradient(90deg, #52d68a, #27b26b);
+  box-shadow: 0 0 2.4cqw rgba(39, 178, 107, 0.7);
+}
+
+.live.is-result .live-fill {
+  background: linear-gradient(90deg, #b8f0e6, #7be3d2);
+  box-shadow: none;
+}
+
+.live.is-result .live-fill::after {
+  animation: none;
+}
+
+@keyframes live-shine {
+  to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-fill {
+    transition-duration: 0.01s;
+  }
+
+  .live-fill::after {
     animation: none;
   }
 }

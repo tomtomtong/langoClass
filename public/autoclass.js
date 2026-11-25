@@ -598,6 +598,7 @@
     if (!state.quiz) return;
     state.quiz.clockOffset = Number(data.serverNow || Date.now()) - Date.now();
     state.quiz.endsAt = Number(data.endsAt) || Date.now() + (data.timeLimit || 15) * 1000;
+    el("live").dataset.answered = "0";
     setLive(`0 of ${Math.max(1, onlineCount())} answered`, "");
     clearInterval(state.quiz.timer);
     const tick = () => {
@@ -617,10 +618,13 @@
     const label = el("live-text");
     label.textContent = text;
     const live = el("live");
+    const before = Number(live.dataset.answered || 0);
+    live.dataset.answered = String(answered);
+    setLiveFill(answered / total);
     live.classList.remove("is-bump");
     void live.offsetWidth;
     live.classList.add("is-bump");
-    playAnswerSound(answered, total);
+    playAnswerSound(answered, total, before);
   }
 
   function onQuestionResults(payload) {
@@ -659,9 +663,10 @@
 
     const results = payload?.results || [];
     const answered = results.filter((r) => r.answerIndex !== null && r.answerIndex !== undefined).length;
-    const right = results.filter((r) => r.correct).length;
     if (results.length) {
-      setLive(`${right} of ${results.length} got it right${answered < results.length ? ` · ${results.length - answered} no answer` : ""}`, "", true);
+      // How many took part, the same count the strip showed while the answers came in. Who got it
+      // right is for the results page, after the reveal, so this strip does not give it away.
+      setLive(`${answered} of ${results.length} answered`, "", true, answered / results.length);
     } else {
       setLive("", "");
     }
@@ -956,6 +961,7 @@
     const tick = () => {
       const left = Math.max(0, Math.ceil((run.endsAt - (Date.now() + run.clockOffset)) / 1000));
       el("live-timer").textContent = String(left);
+      setLiveFill(run.responses.length / Math.max(1, onlineCount(), run.responses.length));
       el("live-text").textContent = !run.closing
         ? `${prompt} · ${run.responses.length} of ${Math.max(onlineCount(), run.responses.length)}`
         : ask
@@ -1652,7 +1658,7 @@
     noneRight: ["warm"],
     singleWrong: ["warm"],
     warmup: ["sparkle", "applauseMid"],
-    everyoneIn: ["ding", "sparkle"],
+    everyoneIn: ["fanfare", "ding", "sparkle", "applauseSoft"],
   };
   let resultAudioContext = null;
 
@@ -1671,13 +1677,17 @@
 
   // One answer came in: a short bright pop that climbs as more students answer. When the last one
   // is in: a ding and a run of bells.
-  function playAnswerSound(answered, total) {
+  function playAnswerSound(answered, total, before = 0) {
     if (answered >= total) {
       playResultSound("everyoneIn");
       return;
     }
     const base = 620 + 640 * (answered / total);
     playChime([[base, 0], [base * 1.5, 0.06]], { decay: 0.35, level: 1.4 });
+    // Crossing half way: a quick "level up" run of notes on top of the pop.
+    if (before / total < 0.5 && answered / total >= 0.5) {
+      playChime([[523, 0.1], [659, 0.18], [784, 0.26], [1047, 0.34]], { decay: 0.5, level: 1.2 });
+    }
   }
 
   function playChime(notes, { decay = 1.1, level = 1 } = {}) {
@@ -1894,13 +1904,22 @@
     video.play().catch(() => {});
   }
 
-  function setLive(text, timer, isResult = false) {
+  // `fill` (0 to 1) is how far the strip's bar is filled: the answers in so far.
+  function setLive(text, timer, isResult = false, fill = 0) {
     const live = el("live");
     live.hidden = !text;
     live.classList.toggle("is-result", !!isResult);
+    setLiveFill(fill);
     el("live-text").textContent = text;
     el("live-timer").textContent = timer;
     document.querySelector(".live-phone").hidden = !!isResult;
+  }
+
+  function setLiveFill(fill) {
+    const live = el("live");
+    const share = Math.max(0, Math.min(1, Number(fill) || 0));
+    live.style.setProperty("--fill", `${Math.round(share * 100)}%`);
+    live.dataset.level = share >= 1 ? "full" : share >= 0.5 ? "mid" : "low";
   }
 
   async function onVideoEnded() {
