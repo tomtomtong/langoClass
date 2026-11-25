@@ -118,6 +118,7 @@
     socket.on("openanswer_update", onSpeakUpdate);
     socket.on("openanswer_closed", onSpeakClosed);
     socket.on("openanswer_highlights", onHighlights);
+    socket.on("result_cheer", onCheer);
     socket.io?.on?.("reconnect", () => emit("host_session", hostSessionData()).catch(() => {}));
 
     return new Promise((resolve, reject) => {
@@ -829,6 +830,45 @@
     h.resolve();
   }
 
+  // ---- Cheer: on the page of students who got it right, Uncle Tommy also thanks a few of them by
+  // name (worker/room-cheer.js). Asked for when the results open, so it is ready by page 2. No
+  // names, no voice or too slow: the page just carries on without it. ----
+
+  const CHEER_WAIT_MS = 6000;
+
+  function askCheer(payload) {
+    const names = (payload.results || [])
+      .filter((r) => r && r.correct && r.name)
+      .sort((a, b) => (b.points || 0) - (a.points || 0))
+      .map((r) => String(r.name))
+      .slice(0, 3);
+    let resolve;
+    const ready = new Promise((r) => (resolve = r));
+    state.cheer = { ready, resolve, data: null };
+    if (!names.length) return resolve();
+    emit("result_cheer", { names, lesson: { language: state.lesson?.tutor?.language || "en" } })
+      .then((res) => {
+        if (res?.pending === false) resolve();
+      })
+      .catch(() => resolve());
+  }
+
+  function onCheer(data) {
+    const c = state.cheer;
+    if (!c || c.data) return;
+    c.data = data?.say ? data : null;
+    c.resolve();
+  }
+
+  async function sayCheer(run) {
+    const c = state.cheer;
+    state.cheer = null;
+    if (!c) return;
+    await Promise.race([c.ready, wait(run, CHEER_WAIT_MS)]);
+    if (!c.data) return;
+    await sayLine(run, { text: c.data.say, url: c.data.audioContent ? `data:audio/mpeg;base64,${c.data.audioContent}` : "" });
+  }
+
   async function sayHighlights(run, cue) {
     const h = state.highlights;
     if (!h || h.cue !== cue) return;
@@ -1422,6 +1462,7 @@
       layer.classList.toggle("is-warmup", warm);
       // Students who got it right get a page of their own, after the question and the donut.
       const board = !warm && !el("result-got").hidden;
+      if (board) askCheer(payload);
       layer.classList.toggle("is-step-1", board);
       layer.hidden = false;
       tommy.hidden = !tutor?.tommyVideo;
@@ -1454,6 +1495,7 @@
         playResultSound(summary.situation);
         await wait(run, 1300);
         if (cheer) await sayLine(run, cheer);
+        await sayCheer(run);
         if (cue.ask) await sayHighlights(run, cue);
         if (!cheer) await wait(run, 3500);
         await wait(run, 2200); // time to find your own name
