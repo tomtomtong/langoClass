@@ -20,6 +20,10 @@ as `warnings` when a lesson is saved (`PUT /api/autoclass/lessons/:id`). A warni
 - **A student's question to Tommy** is answered right away, and Tommy says the question aloud first.
   There is no "I don't get it" button.
 - **Open questions** give older learners at least 20 seconds.
+- **A question with no right answer** (a memory, an opinion: "which ad do you remember?") is a
+  sharing question: an `ask` scene with `open: true` and no `answer`. Nobody is marked or scored;
+  phones only say thank you; the results page has no donut or right/wrong count, only names popping
+  up and Tommy reading a few answers by name. Only questions with a real answer are marked.
 - **Multiple-choice questions** show on the phones, view only, while Tommy reads them
   (`previewAt` in the cue); the options can be tapped only once answers open.
 
