@@ -103,13 +103,18 @@
     // The video already shows the question, so open answers straight away instead of waiting
     // for Uncle Tommy's reading.
     socket.on("question_speaking", (data) => {
+      // A question the phones are already looking at (view only, see startPreview) waits for the
+      // page to pause; then runCue opens the answers.
+      if (state.preview && !state.quiz) {
+        state.preview.speaking = data;
+        return;
+      }
       setLive("Get ready…", "");
       state.socket.emit("question_tts_done", { questionIndex: data?.questionIndex });
     });
     socket.on("question_start", onQuestionStart);
     socket.on("question_results", onQuestionResults);
     socket.on("reaction", showReaction);
-    socket.on("lost", onLost);
     socket.on("poll_votes", onPollVotes);
     socket.on("spell_progress", onSpellProgress);
     socket.on("ask_received", onAskReceived);
@@ -186,7 +191,7 @@
       layer.style.background = value.slice(6);
     } else if (value.startsWith("photo:") || (value === "custom" && customPhotoUrl)) {
       layer.style.setProperty("--bg-photo", `url("${value === "custom" ? customPhotoUrl : value.slice(6)}")`);
-      layer.style.setProperty("--bg-wash", "0.45");
+      layer.style.setProperty("--bg-wash", "0.3");
       layer.style.background = "#eaf1ff";
     }
   }
@@ -206,11 +211,35 @@
     for (const id of ["bg-select", "bg-live"]) el(id).value = value;
   }
 
+  // How blurred a photo is (0 to 24 px), changed any time; the default shows the photo fairly clearly.
+  const BLUR_KEY = "lango_autoclass_bgblur";
+  function setBlur(px, { save = true } = {}) {
+    const value = Math.max(0, Math.min(24, Math.round(Number(px)) || 0));
+    el("bg-layer").style.setProperty("--bg-blur", `${value}px`);
+    for (const id of ["bg-blur", "bg-blur-live"]) el(id).value = String(value);
+    if (!save) return;
+    try {
+      localStorage.setItem(BLUR_KEY, String(value));
+    } catch {
+      /* private mode */
+    }
+  }
+
   function initBackground(alpha) {
     el("frame").classList.toggle("has-alpha", alpha);
     el("bg-step").hidden = !alpha;
     el("bg-live").hidden = !alpha;
+    el("bg-blur-live").hidden = !alpha;
     if (!alpha) return;
+    let savedBlur = 8;
+    try {
+      const raw = localStorage.getItem(BLUR_KEY);
+      if (raw !== null) savedBlur = Number(raw);
+    } catch {
+      /* private mode */
+    }
+    setBlur(savedBlur, { save: false });
+    for (const id of ["bg-blur", "bg-blur-live"]) el(id).addEventListener("input", () => setBlur(el(id).value));
     for (const id of ["bg-select", "bg-live"]) {
       const select = el(id);
       select.innerHTML = BACKGROUNDS.map(([label, value]) => `<option value="${value}">${label}</option>`).join("");
@@ -379,6 +408,95 @@
     items: [],
   });
 
+  // ---- Background music: soft music while the class is waiting (answers open, results, a vote), so
+  // the room is never silent. It stays out of the way: silent while the lesson video plays (Tommy
+  // and the song clips need the air) and lower while Tommy talks on a results page or answers a
+  // question. The level and mute come from the host's sound settings on this device, and the
+  // Music button mutes it. ----
+
+  const BGM_TRACKS = [
+    { src: "/assets/bgm/BGM_1.mp3", trim: 1 },
+    { src: "/assets/bgm/BGM_2.mp3", trim: 0.68 }, // mastered hotter than BGM_1
+  ];
+  const BGM_MUTE_KEY = "lango_autoclass_bgm_muted";
+  const bgm = { audio: null, trim: 1, level: 0, timer: null, muted: false };
+
+  function hostSoundPrefs() {
+    for (const key of PREF_KEYS) {
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || "null");
+        if (data) return data;
+      } catch {
+        /* ignore */
+      }
+    }
+    return {};
+  }
+
+  function bgmTarget() {
+    if (state.ended || bgm.muted) return 0;
+    const prefs = hostSoundPrefs();
+    if (prefs.bgmMuted || prefs.soundMuted) return 0;
+    const base = Number.isFinite(Number(prefs.bgmVolume)) && prefs.bgmVolume !== undefined ? Math.max(0, Math.min(1, Number(prefs.bgmVolume))) : 0.2;
+    const playing = !video.paused && !state.quiz;
+    if (playing) return 0;
+    const talking = tutorBusy || resultBusy;
+    return base * bgm.trim * (talking ? 0.3 : 1);
+  }
+
+  function bgmTick() {
+    const audio = bgm.audio;
+    if (!audio) return;
+    const target = bgmTarget();
+    // A gentle fade: about a second from silence to full.
+    bgm.level += Math.max(-0.04, Math.min(0.04, target - bgm.level));
+    audio.volume = Math.max(0, Math.min(1, bgm.level));
+    if (bgm.level < 0.002 && target === 0) {
+      if (!audio.paused) audio.pause();
+    } else if (audio.paused) {
+      audio.play().catch(() => {});
+    }
+    if (state.ended && bgm.level < 0.002) stopBgm();
+  }
+
+  function startBgm() {
+    if (bgm.audio) return;
+    try {
+      bgm.muted = localStorage.getItem(BGM_MUTE_KEY) === "1";
+    } catch {
+      bgm.muted = false;
+    }
+    const track = BGM_TRACKS[Math.floor(Math.random() * BGM_TRACKS.length)];
+    bgm.trim = track.trim;
+    bgm.audio = new Audio(track.src);
+    bgm.audio.loop = true;
+    bgm.audio.volume = 0;
+    bgm.level = 0;
+    bgm.timer = setInterval(bgmTick, 100);
+    renderMusicButton();
+  }
+
+  function stopBgm() {
+    clearInterval(bgm.timer);
+    bgm.timer = null;
+    bgm.audio?.pause();
+    bgm.audio = null;
+  }
+
+  function renderMusicButton() {
+    el("btn-music").textContent = bgm.muted ? "🔇 Music off" : "🎵 Music";
+  }
+
+  function toggleMusic() {
+    bgm.muted = !bgm.muted;
+    try {
+      localStorage.setItem(BGM_MUTE_KEY, bgm.muted ? "1" : "0");
+    } catch {
+      /* private mode */
+    }
+    renderMusicButton();
+  }
+
   async function startClass() {
     el("start-class").disabled = true;
     showError("");
@@ -393,6 +511,7 @@
     el("stage").hidden = false;
     state.cueIndex = 0;
     video.currentTime = 0;
+    startBgm();
     await video.play().catch(() => {});
     requestAnimationFrame(watchForCue);
   }
@@ -403,6 +522,10 @@
     const cue = state.lesson.cues[state.cueIndex];
     // A question's results come before whatever cue follows it, even if this loop was slow to notice
     // (a window in the background runs it only about once a second).
+    if (cue && !state.quiz && !state.preview && !video.paused && isMcCue(cue) && cue.previewAt != null
+      && video.currentTime >= cue.previewAt && video.currentTime < cue.at) {
+      startPreview(cue);
+    }
     if (resultDue()) {
       void runResult();
     } else if (cue && !state.quiz && !video.paused && video.currentTime >= cue.at) {
@@ -418,17 +541,28 @@
     requestAnimationFrame(watchForCue);
   }
 
+  const isMcCue = (cue) => !cue.poll && !cue.spell && !cue.speak && !cue.ask && cue.exercise?.type === "mcquiz";
+
   async function runCue(cue) {
     if (cue.poll) return runPoll(cue);
     if (cue.spell) return runSpell(cue);
     if (cue.speak || cue.ask) return runSpeak(cue);
     const quiz = mcQuizPayloadFromExercise(cue.exercise);
+    const pre = state.preview?.cue === cue && !state.preview.failed ? state.preview : null;
+    state.preview = null;
     state.quiz = { cue, endsAt: 0, clockOffset: 0, timer: null };
     clearLost();
     el("btn-skip").textContent = "Skip question";
     el("btn-skip").hidden = false;
     setLive("Get ready…", "");
     try {
+      if (pre) {
+        // The phones have had the question for a few seconds already: open the answers now. If the
+        // room has not said it is waiting yet, the question_speaking handler does it when it does.
+        await pre.starting;
+        if (pre.speaking) state.socket.emit("question_tts_done", { questionIndex: pre.speaking.questionIndex });
+        return;
+      }
       // A warm-up has no marking: the room just counts each go (worker/room-open-answer.js).
       await emit("start_next_exercise", { exercise: cue.ask?.warmup ? { ...cue.exercise, warmup: true } : cue.exercise });
       await emit("create_room_game", { quiz });
@@ -438,6 +572,24 @@
       setLive(`Could not send the question (${err.message}). Carrying on.`, "");
       setTimeout(() => finishCue(null), 2500);
     }
+  }
+
+  // Phones show a multiple-choice question (view only) while Tommy is still reading it on the big
+  // screen: the room game starts here, and runCue opens the answers when the page pauses.
+  function startPreview(cue) {
+    const quiz = mcQuizPayloadFromExercise(cue.exercise);
+    const pre = { cue, speaking: null, failed: false, starting: null };
+    state.preview = pre;
+    pre.starting = (async () => {
+      try {
+        await emit("start_next_exercise", { exercise: cue.exercise });
+        await emit("create_room_game", { quiz });
+        await emit("start_room_game");
+      } catch (err) {
+        console.warn("autoclass: could not preview the question", err);
+        pre.failed = true;
+      }
+    })();
   }
 
   function onQuestionStart(data) {
@@ -1161,6 +1313,8 @@
       await wait(run, 450);
       layer.classList.add("is-text");
       await leadIn;
+      // Tommy says the question again, so the whole room hears what was asked.
+      if (item.questionAudioContent) await playClip(run, `data:audio/mpeg;base64,${item.questionAudioContent}`);
       await wait(run, 700); // time to read the question
       if (item.audioContent) {
         await playClip(run, `data:audio/mpeg;base64,${item.audioContent}`, lightUp);
@@ -1757,7 +1911,7 @@
     else finishCue(null);
   });
   el("btn-end").addEventListener("click", endClass);
-  el("lost").addEventListener("click", replayLostPart);
+  el("btn-music").addEventListener("click", toggleMusic);
 
   init();
 })();

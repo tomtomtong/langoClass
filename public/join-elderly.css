@@ -279,6 +279,15 @@ body.theme-elderly #app .general-waiting-ui__content {
 body.theme-elderly #app .general-waiting-ui__header {
   margin-bottom: 16px;
 }
+/* The main area is as tall as its card. (It was 0 high with the card centred on it, so a tall card
+   such as "class ended" with the room-code form rose above the screen and was cut off.) */
+body.theme-elderly #app .general-waiting-ui__main {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: block !important;
+  width: 100%;
+}
 body.theme-elderly #app .general-waiting-ui__message-card {
   flex: 0 0 auto !important;
   height: auto !important;
@@ -830,4 +839,34 @@ body.theme-mist::before {
   background: linear-gradient(180deg, #dde9ff 0, #eaf1ff 320px) !important;
   filter: none !important;
   inset: 0 !important;
+}
+
+/* The "class ended" card holds the room-code form: padded like the other cards, words at body size. */
+body.theme-elderly #app .join-ended-card {
+  padding: 24px 20px !important;
+  gap: 16px;
+}
+body.theme-elderly #app .join-ended-card #room-ended-status {
+  max-width: none;
+  font-size: 24px;
+}
+
+/* ---------- Screens that were as tall as the whole phone ---------- */
+/* Several screens are 100vh tall, but the page now starts below the "You: name" strip, so their
+   bottom ran off the screen. They end at the bottom of the phone and scroll inside if they must. */
+body.theme-elderly:has(.join-name-badge:not([hidden])) #app .screen {
+  max-height: calc(100vh - 68px - env(safe-area-inset-top, 0px));
+  max-height: calc(100dvh - 68px - env(safe-area-inset-top, 0px));
+  overflow-y: auto;
+}
+/* The "watch" card is as tall as its words, not a big empty panel. */
+body.theme-elderly #app .passive-waiting-ui__main {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+body.theme-elderly #app .passive-waiting-ui__message-card {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 28px 20px !important;
 }

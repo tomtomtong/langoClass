@@ -89,14 +89,14 @@ test("nothing heard means no job and no cost counted", () => {
 test("a finished answer goes to the host with its audio, and the student is told", () => {
   const state = tutorOn();
   const job = applyRoomEvent(state, { event: "ask_question", data: { text: "Why?" } }, ada()).jobs[0];
-  const outcome = { ok: true, question: "Why do bees make honey?", answer: "Bees make honey to eat.", language: "en", audioId: "abc", format: "mp3" };
+  const outcome = { ok: true, question: "Why do bees make honey?", answer: "Bees make honey to eat.", language: "en", audioId: "abc", questionAudioId: "q1", format: "mp3" };
   const applied = applyRoomJob(state, job, outcome, 9000);
   const [forHost, forStudent] = applied.broadcasts;
   assert.equal(forHost.event, "tutor_answer");
   assert.equal(forHost.hostOnly, true);
   assert.deepEqual(forHost.data, {
     id: "ask-1", name: "Ada", question: "Why do bees make honey?", answer: "Bees make honey to eat.",
-    language: "en", audioContent: "audio:abc", format: "mp3",
+    language: "en", audioContent: "audio:abc", questionAudioContent: "audio:q1", format: "mp3",
   });
   assert.equal(forStudent.toPlayer, "ada");
   assert.deepEqual(forStudent.data, { id: "ask-1", state: "answering" });
@@ -107,6 +107,7 @@ test("a voice failure still sends the text", () => {
   const job = applyRoomEvent(state, { event: "ask_question", data: { text: "Why?" } }, ada()).jobs[0];
   const applied = applyRoomJob(state, job, { ok: true, question: "Why?", answer: "Because.", language: "en" }, 9000);
   assert.equal(applied.broadcasts[0].data.audioContent, null);
+  assert.equal(applied.broadcasts[0].data.questionAudioContent, null);
   assert.equal(applied.broadcasts[0].data.answer, "Because.");
 });
 

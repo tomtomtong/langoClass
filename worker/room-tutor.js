@@ -125,6 +125,7 @@ export function applyTutorJob(state, job, outcome) {
           answer: outcome.answer,
           language: outcome.language || "en",
           audioContent: outcome.audioId ? audioRef(outcome.audioId) : null,
+          questionAudioContent: outcome.questionAudioId ? audioRef(outcome.questionAudioId) : null,
           format: outcome.format || "mp3",
         },
       },

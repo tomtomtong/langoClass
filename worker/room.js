@@ -275,9 +275,22 @@ export class RoomDurableObject extends DurableObject {
     const language = job.language || tutorLanguage(job.question, job.lesson);
     const outcome = { ok: true, question: reply.question, answer: reply.answer, language };
     try {
-      // His voice in the lesson video, so the answer sounds like the same Tommy.
-      const speech = await speakAsTommy(env, reply.answer, { language });
-      return { ...outcome, audioId: this.#saveAudio(speech.audioContent), format: speech.format };
+      // His voice in the lesson video, so the answer sounds like the same Tommy. He says the
+      // question first, so the room hears what was asked before the answer comes. If only the
+      // question's voice fails, the answer is still read.
+      const [speech, asked] = await Promise.all([
+        speakAsTommy(env, reply.answer, { language }),
+        speakAsTommy(env, reply.question, { language }).catch((error) => {
+          logJobError(job, error, "question speech");
+          return null;
+        }),
+      ]);
+      return {
+        ...outcome,
+        audioId: this.#saveAudio(speech.audioContent),
+        format: speech.format,
+        ...(asked ? { questionAudioId: this.#saveAudio(asked.audioContent) } : {}),
+      };
     } catch (error) {
       logJobError(job, error, "speech");
       return outcome;

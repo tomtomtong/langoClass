@@ -344,6 +344,8 @@ test("the builder writes the project and cues from a script, timed to the voice"
     assert.deepEqual(times, [...times].sort((a, b) => a - b));
     assert.ok(cues.cues.every((c) => c.at < built.total));
     assert.equal(cues.cues[1].exercise.type, "mcquiz");
+    // Phones see the question (view only) from when its options appear, before the page pauses.
+    assert.ok(cues.cues[1].previewAt > 0 && cues.cues[1].previewAt < cues.cues[1].at);
     assert.equal(cues.cues[1].exercise.items[0].options[1].isCorrect, true);
     assert.equal(cues.cues[1].result.wrong[0][0].url, "/uploads/autoclass/animal-homes/r1/analysis/q1-wrong-1-1.mp3");
     assert.equal(cues.tutor.breaks.length, 6);
