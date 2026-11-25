@@ -234,6 +234,7 @@ export class RoomDurableObject extends DurableObject {
       }
       if (job.kind === "tutor-answer") return await this.#tutorAnswer(env, job);
       if (job.kind === "open-highlights") return await this.#highlights(env, job);
+      if (job.kind === "result-cheer") return await this.#cheer(env, job);
       if (job.kind === "buzz-analyze" || job.kind === "open-analyze") {
         const reply = await completeText(
           env,
@@ -280,6 +281,18 @@ export class RoomDurableObject extends DurableObject {
     } catch (error) {
       logJobError(job, error, "speech");
       return outcome;
+    }
+  }
+
+  // Uncle Tommy thanks the students who got it right, by name (room-cheer.js). No voice, no audio:
+  // the page still shows the line.
+  async #cheer(env, job) {
+    try {
+      const speech = await speakAsTommy(env, job.say, { language: job.language });
+      return { ok: true, audioId: this.#saveAudio(speech.audioContent) };
+    } catch (error) {
+      logJobError(job, error, "speech");
+      return { ok: true };
     }
   }
 
