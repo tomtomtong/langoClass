@@ -212,7 +212,7 @@ const server = http.createServer(async (req, res) => {
       if (existing) return sendJson(res, 202, publicJob(existing));
       const job = newJob(body.jobId);
       log(job, "Queued.");
-      runAutoclassJob(job, body, { workDir: WORK, log, render: (j, dir, out) => render(j, dir, out, AUTOCLASS_HF_BIN, ["--crf", AUTOCLASS_RENDER_CRF]) });
+      runAutoclassJob(job, body, { workDir: WORK, log, render: (j, dir, out) => render(j, dir, out, AUTOCLASS_HF_BIN, out.endsWith(".webm") ? ["--format", "webm"] : ["--crf", AUTOCLASS_RENDER_CRF]) });
       return sendJson(res, 202, publicJob(job));
     }
     const lesson = url.pathname.match(/^\/autoclass\/jobs\/([A-Za-z0-9_-]+)(?:\/files\/(.+))?$/);

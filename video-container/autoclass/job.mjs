@@ -85,6 +85,7 @@ export async function runAutoclassJob(job, request, { workDir, log, render }) {
     phaseStart = Date.now();
     await render(job, dir, path.join(dir, "out", `${lessonId}.mp4`));
     log(job, `Render took ${Math.round((Date.now() - phaseStart) / 1000)} s.`);
+    await renderSeeThrough({ job, dir, lessonId, mediaUrl, render, log });
 
     job.files = listFiles(path.join(dir, "out"));
     job.output = path.join(dir, "out");
@@ -94,6 +95,32 @@ export async function runAutoclassJob(job, request, { workDir, log, render }) {
     job.status = "failed";
     job.error = error instanceof Error ? error.message : String(error);
     log(job, `Failed: ${job.error}`);
+  }
+}
+
+// A second render with no background, so the page can put its own colour or blurred photo behind
+// the lesson (public/autoclass.js). It plays in Chrome, Edge and Firefox; Safari keeps playing the
+// normal video. If this render fails the lesson is unaffected: cues.json just has no videoAlpha.
+export async function renderSeeThrough({ job, dir, lessonId, mediaUrl, render, log }) {
+  const out = path.join(dir, "out", `${lessonId}-alpha.webm`);
+  const index = path.join(dir, "index.html");
+  try {
+    const started = Date.now();
+    log(job, "Rendering the see-through version for the background picker…");
+    job.segmentCount = 0;
+    job.segmentsDone = 0;
+    const html = fs.readFileSync(index, "utf8");
+    if (!html.includes("</head>")) throw new Error("the lesson page has no head to change");
+    fs.writeFileSync(index, html.replace("</head>", "<style>html, body, #root { background: transparent !important; } #ground { display: none !important; }</style></head>"));
+    await render(job, dir, out);
+    const cuesFile = path.join(dir, "out", "cues.json");
+    const cues = JSON.parse(fs.readFileSync(cuesFile, "utf8"));
+    cues.videoAlpha = `${mediaUrl}/${lessonId}-alpha.webm`;
+    fs.writeFileSync(cuesFile, `${JSON.stringify(cues, null, 2)}\n`);
+    log(job, `See-through render took ${Math.round((Date.now() - started) / 1000)} s.`);
+  } catch (error) {
+    fs.rmSync(out, { force: true });
+    log(job, `The see-through version failed (${error instanceof Error ? error.message : error}); the lesson keeps its own background.`);
   }
 }
 
