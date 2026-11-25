@@ -104,9 +104,15 @@ function createBuzzinPcmRecorder() {
   let chunks = [];
   let recording = false;
 
+  let lastLevel = 0;
+
   function handleChunk(mono) {
     if (recording && mono?.length) {
       chunks.push(mono);
+      // How loud the latest chunk is (0 to about 1), so a screen can show the mic is hearing.
+      let sum = 0;
+      for (let i = 0; i < mono.length; i += 1) sum += mono[i] * mono[i];
+      lastLevel = Math.sqrt(sum / mono.length);
     }
   }
 
@@ -277,7 +283,7 @@ function createBuzzinPcmRecorder() {
     return recording;
   }
 
-  return { start, stop, cancel, isRecording };
+  return { start, stop, cancel, isRecording, level: () => lastLevel };
 }
 
 function audioBufferToMonoFloat32(audioBuffer) {
