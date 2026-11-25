@@ -100,21 +100,16 @@
 
   function updateCountdown() {
     const sec = nowSeconds();
-    const next = SCHEDULE.find((s) => statusAt(s, sec) === "upcoming");
-    el("cd-hint").hidden = !next;
-    if (!next) {
-      el("cd-label").textContent = "今日嘅課堂完咗";
-      el("cd-title").textContent = "多謝大家，下次見！";
-      el("cd-time").textContent = "";
-      el("cd-at").textContent = "";
-      return;
-    }
-    const left = toMin(next.from) * 60 - sec;
+    // After the last lesson of the day: count down to tomorrow's first.
+    const today = SCHEDULE.find((s) => statusAt(s, sec) === "upcoming");
+    const next = today || SCHEDULE[0];
+    const left = toMin(next.from) * 60 - sec + (today ? 0 : 86400);
     const h = Math.floor(left / 3600);
-    el("cd-label").textContent = "下一堂";
+    el("cd-label").textContent = today ? "下一堂" : "今日課堂完咗，多謝大家！下一堂";
     el("cd-title").textContent = next.title;
+    el("cd-time").classList.toggle("hours", h > 0); // h:mm:ss is longer, so a smaller size
     el("cd-time").textContent = `${h ? h + ":" : ""}${pad(Math.floor((left % 3600) / 60))}:${pad(left % 60)}`;
-    el("cd-at").textContent = `${next.from} 開始`;
+    el("cd-at").textContent = `${today ? "" : "聽日 "}${next.from} 開始`;
   }
 
   // The class page says when its class is over (final board up): hold it a while, then count down.

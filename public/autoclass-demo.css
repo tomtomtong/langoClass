@@ -92,6 +92,7 @@ body {
   font-variant-numeric: tabular-nums;
   text-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
 }
+.cd-time.hours { font-size: clamp(3.5rem, 7.2vw, 7rem); }
 .cd-at { font-size: 1.6rem; font-weight: 700; color: #d9d2f4; }
 .cd-hint { margin-top: 1.2rem !important; padding: 0.6rem 1.2rem; font-size: 1.15rem; font-weight: 800; color: var(--ink); background: #fff; border-radius: 999px; }
 @media (max-width: 700px) { .cd-tommy { display: none; } }
