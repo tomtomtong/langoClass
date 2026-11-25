@@ -957,6 +957,73 @@ select {
   }
 }
 
+/* Two pages, like the host's quiz results: first the question, the answer and the donut with
+   Uncle Tommy talking about how the class did; then the students who got it right fill the left
+   of the screen (the question fades out) with their count, and Tommy cheers them. Only a question
+   that has such a board uses these (autoclass.js runResult sets has-board and the step). */
+.result.is-step-1 .result-got {
+  display: none;
+}
+
+@keyframes result-left-out {
+  from { opacity: 1; visibility: visible; }
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes result-board-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+.result.is-step-2 .result-left {
+  animation: result-left-out 0.32s ease both;
+  pointer-events: none;
+}
+
+.result.is-step-2 .result-got {
+  top: 8.6cqw;
+  right: auto;
+  left: 5.2cqw;
+  width: 58cqw;
+  height: 44cqw;
+  box-sizing: border-box;
+  padding: 1.8cqw 2.6cqw 2cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: result-board-in 0.48s cubic-bezier(0.2, 0.9, 0.3, 1.1) 0.2s both;
+}
+
+.result.is-step-2 .result-got h3 {
+  margin: 0 0 0.8cqw;
+  font-size: 3.4cqw;
+}
+
+.result.is-step-2 .result-got-count {
+  margin: 0 0 1.4cqw;
+  padding: 0.2cqw 2.4cqw 0.4cqw;
+  font-size: 2.8cqw;
+}
+
+.result.is-step-2 .result-got-grid {
+  flex: 1;
+  width: 100%;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 9cqw));
+  justify-content: center;
+  align-content: center;
+  gap: 1.4cqw 1.6cqw;
+}
+
+.result.is-step-2 .result-got-avatar {
+  width: 6.4cqw;
+  height: 6.4cqw;
+  font-size: 2.6cqw;
+}
+
+.result.is-step-2 .result-got-name {
+  font-size: 1.7cqw;
+}
+
 /* Uncle Tommy's words: a speech bubble next to him, like the host leaderboard's cheer. */
 .result-caption {
   position: absolute;
