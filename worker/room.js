@@ -8,6 +8,7 @@ import { buzzFeedbackPrompt, parseBuzzFeedback } from "./buzz-feedback.js";
 import { semesterLeaderboard } from "./d1-api.js";
 import { speakQuestion } from "./question-tts.js";
 import { createRoomState, emptyRoomState, syncRoomRoster } from "./room-state.js";
+import { resolveAudioRefs } from "./room-core.js";
 import { queueOpenScores } from "./room-scores.js";
 import { saveScoreBatch } from "./score-store.js";
 import { logClassActivity, logRuntime, noteHost, roomEventUsage } from "./lango-log.js";
@@ -391,13 +392,10 @@ export class RoomDurableObject extends DurableObject {
   #forSocket(ws, data) {
     const role = ws.deserializeAttachment()?.role;
     if (role !== "host" || !data || typeof data !== "object") return data;
-    const next = { ...data };
-    if (typeof next.audioContent === "string") next.audioContent = this.#loadAudio(next.audioContent);
+    const next = resolveAudioRefs(data, (ref) => this.#loadAudio(ref));
     if (next.answerAnnouncement?.audio) {
       next.answerAnnouncement = { ...next.answerAnnouncement, audio: this.#loadAudio(next.answerAnnouncement.audio) };
     }
-    if (typeof next.announcementAudio === "string") next.announcementAudio = this.#loadAudio(next.announcementAudio);
-    if (typeof next.topicAudio === "string") next.topicAudio = this.#loadAudio(next.topicAudio);
     if (Array.isArray(next.picks)) {
       next.picks = next.picks.map((item) => ({ ...item, audioContent: this.#loadAudio(item.audioContent) }));
     }

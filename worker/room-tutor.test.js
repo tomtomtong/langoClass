@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { resolveAudioRefs } from "./room-core.js";
 import { createRoomState } from "./room-state.js";
 import { applyRoomEvent, applyRoomJob, tutorAskCheck } from "./room-events.js";
 import { TUTOR_ASK_GAP_MS, TUTOR_MAX_ASKS, parseTutorReply, tutorPrompt } from "./room-tutor.js";
@@ -171,4 +172,15 @@ test("the prompt is written for the lesson's class: children by default, else wh
   assert.ok(prompt.includes(`The class: ${audience}.`));
   assert.doesNotMatch(prompt, /6 to 10/);
   assert.match(prompt, /never call them children/);
+});
+
+test("the host gets every audio reference filled in, the question's voice included", () => {
+  const sounds = { "audio:abc": "ANSWER", "audio:q1": "QUESTION" };
+  const filled = resolveAudioRefs({ id: "ask-1", audioContent: "audio:abc", questionAudioContent: "audio:q1", answer: "audio: not a ref", n: 1 }, (ref) => sounds[ref] ?? null);
+  assert.equal(filled.audioContent, "ANSWER");
+  assert.equal(filled.questionAudioContent, "QUESTION", "this field was left as 'audio:q1' and Tommy never said the question");
+  assert.equal(filled.answer, "audio: not a ref", "ordinary text is left alone");
+  assert.equal(filled.n, 1);
+  // A missing recording becomes null, so the page just skips it.
+  assert.equal(resolveAudioRefs({ questionAudioContent: "audio:gone" }, () => null).questionAudioContent, null);
 });

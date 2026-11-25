@@ -33,6 +33,17 @@ export function audioRef(id) {
   return `audio:${id}`;
 }
 
+// A copy of `data` with every top-level audio reference ("audio:<id>") filled in by `load`: the host
+// gets the sound itself (audioContent, questionAudioContent, announcementAudio, ...). Fields named
+// one by one were missed once, and the host got the reference as text.
+export function resolveAudioRefs(data, load) {
+  const next = { ...data };
+  for (const [key, value] of Object.entries(next)) {
+    if (typeof value === "string" && /^audio:[A-Za-z0-9_-]+$/.test(value)) next[key] = load(value);
+  }
+  return next;
+}
+
 export function languageOf(value) {
   const code = String(value || "").trim().toLowerCase().split(/[-_]/)[0];
   return /^[a-z]{2,3}$/.test(code) ? code : "";
