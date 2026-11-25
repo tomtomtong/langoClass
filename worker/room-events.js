@@ -197,9 +197,11 @@ function hostSession(state, data, ctx) {
 }
 
 // The look of the students' join page for this room: "elderly" (big type and buttons, for older
-// learners) or "" (the default). The hk host page asks for it with its variant; the autoclass page
+// learners), "mist" (the default look on a light-blue background) or "" (the default). The hk host page asks for it with its variant; the autoclass page
 // with the lesson's theme. null when the host did not say, so a reconnect keeps the room's theme.
-export const JOIN_THEMES = ["elderly"];
+// "mist" is the default look on a plain light-blue background (the teacher's choice on the autoclass
+// page); "elderly" brings big type and buttons as well.
+export const JOIN_THEMES = ["elderly", "mist"];
 function themeOf(data) {
   if (data.theme != null) return JOIN_THEMES.includes(data.theme) ? data.theme : "";
   if (data.variant === "hk-elderly") return "elderly";

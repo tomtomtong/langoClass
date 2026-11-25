@@ -143,13 +143,41 @@
   }
 
   // The students' join page takes the lesson's look (for example big type for older learners).
+  // The teacher can override it on the setup page (kept on this device); "standard" is no theme.
+  const LOOK_KEY = "lango_autoclass_look";
+  function chosenTheme() {
+    const look = el("look-select")?.value || "";
+    if (look === "standard") return "";
+    return look || state.lesson?.theme || "";
+  }
+
   function hostSessionData() {
-    return { uiLocale: "en", theme: state.lesson?.theme || "" };
+    return { uiLocale: "en", theme: chosenTheme() };
+  }
+
+  function initLookChoice() {
+    const select = el("look-select");
+    try {
+      const saved = localStorage.getItem(LOOK_KEY);
+      if (saved != null && [...select.options].some((o) => o.value === saved)) select.value = saved;
+    } catch {
+      /* private mode */
+    }
+    select.addEventListener("change", () => {
+      try {
+        localStorage.setItem(LOOK_KEY, select.value);
+      } catch {
+        /* private mode */
+      }
+      // Once the room is open the phones follow at once.
+      if (state.socket) emit("host_session", hostSessionData()).catch(() => {});
+    });
   }
 
   // ---- Setup ----
 
   async function init() {
+    initLookChoice();
     try {
       const res = await fetch(CUES_URL, { cache: "no-store" });
       if (!res.ok) {

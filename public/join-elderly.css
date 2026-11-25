@@ -818,3 +818,16 @@ body.theme-elderly:has(.join-name-badge:not([hidden])) {
 body.theme-elderly:has(.join-name-badge:not([hidden])) #app {
   min-height: calc(100vh - 60px - env(safe-area-inset-top, 0px));
 }
+
+
+/* ---------- "mist": the default look on the elderly look's plain light-blue background ---------- */
+
+body.theme-mist {
+  background: #eaf1ff;
+  background-image: none;
+}
+body.theme-mist::before {
+  background: linear-gradient(180deg, #dde9ff 0, #eaf1ff 320px) !important;
+  filter: none !important;
+  inset: 0 !important;
+}

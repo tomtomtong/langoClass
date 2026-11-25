@@ -13,6 +13,8 @@ const join = (state) => applyRoomEvent(state, { event: "join_session", data: { r
 test("the room tells phones its join-page look", () => {
   assert.equal(join(hostWith(fresh(), { uiLocale: "en" })).ack.theme, "");
   assert.equal(join(hostWith(fresh(), { theme: "elderly" })).ack.theme, "elderly");
+  // The default look on a light-blue background.
+  assert.equal(join(hostWith(fresh(), { theme: "mist" })).ack.theme, "mist");
   // The hk host page asks with its variant.
   const hk = join(hostWith(fresh(), { variant: "hk-elderly" }));
   assert.equal(hk.ack.theme, "elderly");
