@@ -257,3 +257,13 @@ test("lessonWarnings points at the rules a script breaks without blocking it", (
   assert.ok(warnings.some((w) => /20 seconds/.test(w)));
   assert.ok(warnings.some((w) => /小朋友/.test(w)));
 });
+
+test("lessonWarnings suggests a sharing question when the answer key says anything goes", () => {
+  const lesson = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/hk-nostalgia.json", import.meta.url), "utf8"));
+  const scene = lesson.scenes.find((s) => s.kind === "ask" && s.open);
+  delete scene.open;
+  scene.answer = "講出任何一個香港地方都得。";
+  const checked = validateLessonScript(lesson);
+  assert.equal(checked.ok, true);
+  assert.ok(lessonWarnings(checked.script).some((w) => /open: true/.test(w)));
+});

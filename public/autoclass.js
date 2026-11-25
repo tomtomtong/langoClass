@@ -569,7 +569,7 @@
         return;
       }
       // A warm-up has no marking: the room just counts each go (worker/room-open-answer.js).
-      await emit("start_next_exercise", { exercise: cue.ask?.warmup ? { ...cue.exercise, warmup: true } : cue.exercise });
+      await emit("start_next_exercise", { exercise: cue.exercise });
       await emit("create_room_game", { quiz });
       await emit("start_room_game");
     } catch (err) {
@@ -937,6 +937,9 @@
   // Every answer is in and marked (practice answers are marked as they arrive).
   const marked = (run) => !run.ask || run.responses.every((r) => r.analysisStatus !== "pending");
 
+  // A warm-up, or a sharing question with no right answer: nobody is marked or scored.
+  const unmarked = (cue) => Boolean(cue.ask?.warmup || cue.ask?.open);
+
   async function runSpeak(cue) {
     const ask = !!cue.ask;
     const seconds = (ask ? cue.ask.seconds : cue.speak.seconds) || (ask ? 30 : 15);
@@ -948,7 +951,8 @@
     el("btn-skip").hidden = false;
     setLive("Get ready…", "");
     try {
-      await emit("start_next_exercise", { exercise: cue.exercise });
+      // A warm-up or sharing question has no marking: the room just counts each go (room-open-answer.js).
+      await emit("start_next_exercise", { exercise: unmarked(cue) ? { ...cue.exercise, warmup: true } : cue.exercise });
       await emit("start_openanswer_round");
       const opened = await emit("open_openanswer_window");
       if (state.quiz !== run) return; // skipped meanwhile
@@ -987,7 +991,7 @@
     const run = openRun(data);
     if (!run || !Array.isArray(data.responses)) return;
     run.responses = data.responses;
-    if (run.cue.ask?.warmup) popNames(run);
+    if (unmarked(run.cue)) popNames(run);
     // Late recordings and late marks: once everything is in, there is nothing left to wait for.
     if (run.closing) settleSpeak(run, "");
   }
@@ -1025,7 +1029,7 @@
     const run = openRun(data);
     if (!run) return;
     if (Array.isArray(data.responses)) run.responses = data.responses;
-    if (run.cue.ask?.warmup) popNames(run);
+    if (unmarked(run.cue)) popNames(run);
     run.closing = true;
     el("btn-skip").hidden = true;
     if (run.ask) run.capTimer = setTimeout(() => finishSpeak(run.cue, true), ASK_MARK_MAX_MS);
@@ -1072,7 +1076,7 @@
     // The phones keep showing each student's "great speaking!" while Tommy says the sentence again,
     // and go back to "watch" when the results page opens (runResult).
     // A warm-up has no marks to show: only the answers Tommy reads out, so nobody spoke, no page.
-    const warm = Boolean(run.ask && cue.ask?.warmup);
+    const warm = Boolean(run.ask && unmarked(cue));
     state.pendingResult = heard && results.length && cue.result && window.LangoAutoclassAnalysis && (!warm || spoke)
       ? { cue, payload: { results, correctIndex: 0 }, watchLater: true }
       : null;
@@ -1744,7 +1748,7 @@
     const tommy = el("result-tommy");
     let lines = [];
 
-    const warm = Boolean(cue.ask?.warmup);
+    const warm = unmarked(cue);
     try {
       video.pause();
       // If this loop was late the video has run a little into the next scene: go back to the answer.
@@ -1767,7 +1771,7 @@
         ? analysis.plan(summary, banks, cue.result.wrong || {}, state.picker, { questionKey: cue.result.key }).lines
         : [];
       renderResult(cue, payload, summary);
-      if (warm) el("result-tag").textContent = `👋 ${cue.ask.tag || "Warm-up"}`;
+      if (warm) el("result-tag").textContent = `${cue.ask.open ? "💬" : "👋"} ${cue.ask.tag || (cue.ask.open ? "Share" : "Warm-up")}`;
       setAnchor(layer, tutor);
       setTommyMood("neutral");
       layer.classList.remove("is-open", "is-revealed", "is-step-2");

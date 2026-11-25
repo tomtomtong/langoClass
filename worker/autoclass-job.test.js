@@ -285,6 +285,33 @@ test("a warm-up ask needs no answer, shows no answer card and tells the page it 
   }
 });
 
+test("a sharing question (open) needs no answer, shows no answer card and tells the page nobody is marked", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "autoclass-open-"));
+  try {
+    const input = structuredClone(animalHomes);
+    input.scenes.unshift({ kind: "ask", open: true, q: "Where did you love to go?", ask: "Tell me where you loved to go!", reveal: "Thank you for sharing!", seconds: 40 });
+    const { script, errors } = validateLessonScript(input);
+    assert.deepEqual(errors, []);
+    assert.equal(script.scenes[0].open, true);
+    assert.equal(script.scenes[0].seconds, 40, "a sharing question keeps the normal pace");
+    assert.ok(script.scenes[0].answer, "marked against nothing: any answer counts");
+    assert.ok(validateLessonScript({ ...input, scenes: [{ ...input.scenes[0], open: "yes" }, ...input.scenes.slice(1)] }).errors.some((e) => /open/.test(e.path)));
+
+    (await import("node:fs")).mkdirSync(path.join(dir, "assets", "voice"), { recursive: true });
+    writeFileSync(path.join(dir, "assets", "voice", "x.mp3"), "mp3");
+    const voice = async () => ({ file: "assets/voice/x.mp3", seconds: 2 });
+    await buildLesson(dir, script, { voice, mediaUrl: "/uploads/autoclass/animal-homes/r1" });
+    const cue = JSON.parse(readFileSync(path.join(dir, "out", "cues.json"), "utf8")).cues[0];
+    assert.equal(cue.ask.open, true);
+    assert.equal(cue.ask.warmup, undefined);
+    assert.ok(cue.ask.tag);
+    const html = readFileSync(path.join(dir, "compositions", "ask1.html"), "utf8");
+    assert.doesNotMatch(html, /class="ask-answer"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("a spell scene becomes a spelling race cue, with blanks in the video until the reveal", async () => {
   const dir = mkdtempSync(path.join(tmpdir(), "autoclass-spell-"));
   try {
