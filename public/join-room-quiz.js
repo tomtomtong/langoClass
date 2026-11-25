@@ -1054,6 +1054,7 @@ function setupRoomPlayerQuiz(socket) {
 
     const screen = $("#screen-player-question");
     screen?.classList.add("is-previewing");
+    screen?.classList.remove("is-viewing");
     $("#player-mcq-title").textContent = uiT("mcq.questionN", { n: data.questionIndex + 1 });
     $("#player-q-meta").textContent = uiT("mcq.readQuestion");
     setQuestionImage(
@@ -1100,7 +1101,17 @@ function setupRoomPlayerQuiz(socket) {
       typeof resolvedMediaUrl === "function" ? resolvedMediaUrl(data.image) : data.image
     );
     $("#player-question-text").textContent = formatQuestionText(data.text);
-    $("#player-options").innerHTML = "";
+    // The answers can be read now but not tapped: they open when Uncle Tommy has finished reading.
+    const viewOnly = Array.isArray(data.options) && data.options.length > 0;
+    screen?.classList.toggle("is-viewing", viewOnly);
+    if (viewOnly) {
+      renderOptions($("#player-options"), data.options, {
+        clickable: false,
+        optionLabels: isHkElderlyVariant() ? undefined : ["A.", "B.", "C.", "D.", "E.", "F."],
+      });
+    } else {
+      $("#player-options").innerHTML = "";
+    }
     $("#answer-feedback").textContent = uiT("buzzin.uncleReading");
     $("#timer-text").textContent = "…";
     $("#timer-ring")?.classList.remove("urgent");
@@ -1115,7 +1126,7 @@ function setupRoomPlayerQuiz(socket) {
     clearTimer();
     resetPlayerMcqAnsweredState();
     revealStudentScreen("player-question");
-    $("#screen-player-question")?.classList.remove("is-previewing");
+    $("#screen-player-question")?.classList.remove("is-previewing", "is-viewing");
     resetMcqReadProgress($("#player-question-read-progress-fill"));
     $("#player-mcq-title").textContent = uiT("mcq.title");
     $("#player-q-meta").textContent =

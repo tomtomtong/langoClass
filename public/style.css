@@ -2364,6 +2364,20 @@ body.join-preview-mode.join-preview-toolbar-open {
   display: none;
 }
 
+/* Tommy is reading the question: the answers show but cannot be tapped yet. */
+#screen-player-question.is-previewing.is-viewing .player-mcq-options-wrap {
+  display: block;
+}
+
+#screen-player-question.is-viewing .player-options .option {
+  pointer-events: none;
+  cursor: default;
+}
+
+#screen-player-question.is-previewing.is-viewing .player-mcq-timer-card {
+  min-height: 0;
+}
+
 #screen-player-question.is-previewing .player-mcq-countdown {
   display: none;
 }

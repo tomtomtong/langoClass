@@ -360,9 +360,13 @@ ${scene.revealVideo ? `      // The reveal video takes the screen at ${r3(videoA
       if (index < 0 || index === scene.correct) throw new Error(`wrongLines "${text}" is not a wrong option of "${scene.q}"`);
       wrong[index] = await clips(`q${n}-wrong-${index + 1}`, lines);
     }
+    // When the options appear on the big screen: the phones show the question and answers (view only)
+    // from here, while Tommy is still reading them, and the answers open when the page pauses.
+    const previewAt = showAt + 1.4 < pauseAt - 0.4 ? r3(start + showAt + 1.4) : null;
     const cue = {
       at: r3(start + pauseAt),
       resumeAt: r3(start + pauseAt),
+      ...(previewAt != null ? { previewAt } : {}),
       // Where the page pauses again for the results: the answer has been revealed and the scene is
       // about to fade out, so the next scene still follows on from this one.
       result: { at: r3(start + end - 0.5), key: `q${n}`, wrong },

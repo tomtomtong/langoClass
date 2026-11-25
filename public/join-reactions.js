@@ -3,9 +3,6 @@
 // The bar exists only while the host has reactions on, and join-reactions.css
 // shows it on the watch/wait screens only, never over a question's answers.
 //
-// With it comes an "I don't get it" button, on the watch screen only. The host
-// screen shows how many students pressed it, never who (send_lost).
-//
 // join.js calls:  LangoJoinReactions.attach(socket)  when the session socket is made
 //                 LangoJoinReactions.apply(ack)      after join_session succeeds
 //                 LangoJoinReactions.hide()          when the class ends
@@ -13,13 +10,8 @@
   "use strict";
 
   const SEND_GAP_MS = 700;
-  // How long one press counts on the host screen (autoclass.js LOST_WINDOW_MS); the
-  // button stays "sent" for the same time.
-  const LOST_HOLD_MS = 20000;
   let socket = null;
   let bar = null;
-  let lostButton = null;
-  let lostTimer = null;
   let lastSentAt = 0;
 
   function attach(nextSocket) {
@@ -36,8 +28,7 @@
     render(data.emojis, !!data.emojiOpen);
   }
 
-  // The "I don't get it" button shows all through the lesson; the emoji bar only while the host has
-  // opened it. The other buttons sit lower while it is closed (--emoji-h, used by the CSS).
+  // The emoji bar shows only while the host has opened it (--emoji-h, used by the CSS).
   function render(emojis, emojiOpen) {
     if (!bar) {
       bar = document.createElement("div");
@@ -55,47 +46,15 @@
     }
     bar.hidden = !emojiOpen;
     document.body.style.setProperty("--emoji-h", emojiOpen ? "82px" : "0px"); // the bar (68px) and a 14px gap
-
-    if (!lostButton) {
-      lostButton = document.createElement("button");
-      lostButton.type = "button";
-      lostButton.className = "lost-btn";
-      // data-i18n keeps the label right when the class language arrives after the button.
-      lostButton.innerHTML = '<span aria-hidden="true">🤔</span><span class="lost-btn-label" data-i18n="join.lostButton"></span>';
-      lostButton.addEventListener("click", onLostClick);
-      document.body.appendChild(lostButton);
-      setLostSent(false);
-    }
-    lostButton.hidden = false;
   }
 
   function hide() {
     document.body.style.setProperty("--emoji-h", "0px");
     if (bar) bar.hidden = true;
-    if (lostButton) lostButton.hidden = true;
   }
 
   function roomId() {
     return typeof roomParticipant !== "undefined" ? roomParticipant?.roomId : "";
-  }
-
-  function setLostSent(sent) {
-    clearTimeout(lostTimer);
-    lostTimer = sent ? setTimeout(() => setLostSent(false), LOST_HOLD_MS) : null;
-    const key = sent ? "join.lostSent" : "join.lostButton";
-    const label = lostButton.querySelector(".lost-btn-label");
-    label.dataset.i18n = key;
-    label.textContent = window.LangoI18n?.t?.(key) ?? key;
-    lostButton.classList.toggle("is-sent", sent);
-    lostButton.disabled = sent;
-  }
-
-  function onLostClick() {
-    if (!socket || lostButton.disabled) return;
-    setLostSent(true);
-    socket.emit("send_lost", { roomId: roomId() }, (res) => {
-      if (res && res.ok === false) setLostSent(false);
-    });
   }
 
   function onClick(event) {

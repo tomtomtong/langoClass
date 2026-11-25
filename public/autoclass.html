@@ -43,6 +43,8 @@
         <label for="bg-select">Background</label>
         <select id="bg-select"></select>
         <input id="bg-file" type="file" accept="image/*" hidden />
+        <label for="bg-blur">Photo blur</label>
+        <input id="bg-blur" class="blur-range" type="range" min="0" max="24" step="1" value="8" />
       </div>
 
       <div id="class-step" hidden>
@@ -191,6 +193,8 @@
         <button id="btn-pause" class="ctl" type="button">Pause</button>
         <button id="btn-skip" class="ctl" type="button" hidden>Skip question</button>
         <select id="bg-live" class="ctl" title="Background" hidden></select>
+        <input id="bg-blur-live" class="blur-range" type="range" min="0" max="24" step="1" value="8" title="Photo blur" hidden />
+        <button id="btn-music" class="ctl" type="button">🎵 Music</button>
         <button id="btn-end" class="ctl" type="button">End class</button>
       </div>
     </div>
