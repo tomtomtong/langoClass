@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Autoclass Demo · LangoClass</title>
+  <!--
+    Demo page: three panes. Left: the autoclass page (autoclass.html?lesson=<id>) in a frame.
+    Top right: the timetable (when each lesson runs). Bottom right: promo videos.
+    Times and videos are listed at the top of autoclass-demo.js. Needs AUTOCLASS=1 like autoclass.html.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/autoclass-demo.css" />
+</head>
+<body>
+  <main class="demo">
+    <section class="pane pane-class" aria-label="Autoclass">
+      <iframe id="class-frame" title="Autoclass" allow="autoplay; microphone; fullscreen" allowfullscreen></iframe>
+      <!-- Between classes: counts down to the next one. -->
+      <div id="countdown" class="countdown" role="timer" aria-live="off" hidden>
+        <p id="cd-label" class="cd-label"></p>
+        <p id="cd-title" class="cd-title"></p>
+        <p id="cd-time" class="cd-time"></p>
+        <p id="cd-at" class="cd-at"></p>
+      </div>
+    </section>
+
+    <section class="pane pane-schedule" aria-label="時間表">
+      <header class="pane-head">
+        <h2>時間表 <span id="clock" class="clock"></span></h2>
+        <label class="auto"><input id="auto" type="checkbox" checked /> 到時間自動開課</label>
+      </header>
+      <ol id="schedule" class="schedule"></ol>
+    </section>
+
+    <section class="pane pane-video" aria-label="影片">
+      <video id="promo" playsinline muted controls preload="metadata"></video>
+      <div id="promo-tabs" class="promo-tabs" role="tablist"></div>
+    </section>
+  </main>
+  <script src="/autoclass-demo.js"></script>
+</body>
+</html>

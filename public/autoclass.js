@@ -18,6 +18,7 @@
 
   const params = new URLSearchParams(location.search);
   const LESSON = params.get("lesson") || "animal-homes";
+  const AUTOSTART = /^(1|true|yes)$/i.test(params.get("autostart") || "");
   const CUES_URL = `/api/autoclass/lessons/${encodeURIComponent(LESSON)}/cues`;
   const PREF_KEYS = ["lango_host_prefs", "lango_host_prefs_hk"];
   const RESULT_HOLD_MS = 1500;
@@ -335,6 +336,28 @@
       .map((c) => `<option value="${String(c.id).replace(/"/g, "&quot;")}">${escapeText(c.name || c.class_name || c.id)}</option>`)
       .join("");
     el("class-step").hidden = false;
+    if (AUTOSTART) void autoStart();
+  }
+
+  // ?autostart=1 (the demo page, autoclass-demo.html): no clicks. Picks the class (?class=<name or id>,
+  // else the first), opens the room, and starts the class as soon as the video is ready. If the
+  // browser refuses to play with sound, the first click inside the page starts the video.
+  async function autoStart() {
+    const wanted = params.get("class");
+    if (wanted) {
+      const match = state.classes.find((c) => String(c.id) === wanted || String(c.name || c.class_name) === wanted);
+      if (match) el("class-select").value = String(match.id);
+    }
+    await openRoom();
+    if (!state.roomId) return;
+    for (let waited = 0; !state.videoReady && waited < 180000; waited += 200) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    if (!state.videoReady) return;
+    await startClass();
+    if (video.paused) {
+      document.addEventListener("click", () => video.play().catch(() => {}), { once: true });
+    }
   }
 
   // Stream the lesson instead of downloading it all first (a 25 MB render took most of a minute on
@@ -1956,6 +1979,8 @@
 
   // The host's own end-of-round leaderboard: podium for the top three, a sheet for the rest.
   function showFinalBoard() {
+    // Inside the demo page (autoclass-demo.html): tell it the class is over, so it can count down to the next.
+    if (window.parent !== window) window.parent.postMessage({ type: "autoclass-ended", lesson: LESSON }, location.origin);
     const rows = [...state.totals.entries()].map(([id, r]) => ({ id, name: r.name, score: r.score }));
     const board = el("final");
     board.hidden = false;
