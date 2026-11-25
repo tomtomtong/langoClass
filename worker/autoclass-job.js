@@ -22,7 +22,7 @@ export function devRenderer(env) {
   return /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(raw) ? raw : "";
 }
 
-const SAFE_NAME = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\.(?:mp4|mp3|webm|json)$/;
+export const SAFE_NAME = /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\.(?:mp4|mp3|webm|json)$/;
 
 export async function saveLessonRender(box, job, state) {
   const files = Array.isArray(state?.files) ? state.files : [];

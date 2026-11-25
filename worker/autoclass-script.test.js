@@ -3,9 +3,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ANALYSIS_BANKS, MAX_SPOKEN_LINES, isLessonId, lessonWarnings, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
 
-const animalHomes = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/animal-homes.json", import.meta.url), "utf8"));
+const animalHomes = JSON.parse(readFileSync(new URL("./fixtures/animal-homes.json", import.meta.url), "utf8"));
 const copy = () => structuredClone(animalHomes);
 const paths = (result) => result.errors.map((e) => e.path);
+
+// The real lesson opens with a warm-up; the tests below use a fixture without it so their scene
+// positions stay put.
+test("the real animal-homes lesson is valid, opens with a warm-up and follows the rules", () => {
+  const real = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/animal-homes.json", import.meta.url), "utf8"));
+  const result = validateLessonScript(real);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.script.scenes[0].warmup, true);
+  assert.deepEqual(lessonWarnings(result.script), []);
+});
 
 test("the animal-homes lesson is a valid script", () => {
   const result = validateLessonScript(animalHomes);
