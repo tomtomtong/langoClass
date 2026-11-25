@@ -1130,3 +1130,49 @@ select {
     animation: none;
   }
 }
+
+
+/* Background behind a see-through lesson video (autoclass.js applyBackground): a colour, or a
+   photo that is blurred and washed out so it never competes with the lesson. */
+.bg-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(62.5cqw 36.5cqw at 78% 18%, #f6f9ff 0%, #eaf1ff 55%, #dde9ff 100%);
+}
+
+.bg-layer::before {
+  content: "";
+  position: absolute;
+  inset: -5%;
+  background-image: var(--bg-photo, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(20px) saturate(0.9);
+}
+
+.bg-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, var(--bg-wash, 0));
+}
+
+.frame:not(.has-alpha) .bg-layer {
+  display: none;
+}
+
+.frame.has-alpha #lesson-video,
+.frame.has-alpha .poll,
+.frame.has-alpha .result {
+  background: transparent;
+}
+
+/* The pages over the video bring their own layout: the paused lesson frame must not show through. */
+.frame.has-alpha #lesson-video {
+  transition: opacity 0.3s ease;
+}
+
+.frame.has-alpha:has(#result:not([hidden]), #poll:not([hidden])) #lesson-video {
+  opacity: 0;
+}

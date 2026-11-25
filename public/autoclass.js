@@ -151,6 +151,87 @@
     return look || state.lesson?.theme || "";
   }
 
+  // ---- Background: a colour or a blurred photo behind the lesson, changed any time. Only when the
+  // lesson has a see-through video (cues.videoAlpha) and the browser plays it; otherwise the
+  // lesson's own light-blue background stays. A photo is blurred and washed out so it never
+  // competes with the lesson. ----
+
+  const BG_KEY = "lango_autoclass_bg";
+  const BACKGROUNDS = [
+    ["Light blue (default)", ""],
+    ["Cream", "color:#fff3df"],
+    ["Mint", "color:#e1f6ec"],
+    ["Rose", "color:#ffe6f0"],
+    ["Lavender", "color:#eee8ff"],
+    ["Sunny yellow", "color:#fff4c2"],
+    ["Photo: classroom (blurred)", "photo:/assets/waiting/bg.jpg"],
+    ["Photo: meadow and sky (blurred)", "photo:/assets/class/bg.jpg"],
+    ["Your own photo…", "custom"],
+  ];
+
+  // Chrome, Edge and Firefox play a WebM with a see-through background; Safari does not.
+  function playsSeeThrough() {
+    const ua = navigator.userAgent;
+    return !(/safari/i.test(ua) && !/chrome|chromium|crios|edg|android/i.test(ua));
+  }
+
+  let customPhotoUrl = "";
+
+  function applyBackground(value) {
+    const layer = el("bg-layer");
+    layer.style.removeProperty("--bg-photo");
+    layer.style.removeProperty("--bg-wash");
+    layer.style.background = "";
+    if (value.startsWith("color:")) {
+      layer.style.background = value.slice(6);
+    } else if (value.startsWith("photo:") || (value === "custom" && customPhotoUrl)) {
+      layer.style.setProperty("--bg-photo", `url("${value === "custom" ? customPhotoUrl : value.slice(6)}")`);
+      layer.style.setProperty("--bg-wash", "0.45");
+      layer.style.background = "#eaf1ff";
+    }
+  }
+
+  function chooseBackground(value) {
+    if (value === "custom" && !customPhotoUrl) {
+      el("bg-file").click();
+      return;
+    }
+    applyBackground(value);
+    // A photo from this computer is not remembered, only the choice of a colour or a built-in photo.
+    try {
+      if (value !== "custom") localStorage.setItem(BG_KEY, value);
+    } catch {
+      /* private mode */
+    }
+    for (const id of ["bg-select", "bg-live"]) el(id).value = value;
+  }
+
+  function initBackground(alpha) {
+    el("frame").classList.toggle("has-alpha", alpha);
+    el("bg-step").hidden = !alpha;
+    el("bg-live").hidden = !alpha;
+    if (!alpha) return;
+    for (const id of ["bg-select", "bg-live"]) {
+      const select = el(id);
+      select.innerHTML = BACKGROUNDS.map(([label, value]) => `<option value="${value}">${label}</option>`).join("");
+      select.addEventListener("change", () => chooseBackground(select.value));
+    }
+    el("bg-file").addEventListener("change", () => {
+      const file = el("bg-file").files?.[0];
+      if (!file) return;
+      if (customPhotoUrl) URL.revokeObjectURL(customPhotoUrl);
+      customPhotoUrl = URL.createObjectURL(file);
+      chooseBackground("custom");
+    });
+    let saved = "";
+    try {
+      saved = localStorage.getItem(BG_KEY) || "";
+    } catch {
+      /* private mode */
+    }
+    chooseBackground(BACKGROUNDS.some(([, value]) => value === saved) && saved !== "custom" ? saved : "");
+  }
+
   function hostSessionData() {
     return { uiLocale: "en", theme: chosenTheme() };
   }
@@ -193,7 +274,9 @@
         (speaks ? ` · ${speaks} speaking` : "") +
         (spells ? ` · ${spells} spelling race${spells > 1 ? "s" : ""}` : "") +
         (polls ? ` · ${polls} poll${polls > 1 ? "s" : ""}` : "");
-      void loadVideo(state.lesson.video);
+      const seeThrough = Boolean(state.lesson.videoAlpha) && playsSeeThrough();
+      initBackground(seeThrough);
+      void loadVideo(seeThrough ? state.lesson.videoAlpha : state.lesson.video);
     } catch (err) {
       showError(err.message);
       return;

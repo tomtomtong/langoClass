@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { poll, startJob } from "./video-job.js";
@@ -9,7 +9,7 @@ import { readLesson, writeLesson } from "./autoclass-lessons.js";
 import { memoryD1, memoryR2 } from "./test-env.js";
 import { validateLessonScript } from "../lib/autoclass-script.mjs";
 import { buildLesson } from "../video-container/autoclass/lesson.mjs";
-import { badAutoclassRequest, fetchMedia, listFiles, makeVoice, mediaFiles } from "../video-container/autoclass/job.mjs";
+import { badAutoclassRequest, fetchMedia, listFiles, makeVoice, mediaFiles, renderSeeThrough } from "../video-container/autoclass/job.mjs";
 import { voiceKey } from "../video-container/voice.mjs";
 import { uploadKey } from "./uploads.js";
 
@@ -501,6 +501,34 @@ test("a reveal video plays full size after Tommy gives the answer, before the re
     const index = readFileSync(path.join(dir, "index.html"), "utf8");
     assert.match(index, new RegExp(`<video id="reveal-video-1" class="clip reveal-video" src="assets/media/bees.mp4" data-start="${Math.round(videoAt * 1000) / 1000}" data-duration="20"[^>]*data-media-start="3" data-has-audio="true"`));
     assert.match(readFileSync(path.join(dir, "compositions", "quiz1.html"), "utf8"), /id="quiz1-adtag"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the see-through render has no background and is announced in cues.json", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "alpha-"));
+  try {
+    mkdirSync(path.join(dir, "out"), { recursive: true });
+    writeFileSync(path.join(dir, "index.html"), "<html><head></head><body></body></html>");
+    writeFileSync(path.join(dir, "out", "cues.json"), JSON.stringify({ video: "/u/x.mp4" }));
+    const logs = [];
+    const rendered = [];
+    const render = async (job, d, out) => {
+      rendered.push(out);
+      assert.match(readFileSync(path.join(d, "index.html"), "utf8"), /#ground \{ display: none/);
+      writeFileSync(out, "webm");
+    };
+    await renderSeeThrough({ job: {}, dir, lessonId: "x", mediaUrl: "/u", render, log: (j, m) => logs.push(m) });
+    assert.equal(rendered[0], path.join(dir, "out", "x-alpha.webm"));
+    assert.equal(JSON.parse(readFileSync(path.join(dir, "out", "cues.json"), "utf8")).videoAlpha, "/u/x-alpha.webm");
+
+    // A failing second render never fails the lesson: no videoAlpha, no half-written file.
+    writeFileSync(path.join(dir, "out", "cues.json"), JSON.stringify({ video: "/u/x.mp4" }));
+    await renderSeeThrough({ job: {}, dir, lessonId: "x", mediaUrl: "/u", render: async (j, d, out) => { writeFileSync(out, "half"); throw new Error("boom"); }, log: (j, m) => logs.push(m) });
+    assert.equal("videoAlpha" in JSON.parse(readFileSync(path.join(dir, "out", "cues.json"), "utf8")), false);
+    assert.equal(existsSync(path.join(dir, "out", "x-alpha.webm")), false);
+    assert.match(logs.at(-1), /boom/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
