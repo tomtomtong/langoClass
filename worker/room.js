@@ -134,7 +134,7 @@ export class RoomDurableObject extends DurableObject {
       // kept for replay.
       const keep = incoming.event !== "ask_question" && !check.practice;
       const spoken = await this.#spokenAnswer(incoming.data, check.sttLanguage, { keep });
-      if (spoken.error && check.practice) {
+      if (spoken.error && (check.practice || check.warmup)) {
         // A practice go still counts when the transcription fails (room-open-answer.js).
         incoming = { ...incoming, data: { text: "", hadAudio: true } };
       } else if (spoken.error) {

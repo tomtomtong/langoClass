@@ -1025,3 +1025,41 @@ select {
 .result.is-warmup #result-got {
   display: none;
 }
+
+
+/* Warm-up: a name pops up as each student speaks, so the room can see who has had a go. */
+.name-pops {
+  position: absolute;
+  left: 4cqw;
+  right: 4cqw;
+  top: 24cqw;
+  bottom: 12cqw;
+  pointer-events: none;
+}
+
+.name-pop {
+  position: absolute;
+  padding: 0.5cqw 1.8cqw 0.7cqw;
+  border-radius: 999px;
+  background: var(--cream);
+  border: 0.3cqw solid var(--pink);
+  box-shadow: 0 0.8cqw 2cqw rgba(120, 40, 120, 0.2);
+  color: var(--purple-deep);
+  font-size: 2.6cqw;
+  font-weight: 900;
+  white-space: nowrap;
+  transform: translate(-50%, -50%) rotate(var(--tilt, 0deg));
+  animation: name-pop 520ms cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+
+@keyframes name-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(var(--tilt, 0deg)); }
+  70% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(var(--tilt, 0deg)); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(var(--tilt, 0deg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .name-pop {
+    animation: none;
+  }
+}

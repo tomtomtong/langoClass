@@ -272,9 +272,67 @@ body {
   justify-content: center;
   background: var(--purple-deep);
 }
-.quiz-media .record {
-  font-size: 220px;
-  line-height: 1;
+/* A record player for the song quizzes: a black record with a pink and gold label, and a tonearm
+   that swings onto it (lesson.mjs animates both). The panel is 760x430 inside its border. */
+.vinyl {
+  position: absolute;
+  left: 78px;
+  top: 17px;
+  width: 386px;
+  height: 386px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at center, #121014 0 3px, #26212b 3px 5px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.vinyl::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(transparent 0 18%, rgba(255, 255, 255, 0.16) 25%, transparent 32% 68%, rgba(255, 255, 255, 0.16) 75%, transparent 82%);
+}
+.vinyl-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 136px;
+  height: 136px;
+  margin: -68px 0 0 -68px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffdf8 0 7px, transparent 8px), conic-gradient(#e838a8 0 50%, #ffe566 50% 100%);
+  border: 5px solid #fffdf8;
+}
+.tonearm-base {
+  position: absolute;
+  left: 589px;
+  top: 28px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #5b4a73 0 10px, #e7e2f1 11px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+.tonearm {
+  position: absolute;
+  left: 612px;
+  top: 60px;
+  width: 18px;
+  height: 330px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #d9d3e6, #fffdf8 50%, #cfc8de);
+  transform-origin: 9px 0;
+  transform: rotate(14deg);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+.tonearm::after {
+  content: "";
+  position: absolute;
+  left: -9px;
+  bottom: -26px;
+  width: 36px;
+  height: 64px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f9b545, #e08e12);
 }
 .options.options-beside {
   left: 960px;
@@ -316,7 +374,7 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  top: 790px;
+  top: 900px;
   text-align: center;
   font-size: 50px;
   font-weight: 900;

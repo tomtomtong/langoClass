@@ -45,7 +45,7 @@ test("the sentence is not read aloud by the room: the video already said it", ()
 
 test("the recording check tells the room not to keep the recording", () => {
   const check = openAnswerSubmitCheck(opened(), { role: "session_player", playerId: "ada", now: 4000 });
-  assert.deepEqual(check, { ok: true, sttLanguage: "en", practice: true });
+  assert.deepEqual(check, { ok: true, sttLanguage: "en", practice: true, warmup: false });
 });
 
 test("an answer is marked at once, with no model call and no points", () => {
@@ -128,4 +128,40 @@ test("Chinese is compared character by character", () => {
   assert.equal(practiceVerdict("雀仔住喺雀巢", "雀仔住喺雀巢。"), "great");
   assert.equal(practiceVerdict("雀仔住喺雀巢", "雀仔住"), "almost");
   assert.equal(practiceVerdict("雀仔住喺雀巢", "你好"), "tried");
+});
+
+// A warm-up question on the autoclass page: an open question with exercise.warmup. Nobody is marked.
+function warmupOpened() {
+  const state = room();
+  state.session.exercise = {
+    id: "autoclass-animal-homes-ask1",
+    type: "openanswer",
+    autoclass: true,
+    warmup: true,
+    items: [{ topic: "Say good morning and your name!", correctAnswer: "Any answer is fine", sttLanguage: "en", timeLimit: 15 }],
+  };
+  const started = host(state, "start_openanswer_round", {}, 2000);
+  return host(started.state, "open_openanswer_window", {}, 3000).state;
+}
+
+test("a warm-up answer is counted with no marking, no model call and no points", () => {
+  assert.equal(openAnswerSubmitCheck(warmupOpened(), { role: "session_player", playerId: "ada", now: 4000 }).warmup, true);
+  const sent = student(warmupOpened(), "ada", { text: "good morning I am Ada", hadAudio: true }, 4000);
+  assert.equal(sent.ack.ok, true);
+  assert.equal(sent.jobs.length, 0, "no marking model");
+  assert.equal(sent.ack.mine.warmup, true);
+  assert.equal(sent.ack.mine.answerVerdict, null);
+  assert.equal(sent.ack.mine.points, 0);
+  assert.equal(sent.ack.mine.analysisStatus, "done");
+  assert.equal(sent.state.session.openAnswerExerciseId, null);
+});
+
+test("a warm-up still counts when nothing was heard, and closes when everyone has had a go", () => {
+  let state = warmupOpened();
+  state = student(state, "ada", { text: "", hadAudio: true }, 4000).state;
+  state = student(state, "bo", { text: "hello", hadAudio: true }, 4100).state;
+  const last = student(state, "cy", { text: "morning", hadAudio: true }, 4200);
+  assert.equal(last.state.open.phase, "done");
+  assert.equal(last.state.open.responses.length, 3);
+  assert.equal(student(warmupOpened(), "bo", { text: "" }, 4000).ack.ok, false, "but something must have been recorded");
 });

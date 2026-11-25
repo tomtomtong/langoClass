@@ -317,7 +317,8 @@
     el("btn-skip").hidden = false;
     setLive("Get ready…", "");
     try {
-      await emit("start_next_exercise", { exercise: cue.exercise });
+      // A warm-up has no marking: the room just counts each go (worker/room-open-answer.js).
+      await emit("start_next_exercise", { exercise: cue.ask?.warmup ? { ...cue.exercise, warmup: true } : cue.exercise });
       await emit("create_room_game", { quiz });
       await emit("start_room_game");
     } catch (err) {
@@ -696,14 +697,45 @@
     const run = openRun(data);
     if (!run || !Array.isArray(data.responses)) return;
     run.responses = data.responses;
+    if (run.cue.ask?.warmup) popNames(run);
     // Late recordings and late marks: once everything is in, there is nothing left to wait for.
     if (run.closing) settleSpeak(run, "");
+  }
+
+  // Warm-up: a name pops up on the big screen as each student speaks, in a free spot.
+  const NAME_POP_COLS = 4;
+  const NAME_POP_ROWS = 3;
+  function popNames(run) {
+    run.popped ||= new Set();
+    run.popSlots ||= [];
+    const layer = el("name-pops");
+    for (const r of run.responses) {
+      if (!r?.playerId || run.popped.has(r.playerId)) continue;
+      run.popped.add(r.playerId);
+      if (!run.popSlots.length) {
+        const all = [];
+        for (let row = 0; row < NAME_POP_ROWS; row++) for (let col = 0; col < NAME_POP_COLS; col++) all.push([col, row]);
+        run.popSlots = all.sort(() => Math.random() - 0.5);
+      }
+      const [col, row] = run.popSlots.pop();
+      const chip = document.createElement("span");
+      chip.className = "name-pop";
+      chip.textContent = `👋 ${r.displayName || "Student"}`;
+      chip.style.left = `${((col + 0.5) / NAME_POP_COLS) * 100 + (Math.random() - 0.5) * 6}%`;
+      chip.style.top = `${((row + 0.5) / NAME_POP_ROWS) * 100 + (Math.random() - 0.5) * 8}%`;
+      chip.style.setProperty("--tilt", `${(Math.random() - 0.5) * 8}deg`);
+      layer.append(chip);
+      const pop = new Audio("/assets/soundeffect/user_click.mp3");
+      pop.volume = 0.35;
+      pop.play().catch(() => {});
+    }
   }
 
   function onSpeakClosed(data = {}) {
     const run = openRun(data);
     if (!run) return;
     if (Array.isArray(data.responses)) run.responses = data.responses;
+    if (run.cue.ask?.warmup) popNames(run);
     run.closing = true;
     el("btn-skip").hidden = true;
     if (run.ask) run.capTimer = setTimeout(() => finishSpeak(run.cue, true), ASK_MARK_MAX_MS);
@@ -733,6 +765,7 @@
     state.quiz = null;
     state.cueIndex += 1;
     el("btn-skip").hidden = true;
+    el("name-pops").replaceChildren();
 
     // Everyone in the class, as a quiz's results are: a student who did not speak is a silent row.
     const byId = new Map(run.responses.map((r) => [r.playerId, r]));
@@ -823,7 +856,7 @@
   // lead-out and plays on. The card grows out of the small Tommy in the video and goes back into
   // him, so the screen never jumps. ----
 
-  const TUTOR_WINDOW_S = 0.6; // a break is used if the video is this close after it
+  const TUTOR_CUE_CLEARANCE_S = 1.5; // no answer starts this close before the next cue
   const TUTOR_MAX_S = 75; // an answer never holds the class longer than this
   const ABORT = Symbol("tutor aborted");
   let tutorBusy = false; // from the card opening until it has fully gone
@@ -877,15 +910,17 @@
     void syncAsking();
   }
 
-  // True when the video has just reached a quiet moment and an answer is ready to play.
+  // True when an answer is ready and the class is simply playing, so it can be given straight away:
+  // the student asked a moment ago and should still remember the question. (It used to wait for a
+  // quiet moment in a teaching scene, which could be a minute away.) Not when a question is about
+  // to open, and a quiz, poll or results page in progress finishes first.
   function takeBreak() {
     const tutor = tutorConfig();
     if (!tutor || state.quiz || state.ended || video.paused || !state.answers.length) return null;
     const now = video.currentTime;
-    const index = tutor.breaks.findIndex((at, i) => !state.usedBreaks.has(i) && now >= at && now < at + TUTOR_WINDOW_S);
-    if (index < 0) return null;
-    state.usedBreaks.add(index);
-    return tutor.breaks[index];
+    const next = state.lesson.cues[state.cueIndex];
+    if (next && next.at - now < TUTOR_CUE_CLEARANCE_S) return null;
+    return now;
   }
 
   function wait(run, ms) {

@@ -46,7 +46,8 @@ export function openAnswerTopics(exercise) {
         sttLanguage: languageOf(item?.sttLanguage),
         answerSeconds: secondsOf(item?.timeLimit ?? item?.answerSeconds),
         practice: exercise?.practice === true,
-        quiet: exercise?.practice === true || exercise?.autoclass === true,
+        warmup: exercise?.warmup === true,
+        quiet: exercise?.practice === true || exercise?.autoclass === true || exercise?.warmup === true,
       };
     })
     .filter(Boolean);
@@ -76,6 +77,7 @@ function newRound(topics, index, now) {
     closedAt: 0,
     closeReason: "",
     practice: !!current.practice,
+    warmup: !!current.warmup,
     quiet: !!current.quiet,
     responses: [],
   };
@@ -88,7 +90,7 @@ export function startOpenAnswer(state, ctx) {
   // A fresh start is a fresh attempt: points from an earlier run are dropped. Practice and
   // autoclass questions save no scores at all, so they leave no exercise for queueOpenScores to save.
   const exercise = state.session.exercise;
-  const unscored = exercise?.practice === true || exercise?.autoclass === true;
+  const unscored = exercise?.practice === true || exercise?.autoclass === true || exercise?.warmup === true;
   state.session.openAnswerExerciseId = unscored ? null : exercise?.id ?? null;
   state.session.openAnswerPoints = {};
   state.open = newRound(topics, 0, ctx.now);
@@ -190,7 +192,7 @@ export function openAnswerSubmitCheck(state, ctx) {
   if (round.phase === "ready") return { ok: false, error: "The question has not opened yet." };
   if (!accepting(round, ctx.now)) return { ok: false, error: "Time is up for this question." };
   if (responseOf(round, playerId)) return { ok: false, error: "You already submitted an answer." };
-  return { ok: true, sttLanguage: round.sttLanguage || "", practice: !!round.practice };
+  return { ok: true, sttLanguage: round.sttLanguage || "", practice: !!round.practice, warmup: !!round.warmup };
 }
 
 export function submitOpenAnswer(state, data, ctx) {
@@ -200,6 +202,7 @@ export function submitOpenAnswer(state, data, ctx) {
   const playerId = ctx.playerId;
   const text = String(data.text || "").trim();
   if (round.practice) return submitPractice(state, data, ctx, text);
+  if (round.warmup) return submitWarmup(state, data, ctx, text);
   if (!text) return done(state, { ack: { ok: false, error: "Record your answer before submitting." } });
   if (text.length > RESPONSE_MAX) {
     return done(state, { ack: { ok: false, error: `Answer must be ${RESPONSE_MAX} characters or fewer.` } });
@@ -248,6 +251,37 @@ export function submitOpenAnswer(state, data, ctx) {
   }
   const result = done(state, { jobs, broadcasts });
   // Everyone who is online has answered: no reason to keep the class waiting.
+  if (round.phase === "answering" && everyoneAnswered(state, round)) {
+    const closed = closeWindow(state, ctx.now, "all");
+    result.broadcasts.push(...closed.broadcasts);
+    result.clearTimer = closed.clearTimer;
+  }
+  result.ack = { ok: true, ...payload(state, round, ctx.now, false, playerId) };
+  return result;
+}
+
+// A warm-up ("say good morning and your name") has nothing to mark: every go counts, nobody is
+// scored, and no model is asked. The words are kept only so Uncle Tommy can read a few names out.
+function submitWarmup(state, data, ctx, text) {
+  const round = state.open;
+  const playerId = ctx.playerId;
+  if (!text && !data.hadAudio) return done(state, { ack: { ok: false, error: "Record your answer before submitting." } });
+  round.responses.push({
+    playerId,
+    displayName: participantOf(state, playerId).displayName || "Student",
+    text: text.slice(0, RESPONSE_MAX),
+    at: ctx.now,
+    responseAudio: null,
+    responseAudioFormat: null,
+    analysis: "",
+    spokenFeedback: null,
+    answerVerdict: null,
+    warmup: true,
+    isCorrect: null,
+    points: 0,
+    analysisStatus: "done",
+  });
+  const result = done(state, { broadcasts: [frame("openanswer_update", state, round, ctx.now)] });
   if (round.phase === "answering" && everyoneAnswered(state, round)) {
     const closed = closeWindow(state, ctx.now, "all");
     result.broadcasts.push(...closed.broadcasts);
@@ -423,6 +457,7 @@ function mineOf(round, playerId) {
     analysisStatus: entry.analysisStatus,
     hasResponseAudio: Boolean(entry.responseAudio),
     practiceVerdict: entry.practiceVerdict || null,
+    warmup: entry.warmup === true,
   };
 }
 
