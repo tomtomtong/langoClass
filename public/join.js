@@ -289,6 +289,8 @@ function applyJoinRoomLook(data) {
   if (data?.theme != null) {
     joinRoomTheme = data.theme === "elderly" ? "elderly" : "";
     document.body.classList.toggle("theme-elderly", joinRoomTheme === "elderly");
+    // The default look on a plain light-blue background, the same sky as the elderly look.
+    document.body.classList.toggle("theme-mist", data.theme === "mist");
   }
   const locale = data?.uiLocale;
   if (joinRoomTheme === "elderly" && (!locale || locale === "en")) applyJoinUiLocale("yue");
