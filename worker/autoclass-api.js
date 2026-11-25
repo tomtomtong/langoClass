@@ -12,7 +12,7 @@
 import { autoclassEnabled } from "./autoclass-page.js";
 import { json, readJson, requireTeacher, sameId } from "./d1-store.js";
 import { VOICE_CACHE_PREFIX, readLesson, renderFolder, scriptHash, writeLesson } from "./autoclass-lessons.js";
-import { MEDIA_FOLDER, MEDIA_NAME, isLessonId, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
+import { MEDIA_FOLDER, MEDIA_NAME, isLessonId, lessonWarnings, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
 import { cleanLessonRenders } from "./autoclass-cleanup.js";
 import { storeUpload } from "./course-files.js";
 
@@ -74,7 +74,8 @@ async function saveLesson(request, env, auth, id) {
   const now = new Date().toISOString();
   const lesson = { ...(existing || { id, teacherId: auth.teacherId, createdAt: now }), script: input, updatedAt: now };
   await writeLesson(env, lesson);
-  return json({ ok: true, lesson: await lessonView(env, lesson) }, existing ? 200 : 201);
+  // Not errors: the lesson is saved. They tell the author where it strays from docs/autoclass-lesson-rules.md.
+  return json({ ok: true, lesson: await lessonView(env, lesson), warnings: lessonWarnings(checked.script) }, existing ? 200 : 201);
 }
 
 const MAX_MEDIA_BYTES = 20 * 1024 * 1024;
