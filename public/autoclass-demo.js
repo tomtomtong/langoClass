@@ -11,7 +11,7 @@
     { lesson: "animal-homes", title: "Animal Homes", sub: "English" },
   ];
   // The timetable: from START every LENGTH minutes with a GAP between, until a lesson would end after END.
-  const LOBBY_LEAD = 90; // seconds before a lesson starts that its waiting room (QR code, who has joined) goes up
+  const LOBBY_LEAD = 300; // seconds before a lesson starts that its waiting room (QR code, who has joined) goes up
   const LOBBY_MIN = 30; // the shortest wait, when the page is opened late or in the middle of a lesson
   const START = "10:00", END = "17:00", LENGTH = 30, GAP = 10;
   const hhmm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
