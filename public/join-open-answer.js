@@ -35,9 +35,45 @@ function formatOpenAnswerRecordTime(ms) {
   return `00 : ${String(Math.max(0, Math.ceil(ms / 1000))).padStart(2, "0")} s`;
 }
 
+let openAnswerMeterTimer = null;
+
 function stopOpenAnswerRecordTicker() {
   if (openAnswerRecordTicker) clearInterval(openAnswerRecordTicker);
   openAnswerRecordTicker = null;
+  if (openAnswerMeterTimer) clearInterval(openAnswerMeterTimer);
+  openAnswerMeterTimer = null;
+  openAnswerEl("recording-panel")
+    ?.querySelectorAll(".openanswer-waveform span")
+    .forEach((bar) => {
+      bar.style.animation = "";
+      bar.style.transform = "";
+    });
+}
+
+// The waveform follows the real voice, so a student can see the phone is hearing them; if nothing
+// is heard for three seconds, a kind line says to speak up or move closer.
+function startOpenAnswerMeter(recorder) {
+  const bars = [...(openAnswerEl("recording-panel")?.querySelectorAll(".openanswer-waveform span") || [])];
+  if (!bars.length || typeof recorder?.level !== "function") return;
+  bars.forEach((bar) => {
+    bar.style.animation = "none";
+  });
+  const startedAt = Date.now();
+  let heard = false;
+  let warned = false;
+  openAnswerMeterTimer = setInterval(() => {
+    const level = recorder.level();
+    if (level > 0.012) heard = true;
+    const height = Math.min(1, 0.12 + level * 9);
+    bars.forEach((bar, index) => {
+      const wobble = 0.65 + 0.35 * Math.sin(Date.now() / 90 + index * 1.7);
+      bar.style.transform = `scaleY(${Math.max(0.12, height * wobble).toFixed(2)})`;
+    });
+    if (!heard && !warned && Date.now() - startedAt > 3000) {
+      warned = true;
+      setOpenAnswerRecordStatus(uiT("openAnswer.noSound"));
+    }
+  }, 90);
 }
 
 function cancelOpenAnswerRecording() {
@@ -320,6 +356,8 @@ async function startOpenAnswerRecording() {
   };
   tick();
   openAnswerRecordTicker = setInterval(tick, 250);
+  setOpenAnswerRecordingMode(true);
+  startOpenAnswerMeter(openAnswerRecorder);
   openAnswerRecordTimeout = setTimeout(() => {
     openAnswerRecordTimeout = null;
     if (openAnswerRecorder?.isRecording()) void finishOpenAnswerRecording({ timedOut: true });

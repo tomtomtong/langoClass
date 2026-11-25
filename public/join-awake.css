@@ -1,0 +1,53 @@
+/* The one-time "turn on your microphone" card on the students' join page (join-awake.js). */
+.join-mic-card {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 60;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 22px 22px 24px;
+  border-radius: 28px;
+  background: #fffdf8;
+  color: #26323f;
+  box-shadow: 0 14px 40px rgba(52, 67, 86, 0.3);
+  font-family: "Nunito", "Noto Sans TC", "PingFang HK", system-ui, sans-serif;
+  text-align: center;
+}
+.join-mic-card h3 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 900;
+}
+.join-mic-card p {
+  margin: 0 0 16px;
+  font-size: 20px;
+  line-height: 1.45;
+}
+.join-mic-btn {
+  width: 100%;
+  min-height: 68px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #a1268e, #743c9b);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 900;
+  font-family: inherit;
+}
+.join-mic-btn:disabled {
+  opacity: 0.7;
+}
+.join-mic-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: #44566a;
+  font-size: 32px;
+  line-height: 1;
+}
