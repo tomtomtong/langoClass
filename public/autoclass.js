@@ -19,6 +19,8 @@
   const params = new URLSearchParams(location.search);
   const LESSON = params.get("lesson") || "animal-homes";
   const AUTOSTART = /^(1|true|yes)$/i.test(params.get("autostart") || "");
+  // Waiting room before an autostart class: seconds to let people scan in (?lobby=<seconds>, default 60).
+  const LOBBY_SECONDS = Math.max(0, Number(params.get("lobby")) || 60);
   const CUES_URL = `/api/autoclass/lessons/${encodeURIComponent(LESSON)}/cues`;
   const PREF_KEYS = ["lango_host_prefs", "lango_host_prefs_hk"];
   const RESULT_HOLD_MS = 1500;
@@ -147,6 +149,16 @@
     const online = list.filter((p) => p.online !== false);
     el("joined-count").textContent = String(online.length);
     el("joined-names").textContent = online.map((p) => p.displayName || p.name).join(", ") || "nobody yet";
+    const count = el("lobby-count");
+    if (count.textContent !== String(online.length)) {
+      count.textContent = String(online.length);
+      count.classList.remove("pop");
+      void count.offsetWidth; // restart the pop
+      count.classList.add("pop");
+    }
+    // The newest few, so the screen shows people arriving; the rest are counted.
+    const names = online.map((p) => p.displayName || p.name).filter(Boolean);
+    el("lobby-names").textContent = names.slice(-8).reverse().join("、") + (names.length > 8 ? `⋯⋯ 等 ${names.length} 位` : "");
   }
 
   // The students' join page takes the lesson's look (for example big type for older learners).
@@ -340,20 +352,35 @@
   }
 
   // ?autostart=1 (the demo page, autoclass-demo.html): no clicks. Picks the class (?class=<name or id>,
-  // else the first), opens the room, and starts the class as soon as the video is ready. If the
-  // browser refuses to play with sound, the first click inside the page starts the video.
+  // else the first), opens the room, shows a waiting room (big QR code, PIN, how many have joined,
+  // and a countdown) for ?lobby=<seconds>, then starts the class once the video is ready. The Start
+  // button skips the wait. If the browser refuses to play with sound, the first click in the page
+  // starts the video.
   async function autoStart() {
     const wanted = params.get("class");
     if (wanted) {
       const match = state.classes.find((c) => String(c.id) === wanted || String(c.name || c.class_name) === wanted);
       if (match) el("class-select").value = String(match.id);
     }
+    el("setup").classList.add("lobby");
+    el("start-class").textContent = "即刻開始";
     await openRoom();
     if (!state.roomId) return;
-    for (let waited = 0; !state.videoReady && waited < 180000; waited += 200) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const title = el("setup").querySelector("h1");
+    if (state.lesson?.title) title.textContent = state.lesson.title;
+    const deadline = Date.now() + LOBBY_SECONDS * 1000;
+    const timer = el("lobby-timer");
+    const fill = el("lobby-fill");
+    for (;;) {
+      if (el("setup").hidden) return; // someone pressed Start class
+      const left = Math.max(0, deadline - Date.now());
+      const secs = Math.ceil(left / 1000);
+      timer.textContent = left > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")} 後開始` : state.videoReady ? "開始！" : "準備緊……";
+      fill.style.transform = `scaleX(${LOBBY_SECONDS ? left / (LOBBY_SECONDS * 1000) : 0})`;
+      if (left <= 0 && state.videoReady) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    if (!state.videoReady) return;
     await startClass();
     if (video.paused) {
       document.addEventListener("click", () => video.play().catch(() => {}), { once: true });

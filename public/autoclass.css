@@ -1257,3 +1257,29 @@ select {
     animation: none;
   }
 }
+
+/* Waiting room (?autostart=1, the demo page): a big screen to catch the eye while people scan in. */
+.lobby-only { display: none; }
+.lobby .lobby-only { display: block; }
+.lobby .setup-card { width: min(1100px, 100%); padding: 40px 56px; text-align: center; }
+.lobby .eyebrow, .lobby #setup-lesson, .lobby #look-step, .lobby #bg-step, .lobby #class-step, .lobby .joined-line { display: none; }
+.lobby h1 { margin: 0 0 8px; font-size: clamp(32px, 4vw, 56px); line-height: 1.15; }
+.lobby .room { justify-content: center; gap: 48px; margin-top: 12px; text-align: left; }
+.lobby #room-qr { width: min(36vh, 320px); height: min(36vh, 320px); padding: 10px; box-shadow: 0 6px 24px rgba(80, 40, 120, 0.15); }
+.lobby .lobby-lead { margin: 0 0 12px; font-size: clamp(22px, 2.4vw, 34px); font-weight: 900; color: var(--purple-deep); }
+.lobby .room .muted { margin: 4px 0 0; font-size: 18px; }
+.lobby #room-link { font-size: clamp(18px, 1.8vw, 26px); font-weight: 800; }
+.lobby .pin { font-size: clamp(44px, 5vw, 76px); line-height: 1.1; }
+.lobby-joined p { margin: 0; }
+.lobby-joined { margin-top: 18px; }
+.lobby-joined b { display: inline-block; min-width: 1.2em; font-size: clamp(48px, 6vw, 88px); line-height: 1; font-weight: 900; color: var(--teal); font-variant-numeric: tabular-nums; }
+.lobby-joined p:first-child { font-size: clamp(22px, 2.4vw, 34px); font-weight: 800; }
+.lobby-joined b.pop { animation: lobby-pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes lobby-pop { from { transform: scale(1.35); } to { transform: scale(1); } }
+.lobby-names { margin-top: 6px !important; min-height: 1.4em; font-size: clamp(16px, 1.6vw, 22px); font-weight: 700; color: var(--muted); overflow-wrap: anywhere; }
+.lobby-wait { margin: 18px auto 0; max-width: 640px; }
+.lobby-timer { margin: 0 0 10px; font-size: clamp(20px, 2.2vw, 30px); font-weight: 800; font-variant-numeric: tabular-nums; }
+.lobby-bar { height: 12px; overflow: hidden; border-radius: 999px; background: var(--teal-soft); }
+.lobby-bar i { display: block; height: 100%; width: 100%; background: var(--teal); transform-origin: left; }
+.lobby #start-class { display: block; width: auto; margin: 18px auto 0; padding-inline: 48px; }
+@media (prefers-reduced-motion: reduce) { .lobby-joined b.pop { animation: none; } }

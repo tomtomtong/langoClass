@@ -59,13 +59,23 @@
         <div class="room">
           <img id="room-qr" alt="Join QR code" />
           <div>
+            <p class="lobby-only lobby-lead">用手機 scan QR code 加入</p>
             <p class="muted">Students join at</p>
             <p><a id="room-link" target="_blank" rel="noopener"></a></p>
             <p class="muted">Room PIN</p>
             <p id="room-pin" class="pin"></p>
           </div>
         </div>
-        <p class="muted"><span id="joined-count">0</span> joined: <span id="joined-names"></span></p>
+        <p class="muted joined-line"><span id="joined-count">0</span> joined: <span id="joined-names"></span></p>
+        <!-- Waiting room (?autostart=1): who is in so far, and how long until the class starts by itself. -->
+        <div class="lobby-only lobby-joined" aria-live="polite">
+          <p><b id="lobby-count">0</b> 位已經入咗課堂</p>
+          <p id="lobby-names" class="lobby-names"></p>
+        </div>
+        <div class="lobby-only lobby-wait">
+          <p id="lobby-timer" class="lobby-timer" role="timer"></p>
+          <div class="lobby-bar"><i id="lobby-fill"></i></div>
+        </div>
         <button id="start-class" class="btn btn-primary">Start class</button>
       </div>
 

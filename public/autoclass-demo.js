@@ -11,6 +11,8 @@
     { lesson: "animal-homes", title: "Animal Homes", sub: "English" },
   ];
   // The timetable: from START every LENGTH minutes with a GAP between, until a lesson would end after END.
+  const LOBBY_LEAD = 90; // seconds before a lesson starts that its waiting room (QR code, who has joined) goes up
+  const LOBBY_MIN = 30; // the shortest wait, when the page is opened late or in the middle of a lesson
   const START = "10:00", END = "17:00", LENGTH = 30, GAP = 10;
   const hhmm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
   const SCHEDULE = [];
@@ -67,13 +69,23 @@
   let autoSlot = -1; // the live slot the frame was last switched to automatically
   let endedTimer = null;
 
-  function openLesson(index) {
+  // lobbySeconds: how long the class waits for people to scan in before it starts by itself.
+  function openLesson(index, lobbySeconds = LOBBY_MIN) {
     if (index === selected && countdown.hidden) return; // do not restart a class that is running
     clearTimeout(endedTimer);
     selected = index;
     countdown.hidden = true;
-    frame.src = `/autoclass.html?autostart=1&lesson=${encodeURIComponent(SCHEDULE[index].lesson)}`;
+    frame.src = `/autoclass.html?autostart=1&lobby=${Math.round(lobbySeconds)}&lesson=${encodeURIComponent(SCHEDULE[index].lesson)}`;
     render();
+  }
+
+  // The lesson to have open now: one whose waiting room should be up (LOBBY_LEAD seconds before it
+  // starts) or that is already on. Not while another class is still running (a few minutes' grace).
+  function dueLesson(sec) {
+    const i = SCHEDULE.findIndex((s) => sec < toMin(s.to) * 60 && toMin(s.from) * 60 - sec <= LOBBY_LEAD);
+    if (i < 0 || i === autoSlot) return -1;
+    const busy = selected >= 0 && sec < toMin(SCHEDULE[selected].to) * 60 + 300;
+    return busy && selected !== i ? -1 : i;
   }
 
   // The left pane as a countdown to the next lesson (a blank frame stops the old class and its sound).
@@ -156,15 +168,15 @@
     return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   }
 
-  // Every second: when a lesson's time has come, open it (once; a click on the timetable wins until
-  // the next one), keep the countdown running, and redraw the timetable each minute.
+  // Every second: open the next lesson when its waiting room is due (a click on the timetable wins
+  // until then), keep the countdown running, and redraw the timetable each minute.
   function tick() {
     const sec = nowSeconds();
     if (autoBox.checked) {
-      const live = SCHEDULE.findIndex((s) => statusAt(s, sec) === "live");
-      if (live >= 0 && live !== autoSlot) {
-        autoSlot = live;
-        openLesson(live);
+      const due = dueLesson(sec);
+      if (due >= 0) {
+        autoSlot = due;
+        openLesson(due, Math.max(LOBBY_MIN, toMin(SCHEDULE[due].from) * 60 - sec));
       }
     }
     if (!countdown.hidden) updateCountdown();
@@ -190,10 +202,11 @@
   promo.addEventListener("ended", () => playPromo((promoIndex + 1) % PROMOS.length, true));
   playPromo(0, true); // muted, so the browser allows autoplay; the lesson keeps the sound
 
-  // Start: the live lesson if one is on; otherwise count down to the next (or open it by hand).
-  const live0 = SCHEDULE.findIndex((s) => statusAt(s, nowSeconds()) === "live");
-  autoSlot = live0;
-  if (live0 >= 0) openLesson(live0);
-  else showCountdown();
+  // Start: the lesson that is due (waiting room or on), else count down to the next one.
+  const due0 = dueLesson(nowSeconds());
+  if (due0 >= 0) {
+    autoSlot = due0;
+    openLesson(due0, Math.max(LOBBY_MIN, toMin(SCHEDULE[due0].from) * 60 - nowSeconds()));
+  } else showCountdown();
   setInterval(tick, 1000);
 })();
