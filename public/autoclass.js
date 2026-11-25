@@ -149,41 +149,47 @@
     const online = list.filter((p) => p.online !== false);
     el("joined-count").textContent = String(online.length);
     el("joined-names").textContent = online.map((p) => p.displayName || p.name).join(", ") || "nobody yet";
-    const count = el("lobby-count");
-    if (count.textContent !== String(online.length)) {
-      count.textContent = String(online.length);
+    renderLobbyPlayers(online);
+  }
+
+  // The waiting room's "connected students" panel, like the host's: a round coloured badge with the
+  // initials and the name for each person in, in the order they came; a ding for each new arrival.
+  const lobbySeen = new Set();
+  let lobbyPrimed = false;
+  function renderLobbyPlayers(online) {
+    const grid = el("scene-players");
+    const people = online.map((p) => ({ id: String(p.userId ?? p.id ?? p.displayName ?? p.name), name: p.displayName || p.name || "?" }));
+    const fresh = new Set(people.filter((p) => !lobbySeen.has(p.id)).map((p) => p.id));
+    fresh.forEach((id) => lobbySeen.add(id));
+    if (fresh.size && lobbyPrimed && !el("setup").hidden) playLobbySound("/assets/soundeffect/login_success.mp3", 0.5);
+    lobbyPrimed = true;
+
+    const count = el("scene-count");
+    if (count.textContent !== String(people.length)) {
+      count.textContent = String(people.length);
       count.classList.remove("pop");
       void count.offsetWidth; // restart the pop
       count.classList.add("pop");
     }
-    renderLobbyPlayers(online);
-  }
-
-  // The waiting room's player row: a name chip for each person in, newest first, the newest popping
-  // in with a ding. Names beyond the first dozen are only counted.
-  const lobbySeen = new Set();
-  let lobbyPrimed = false;
-  function renderLobbyPlayers(online) {
-    const row = el("lobby-players");
-    const people = online.map((p) => ({ id: String(p.userId ?? p.id ?? p.displayName ?? p.name), name: p.displayName || p.name || "?" }));
-    const fresh = people.filter((p) => !lobbySeen.has(p.id));
-    fresh.forEach((p) => lobbySeen.add(p.id));
-    if (fresh.length && lobbyPrimed && !el("setup").hidden) playLobbySound("/assets/soundeffect/login_success.mp3", 0.5);
-    lobbyPrimed = true;
-    const shown = people.slice(-12).reverse();
-    row.textContent = "";
-    shown.forEach((p) => {
+    el("scene-wait").hidden = people.length > 0;
+    grid.textContent = "";
+    for (const p of people) {
       const li = document.createElement("li");
-      li.textContent = p.name;
-      if (fresh.some((f) => f.id === p.id)) li.classList.add("pop");
-      row.appendChild(li);
-    });
-    if (people.length > shown.length) {
-      const more = document.createElement("li");
-      more.className = "more";
-      more.textContent = `+${people.length - shown.length}`;
-      row.appendChild(more);
+      li.className = `lw-student${fresh.has(p.id) ? " pop" : ""}`;
+      const badge = document.createElement("span");
+      badge.className = "lw-avatar";
+      badge.style.setProperty("--hue", String([...p.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 360, 17)));
+      const initials = document.createElement("span");
+      initials.className = "lw-initials";
+      initials.textContent = initialsOf(p.name);
+      badge.appendChild(initials);
+      const name = document.createElement("span");
+      name.className = "lw-name";
+      name.textContent = p.name;
+      li.append(badge, name);
+      grid.appendChild(li);
     }
+    if (fresh.size) grid.scrollTop = grid.scrollHeight;
   }
 
   // Short sounds in the waiting room. The browser may refuse until someone has clicked the page; then it is silent.
@@ -403,17 +409,21 @@
     await openRoom();
     if (!state.roomId) return;
 
-    const title = el("setup").querySelector("h1");
-    if (state.lesson?.title) title.textContent = state.lesson.title;
+    el("scene-pin").textContent = state.roomId;
+    el("scene-qr").src = el("room-qr").src;
+    el("scene-lesson").textContent = state.lesson?.title ? `今堂：${state.lesson.title}` : "";
+    const start = el("scene-start");
+    start.addEventListener("click", () => el("start-class").click());
     const deadline = Date.now() + LOBBY_SECONDS * 1000;
-    const timer = el("lobby-timer");
-    const fill = el("lobby-fill");
+    const timer = el("scene-timer");
+    const label = el("scene-timer-label");
     for (;;) {
       if (el("setup").hidden) return; // someone pressed Start class
       const left = Math.max(0, deadline - Date.now());
       const secs = Math.ceil(left / 1000);
-      timer.textContent = left > 0 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")} 後開始` : state.videoReady ? "開始！" : "準備緊……";
-      fill.style.transform = `scaleX(${LOBBY_SECONDS ? left / (LOBBY_SECONDS * 1000) : 0})`;
+      start.disabled = !state.videoReady;
+      label.textContent = left > 0 || state.videoReady ? "開始倒數" : "準備緊";
+      timer.textContent = `${String(Math.floor(secs / 60)).padStart(2, "0")} : ${String(secs % 60).padStart(2, "0")}`;
       if (left <= 0 && state.videoReady) break;
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
