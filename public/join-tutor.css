@@ -1,15 +1,14 @@
 /* "Raise a hand" on the join page (join-tutor.js). */
 .tutor-ask-btn {
   position: fixed;
-  left: 50%;
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--emoji-h, 0px) + 66px); /* the "I don't get it" button (52px) and a 14px gap */
-  transform: translateX(-50%);
+  left: 18px;
+  bottom: calc(max(0px, env(safe-area-inset-bottom)) + 40px); /* level with the reactions button, clear of the browser's own buttons */
   z-index: 60;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 52px;
-  padding: 0 24px;
+  min-height: 64px;
+  padding: 0 26px;
   border: 0;
   border-radius: 999px;
   background: linear-gradient(135deg, #a1268e, #743c9b);
