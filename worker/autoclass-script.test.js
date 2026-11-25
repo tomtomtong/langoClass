@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ANALYSIS_BANKS, MAX_SPOKEN_LINES, isLessonId, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
+import { ANALYSIS_BANKS, MAX_SPOKEN_LINES, isLessonId, lessonWarnings, spokenLines, validateLessonScript } from "../lib/autoclass-script.mjs";
 
 const animalHomes = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/animal-homes.json", import.meta.url), "utf8"));
 const copy = () => structuredClone(animalHomes);
@@ -233,4 +233,27 @@ test("a quiz may play a video (e.g. the ad) after the answer, up to a minute", (
   input.scenes[2].revealVideo = { src: "/uploads/autoclass/_media/song.mp3", seconds: 90 };
   input.scenes[5].clip = { src: "/uploads/autoclass/_media/ad.mp4" };
   assert.deepEqual(paths(validateLessonScript(input)), ["scenes[2].revealVideo.seconds", "scenes[2].revealVideo.src", "scenes[5].clip.src"]);
+});
+
+test("the hk-nostalgia lesson follows the lesson rules", () => {
+  const lesson = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/hk-nostalgia.json", import.meta.url), "utf8"));
+  const { script } = validateLessonScript(lesson);
+  assert.deepEqual(lessonWarnings(script), []);
+});
+
+test("lessonWarnings points at the rules a script breaks without blocking it", () => {
+  const lesson = JSON.parse(readFileSync(new URL("../autoclass-video/lessons/hk-nostalgia.json", import.meta.url), "utf8"));
+  // No warm-up first, a song quiz with no intro, a short open question and a word for children.
+  lesson.scenes = lesson.scenes.filter((scene) => !scene.warmup);
+  const song = lesson.scenes.find((scene) => scene.kind === "quiz" && scene.clip);
+  delete song.intro;
+  lesson.scenes.push({ kind: "ask", emoji: "?", q: "Q?", ask: "小朋友，講下？", answer: "a", reveal: "ok", seconds: 10 });
+  const checked = validateLessonScript(lesson);
+  assert.equal(checked.ok, true, "still a valid script");
+  const warnings = lessonWarnings(checked.script);
+  assert.equal(warnings.length, 4);
+  assert.match(warnings[0], /warm-up/);
+  assert.ok(warnings.some((w) => /intro/.test(w)));
+  assert.ok(warnings.some((w) => /20 seconds/.test(w)));
+  assert.ok(warnings.some((w) => /小朋友/.test(w)));
 });
