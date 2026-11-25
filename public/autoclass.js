@@ -1087,7 +1087,8 @@
   // made up in class. The page fades in over the paused video and out again before it plays on. ----
 
   const RESULT_MAX_S = 60; // like an answer, the results never hold the class longer than this
-  const RESULT_NAMES_MAX = 6;
+  const extra0 = (names) => (names.length > RESULT_NAMES_MAX ? RESULT_NAMES_MAX - 1 : RESULT_NAMES_MAX);
+  const RESULT_NAMES_MAX = 15; // the board fills the screen's left side: five across, three down
   let resultBusy = false;
 
   // Emoji are a distraction while the class is watching, so the phones' emoji bar is open only
@@ -1229,8 +1230,10 @@
     count.textContent = `${speak ? summary.answered : summary.right} / ${summary.total}`;
     if (names.length) {
       el("result-got-title").textContent = speak ? "🌟 Great speaking" : spell ? "🏆 Top spellers" : t("mcq.correctResponses", null, "Correct Responses");
-      const shown = names.slice(0, RESULT_NAMES_MAX);
+      const shown = names.slice(0, extra0(names));
       const extra = names.length - shown.length;
+      const cells = shown.length + (extra ? 1 : 0);
+      el("result-got-grid").style.setProperty("--cols", String(Math.min(cells, 5)));
       el("result-got-grid").innerHTML =
         shown
           .map(({ name, label }, i) => `<div class="result-got-student" style="--i: ${i}" title="${escapeText(label)}">
@@ -1415,8 +1418,11 @@
       if (warm) el("result-tag").textContent = `👋 ${cue.ask.tag || "Warm-up"}`;
       setAnchor(layer, tutor);
       if (tutor?.tommyVideo && !tommy.src) tommy.src = tutor.tommyVideo;
-      layer.classList.remove("is-open", "is-revealed");
+      layer.classList.remove("is-open", "is-revealed", "is-step-2");
       layer.classList.toggle("is-warmup", warm);
+      // Students who got it right get a page of their own, after the question and the donut.
+      const board = !warm && !el("result-got").hidden;
+      layer.classList.toggle("is-step-1", board);
       layer.hidden = false;
       tommy.hidden = !tutor?.tommyVideo;
       tommy.currentTime = 0;
@@ -1427,11 +1433,31 @@
       await wait(run, 450);
       // The donut sweeps round and the answers come in one after another.
       layer.classList.add("is-revealed");
-      playResultSound(warm ? "warmup" : summary.situation);
+      if (!board) playResultSound(warm ? "warmup" : summary.situation);
       await wait(run, 1100);
-      for (const line of lines) await sayLine(run, line);
-      if (cue.ask) await sayHighlights(run, cue);
-      if (!lines.length && !warm) await wait(run, 5000); // no recordings: the bars alone, for a few seconds
+      if (!board) {
+        for (const line of lines) await sayLine(run, line);
+        if (cue.ask) await sayHighlights(run, cue);
+        if (!lines.length && !warm) await wait(run, 5000); // no recordings: the bars alone, for a few seconds
+      } else {
+        // Page 1: how the class answered. Tommy leads in and talks about the wrong answers or the
+        // silent friends; the line about how the class did waits for the students on page 2.
+        const cheer = lines.find((line) => line.kind === summary.situation);
+        const first = lines.filter((line) => line !== cheer);
+        for (const line of first) await sayLine(run, line);
+        if (!first.length) await wait(run, 4000);
+        await wait(run, 500);
+        // Page 2: the question fades out, the students who got it right fill the screen.
+        el("result-caption").textContent = "";
+        layer.classList.remove("is-step-1");
+        layer.classList.add("is-step-2");
+        playResultSound(summary.situation);
+        await wait(run, 1300);
+        if (cheer) await sayLine(run, cheer);
+        if (cue.ask) await sayHighlights(run, cue);
+        if (!cheer) await wait(run, 3500);
+        await wait(run, 2200); // time to find your own name
+      }
       await wait(run, 600);
     } catch (error) {
       if (error !== ABORT) console.warn("autoclass: could not show the results", error);
