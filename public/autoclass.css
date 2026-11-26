@@ -1317,3 +1317,8 @@ select {
 /* The code card and the timer take the left column, so Uncle Tommy stands under the students panel. */
 .lobby .lw-panel { align-self: start; margin-top: clamp(8px, 3vh, 40px); max-height: 56vh; }
 .lobby .lw-wizard { left: 25%; bottom: -2%; width: min(340px, 28vw); }
+/* Started by hand (Open room): no countdown ring. While the room is still opening, the scene is empty. */
+.lobby.untimed .lw-timer-ring { display: none; }
+.lobby.lw-loading .lw-code-card, .lobby.lw-loading .lw-panel, .lobby.lw-loading .lw-footer, .lobby.lw-loading .lw-wizard { visibility: hidden; }
+.lw-error { margin: 0 0 8px; font-weight: 800; color: #b91c4f; }
+.lw-error:empty { display: none; }

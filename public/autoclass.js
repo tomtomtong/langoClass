@@ -54,6 +54,7 @@
 
   function showError(message) {
     el("setup-error").textContent = message || "";
+    el("scene-error").textContent = message || ""; // the waiting room has no setup card to show it in
   }
 
   // ---- Sign-in reuse: the host page keeps the teacher's token in localStorage. ----
@@ -404,16 +405,13 @@
       const match = state.classes.find((c) => String(c.id) === wanted || String(c.name || c.class_name) === wanted);
       if (match) el("class-select").value = String(match.id);
     }
-    el("setup").classList.add("lobby");
-    el("start-class").textContent = "即刻開始";
+    el("setup").classList.add("lobby", "lw-loading"); // the scene waits, empty, until the room is open
     await openRoom();
-    if (!state.roomId) return;
+    if (!state.roomId) {
+      el("setup").classList.remove("lobby", "lw-loading"); // show the setup card and its error
+      return;
+    }
 
-    el("scene-pin").textContent = state.roomId;
-    el("scene-qr").src = el("room-qr").src;
-    el("scene-lesson").textContent = state.lesson?.title ? `今堂：${state.lesson.title}` : "";
-    const start = el("scene-start");
-    start.addEventListener("click", () => el("start-class").click());
     const deadline = Date.now() + LOBBY_SECONDS * 1000;
     const timer = el("scene-timer");
     const label = el("scene-timer-label");
@@ -421,7 +419,6 @@
       if (el("setup").hidden) return; // someone pressed Start class
       const left = Math.max(0, deadline - Date.now());
       const secs = Math.ceil(left / 1000);
-      start.disabled = !state.videoReady;
       label.textContent = left > 0 || state.videoReady ? "開始倒數" : "準備緊";
       timer.textContent = `${String(Math.floor(secs / 60)).padStart(2, "0")} : ${String(secs % 60).padStart(2, "0")}`;
       if (left <= 0 && state.videoReady) break;
@@ -491,10 +488,34 @@
       el("room-qr").src = `/api/room-qr.svg?url=${encodeURIComponent(joinUrl)}`;
       el("class-step").hidden = true;
       el("room-step").hidden = false;
+      enterWaitingRoom();
     } catch (err) {
       showError(err.message);
       button.disabled = false;
     }
+  }
+
+  // The room is open: show the host-style waiting room (code card with QR, who has joined, Start).
+  // Started by hand (Open room) it has no countdown; autoStart adds one.
+  let waitingRoomWired = false;
+  function enterWaitingRoom() {
+    const setup = el("setup");
+    setup.classList.add("lobby");
+    setup.classList.remove("lw-loading");
+    setup.classList.toggle("untimed", !AUTOSTART);
+    el("scene-pin").textContent = state.roomId;
+    el("scene-qr").src = el("room-qr").src;
+    el("scene-lesson").textContent = state.lesson?.title ? `今堂：${state.lesson.title}` : "";
+    const start = el("scene-start");
+    start.textContent = AUTOSTART ? "即刻開始" : "開始上堂";
+    if (waitingRoomWired) return;
+    waitingRoomWired = true;
+    start.addEventListener("click", () => el("start-class").click());
+    // The Start button follows the lesson video: not before it can play through.
+    const sync = setInterval(() => {
+      if (setup.hidden) return clearInterval(sync);
+      start.disabled = !state.videoReady;
+    }, 250);
   }
 
   // ---- Running the class ----
