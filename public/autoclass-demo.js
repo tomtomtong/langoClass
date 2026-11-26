@@ -4,11 +4,14 @@
 (function () {
   "use strict";
 
-  // The three autoclass lessons (autoclass-video/lessons/<id>.json), run in turn.
+  // The autoclass lessons (autoclass-video/lessons/<id>.json), run in turn.
   const LESSONS = [
     { lesson: "hk-nostalgia", title: "香港老友記：估估佢係乜", sub: "Hong Kong nostalgia" },
     { lesson: "dont-get-fooled-by-ai", title: "唔好俾 AI 呃到你", sub: "Don't get fooled by AI" },
     { lesson: "animal-homes", title: "Animal Homes", sub: "English" },
+    { lesson: "japanese-1-hello", title: "日文（一）：打招呼同漢字", sub: "Japanese in Cantonese" },
+    { lesson: "japanese-3-animals-colors", title: "日文（三）：動物同顏色", sub: "Japanese in Cantonese" },
+    { lesson: "japanese-6-anime-classics", title: "日文（六）：估動畫同經典", sub: "Japanese in Cantonese" },
   ];
   // The timetable: from START every LENGTH minutes with a GAP between, until a lesson would end after END.
   const LOBBY_LEAD = 300; // seconds before a lesson starts that its waiting room (QR code, who has joined) goes up
