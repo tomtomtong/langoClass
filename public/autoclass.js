@@ -149,6 +149,13 @@
     state.participants = list;
     const online = list.filter((p) => p.online !== false);
     el("joined-count").textContent = String(online.length);
+    const onlineEl = el("roomcard-online-count"); // the top-right card shows how many are in, all class long
+    if (onlineEl.textContent !== String(online.length)) {
+      onlineEl.textContent = String(online.length);
+      onlineEl.classList.remove("pop");
+      void onlineEl.offsetWidth;
+      onlineEl.classList.add("pop");
+    }
     el("joined-names").textContent = online.map((p) => p.displayName || p.name).join(", ") || "nobody yet";
     renderLobbyPlayers(online);
   }
