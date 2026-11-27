@@ -58,5 +58,6 @@ as `warnings` when a lesson is saved (`PUT /api/autoclass/lessons/:id`). A warni
 
 - The background is switchable (colours, or a photo that is blurred so it never competes); the
   default blur is light and there is a blur slider.
-- Background music plays only while the lesson video is paused: silent while Tommy and the song
-  clips play, lower while Tommy talks on a results page.
+- Background music plays only while the lesson video is paused: in the waiting room from the moment
+  the room opens, then silent while Tommy and the song clips play, lower while Tommy talks on a
+  results page. The Music button is on the waiting-room card too, so it can be muted before class.

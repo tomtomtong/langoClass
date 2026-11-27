@@ -38,18 +38,22 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ASSETS = path.join(HERE, "assets");
 // The same talking loop the lecture videos use.
 export const TOMMY_SOURCE = path.join(HERE, "..", "assets", "tommy-talking.webm");
+const TOMMY_BIG = "tommy-happy_talking-loop.webm"; // full-body talking Tommy, 640×1130 with alpha, a seamless 10 s loop
+const TOMMY_BIG_LOOP = 10; // seconds in TOMMY_BIG
+const TOMMY_BIG_SIZE = { w: 512, h: 904 }; // shown at 0.8 of the clip, so it is never enlarged
 const TOMMY_LOOP = 40; // seconds in tommy-talking.webm
 const GAP = 0.35; // silence between two lines in the same beat
 const LETTERS = ["A", "B", "C", "D"];
 
 // Talking Tommy (a 552×648 bust with alpha) sits in one wrapper that the root timeline moves
-// between scenes: big beside the intro and outro, small in the corner while teaching, away during
-// questions so the options and the live strip have the room.
+// between scenes: small in the corner while teaching, away during questions so the options and the
+// live strip have the room. That clip is too small to enlarge without turning soft, so beside the
+// intro and outro a separate full-body talking clip (TOMMY_BIG) plays instead (#big-right, #big-left).
 const TOMMY_POS = {
-  "big-right": { x: 1180, y: 250, scale: 1.2, opacity: 1 },
+  "big-right": { still: "#big-right", x: 1260, y: 110, from: 160, opacity: 0 },
   small: { x: 1600, y: 735, scale: 0.5, opacity: 1 },
   hidden: { x: 1600, y: 735, scale: 0.5, opacity: 0 },
-  "big-left": { x: 170, y: 270, scale: 1.15, opacity: 1 },
+  "big-left": { still: "#big-left", x: 110, y: 110, from: -160, opacity: 0 },
 };
 
 const r3 = (n) => Math.round(n * 1000) / 1000;
@@ -747,6 +751,7 @@ ${rows}
   for (const sub of ["compositions", "assets", "out/analysis"]) mkdirSync(path.join(dir, sub), { recursive: true });
   for (const file of ["lesson.css", "correct.mp3"]) copyFileSync(path.join(ASSETS, file), path.join(dir, "assets", file));
   copyFileSync(TOMMY_SOURCE, path.join(dir, "assets", "tommy-talking.webm"));
+  copyFileSync(path.join(path.dirname(TOMMY_SOURCE), TOMMY_BIG), path.join(dir, "assets", TOMMY_BIG));
 
   const scenes = [];
   let t = 0;
@@ -779,20 +784,40 @@ ${rows}
   for (let at = 0, n = 1; at < total; at += TOMMY_LOOP, n += 1) {
     tommyClips.push(`        <video id="tommy-${n}" class="clip" src="assets/tommy-talking.webm" data-start="${r3(at)}" data-duration="${r3(Math.min(TOMMY_LOOP, total - at))}" data-track-index="2" muted playsinline></video>`);
   }
+  // The full-body clip plays only while its scene (and the fade either side) is on screen.
+  const bigClips = { "#big-right": [], "#big-left": [] };
+  scenes.forEach((s, i) => {
+    const pos = TOMMY_POS[s.tommy];
+    if (!pos.still) return;
+    const from = Math.max(0, s.start - 0.4);
+    const to = Math.min(total, s.start + s.duration + 0.4);
+    for (let at = from; at < to - 0.01; at += TOMMY_BIG_LOOP) {
+      bigClips[pos.still].push(`        <video id="big-${i}-${bigClips[pos.still].length + 1}" class="clip" src="assets/${TOMMY_BIG}" data-start="${r3(at)}" data-duration="${r3(Math.min(TOMMY_BIG_LOOP, to - at))}" data-track-index="${pos.still === "#big-right" ? 7 : 8}" muted playsinline></video>`);
+    }
+  });
   const audio = audioClips.map((a) => `      <audio id="${a.id}" class="clip" src="${a.file}" data-start="${a.at}" data-duration="${a.seconds}"
         data-track-index="${a.track ?? 3}" data-volume="${a.volume ?? 1}"${a.from ? ` data-media-start="${a.from}"` : ""}${a.fade ? ' data-fade-in="0.3" data-fade-out="1"' : ""}></audio>`).join("\n");
   const videos = revealVideos.map((v) => `      <video id="${v.id}" class="clip reveal-video" src="${v.file}" data-start="${v.at}" data-duration="${v.seconds}"
         data-track-index="6"${v.from ? ` data-media-start="${v.from}"` : ""} data-has-audio="true" data-fade-in="0.3" data-fade-out="0.8" playsinline style="z-index: 4"></video>`).join("\n");
   const videoFades = revealVideos.map((v) => `      tl.fromTo("#${v.id}", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, ${v.at});
       tl.to("#${v.id}", { opacity: 0, duration: 0.35, ease: "power2.in" }, ${r3(v.at + v.seconds - 0.35)});`).join("\n");
-  const first = TOMMY_POS[scenes[0].tommy];
+  // The small talking clip shows only in "small" scenes; the full-body clip shows beside the intro
+  // and outro. Everything moves at scene changes.
+  const small = TOMMY_POS.small;
   const moves = [];
-  for (let i = 1; i < scenes.length; i += 1) {
-    if (scenes[i].tommy === scenes[i - 1].tommy) continue;
-    const p = TOMMY_POS[scenes[i].tommy];
-    const at = scenes[i].start - (p.opacity === 0 ? 0.3 : 0.1);
-    moves.push(`      tl.to("#tommy", { x: ${p.x}, y: ${p.y}, scale: ${p.scale}, opacity: ${p.opacity}, duration: 0.6, ease: "power2.inOut" }, ${r3(Math.max(0, at))});`);
-  }
+  scenes.forEach((s, i) => {
+    const cur = TOMMY_POS[s.tommy];
+    const prev = i ? TOMMY_POS[scenes[i - 1].tommy] : null;
+    if (prev && s.tommy === scenes[i - 1].tommy) return;
+    if (prev?.still) moves.push(`      tl.to("${prev.still}", { opacity: 0, duration: 0.3, ease: "power2.in" }, ${r3(s.start - 0.3)});`);
+    if (prev && prev.still === undefined && prev.opacity === 1 && s.tommy !== "small") moves.push(`      tl.to("#tommy", { opacity: 0, duration: 0.3, ease: "power2.in" }, ${r3(s.start - 0.3)});`);
+    if (cur.still) {
+      const at = i ? s.start - 0.1 : 0.2;
+      moves.push(`      tl.fromTo("${cur.still}", { x: ${cur.x + cur.from}, y: ${cur.y}, opacity: 0 }, { x: ${cur.x}, y: ${cur.y}, opacity: 1, duration: ${i ? 0.6 : 0.8}, ease: "${i ? "power2.out" : "expo.out"}" }, ${r3(Math.max(0, at))});`);
+    } else if (s.tommy === "small") {
+      moves.push(`      tl.to("#tommy", { opacity: 1, duration: 0.5, ease: "power2.out" }, ${r3(s.start - 0.1)});`);
+    }
+  });
 
   writeFileSync(path.join(dir, "index.html"), `<!doctype html>
 <html lang="en">
@@ -822,6 +847,12 @@ ${hosts}
       <div id="tommy" style="z-index: 5">
 ${tommyClips.join("\n")}
       </div>
+      <div id="big-right" class="tommy-big" style="z-index: 5">
+${bigClips["#big-right"].join("\n")}
+      </div>
+      <div id="big-left" class="tommy-big" style="z-index: 5">
+${bigClips["#big-left"].join("\n")}
+      </div>
 
 ${videos}
 
@@ -829,11 +860,10 @@ ${audio}
     </div>
     <script>
       const tl = gsap.timeline({ paused: true });
-      tl.fromTo("#tommy", { x: ${first.x + 160}, y: ${first.y}, scale: ${first.scale}, opacity: 0 },
-        { x: ${first.x}, y: ${first.y}, scale: ${first.scale}, opacity: 1, duration: 0.8, ease: "expo.out" }, 0.2);
+      tl.set("#tommy", { x: ${small.x}, y: ${small.y}, scale: ${small.scale}, opacity: 0 }, 0);
 ${moves.join("\n")}
 ${videoFades}
-      tl.to("#tommy", { opacity: 0, duration: 0.4, ease: "power2.in" }, ${r3(total - 0.5)});
+      tl.to(["#tommy", "#big-right", "#big-left"], { opacity: 0, duration: 0.4, ease: "power2.in" }, ${r3(total - 0.5)});
       window.__timelines["main"] = tl;
     </script>
   </body>
