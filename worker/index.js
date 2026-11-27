@@ -15,6 +15,7 @@ import { handleTurnstileConfig, turnstileGate } from "./turnstile.js";
 import { logRuntime, noteHost, observeApi } from "./lango-log.js";
 
 export { RoomDurableObject } from "./room.js";
+export { GroupDurableObject } from "./group.js";
 export { MediaContainer } from "./media-container.js";
 export { VideoContainer } from "./video-container.js";
 export { AutoclassContainer } from "./autoclass-container.js";

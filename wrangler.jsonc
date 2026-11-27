@@ -59,6 +59,8 @@
   "durable_objects": {
     "bindings": [
       { "name": "ROOM", "class_name": "RoomDurableObject" },
+      // Rooms linked for one live lesson (worker/group.js).
+      { "name": "GROUP", "class_name": "GroupDurableObject" },
       { "name": "MEDIA", "class_name": "MediaContainer" },
       { "name": "VIDEO", "class_name": "VideoContainer" },
       { "name": "AUTOCLASS_VIDEO", "class_name": "AutoclassContainer" }
@@ -66,6 +68,7 @@
   },
   "exports": {
     "RoomDurableObject": { "type": "durable-object", "storage": "sqlite" },
+    "GroupDurableObject": { "type": "durable-object", "storage": "sqlite" },
     "MediaContainer": { "type": "durable-object", "storage": "sqlite" },
     "VideoContainer": { "type": "durable-object", "storage": "sqlite" },
     "AutoclassContainer": { "type": "durable-object", "storage": "sqlite" }

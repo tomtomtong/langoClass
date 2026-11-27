@@ -206,12 +206,24 @@
     }
   }
 
-  // The worker says when Tommy has the question, can't answer it, or failed.
+  // The worker says when Tommy has the question, can't answer it, is busy with others, or failed.
   function onStatus(data) {
-    if (!panel || panel.hidden || !data) return;
+    if (!data) return;
+    // Its turn did not come: the question is let go and the student may ask again at once, even
+    // if they have closed the panel.
+    if (data.state === "later") lockFor(0);
+    if (!panel || panel.hidden) return;
     if (data.state === "answering") status("join.askAnswering");
     else if (data.state === "declined") status("join.askDeclined");
     else if (data.state === "failed") status("join.askFailed");
+    else if (data.state === "queued") status("join.askQueued");
+    else if (data.state === "later") {
+      status("join.askLater");
+      sending = false;
+      panel.classList.remove("is-sending", "is-done");
+      panel.querySelector(".tutor-mic").disabled = false;
+      panel.querySelector(".tutor-heard").hidden = true;
+    }
   }
 
   window.LangoJoinTutor = { attach, apply, hide };

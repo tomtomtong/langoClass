@@ -780,7 +780,7 @@ export function applyRoomJob(state, job, outcome, now) {
   if (job.kind === "buzz-announce") return announced(state, job, outcome, now);
   if (job.kind === "buzz-analyze") return analyzed(state, job, outcome, now);
   if (job.kind === "open-topic" || job.kind === "open-analyze") return applyOpenAnswerJob(state, job, outcome, now);
-  if (job.kind === "tutor-answer") return applyTutorJob(state, job, outcome);
+  if (job.kind === "tutor-answer") return applyTutorJob(state, job, outcome, now);
   if (job.kind === "open-highlights") return applyHighlightsJob(state, job, outcome);
   if (job.kind === "result-cheer") return applyCheerJob(state, job, outcome);
   return done(state);

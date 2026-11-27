@@ -184,3 +184,121 @@ test("the host gets every audio reference filled in, the question's voice includ
   // A missing recording becomes null, so the page just skips it.
   assert.equal(resolveAudioRefs({ questionAudioContent: "audio:gone" }, () => null).questionAudioContent, null);
 });
+
+// ---- A room linked to a group makes one answer at a time and queues the rest ----
+
+import { TUTOR_INFLIGHT_MS, TUTOR_QUEUE_MAX, tutorDropped, tutorJobFor } from "./room-tutor.js";
+
+function linked() {
+  const state = tutorOn();
+  state.session.group = { code: "1234" };
+  state.session.participants.push({ userId: "bo", displayName: "Bo", online: true, joinedAt: 1 }, { userId: "cy", displayName: "Cy", online: true, joinedAt: 1 });
+  return state;
+}
+const student = (id, now) => ({ socketId: `s-${id}`, role: "session_player", playerId: id, now, pick: () => 0 });
+const ask = (state, id, now, text = "Why?") => applyRoomEvent(state, { event: "ask_question", data: { text } }, student(id, now));
+
+test("a linked room does not start an answer itself: the group says when", () => {
+  const state = linked();
+  const asked = ask(state, "ada", 3000);
+  assert.equal(asked.ack.ok, true);
+  assert.equal(asked.jobs.length, 0);
+  assert.deepEqual(asked.groupOps, [{ op: "submit", askId: "ask-1", name: "Ada" }]);
+  assert.equal(asked.state.session.tutor.inflight.askId, "ask-1");
+  assert.deepEqual(asked.broadcasts, [{ event: "ask_received", hostOnly: true, data: { id: "ask-1", name: "Ada" } }]);
+
+  const job = tutorJobFor(asked.state, "ask-1");
+  assert.equal(job.kind, "tutor-answer");
+  assert.equal(job.question, "Why?");
+  assert.equal(job.playerId, "ada");
+  assert.equal(tutorJobFor(asked.state, "ask-9"), null);
+});
+
+test("while one is being answered, the room's next questions wait in line, first come first served", () => {
+  let state = ask(linked(), "ada", 3000).state;
+  const bo = ask(state, "bo", 4000, "And bears?");
+  assert.equal(bo.ack.ok, true);
+  assert.deepEqual(bo.groupOps, []);
+  assert.deepEqual(bo.broadcasts[1], { event: "ask_status", toPlayer: "bo", data: { id: "ask-2", state: "queued" } });
+  state = bo.state;
+  state = ask(state, "cy", 5000, "And owls?").state;
+  assert.deepEqual(state.session.tutor.queue, ["ask-2", "ask-3"]);
+
+  // Ada's answer is made: it goes to the group for other rooms, and Bo's question is next.
+  const job = tutorJobFor(state, "ask-1");
+  const applied = applyRoomJob(state, job, { ok: true, question: "Why?", answer: "Because.", language: "en", audioUrl: "/a.mp3", questionAudioUrl: "/q.mp3" }, 9000);
+  assert.deepEqual(applied.groupOps, [
+    { op: "publish", askId: "ask-1", payload: { name: "Ada", question: "Why?", answer: "Because.", language: "en", audioUrl: "/a.mp3", questionAudioUrl: "/q.mp3" } },
+    { op: "submit", askId: "ask-2", name: "Bo" },
+  ]);
+  assert.equal(applied.broadcasts[0].data.audioUrl, "/a.mp3");
+  assert.equal(applied.broadcasts[0].data.questionAudioUrl, "/q.mp3");
+  assert.equal(applied.state.session.tutor.inflight.askId, "ask-2");
+  assert.deepEqual(applied.state.session.tutor.queue, ["ask-3"]);
+  assert.equal(applied.state.session.tutor.pending["ask-1"], undefined);
+});
+
+test("the line is only so long", () => {
+  let state = ask(linked(), "ada", 3000).state;
+  const names = ["bo", "cy", "di", "ed", "flo"];
+  state.session.participants.push({ userId: "di", displayName: "Di", online: true, joinedAt: 1 }, { userId: "ed", displayName: "Ed", online: true, joinedAt: 1 }, { userId: "flo", displayName: "Flo", online: true, joinedAt: 1 });
+  const results = names.map((id, i) => {
+    const res = ask(state, id, 4000 + i);
+    if (res.state) state = res.state;
+    return res.ack.ok;
+  });
+  assert.deepEqual(results, [true, true, true, false, false]);
+  assert.equal(state.session.tutor.queue.length, TUTOR_QUEUE_MAX);
+});
+
+test("a declined or failed answer starts the next one in line and publishes nothing", () => {
+  let state = ask(linked(), "ada", 3000).state;
+  state = ask(state, "bo", 4000).state;
+  const job = tutorJobFor(state, "ask-1");
+  const applied = applyRoomJob(state, job, { ok: true, declined: true }, 9000);
+  assert.deepEqual(applied.groupOps, [{ op: "submit", askId: "ask-2", name: "Bo" }]);
+  assert.equal(applied.broadcasts[0].event, "tutor_declined");
+});
+
+test("a lost job does not hold the line forever", () => {
+  const state = ask(linked(), "ada", 3000).state;
+  const later = ask(state, "bo", 3000 + TUTOR_INFLIGHT_MS + 1);
+  assert.equal(later.ack.ok, true);
+  assert.deepEqual(later.groupOps, [{ op: "submit", askId: "ask-2", name: "Bo" }], "it starts at once");
+  assert.equal(later.state.session.tutor.inflight.askId, "ask-2");
+});
+
+test("a question the group let go of comes down, may be asked again at once, and is not counted", () => {
+  let state = ask(linked(), "ada", 3000).state;
+  state = ask(state, "bo", 4000).state;
+  const dropped = tutorDropped(state, "ask-1", 130000);
+  assert.deepEqual(dropped.broadcasts, [
+    { event: "tutor_declined", hostOnly: true, data: { id: "ask-1" } },
+    { event: "ask_status", toPlayer: "ada", data: { id: "ask-1", state: "later" } },
+  ]);
+  assert.deepEqual(dropped.groupOps, [{ op: "submit", askId: "ask-2", name: "Bo" }]);
+  assert.equal(dropped.state.session.tutor.asked.ada, undefined);
+  assert.equal(dropped.state.session.tutor.total, 1);
+  assert.equal(tutorAskCheck(dropped.state, ada(130001)).ok, true);
+  assert.deepEqual(tutorDropped(dropped.state, "ask-77", 1).groupOps, []);
+});
+
+test("turning questions on again keeps the line", () => {
+  let state = ask(linked(), "ada", 3000).state;
+  state = ask(state, "bo", 4000).state;
+  const again = applyRoomEvent(state, { event: "set_tutor", data: { enabled: true, lesson } }, host).state;
+  assert.equal(again.session.tutor.inflight.askId, "ask-1");
+  assert.deepEqual(again.session.tutor.queue, ["ask-2"]);
+  assert.ok(again.session.tutor.pending["ask-2"]);
+});
+
+test("a room that is not linked is not changed by any of this", () => {
+  const state = tutorOn();
+  const asked = ask(state, "ada", 3000);
+  assert.equal(asked.jobs.length, 1);
+  assert.deepEqual(asked.groupOps, []);
+  assert.equal(asked.state.session.tutor.inflight, undefined);
+  const applied = applyRoomJob(asked.state, asked.jobs[0], { ok: true, question: "Why?", answer: "Because.", language: "en", audioId: "x" }, 9000);
+  assert.deepEqual(applied.groupOps, []);
+  assert.equal("audioUrl" in applied.broadcasts[0].data, false);
+});

@@ -468,6 +468,46 @@ select {
   display: none;
 }
 
+/* Linked to other places: how many, small and out of the way. */
+.group-chip {
+  position: absolute;
+  right: 2cqw;
+  top: 2cqw;
+  display: flex;
+  align-items: center;
+  gap: 0.8cqw;
+  padding: 0.5cqw 1.4cqw;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 1.3cqw;
+  font-weight: 700;
+  color: var(--purple-deep);
+  opacity: 0.85;
+}
+
+.group-chip[hidden],
+.group-retry[hidden] {
+  display: none;
+}
+
+.group-chip.is-error {
+  background: #fff1d6;
+}
+
+.group-retry {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.3cqw 1cqw;
+  font: inherit;
+  background: var(--purple-deep);
+  color: #fff;
+  cursor: pointer;
+}
+
+.group-code {
+  width: 12em;
+}
+
 /* Uncle Tommy answers a student. The card is anchored where the small Tommy stands in the
    video (--ax/--ay: right and bottom offsets, --aw/--ah: his size, all set from the cues file),
    starts exactly his size and colour, then grows left and up while a live Tommy stays put on
