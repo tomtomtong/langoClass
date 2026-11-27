@@ -47,6 +47,12 @@
     answered: 0,
     usedBreaks: new Set(),
     asking: false, // whether the phones currently show the hand button
+    groupError: "", // why the room could not be linked, shown beside the group chip
+    group: null, // { code, members, title }: linked to other places running this lesson (see "Group")
+    watchSlot: null, // another place's answer, picked and ready for a quiet moment: { item, receivedAt }
+    watched: 0, // how many of other places' answers this class has played
+    seenAsks: new Set(), // answers from other places already picked, so none is shown twice
+    lastPull: 0,
     pendingResult: null, // { cue, payload }: a question's results, shown when the video reaches cue.result.at
     highlights: null, // { cue, picks, ready }: the best answers to an open question, read out on its results page
     picker: window.LangoAutoclassAnalysis ? window.LangoAutoclassAnalysis.makePicker() : null,
@@ -129,7 +135,7 @@
     socket.on("openanswer_closed", onSpeakClosed);
     socket.on("openanswer_highlights", onHighlights);
     socket.on("result_cheer", onCheer);
-    socket.io?.on?.("reconnect", () => emit("host_session", hostSessionData()).catch(() => {}));
+    socket.io?.on?.("reconnect", () => emit("host_session", hostSessionData()).then(() => joinGroup()).catch(() => {}));
 
     return new Promise((resolve, reject) => {
       socket.once("connect", () => {
@@ -480,6 +486,7 @@
       // Turn on the emoji bar on the students' join page for this room.
       await emit("set_reactions", { enabled: true }).catch((err) => console.warn("autoclass: reactions", err));
       await syncAsking();
+      await joinGroup(); // never holds the class up: a failure only shows in the chip
       const joinUrl = studentJoinUrl(location.origin, { roomId: state.roomId });
       el("room-link").href = joinUrl;
       el("room-link").textContent = joinUrl;
@@ -500,6 +507,13 @@
 
   // The room is open: show the host-style waiting room (code card with QR, who has joined, Start).
   // Started by hand (Open room) it has no countdown; autoStart adds one.
+  // "今堂：<lesson>", and how many places are linked, so the host can check before starting.
+  function showLobbyLesson() {
+    const title = state.lesson?.title ? `今堂：${state.lesson.title}` : "";
+    const linked = state.group ? `已連 ${state.group.members} 個地方` : state.groupError ? "未連到其他地方" : "";
+    el("scene-lesson").textContent = [title, linked].filter(Boolean).join(" · ");
+  }
+
   let waitingRoomWired = false;
   function enterWaitingRoom() {
     const setup = el("setup");
@@ -508,7 +522,7 @@
     setup.classList.toggle("untimed", !AUTOSTART);
     el("scene-pin").textContent = state.roomId;
     el("scene-qr").src = el("room-qr").src;
-    el("scene-lesson").textContent = state.lesson?.title ? `今堂：${state.lesson.title}` : "";
+    showLobbyLesson();
     const start = el("scene-start");
     start.textContent = AUTOSTART ? "即刻開始" : "開始上堂";
     if (waitingRoomWired) return;
@@ -1377,7 +1391,7 @@
   // comes first. See answerWaiting().
   function takeBreak() {
     const tutor = tutorConfig();
-    if (!tutor || state.quiz || state.ended || video.paused || !state.answers.length) return null;
+    if (!tutor || state.quiz || state.ended || video.paused || !answerReady()) return null;
     const now = video.currentTime;
     const index = tutor.breaks.findIndex((at, i) => !state.usedBreaks.has(i) && now >= at && now < at + TUTOR_WINDOW_S);
     if (index < 0) return null;
@@ -1385,9 +1399,125 @@
     return tutor.breaks[index];
   }
 
+  // ---- Group: several places run this lesson live at once and share Uncle Tommy. Each place's
+  // questions are answered in its own room (worker/room-tutor.js); a place with no answer of its own
+  // to play picks another place's, one at a time, so the class feels like one. It is pulled from
+  // the group (worker/group.js), not pushed, so a hundred places do not each get every answer. ----
+
+  const TUTOR_FOREIGN_TTL_S = 180; // an answer picked from another place waits at most this long for a quiet moment
+  const PULL_EVERY_MS = 20 * 1000;
+  const DEFAULT_WATCH_MAX = 3;
+
+  function groupCode() {
+    const typed = el("group-code").value.trim();
+    const code = /^\d{4}$/.test(typed) ? typed : /^\d{4}$/.test(params.get("group") || "") ? params.get("group") : "";
+    return code;
+  }
+
+  function showGroup(text, { error = false, retry = false } = {}) {
+    el("group-chip").hidden = !text;
+    el("group-chip").classList.toggle("is-error", error);
+    el("group-chip-text").textContent = text;
+    el("group-retry").hidden = !retry;
+  }
+
+  // Links this room to the others with the same code. Failing is allowed: the class goes on by itself.
+  async function joinGroup() {
+    const code = groupCode();
+    const tutor = tutorConfig();
+    if (!code || !tutor || !state.socket || !state.roomId) return;
+    try {
+      const res = await emit("join_group", { code, lessonId: LESSON, lessonTitle: state.lesson?.title || "", rate: tutor.groupRate });
+      state.group = { code, members: res.members || 1, title: res.lessonTitle || state.lesson?.title || "" };
+      state.groupError = "";
+      showLobbyLesson();
+      showGroup(`已連 ${state.group.members} 個地方${state.group.title ? ` · ${state.group.title}` : ""}`);
+      scheduleWatch();
+    } catch (err) {
+      state.group = null;
+      state.groupError = err.message;
+      showLobbyLesson();
+      showGroup(`未連到：${err.message}`, { error: true, retry: true });
+    }
+  }
+
+  let watchTimer = null;
+  function scheduleWatch() {
+    if (watchTimer) return;
+    watchTimer = setInterval(() => void maybePull(), 5000);
+  }
+
+  // A place with no answer of its own, and room left in its share, picks one answer from another place.
+  async function maybePull() {
+    const tutor = tutorConfig();
+    if (!state.group || !tutor || state.ended || tutorBusy || el("setup").hidden === false) return;
+    if (state.watchSlot || state.answers.length || state.watched >= (tutor.watchMax ?? DEFAULT_WATCH_MAX)) return;
+    if (Date.now() - state.lastPull < PULL_EVERY_MS) return;
+    state.lastPull = Date.now();
+    try {
+      const res = await emit("group_pull", {});
+      if (state.group && res.members) {
+        state.group.members = res.members;
+        showGroup(`已連 ${res.members} 個地方${state.group.title ? ` · ${state.group.title}` : ""}`);
+      }
+      const answer = res.answer;
+      if (!answer || state.seenAsks.has(answer.askId) || state.watchSlot) return;
+      state.seenAsks.add(answer.askId);
+      const item = {
+        id: answer.askId,
+        name: answer.name,
+        question: answer.question,
+        answer: answer.answer,
+        audioUrl: answer.audioUrl,
+        questionAudioUrl: answer.questionAudioUrl,
+        foreign: true,
+      };
+      // Ready the voices now, so they play the moment a quiet moment comes.
+      const preload = [item.questionAudioUrl, item.audioUrl].filter(Boolean).map((url) => {
+        const audio = new Audio(url);
+        audio.preload = "auto";
+        return audio;
+      });
+      state.watchSlot = { item, receivedAt: Date.now(), preload };
+    } catch (err) {
+      console.warn("autoclass: could not pick another place's answer", err);
+    }
+  }
+
+  function watchReady() {
+    const slot = state.watchSlot;
+    if (!slot) return false;
+    if (Date.now() - slot.receivedAt >= TUTOR_FOREIGN_TTL_S * 1000) {
+      state.watchSlot = null; // it waited too long: let it go
+      return false;
+    }
+    return true;
+  }
+
+  // Something to play at the next quiet moment: this room's own answer first, else another place's.
+  function answerReady() {
+    return state.answers.length > 0 || watchReady();
+  }
+
+  function nextAnswer() {
+    if (state.answers.length) return state.answers.shift();
+    if (!watchReady()) return null;
+    const { item } = state.watchSlot;
+    state.watchSlot = null;
+    state.watched += 1;
+    state.lastPull = Date.now(); // the next one is picked after a pause
+    return item;
+  }
+
+  // A recorded voice: its address in R2 for a linked room, else the sound itself sent in the message.
+  function audioSource(url, base64) {
+    if (url) return url;
+    return base64 ? `data:audio/mpeg;base64,${base64}` : "";
+  }
+
   // An answer is ready and nothing is holding the class: play it at this scene change.
   function answerWaiting() {
-    return Boolean(tutorConfig() && state.answers.length && !tutorBusy && !state.ended);
+    return Boolean(tutorConfig() && answerReady() && !tutorBusy && !state.ended);
   }
 
   function wait(run, ms) {
@@ -1439,7 +1569,7 @@
 
   async function runTutor() {
     const tutor = tutorConfig();
-    const item = state.answers.shift();
+    const item = nextAnswer();
     if (!tutor || !item) return;
     tutorBusy = true;
     const run = { tutor: true, aborted: false, audio: null, wake: null };
@@ -1478,10 +1608,12 @@
       layer.classList.add("is-text");
       await leadIn;
       // Tommy says the question again, so the whole room hears what was asked.
-      if (item.questionAudioContent) await playClip(run, `data:audio/mpeg;base64,${item.questionAudioContent}`);
+      const questionSrc = audioSource(item.questionAudioUrl, item.questionAudioContent);
+      if (questionSrc) await playClip(run, questionSrc);
       await wait(run, 700); // time to read the question
-      if (item.audioContent) {
-        await playClip(run, `data:audio/mpeg;base64,${item.audioContent}`, lightUp);
+      const answerSrc = audioSource(item.audioUrl, item.audioContent);
+      if (answerSrc) {
+        await playClip(run, answerSrc, lightUp);
       } else {
         // The voice failed: the words still light up, at reading speed.
         const words = el("tutor-answer").querySelectorAll(".w").length;
@@ -1532,7 +1664,7 @@
     // Back at the small Tommy's size: the video starts again and the card fades into him.
     layer.classList.add("is-fading");
     state.quiz = null;
-    state.answered += 1;
+    if (!item.foreign) state.answered += 1; // another place's answer does not use up this room's own questions
     state.hands.delete(item.id);
     renderHands();
     el("btn-skip").hidden = true;
@@ -2176,6 +2308,8 @@
   el("btn-music").addEventListener("click", toggleMusic);
   el("roomcard").addEventListener("click", toggleRoomCard);
   el("lobby-music").addEventListener("click", toggleMusic);
+  el("group-retry").addEventListener("click", () => void joinGroup());
+  if (/^\d{4}$/.test(params.get("group") || "")) el("group-code").value = params.get("group");
   el("scene-music").addEventListener("click", toggleMusic);
 
   init();

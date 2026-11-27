@@ -1,6 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 import { applyRoomEvent, applyRoomJob, applyRoomTimer, buzzSubmitCheck, markSocketClosed, openAnswerSubmitCheck, tutorAskCheck } from "./room-events.js";
-import { parseTutorReply, tutorLanguage, tutorPrompt } from "./room-tutor.js";
+import { parseTutorReply, tutorDropped, tutorJobFor, tutorLanguage, tutorPrompt } from "./room-tutor.js";
+import { clearRoomGroup, hostCheck, joinCheck, roomGroupCode, setRoomGroup } from "./room-group.js";
+import { TUTOR_AUDIO_PREFIX } from "./group.js";
 import { highlightsPrompt, parseHighlights } from "./room-highlights.js";
 import { completeText, speak, speakAsTommy, speechReady, textModelReady, transcribe } from "./ai.js";
 import { withSettings } from "./app-settings.js";
@@ -60,11 +62,33 @@ export class RoomDurableObject extends DurableObject {
     return { ok: true, studentCount: next.session.studentList.length };
   }
 
+  // The group this room is linked to (worker/group.js) asks for a waiting question's answer to be made.
+  // The answer is made inside this call, which is how the group knows the room could do it.
+  async startTutorAnswer(askId) {
+    const state = this.#read();
+    if (!state?.session || state.closed) return { ok: false };
+    const job = tutorJobFor(state, askId);
+    if (!job) return { ok: false };
+    await this.#deliver({ jobs: [job] }, {});
+    return { ok: true };
+  }
+
+  // A question waited for its turn too long: the host's hand comes down and the student may ask again.
+  async groupNotChosen(askId) {
+    const state = this.#read();
+    if (!state?.session || state.closed) return { ok: false };
+    const result = tutorDropped(state, askId, Date.now());
+    if (result.state) this.#write(result.state);
+    await this.#deliver(result, {});
+    return { ok: true };
+  }
+
   // Scores earned before the session ended go to D1 first. If D1 refuses
   // them, the room stays as a closed shell and its alarm retries the save.
   async close(reason = "Session ended") {
     const state = this.#read();
     if (state?.session && !state.closed) {
+      await this.#leaveGroup(state);
       this.#broadcast([{ event: "session_ended", data: { reason } }]);
       queueOpenScores(state, Date.now());
       state.game = null;
@@ -124,12 +148,25 @@ export class RoomDurableObject extends DurableObject {
       caps: this.#caps(state),
     });
 
+    if (["join_group", "leave_group", "group_pull"].includes(incoming.event)) {
+      await this.#groupEvent(ws, incoming, ctx());
+      return;
+    }
+
     if (["submit_buzzin_response", "submit_openanswer_response", "ask_question"].includes(incoming.event)) {
       const checks = { submit_buzzin_response: buzzSubmitCheck, submit_openanswer_response: openAnswerSubmitCheck, ask_question: tutorAskCheck };
       const check = checks[incoming.event](state, ctx());
       if (!check.ok) {
         send(ws, { t: "ack", id: incoming.id, data: check });
         return;
+      }
+      // Linked rooms share a cap on recordings turned into text, so a refused one costs nothing.
+      if (incoming.event === "ask_question" && roomGroupCode(state)) {
+        const allowed = await this.#groupCall(roomGroupCode(state), (group) => group.canAsk(state.session.roomId));
+        if (allowed?.ok === false) {
+          send(ws, { t: "ack", id: incoming.id, data: { ok: false, error: "Lots of questions are coming in just now. Try again in a moment!" } });
+          return;
+        }
       }
       // A question for Tommy and a practice sentence are only read, so their recordings are not
       // kept for replay.
@@ -184,6 +221,7 @@ export class RoomDurableObject extends DurableObject {
     }
     if (!state?.timer) return;
     const result = applyRoomTimer(state, Date.now(), this.#caps(state));
+    if (result.state?.session?.status === "ended") await this.#leaveGroup(result.state);
     if (result.state) this.#write(result.state);
     await this.#deliver(result, {});
   }
@@ -207,7 +245,8 @@ export class RoomDurableObject extends DurableObject {
     this.#broadcast(frames, semester);
     await this.#arm(result);
     await this.#flushScores();
-    for (const job of result.jobs || []) {
+    const groupJobs = await this.#groupOps(result.groupOps);
+    for (const job of [...(result.jobs || []), ...groupJobs]) {
       const outcome = await this.#runJob(job);
       const latest = this.#read();
       if (!latest || latest.closed) {
@@ -286,16 +325,121 @@ export class RoomDurableObject extends DurableObject {
           return null;
         }),
       ]);
+      // Linked to a group: the voice goes to R2 so every room can fetch it, and the answer carries
+      // addresses. If R2 will not take it, the asking room still has it the usual way.
+      const answerUrl = await this.#shareAudio(env, job, speech);
+      const questionUrl = asked ? await this.#shareAudio(env, job, asked) : null;
       return {
         ...outcome,
-        audioId: this.#saveAudio(speech.audioContent),
         format: speech.format,
-        ...(asked ? { questionAudioId: this.#saveAudio(asked.audioContent) } : {}),
+        ...(answerUrl ? { audioUrl: answerUrl } : { audioId: this.#saveAudio(speech.audioContent) }),
+        ...(asked ? (questionUrl ? { questionAudioUrl: questionUrl } : { questionAudioId: this.#saveAudio(asked.audioContent) }) : {}),
       };
     } catch (error) {
       logJobError(job, error, "speech");
       return outcome;
     }
+  }
+
+  // A sound kept in R2 under the group's folder; its address, or null if this is not a linked room
+  // or R2 would not take it. The group deletes the folder when it ends (worker/group.js).
+  async #shareAudio(env, job, speech) {
+    if (!job.group || !env.UPLOADS || !speech?.audioContent) return null;
+    try {
+      const format = String(speech.format || "mp3").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
+      const name = `${crypto.randomUUID()}.${format}`;
+      const bytes = Uint8Array.from(atob(String(speech.audioContent)), (char) => char.charCodeAt(0));
+      await env.UPLOADS.put(`${TUTOR_AUDIO_PREFIX}/${job.group}/${name}`, bytes, {
+        httpMetadata: { contentType: format === "mp3" ? "audio/mpeg" : `audio/${format}` },
+      });
+      return `/${TUTOR_AUDIO_PREFIX}/${job.group}/${name}`;
+    } catch (error) {
+      logJobError(job, error, "audio upload");
+      return null;
+    }
+  }
+
+  // The host's group events: link this room to others, leave, or ask for another room's answer.
+  async #groupEvent(ws, incoming, ctx) {
+    const reply = (data) => send(ws, { t: "ack", id: incoming.id, data });
+    const state = this.#read();
+    const roomId = state?.session?.roomId;
+    if (incoming.event === "join_group") {
+      const check = joinCheck(state, incoming.data, ctx);
+      if (!check.ok) return reply(check);
+      if (check.previous && check.previous !== check.code) await this.#leaveGroup(state);
+      const joined = await this.#groupCall(check.code, (group) =>
+        group.join({ roomId, code: check.code, lessonId: check.lessonId, lessonTitle: check.lessonTitle, rate: check.rate })
+      );
+      if (!joined) return reply({ ok: false, error: "Could not reach the group. Try again." });
+      if (!joined.ok) return reply(joined);
+      const latest = this.#read();
+      setRoomGroup(latest, check.code);
+      this.#write(latest);
+      return reply({ ok: true, members: joined.members, lessonTitle: joined.lessonTitle });
+    }
+    const check = hostCheck(state, ctx);
+    if (!check.ok) return reply(check);
+    if (incoming.event === "leave_group") {
+      await this.#leaveGroup(state);
+      const latest = this.#read();
+      clearRoomGroup(latest);
+      this.#write(latest);
+      return reply({ ok: true });
+    }
+    const picked = await this.#groupCall(check.code, (group) => group.pick(roomId));
+    if (!picked) return reply({ ok: false, error: "Could not reach the group." });
+    return reply({ ok: true, answer: picked.answer, members: picked.members });
+  }
+
+  // Calls the group of `code`; null if there is no group service or it did not answer, so a room is never
+  // held up by it.
+  async #groupCall(code, call) {
+    if (!this.env.GROUP || !code) return null;
+    try {
+      return await call(this.env.GROUP.getByName(code));
+    } catch (error) {
+      console.error(JSON.stringify({ message: "group_call_failed", code, error: error instanceof Error ? error.message : String(error) }));
+      return null;
+    }
+  }
+
+  async #leaveGroup(state) {
+    const code = roomGroupCode(state);
+    if (!code) return;
+    await this.#groupCall(code, (group) => group.leave(state.session.roomId));
+    clearRoomGroup(state);
+  }
+
+  // What the room's events asked of its group. A question that may start comes back as a job.
+  async #groupOps(ops) {
+    const jobs = [];
+    for (const op of ops || []) {
+      const state = this.#read();
+      const code = roomGroupCode(state);
+      const roomId = state?.session?.roomId;
+      if (op.op === "submit") {
+        const job = tutorJobFor(state, op.askId);
+        if (!job) continue;
+        const result = code ? await this.#groupCall(code, (group) => group.submit({ roomId, askId: op.askId, name: op.name })) : null;
+        if (result?.queued) {
+          this.#broadcast([{ event: "ask_status", toPlayer: job.playerId, data: { id: op.askId, state: "queued" } }]);
+          continue;
+        }
+        // Started, or the group is not there any more: the room carries on by itself.
+        if (!result || result.gone) {
+          delete job.group;
+          if (result?.gone) {
+            clearRoomGroup(state);
+            this.#write(state);
+          }
+        }
+        jobs.push(job);
+      } else if (op.op === "publish" && code) {
+        await this.#groupCall(code, (group) => group.publish({ roomId, askId: op.askId, payload: op.payload }));
+      }
+    }
+    return jobs;
   }
 
   // Uncle Tommy thanks the students who got it right, by name (room-cheer.js). No voice, no audio:

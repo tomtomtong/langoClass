@@ -665,6 +665,8 @@ ${cards}
     return {
       enabled: t.enabled !== false,
       maxAnswers: t.maxAnswers,
+      groupRate: t.groupRate,
+      watchMax: t.watchMax,
       language: t.language,
       sttLanguage: t.sttLanguage,
       outline: t.outline,

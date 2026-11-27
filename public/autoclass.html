@@ -90,6 +90,8 @@
           <select id="class-select"></select>
           <button id="open-room" class="btn">Open room</button>
         </div>
+        <label for="group-code">Link with other places (optional)</label>
+        <input id="group-code" class="group-code" type="text" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="Group code, 4 digits" autocomplete="off" />
       </div>
 
       <div id="room-step" hidden>
@@ -177,6 +179,13 @@
         </section>
         <p id="result-caption" class="result-caption" aria-live="polite"></p>
         <video id="result-tommy" class="result-tommy" muted loop playsinline></video>
+      </div>
+
+      <!-- Linked to other places (autoclass.js "Group"): small and out of the way. -->
+      <div id="group-chip" class="group-chip" hidden>
+        <span aria-hidden="true">🔗</span>
+        <span id="group-chip-text" aria-live="polite"></span>
+        <button id="group-retry" type="button" class="group-retry" hidden>Try again</button>
       </div>
 
       <div id="hands" class="hands-chip" hidden>

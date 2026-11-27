@@ -14,6 +14,8 @@ export function done(state, extra = {}) {
     timer: extra.timer || null,
     clearTimer: !!extra.clearTimer,
     jobs: extra.jobs || [],
+    // Things to ask the group this room is linked to (worker/room-group.js); room.js does them.
+    groupOps: extra.groupOps || [],
     deferAck: !!extra.deferAck,
     ackSemester: !!extra.ackSemester,
   };

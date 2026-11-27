@@ -171,6 +171,20 @@ test("tutor.audience is optional text", () => {
   assert.deepEqual(paths(validateLessonScript(input)), ["tutor.audience"]);
 });
 
+test("tutor.groupRate and tutor.watchMax have defaults and limits", () => {
+  const defaults = validateLessonScript(copy()).script.tutor;
+  assert.equal(defaults.groupRate, 10);
+  assert.equal(defaults.watchMax, 3);
+  const input = copy();
+  input.tutor = { ...(input.tutor || {}), groupRate: 4, watchMax: 0 };
+  const set = validateLessonScript(input).script.tutor;
+  assert.equal(set.groupRate, 4);
+  assert.equal(set.watchMax, 0);
+  input.tutor.groupRate = 0;
+  input.tutor.watchMax = 11;
+  assert.deepEqual(paths(validateLessonScript(input)).sort(), ["tutor.groupRate", "tutor.watchMax"]);
+});
+
 const SPELL = {
   kind: "spell",
   ask: "Let's play a spelling race!",
