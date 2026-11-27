@@ -392,6 +392,8 @@
       el("room-pin").textContent = state.roomId;
       el("live-pin").textContent = `PIN ${state.roomId}`;
       el("room-qr").src = `/api/room-qr.svg?url=${encodeURIComponent(joinUrl)}`;
+      el("roomcard-qr").src = el("room-qr").src;
+      el("roomcard-code").textContent = formatRoomCode(state.roomId);
       el("class-step").hidden = true;
       el("room-step").hidden = false;
     } catch (err) {
@@ -510,6 +512,7 @@
     }
     el("setup").hidden = true;
     el("stage").hidden = false;
+    showRoomCard();
     state.cueIndex = 0;
     video.currentTime = 0;
     startBgm();
@@ -1955,7 +1958,39 @@
   window.addEventListener("resize", fitFinalBoard);
 
   // The host's own end-of-round leaderboard: podium for the top three, a sheet for the rest.
+  // ---- Room card: the QR code and room code in the top right while the class runs. ----
+
+  const ROOMCARD_FOLD_KEY = "lango_autoclass_roomcard_folded";
+
+  function setRoomCardFolded(folded) {
+    const card = el("roomcard");
+    card.classList.toggle("is-collapsed", folded);
+    card.setAttribute("aria-expanded", folded ? "false" : "true");
+  }
+
+  function showRoomCard() {
+    let folded = false;
+    try {
+      folded = localStorage.getItem(ROOMCARD_FOLD_KEY) === "1";
+    } catch {
+      /* private mode */
+    }
+    setRoomCardFolded(folded);
+    el("roomcard").hidden = false;
+  }
+
+  function toggleRoomCard() {
+    const folded = !el("roomcard").classList.contains("is-collapsed");
+    setRoomCardFolded(folded);
+    try {
+      localStorage.setItem(ROOMCARD_FOLD_KEY, folded ? "1" : "0");
+    } catch {
+      /* private mode */
+    }
+  }
+
   function showFinalBoard() {
+    el("roomcard").hidden = true;
     const rows = [...state.totals.entries()].map(([id, r]) => ({ id, name: r.name, score: r.score }));
     const board = el("final");
     board.hidden = false;
@@ -2014,6 +2049,7 @@
   });
   el("btn-end").addEventListener("click", endClass);
   el("btn-music").addEventListener("click", toggleMusic);
+  el("roomcard").addEventListener("click", toggleRoomCard);
 
   init();
 })();
