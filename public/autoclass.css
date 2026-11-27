@@ -1414,6 +1414,23 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
+.roomcard-online {
+  color: var(--teal);
+  font-size: 1.4cqw;
+  font-weight: 800;
+}
+
+.roomcard-online strong {
+  display: inline-block;
+  font-size: 1.8cqw;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.roomcard-online strong.pop {
+  animation: lw-pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 .roomcard.is-collapsed,
 .frame:has(#poll:not([hidden]), #result:not([hidden])) .roomcard {
   width: auto;
