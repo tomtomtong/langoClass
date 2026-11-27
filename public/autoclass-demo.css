@@ -1,0 +1,198 @@
+/* Autoclass demo page. Lango tokens from DESIGN.md; sizes in rem so the page scales up on a projector. */
+:root {
+  --page: #eaf1ff;
+  --page-deep: #dde9ff;
+  --cream: #fffdf8;
+  --ink: #344356;
+  --muted: #46586c; /* DESIGN.md muted, a step darker: 7:1 on cream for the older eyes in the room */
+  --line: #c8d5e6;
+  --purple: #a1268e;
+  --purple-deep: #743c9b;
+  --teal: #007f78;
+  --teal-soft: #d8f7f2;
+  --selection: #2d73b5;
+  --selection-soft: #dcefff;
+  --gold: #f9b545;
+  --gold-soft: #fff1cf;
+  --gold-ink: #6b4700;
+  --stage: #141c2b;
+  --radius-card: 24px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(52, 67, 86, 0.08), 0 8px 24px rgba(52, 67, 86, 0.08);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html {
+  height: 100%;
+  font-size: clamp(16px, 0.55vw + 10px, 24px); /* 16px on a laptop, about 21px on a 1920 screen */
+}
+body {
+  height: 100%;
+  margin: 0;
+  font-family: "Nunito", system-ui, sans-serif;
+  background: linear-gradient(180deg, var(--page), var(--page-deep));
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--selection-soft); color: var(--ink); }
+
+.demo {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(22rem, 1fr);
+  grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+.pane {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--cream);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---- Left: the class ---- */
+.pane-class { grid-row: 1 / span 2; position: relative; background: var(--stage); }
+#class-frame { flex: 1; width: 100%; border: 0; background: var(--stage); }
+
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1rem, 3vw, 3rem);
+  padding: 2rem;
+  color: var(--ink);
+  /* The same light blue as the lesson video and the results page, so the day feels like one place. */
+  background: linear-gradient(180deg, var(--page), var(--page-deep));
+}
+.cd-tommy { flex: 0 1 auto; width: min(46%, 34rem); height: auto; filter: drop-shadow(0 14px 22px rgba(52, 67, 86, 0.22)); animation: cd-bob 3.6s ease-in-out infinite; }
+@keyframes cd-bob { 50% { transform: translateY(-0.6rem); } }
+.cd-text { flex: 0 1 auto; text-align: center; }
+.countdown p { margin: 0; }
+.cd-label { font-size: 1.6rem; font-weight: 700; color: var(--muted); }
+.cd-title { max-width: 14ch; margin: 0 auto !important; font-size: clamp(2rem, 3.4vw, 3.4rem); font-weight: 900; line-height: 1.15; text-wrap: balance; }
+.cd-time {
+  margin: 0.3rem 0 !important;
+  font-size: clamp(4.5rem, 10vw, 10rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--purple-deep); /* gold is only 1.6:1 on this blue; this is 6:1 */
+  font-variant-numeric: tabular-nums;
+}
+.cd-time.hours { font-size: clamp(3.5rem, 7.2vw, 7rem); }
+.cd-at { font-size: 1.6rem; font-weight: 700; color: var(--muted); }
+.cd-hint { margin-top: 1.2rem !important; padding: 0.6rem 1.2rem; font-size: 1.15rem; font-weight: 800; color: var(--ink); background: #fff; border: 2px solid var(--line); border-radius: 999px; box-shadow: 0 6px 18px rgba(52, 67, 86, 0.1); }
+@media (max-width: 700px) { .cd-tommy { display: none; } }
+
+/* ---- Top right: the timetable ---- */
+.pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1.1rem 0.6rem;
+}
+.pane-head h2 { margin: 0; font-size: 1.5rem; font-weight: 900; }
+.clock { margin-left: 0.5rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.auto { display: flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; font-size: 0.95rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+.auto input { width: 1.25rem; height: 1.25rem; accent-color: var(--purple); }
+
+.schedule {
+  flex: 1;
+  margin: 0;
+  padding: 0.25rem 0.75rem 0.75rem;
+  list-style: none;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.slot {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.9rem;
+  align-items: center;
+  width: 100%;
+  min-height: 4rem;
+  padding: 0.7rem 0.9rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
+}
+.slot:hover { border-color: var(--selection); }
+.slot.selected { border-color: var(--selection); background: var(--selection-soft); }
+.slot.done { background: transparent; color: var(--muted); }
+.slot .time { font-size: 1.2rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slot .name { font-size: 1.1rem; font-weight: 800; line-height: 1.25; text-wrap: balance; }
+.slot .sub { display: block; font-size: 0.9rem; font-weight: 600; color: var(--muted); }
+.badge {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--muted);
+  background: var(--page);
+  border-radius: var(--radius-pill);
+}
+.slot.live .badge { background: var(--teal); color: #fff; }
+.slot.next .badge { background: var(--gold-soft); color: var(--gold-ink); }
+
+/* ---- Bottom right: the videos ---- */
+.pane-video { background: var(--stage); }
+#promo { flex: 1; min-height: 0; width: 100%; background: #000; object-fit: contain; }
+.promo-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.6rem; background: var(--stage); }
+.promo-tabs button {
+  flex: 1 1 30%;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e4ebf7;
+  background: #26344d;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease-out;
+}
+.promo-tabs button:hover { background: #33456a; }
+.promo-tabs button[aria-selected="true"] { color: #fff; background: linear-gradient(90deg, var(--purple), var(--purple-deep)); }
+
+/* Keyboard focus, drawn for both the light and the dark panes. */
+.slot:focus-visible, .auto:has(input:focus-visible), .promo-tabs button:focus-visible {
+  outline: 3px solid var(--gold-soft);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--selection);
+}
+.auto:has(input:focus-visible) { border-radius: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .slot, .promo-tabs button { transition: none; }
+  .cd-tommy { animation: none; }
+}
+
+/* A phone or a narrow window: the three panes stack. */
+@media (max-width: 900px) {
+  .demo { height: auto; grid-template-columns: 1fr; grid-template-rows: none; }
+  .pane-class { grid-row: auto; height: 70vh; }
+  .pane-schedule { max-height: 60vh; }
+  .pane-video { height: 55vh; }
+  /* Time and badge on one line, the lesson name under them, so a Cantonese title never wraps in a sliver. */
+  .slot { grid-template-columns: 1fr auto; gap: 0.35rem 0.75rem; }
+  .slot .name { grid-column: 1 / -1; grid-row: 2; }
+}

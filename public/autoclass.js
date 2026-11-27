@@ -18,6 +18,9 @@
 
   const params = new URLSearchParams(location.search);
   const LESSON = params.get("lesson") || "animal-homes";
+  const AUTOSTART = /^(1|true|yes)$/i.test(params.get("autostart") || "");
+  // Waiting room before an autostart class: seconds to let people scan in (?lobby=<seconds>, default 60).
+  const LOBBY_SECONDS = Math.max(0, Number(params.get("lobby")) || 60);
   const CUES_URL = `/api/autoclass/lessons/${encodeURIComponent(LESSON)}/cues`;
   const PREF_KEYS = ["lango_host_prefs", "lango_host_prefs_hk"];
   const RESULT_HOLD_MS = 1500;
@@ -51,6 +54,7 @@
 
   function showError(message) {
     el("setup-error").textContent = message || "";
+    el("scene-error").textContent = message || ""; // the waiting room has no setup card to show it in
   }
 
   // ---- Sign-in reuse: the host page keeps the teacher's token in localStorage. ----
@@ -146,6 +150,58 @@
     const online = list.filter((p) => p.online !== false);
     el("joined-count").textContent = String(online.length);
     el("joined-names").textContent = online.map((p) => p.displayName || p.name).join(", ") || "nobody yet";
+    renderLobbyPlayers(online);
+  }
+
+  // The waiting room's "connected students" panel, like the host's: a round coloured badge with the
+  // initials and the name for each person in, in the order they came; a ding for each new arrival.
+  const lobbySeen = new Set();
+  let lobbyPrimed = false;
+  function renderLobbyPlayers(online) {
+    const grid = el("scene-players");
+    const people = online.map((p) => ({ id: String(p.userId ?? p.id ?? p.displayName ?? p.name), name: p.displayName || p.name || "?" }));
+    const fresh = new Set(people.filter((p) => !lobbySeen.has(p.id)).map((p) => p.id));
+    fresh.forEach((id) => lobbySeen.add(id));
+    if (fresh.size && lobbyPrimed && !el("setup").hidden) playLobbySound("/assets/soundeffect/login_success.mp3", 0.5);
+    lobbyPrimed = true;
+
+    const count = el("scene-count");
+    if (count.textContent !== String(people.length)) {
+      count.textContent = String(people.length);
+      count.classList.remove("pop");
+      void count.offsetWidth; // restart the pop
+      count.classList.add("pop");
+    }
+    el("scene-wait").hidden = people.length > 0;
+    grid.textContent = "";
+    for (const p of people) {
+      const li = document.createElement("li");
+      li.className = `lw-student${fresh.has(p.id) ? " pop" : ""}`;
+      const badge = document.createElement("span");
+      badge.className = "lw-avatar";
+      badge.style.setProperty("--hue", String([...p.id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 360, 17)));
+      const initials = document.createElement("span");
+      initials.className = "lw-initials";
+      initials.textContent = initialsOf(p.name);
+      badge.appendChild(initials);
+      const name = document.createElement("span");
+      name.className = "lw-name";
+      name.textContent = p.name;
+      li.append(badge, name);
+      grid.appendChild(li);
+    }
+    if (fresh.size) grid.scrollTop = grid.scrollHeight;
+  }
+
+  // Short sounds in the waiting room. The browser may refuse until someone has clicked the page; then it is silent.
+  function playLobbySound(src, volume) {
+    try {
+      const audio = new Audio(src);
+      audio.volume = volume;
+      audio.play().catch(() => {});
+    } catch {
+      /* no sound */
+    }
   }
 
   // The students' join page takes the lesson's look (for example big type for older learners).
@@ -335,6 +391,44 @@
       .map((c) => `<option value="${String(c.id).replace(/"/g, "&quot;")}">${escapeText(c.name || c.class_name || c.id)}</option>`)
       .join("");
     el("class-step").hidden = false;
+    if (AUTOSTART) void autoStart();
+  }
+
+  // ?autostart=1 (the demo page, autoclass-demo.html): no clicks. Picks the class (?class=<name or id>,
+  // else the first), opens the room, shows a waiting room (big QR code, PIN, how many have joined,
+  // and a countdown) for ?lobby=<seconds>, then starts the class once the video is ready. The Start
+  // button skips the wait. If the browser refuses to play with sound, the first click in the page
+  // starts the video.
+  async function autoStart() {
+    const wanted = params.get("class");
+    if (wanted) {
+      const match = state.classes.find((c) => String(c.id) === wanted || String(c.name || c.class_name) === wanted);
+      if (match) el("class-select").value = String(match.id);
+    }
+    el("setup").classList.add("lobby", "lw-loading"); // the scene waits, empty, until the room is open
+    await openRoom();
+    if (!state.roomId) {
+      el("setup").classList.remove("lobby", "lw-loading"); // show the setup card and its error
+      return;
+    }
+
+    const deadline = Date.now() + LOBBY_SECONDS * 1000;
+    const timer = el("scene-timer");
+    const label = el("scene-timer-label");
+    for (;;) {
+      if (el("setup").hidden) return; // someone pressed Start class
+      const left = Math.max(0, deadline - Date.now());
+      const secs = Math.ceil(left / 1000);
+      label.textContent = left > 0 || state.videoReady ? "開始倒數" : "準備緊";
+      timer.textContent = `${String(Math.floor(secs / 60)).padStart(2, "0")} : ${String(secs % 60).padStart(2, "0")}`;
+      if (left <= 0 && state.videoReady) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    playLobbySound("/assets/soundeffect/uncletommy_letsgo_1.mp3", 0.9);
+    await startClass();
+    if (video.paused) {
+      document.addEventListener("click", () => video.play().catch(() => {}), { once: true });
+    }
   }
 
   // Stream the lesson instead of downloading it all first (a 25 MB render took most of a minute on
@@ -396,11 +490,35 @@
       el("roomcard-code").textContent = formatRoomCode(state.roomId);
       el("class-step").hidden = true;
       el("room-step").hidden = false;
+      enterWaitingRoom();
       startBgm(); // the room is waiting (the video is paused), so this plays until the class starts
     } catch (err) {
       showError(err.message);
       button.disabled = false;
     }
+  }
+
+  // The room is open: show the host-style waiting room (code card with QR, who has joined, Start).
+  // Started by hand (Open room) it has no countdown; autoStart adds one.
+  let waitingRoomWired = false;
+  function enterWaitingRoom() {
+    const setup = el("setup");
+    setup.classList.add("lobby");
+    setup.classList.remove("lw-loading");
+    setup.classList.toggle("untimed", !AUTOSTART);
+    el("scene-pin").textContent = state.roomId;
+    el("scene-qr").src = el("room-qr").src;
+    el("scene-lesson").textContent = state.lesson?.title ? `今堂：${state.lesson.title}` : "";
+    const start = el("scene-start");
+    start.textContent = AUTOSTART ? "即刻開始" : "開始上堂";
+    if (waitingRoomWired) return;
+    waitingRoomWired = true;
+    start.addEventListener("click", () => el("start-class").click());
+    // The Start button follows the lesson video: not before it can play through.
+    const sync = setInterval(() => {
+      if (setup.hidden) return clearInterval(sync);
+      start.disabled = !state.videoReady;
+    }, 250);
   }
 
   // ---- Running the class ----
@@ -492,6 +610,7 @@
     const label = bgm.muted ? "🔇 Music off" : "🎵 Music";
     el("btn-music").textContent = label;
     el("lobby-music").textContent = label;
+    el("scene-music").textContent = label;
   }
 
   function toggleMusic() {
@@ -1994,6 +2113,8 @@
   }
 
   function showFinalBoard() {
+    // Inside the demo page (autoclass-demo.html): tell it the class is over, so it can count down to the next.
+    if (window.parent !== window) window.parent.postMessage({ type: "autoclass-ended", lesson: LESSON }, location.origin);
     el("roomcard").hidden = true;
     const rows = [...state.totals.entries()].map(([id, r]) => ({ id, name: r.name, score: r.score }));
     const board = el("final");
@@ -2055,6 +2176,7 @@
   el("btn-music").addEventListener("click", toggleMusic);
   el("roomcard").addEventListener("click", toggleRoomCard);
   el("lobby-music").addEventListener("click", toggleMusic);
+  el("scene-music").addEventListener("click", toggleMusic);
 
   init();
 })();

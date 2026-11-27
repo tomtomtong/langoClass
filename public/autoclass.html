@@ -18,6 +18,43 @@
 </head>
 <body>
   <section id="setup" class="setup">
+    <!-- Waiting room (?autostart=1): laid out like the host's waiting room (host.html #screen-waiting). -->
+    <div id="lobby-scene" class="lobby-only lw">
+      <img class="lw-bg" src="/assets/course/courseBG.png" alt="" />
+      <img class="lw-float lw-float--gift-1" src="/assets/login/gift.png" alt="" />
+      <img class="lw-float lw-float--gift-2" src="/assets/login/gift.png" alt="" />
+      <img class="lw-float lw-float--star-1" src="/assets/login/star-1.png" alt="" />
+      <img class="lw-float lw-float--star-2" src="/assets/login/star-2.png" alt="" />
+
+      <div class="lw-left">
+        <h1 class="lw-title">等候室</h1>
+        <div class="lw-code-card">
+          <p class="lw-code-label">房間編號</p>
+          <p id="scene-pin" class="lw-code-digits"></p>
+          <img id="scene-qr" class="lw-qr" alt="用手機掃描加入" />
+          <p class="lw-qr-label">用手機掃描加入</p>
+        </div>
+        <div class="lw-timer-ring" role="timer" aria-live="off">
+          <p id="scene-timer-label" class="lw-timer-label">開始倒數</p>
+          <p id="scene-timer" class="lw-timer-value">00 : 00</p>
+        </div>
+      </div>
+      <img class="lw-wizard" src="/assets/transitions/user_uncletommy_2.png" alt="" aria-hidden="true" />
+
+      <div class="lw-panel">
+        <header class="lw-panel-head">
+          <div>
+            <h2 class="lw-panel-title">已入場同學</h2>
+            <p id="scene-lesson" class="lw-panel-sub"></p>
+          </div>
+          <div class="lw-count" aria-label="已入場人數"><span id="scene-count">0</span></div>
+        </header>
+        <p id="scene-error" class="lw-error" role="alert"></p>
+        <ul id="scene-players" class="lw-grid" aria-live="polite"></ul>
+        <p id="scene-wait" class="lw-wait">等緊同學入場……</p>
+      </div>
+      <div class="lw-footer"><button id="scene-music" class="lw-music" type="button">🎵 Music</button><button id="scene-start" class="lw-start" type="button" disabled>即刻開始</button></div>
+    </div>
     <div class="setup-card">
       <p class="eyebrow">Internal test · Autoclass</p>
       <h1>Self-running class</h1>
@@ -65,7 +102,7 @@
             <p id="room-pin" class="pin"></p>
           </div>
         </div>
-        <p class="muted"><span id="joined-count">0</span> joined: <span id="joined-names"></span></p>
+        <p class="muted joined-line"><span id="joined-count">0</span> joined: <span id="joined-names"></span></p>
         <button id="start-class" class="btn btn-primary">Start class</button>
         <button id="lobby-music" class="btn" type="button">🎵 Music</button>
       </div>
