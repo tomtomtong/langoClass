@@ -61,3 +61,18 @@ as `warnings` when a lesson is saved (`PUT /api/autoclass/lessons/:id`). A warni
 - Background music plays only while the lesson video is paused: in the waiting room from the moment
   the room opens, then silent while Tommy and the song clips play, lower while Tommy talks on a
   results page. The Music button is on the waiting-room card too, so it can be muted before class.
+
+## Several places at once
+
+When the same lesson runs live in several places (rooms linked by a four-digit group code;
+`docs/autoclass-tutor-multiplace-plan.md`):
+
+- **Every place's question gets answered**, first come first served, one at a time per place; the rest
+  of that place's questions wait in line (3 at most).
+- A place with an answer of its own plays that. A place with none picks **one other place's answer** at a
+  quiet moment (random, never the same twice, at most `tutor.watchMax`, default 3), or plays nothing.
+- The cards say only the student's name, never the place.
+- When many ask at once they wait for a slot (`tutor.groupRate` answers a minute, default 10). One that
+  waits two minutes is let go with a kind line ("not this time, ask again soon"): never blame, never
+  name anyone, and the student may ask again at once.
+- Linking never holds the class up: if the group cannot be reached the place carries on by itself.
