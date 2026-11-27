@@ -2225,9 +2225,8 @@
   const ROOMCARD_FOLD_KEY = "lango_autoclass_roomcard_folded";
 
   function setRoomCardFolded(folded) {
-    const card = el("roomcard");
-    card.classList.toggle("is-collapsed", folded);
-    card.setAttribute("aria-expanded", folded ? "false" : "true");
+    el("roomcard").classList.toggle("is-collapsed", folded);
+    el("roomcard-toggle").setAttribute("aria-expanded", folded ? "false" : "true");
   }
 
   function showRoomCard() {
@@ -2313,7 +2312,7 @@
   });
   el("btn-end").addEventListener("click", endClass);
   el("btn-music").addEventListener("click", toggleMusic);
-  el("roomcard").addEventListener("click", toggleRoomCard);
+  el("roomcard-toggle").addEventListener("click", toggleRoomCard);
   el("lobby-music").addEventListener("click", toggleMusic);
   el("group-retry").addEventListener("click", () => void joinGroup());
   if (/^\d{4}$/.test(params.get("group") || "")) el("group-code").value = params.get("group");

@@ -210,12 +210,19 @@
       <div id="reactions" class="reactions" aria-hidden="true"></div>
 
       <!-- Always there once the class starts, so anyone can scan in late. Tap to fold it down to the code. -->
-      <button id="roomcard" class="roomcard" type="button" hidden aria-expanded="true" title="房間編號 · 撳一下收埋／展開">
+      <div id="roomcard" class="roomcard" hidden>
+        <div class="roomcard-chips">
+          <button id="roomcard-toggle" class="rc-chip rc-chip--code" type="button" aria-expanded="true" title="撳一下收埋／展開 QR code">
+            <span class="rc-eyebrow">房間編號</span>
+            <strong id="roomcard-code" class="rc-value"></strong>
+          </button>
+          <span class="rc-chip rc-chip--online" aria-live="polite">
+            <span class="rc-eyebrow">上線</span>
+            <strong id="roomcard-online-count" class="rc-value">0</strong>
+          </span>
+        </div>
         <img id="roomcard-qr" class="roomcard-qr" alt="用手機掃描加入" />
-        <span class="roomcard-label">房間編號</span>
-        <span id="roomcard-code" class="roomcard-code"></span>
-        <span class="roomcard-online" aria-live="polite">👥 上線 <strong id="roomcard-online-count">0</strong></span>
-      </button>
+      </div>
 
       <!-- The end of class: the host's own leaderboard (common.js showExerciseLeaderboards). -->
       <section id="final" class="host-leaderboard final" aria-labelledby="host-leaderboard-title" hidden>
