@@ -1257,3 +1257,72 @@ select {
     animation: none;
   }
 }
+
+/* The room card: the QR code and room code in the top right for the whole class, so someone who
+   arrives late can scan in. It sits under the host's hover controls and folds down to just the code
+   (by tap, or on its own while a vote or results fill the frame: they use the top right). */
+.roomcard {
+  position: absolute;
+  top: 4.2cqw;
+  right: 1.2cqw;
+  width: 12cqw;
+  padding: 0.8cqw 0.8cqw 0.9cqw;
+  border: 0;
+  border-radius: 1.4cqw;
+  background: var(--cream);
+  box-shadow: 0 1cqw 2.6cqw rgba(80, 40, 120, 0.16);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3cqw;
+  font: inherit;
+  cursor: pointer;
+}
+
+.roomcard[hidden] {
+  display: none;
+}
+
+.roomcard-qr {
+  display: block;
+  width: 10.4cqw;
+  height: 10.4cqw;
+  border-radius: 0.6cqw;
+  background: #fff;
+}
+
+.roomcard-label {
+  color: var(--muted);
+  font-size: 1.3cqw;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.roomcard-code {
+  color: #ea580c;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 2.1cqw;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+}
+
+.roomcard.is-collapsed,
+.frame:has(#poll:not([hidden]), #result:not([hidden])) .roomcard {
+  width: auto;
+  padding: 0.5cqw 1.6cqw;
+  border-radius: 999px;
+  flex-direction: row;
+  gap: 0.9cqw;
+}
+
+.roomcard.is-collapsed .roomcard-qr,
+.frame:has(#poll:not([hidden]), #result:not([hidden])) .roomcard .roomcard-qr {
+  display: none;
+}
+
+.roomcard.is-collapsed .roomcard-code,
+.frame:has(#poll:not([hidden]), #result:not([hidden])) .roomcard .roomcard-code {
+  font-size: 1.7cqw;
+}
